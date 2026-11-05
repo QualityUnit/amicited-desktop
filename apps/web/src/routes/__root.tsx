@@ -1,3 +1,5 @@
+import { useWorkspaceMode, readWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingBoundary } from "../marketing";
 import { type ServerLifecycleWelcomePayload } from "@t3tools/contracts";
 import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import {
@@ -89,6 +91,13 @@ export const Route = createRootRoute({
     }
 
     const authGateState = await resolveInitialServerAuthGateState();
+    if (
+      authGateState.status === "authenticated" &&
+      readWorkspaceMode() === "marketer" &&
+      ["/", "/welcome", "/settings", "/settings/general"].includes(location.pathname)
+    ) {
+      throw redirect({ to: "/home", replace: true });
+    }
     if (authGateState.status === "authenticated") {
       // Idempotent, so every navigation can ask for it.
       void configureClientTracing();
@@ -143,6 +152,7 @@ function RootRouteView() {
 function RootRouteBranch() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const { authGateState } = Route.useRouteContext();
+  const marketingMode = useWorkspaceMode() === "marketer";
   const primaryEnvironmentAuthenticated = authGateState.status === "authenticated";
   // A sync IPC read; the setting only changes across a relaunch.
   const [localEnvironmentDisabled] = useState(isLocalEnvironmentDisabled);
@@ -182,7 +192,11 @@ function RootRouteBranch() {
     return <Outlet />;
   }
 
-  const appShell = (
+  const appShell = marketingMode ? (
+    <MarketingBoundary>
+      <Outlet />
+    </MarketingBoundary>
+  ) : (
     <CommandPalette>
       <AppSidebarLayout>
         <Outlet />
@@ -194,7 +208,7 @@ function RootRouteBranch() {
     <>
       <ChatGptWelcomeCoordinator />
       <FirstRunGate
-        enabled={primaryEnvironmentAuthenticated}
+        enabled={primaryEnvironmentAuthenticated && !marketingMode}
         hostedStatic={authGateState.status === "hosted-static"}
       >
         {primaryEnvironmentAuthenticated ? <DesktopAppActivationCoordinator /> : null}
@@ -213,7 +227,7 @@ function RootRouteBranch() {
         <ProjectCloneToastCoordinator />
         <AddProjectToMachineDialogHost />
         {import.meta.env.DEV && primaryEnvironmentAuthenticated ? <DevReplayHost /> : null}
-        {primaryEnvironmentAuthenticated ? (
+        {primaryEnvironmentAuthenticated && !marketingMode ? (
           <EventRouter skipInitialBootstrapNavigation={returningFromWelcome} />
         ) : null}
         {appShell}

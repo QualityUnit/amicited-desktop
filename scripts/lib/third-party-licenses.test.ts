@@ -131,6 +131,18 @@ describe("third-party license generation", () => {
 
   it("collects production packages and custom asset notices", async () => {
     const fixture = await createFixture();
+    await writeJson(fixture.appManifest, {
+      name: "fixture-app",
+      dependencies: { "demo-dependency": "1.2.3", "@amicited/tools-core": "workspace:*" },
+    });
+    await writeJson(NodePath.join(fixture.root, "node_modules/@amicited/tools-core/package.json"), {
+      name: "@amicited/tools-core",
+      main: "index.js",
+    });
+    await NodeFSP.writeFile(
+      NodePath.join(fixture.root, "node_modules/@amicited/tools-core/index.js"),
+      "export {};",
+    );
     const manifest = await generateThirdPartyLicenseManifest({
       configFile: fixture.configFile,
       packageManifests: [{ bundle: "web", path: fixture.appManifest }],

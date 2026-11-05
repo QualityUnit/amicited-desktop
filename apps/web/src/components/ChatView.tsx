@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { ChildThreadApprovals } from "./chat/ChildThreadApprovals";
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
@@ -414,6 +415,7 @@ type ChatViewProps =
 const DismissedFallbackWindowSchema = Schema.NullOr(Schema.String);
 
 export default function ChatView(props: ChatViewProps) {
+  const developerMode = useWorkspaceMode() === "developer";
   const {
     environmentId,
     threadId,
@@ -1739,6 +1741,7 @@ export default function ChatView(props: ChatViewProps) {
           reportedModelSelection,
         );
   const showComposerContextStrip =
+    developerMode &&
     !embedded &&
     shouldShowComposerContextStrip({
       isDraftHeroState,
@@ -3269,13 +3272,15 @@ export default function ChatView(props: ChatViewProps) {
     onToggleThreadPanel: toggleThreadPanelStable,
     onToggleRightPanel: toggleRightPanelStable,
   } satisfies PanelLayoutControlsProps;
-  const panelToggleControls = (
+  const panelToggleControls = !developerMode ? null : (
     <PanelLayoutControls
       {...panelToggleControlProps}
       showThreadPanelControl={!inlineRightPanelOwnsTitleBar}
     />
   );
-  const threadPanelHeaderControl = <ThreadPanelHeaderControl {...panelToggleControlProps} />;
+  const threadPanelHeaderControl = developerMode ? (
+    <ThreadPanelHeaderControl {...panelToggleControlProps} />
+  ) : null;
   const panelLayoutControls = (
     <WorkspaceTitlebarControls
       showMaximizeControl={!shouldUsePlanSidebarSheet}
@@ -3850,7 +3855,7 @@ export default function ChatView(props: ChatViewProps) {
               />
             ) : null}
 
-            {embedded ? null : (
+            {embedded || !developerMode ? null : (
               <>
                 <BranchRestoreConfirmHost
                   threadKey={activeThreadKey}
@@ -3941,7 +3946,7 @@ export default function ChatView(props: ChatViewProps) {
           </ThreadFindCanvas>
         </div>
 
-        {embedded ? null : (
+        {embedded || !developerMode ? null : (
           <ChatTerminalDrawers
             activeThreadKey={activeThreadKey}
             activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
@@ -3957,7 +3962,7 @@ export default function ChatView(props: ChatViewProps) {
         )}
       </div>
 
-      {rightPanelPresent && activeThreadRef && !embedded ? (
+      {developerMode && rightPanelPresent && activeThreadRef && !embedded ? (
         <ChatRightPanel
           sheet={shouldUsePlanSidebarSheet}
           workspaceLayoutElement={workspaceLayoutElement}
@@ -4008,11 +4013,11 @@ export default function ChatView(props: ChatViewProps) {
           onAddDevice={addDeviceSurfaceStable}
           onAddSideChat={sideChatsOffered ? openSideChatStable : undefined}
           browserAvailable={canOperatePreview && browserAvailable}
-          terminalAvailable={activeProject !== null && canOperateTerminal}
-          diffAvailable={isServerThread && isGitRepo}
+          terminalAvailable={developerMode && activeProject !== null && canOperateTerminal}
+          diffAvailable={developerMode && isServerThread && isGitRepo}
           filesAvailable={activeProject !== null}
-          pullRequestAvailable={pullRequestSurfaceAvailable}
-          pullRequestsAvailable={pullRequestsSurfaceAvailable}
+          pullRequestAvailable={developerMode && pullRequestSurfaceAvailable}
+          pullRequestsAvailable={developerMode && pullRequestsSurfaceAvailable}
           deviceAvailable={activeThreadRef !== null}
           sideChatAvailable={sideChat.available}
           sideChatDisabledReason={sideChatDisabledReason}
