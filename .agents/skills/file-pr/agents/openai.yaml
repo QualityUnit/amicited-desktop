@@ -1,0 +1,4 @@
+interface:
+  display_name: "File PR"
+  short_description: "Open a short PR that leads with the problem"
+  default_prompt: "Use $file-pr to open a PR for this branch."

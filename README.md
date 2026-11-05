@@ -5,5 +5,6 @@ Local-first AI agent workstation for marketers, built on top of [T3 Code](https:
 Status: specification phase. No code yet.
 
 - [Product and technical specification](docs/SPECIFICATION.md)
+- [Agent workflow skills for maintainers](.agents/skills/README.md) (Claude Code and Codex)
 
 The living version of the specification is edited in Claude Docs; this file is a snapshot exported on 2026-11-05.

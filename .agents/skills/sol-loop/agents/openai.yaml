@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sol Loop"
+  short_description: "Review a change with the other provider's model in a loop"
+  default_prompt: "Use $sol-loop to review this change with Claude Opus until we agree."

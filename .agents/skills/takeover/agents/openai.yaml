@@ -1,0 +1,4 @@
+interface:
+  display_name: "Takeover"
+  short_description: "Finish someone else's PR or branch and keep their credit"
+  default_prompt: "Use $takeover to finish this PR."
