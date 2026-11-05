@@ -1,0 +1,4 @@
+interface:
+  display_name: "Babysit PR"
+  short_description: "Watch a PR through CI and review, fix real findings"
+  default_prompt: "Use $babysit-pr to watch this PR until it is ready."
