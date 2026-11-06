@@ -34,7 +34,9 @@ const env: NodeJS.ProcessEnv = {
   T3CODE_SINGLE_ORIGIN_DEV: "1",
   T3CODE_NO_BROWSER: "1",
   T3CODE_TELEMETRY_ENABLED: "false",
-  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "1",
+  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "0",
+  T3CODE_DEV_SEED: "0",
+  T3CODE_PORT_OFFSET: "173",
 };
 delete env.VITE_HTTP_URL;
 delete env.VITE_WS_URL;
@@ -82,35 +84,57 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.setDefaultTimeout(90_000);
   await page.goto(pairing.replace(new URL(pairing).origin, url));
-  await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
+  await page.getByRole("heading", { name: "What’s your website?" }).waitFor();
   const capture = async (name: string) => {
-    await page.screenshot({ path: NodePath.join(out, name + ".png") });
+    for (const [theme, width, height] of [
+      ["light", 1440, 900],
+      ["dark", 1440, 900],
+      ["light", 1280, 800],
+      ["dark", 1280, 800],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      await page.emulateMedia({ colorScheme: theme });
+      await page.evaluate((theme) => {
+        document.documentElement.classList.toggle("dark", theme === "dark");
+        document.documentElement.style.colorScheme = theme;
+      }, theme);
+      await page.screenshot({
+        path: NodePath.join(out, name + "-" + theme + "-" + width + ".png"),
+      });
+    }
   };
   await capture("01-first-launch");
-  await page.goto(url + "/home");
+  await page.getByRole("textbox", { name: "Website URL" }).fill("https://example.com");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByRole("heading", { name: "Your AI subscriptions" }).waitFor();
+  await capture("02-website-and-ai");
+  await page.getByRole("button", { name: "Run my free website check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await capture("03-first-win");
+  await page.getByRole("button", { name: "Go to Home →" }).click();
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
-  await capture("02-home");
+  await capture("04-home");
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("heading", { name: "Your marketing toolkit" }).waitFor();
-  await capture("03-tools-grid");
-  await page.getByRole("link", { name: /SSL certificate check/ }).click();
+  await capture("05-tools-grid");
+  await page.goto(url + "/tools/seo.ssl.check");
   await page.getByRole("textbox", { name: "domain" }).fill("example.com");
-  await capture("04-tool-form");
-  await page.getByRole("button", { name: "Run check" }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor();
-  await capture("05-tool-result");
-  await page.getByRole("link", { name: "Tasks", exact: true }).click();
-  await page.getByRole("heading", { name: "Tasks", exact: true }).waitFor();
-  await capture("06-tasks");
-  await page.getByRole("link", { name: "Settings", exact: true }).click();
-  await page.getByRole("heading", { name: "Settings", exact: true }).waitFor();
-  await capture("07-settings");
-  await page.getByRole("combobox", { name: "Workspace mode" }).selectOption("developer");
-  await page.getByRole("combobox", { name: "Workspace mode" }).selectOption("marketer");
-  await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
-  await page.getByLabel("Ask your AI assistant").fill("Draft a short marketing plan");
-  await page.getByRole("button", { name: "Start a task" }).click();
+  await capture("06-tool-form");
+  await page.goto(url + "/new");
+  await page.getByRole("heading", { name: "New task", exact: true }).waitFor();
+  await capture("07-new-task");
+  await page
+    .getByRole("textbox", { name: "What do you want to get done?" })
+    .fill("Draft a short marketing plan");
+  await page.getByRole("button", { name: "Start a task", exact: true }).click();
   await page.waitForURL(/\/draft\//);
+
+  await page.goto(url + "/settings/general");
+  await page.getByRole("heading", { name: "Your website / brand" }).waitFor();
+  await capture("08-settings-general");
+  await page.getByRole("switch", { name: "Developer features" }).click();
+  await page.getByRole("switch", { name: "Developer features" }).waitFor();
+  await capture("09-developer-mode");
   console.log(out);
 } finally {
   await browser?.close();

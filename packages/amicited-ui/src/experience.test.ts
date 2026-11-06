@@ -1,0 +1,38 @@
+import { describe, expect, it } from "vite-plus/test";
+import { normalizeWebsite, resultFindings } from "./experience.js";
+import type { ToolResult } from "@amicited/tools-core";
+describe("marketer website and results", () => {
+  it("normalizes domains and rejects non-web addresses", () => {
+    expect(normalizeWebsite("www.example.com/page")).toEqual({
+      website: "https://www.example.com",
+      name: "example.com",
+    });
+    expect(() => normalizeWebsite("file://local.txt")).toThrow();
+    expect(() => normalizeWebsite("not a website")).toThrow();
+  });
+  it("keeps warning and failure findings distinct without inventing passes", () => {
+    const base: ToolResult = {
+      id: "fixture",
+      tool: "seo.site.audit",
+      input: {},
+      startedAt: "2026-01-01",
+      durationMs: 1,
+      status: "success",
+      output: {
+        findings: [
+          {
+            title: "Missing title",
+            severity: "error",
+            whyItMatters: "Search clarity",
+            fix: "Write a title",
+          },
+          { title: "Short description", status: "warn" },
+          { title: "Secure", status: "pass" },
+        ],
+      },
+    };
+    expect(resultFindings(base).map((f) => f.status)).toEqual(["fail", "warn", "pass"]);
+    expect(resultFindings(base)[0]).toMatchObject({ why: "Search clarity", fix: "Write a title" });
+    expect(resultFindings({ ...base, status: "error", output: undefined })).toEqual([]);
+  });
+});

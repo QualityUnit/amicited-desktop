@@ -712,7 +712,7 @@ function AgentsStep({
   );
 }
 
-function ConnectedAgentsStep({
+export function ConnectedAgentsStep({
   environmentId,
   machineLabel,
 }: {

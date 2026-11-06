@@ -1,3 +1,5 @@
+import { readWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingHome } from "../marketing";
 import { workspaceAreaProps } from "../lib/workspaceFocus";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
@@ -30,7 +32,7 @@ function ChatIndexRouteView() {
     if (environments.length === 0) return <HostedEmptyState />;
   }
 
-  return <IndexDraftLanding />;
+  return readWorkspaceMode() === "marketer" ? <MarketingHome /> : <IndexDraftLanding />;
 }
 
 function IndexDraftLanding() {

@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
@@ -236,7 +237,12 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     .filter(Boolean)
     .join(" · ");
 
-  const triggerText = props.triggerLabel ?? multipleLabel ?? triggerTitle;
+  const marketer = useWorkspaceMode() === "marketer";
+  const triggerText = marketer
+    ? ({ codex: "ChatGPT", claudeAgent: "Claude", gemini: "Gemini" }[
+        String(props.lockedProvider)
+      ] ?? "AI assistant")
+    : (props.triggerLabel ?? multipleLabel ?? triggerTitle);
   const triggerTextProps = {
     className: cn(
       "min-w-0 flex-1 overflow-hidden truncate",
@@ -395,7 +401,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
               <TooltipPopup side="top">{triggerTooltipContent}</TooltipPopup>
             </Tooltip>
           )}
-          {props.triggerSuffix}
+          {!marketer && props.triggerSuffix}
           {selectedModel?.isUnavailable && !selectedEntries && props.triggerLabel === undefined ? (
             <Badge variant="outline" size="sm">
               Unavailable

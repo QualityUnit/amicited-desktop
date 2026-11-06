@@ -1,0 +1,137 @@
+.am-shell,
+.am-page {
+  --am-bg: var(--background, #f8fafc);
+  --am-card: var(--card, #fff);
+  --am-text: var(--foreground, #182a3a);
+  --am-border: var(--border, #dce5e7);
+  color: var(--am-text);
+  background: var(--am-bg);
+  font: 15px/1.65 system-ui;
+}
+.am-shell {
+  display: flex;
+  height: 100dvh;
+  width: 100%;
+}
+.am-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 48px 56px;
+}
+.am-page {
+  max-width: 1080px;
+  margin: auto;
+}
+.am-onboarding {
+  max-width: 760px;
+  padding: 48px 32px;
+}
+.am-page h1,
+.am-main h1 {
+  font-size: 34px;
+  font-weight: 650;
+  letter-spacing: -1px;
+  margin: 12px 0;
+}
+.am-page h2,
+.am-main h2 {
+  font-size: 21px;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.am-card {
+  background: var(--am-card);
+  border: 1px solid var(--am-border);
+  border-radius: 16px;
+  padding: 28px;
+  margin: 24px 0;
+}
+.am-shell input,
+.am-shell textarea,
+.am-page input {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--am-border);
+  border-radius: 8px;
+  margin: 8px 0 20px;
+  background: var(--am-bg);
+  color: inherit;
+}
+.am-shell button,
+.am-page button {
+  background: #126c64;
+  color: white;
+  border-radius: 8px;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+.am-shell button:disabled,
+.am-page button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.am-eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #62847f;
+  margin-top: 36px;
+}
+.am-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.am-finding {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--am-border);
+}
+.am-finding h4 {
+  font-weight: 650;
+}
+.am-score {
+  font-size: 32px;
+  color: #1a9c83;
+}
+.am-page .am-text-button {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+.am-quick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.am-quick a {
+  padding: 20px;
+  border: 1px solid var(--am-border);
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+.am-provider {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--am-border);
+}
+@media (max-width: 900px) {
+  .am-main {
+    padding: 32px 24px;
+  }
+  .am-quick {
+    grid-template-columns: 1fr;
+  }
+}
+body:has(.am-onboarding) {
+  background: var(--background, #f8fafc);
+}
+.am-onboarding .am-card > button {
+  display: block;
+  margin-top: 16px;
+}

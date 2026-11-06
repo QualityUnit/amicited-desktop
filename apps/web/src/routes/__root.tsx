@@ -1,5 +1,5 @@
 import { useWorkspaceMode, readWorkspaceMode } from "@amicited/ui-marketing";
-import { MarketingBoundary } from "../marketing";
+import { MarketingBoundary, MarketingFirstRun } from "../marketing";
 import { type ServerLifecycleWelcomePayload } from "@t3tools/contracts";
 import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import {
@@ -94,9 +94,12 @@ export const Route = createRootRoute({
     if (
       authGateState.status === "authenticated" &&
       readWorkspaceMode() === "marketer" &&
-      ["/", "/welcome", "/settings", "/settings/general"].includes(location.pathname)
+      location.pathname === "/"
     ) {
-      throw redirect({ to: "/home", replace: true });
+      throw redirect({
+        to: localStorage.getItem("amicited.onboarded") ? "/home" : "/welcome",
+        replace: true,
+      });
     }
     if (authGateState.status === "authenticated") {
       // Idempotent, so every navigation can ask for it.
@@ -174,6 +177,8 @@ function RootRouteBranch() {
     return hostedPromptLinkLanding;
   }
 
+  if (pathname === "/welcome" && marketingMode) return <MarketingFirstRun />;
+
   if (pathname === "/welcome") {
     return (
       <>
@@ -206,7 +211,7 @@ function RootRouteBranch() {
 
   return (
     <>
-      <ChatGptWelcomeCoordinator />
+      {!marketingMode && <ChatGptWelcomeCoordinator />}
       <FirstRunGate
         enabled={primaryEnvironmentAuthenticated && !marketingMode}
         hostedStatic={authGateState.status === "hosted-static"}
