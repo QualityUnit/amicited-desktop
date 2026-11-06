@@ -1,6 +1,12 @@
 import { domainNames } from "./model.ts";
 import { expect, it } from "vite-plus/test";
-import { createUpsellGate, whatYouAreMissing, shouldOfferUpsell, snoozeUpsell } from "./upsell.ts";
+import {
+  createUpsellGate,
+  whatYouAreMissing,
+  shouldOfferUpsell,
+  snoozeUpsell,
+  promotionEligible,
+} from "./upsell.ts";
 const win = {
   status: "success",
   tool: "ai.visibility.check",
@@ -57,6 +63,14 @@ it("persists seven-day snooze and dismissal and admits at most one win per sessi
   const persistent = store();
   const session = store();
   const gate = createUpsellGate(persistent, session);
+  for (const [firstWin, preferences, connected, eligible] of [
+    [false, {}, false, false],
+    [true, {}, false, true],
+    [true, { dismissed: true }, false, false],
+    [true, { snoozedUntil: 100 }, false, false],
+    [true, {}, true, false],
+  ] as const)
+    expect(promotionEligible(firstWin, preferences, 0, connected)).toBe(eligible);
   expect(gate.claim(win, 0, true)).toBe(false);
   expect(gate.claim({ ...win, status: "error" }, 0)).toBe(false);
   expect(gate.claim(win, 0)).toBe(true);

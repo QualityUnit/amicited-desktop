@@ -1,4 +1,4 @@
-import { marketingNavigate, MarketingLink } from "@amicited/ui-marketing";
+import { marketingNavigate, MarketingLink, SectionHead } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
 import {
   useEffect,
@@ -200,22 +200,33 @@ export function CloudHome({ offer = true }: { offer?: boolean }) {
         }}
       />
     );
-  return offer &&
-    !createUpsellGate(localStorage, sessionStorage).hidden() &&
-    localStorage.getItem("amicited.first-win") === "true" ? (
-    <section className="am-card">
+  return offer && promotionsAllowed(connection) ? (
+    <div className="am-promotion-row">
       <MarketingLink href="/marketing-settings">Track this daily with AmICited →</MarketingLink>
-      <p>Keep your visibility history across assistants, countries and competitors.</p>
-    </section>
+    </div>
   ) : null;
 }
+function promotionsAllowed(connection: Connection | null) {
+  try {
+    return (
+      connection !== null &&
+      createUpsellGate(localStorage, sessionStorage).eligible(
+        localStorage.getItem("amicited.first-win") === "true",
+        Date.now(),
+        connection.state === "connected",
+      )
+    );
+  } catch {
+    return false;
+  }
+}
 export function CloudTools() {
+  const { connection } = useCloud();
+  return <CloudToolPromotions connection={connection} />;
+}
+export function CloudToolPromotions({ connection }: { connection: Connection | null }) {
   const [selected, setSelected] = useState<string | null>(null);
-  if (
-    localStorage.getItem("amicited.first-win") !== "true" ||
-    createUpsellGate(localStorage, sessionStorage).hidden()
-  )
-    return null;
+  if (!promotionsAllowed(connection)) return null;
   return (
     <section className="am-card">
       <h2>Works better with AmICited</h2>
@@ -223,8 +234,18 @@ export function CloudTools() {
       <div className="am-quick">
         {["Daily AI visibility tracking", "Competitor citation gaps", "Multi-country tracking"].map(
           (name) => (
-            <MarketingButton key={name} onClick={() => setSelected(name)}>
-              {name} →
+            <MarketingButton key={name} aria-label={name + " →"} onClick={() => setSelected(name)}>
+              <span>
+                {name}
+                <small className="am-promo-description">
+                  {name === "Daily AI visibility tracking"
+                    ? "Follow citations across assistants every day"
+                    : name === "Competitor citation gaps"
+                      ? "Find where other brands are cited"
+                      : "Compare recommendations in your target markets"}
+                </small>
+              </span>
+              <span aria-hidden="true">→</span>
             </MarketingButton>
           ),
         )}
@@ -270,18 +291,25 @@ export function CloudPage() {
   const { connection } = useCloud();
   return (
     <div className="am-page">
-      <h2>AmICited</h2>
       <p>
         See who cites you across ChatGPT, Perplexity, Gemini and Google AI Overviews. Track changes
         every day against your competitors.
       </p>
-      {connection?.state !== "connected" && (
-        <>
+      <SectionHead
+        title="Connection status"
+        actions={
+          <span className="am-status am-status-neutral">
+            {connection?.state === "connected" ? "Connected" : "Not connected"}
+          </span>
+        }
+      />
+      {promotionsAllowed(connection) && (
+        <div className="am-cloud-page-actions">
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
           <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
             Start 7-day free trial
           </MarketingButton>
-        </>
+        </div>
       )}
       <CloudHome offer={false} />
       <CloudSettings />
@@ -309,13 +337,15 @@ export function CloudStatusLine() {
   const { connection } = useCloud();
   return (
     <p>
-      AmICited:{" "}
+      AmICited ·{" "}
       {connection?.state === "connected"
         ? `Connected to ${connection.workspace}`
         : connection?.state === "error"
           ? "Could not read connection"
           : "Not connected"}
-      . <MarketingLink href="/marketing-settings">Manage AmICited →</MarketingLink>
+      <MarketingLink href="/marketing-settings">
+        {connection?.state === "connected" ? "Manage →" : "Connect →"}
+      </MarketingLink>
     </p>
   );
 }

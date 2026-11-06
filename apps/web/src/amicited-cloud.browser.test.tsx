@@ -178,14 +178,27 @@ it.each([
   { firstWin: false, hidden: false, visible: false },
   { firstWin: true, hidden: false, visible: true },
   { firstWin: true, hidden: true, visible: false },
+  { firstWin: true, hidden: false, snoozed: true, visible: false },
+  { firstWin: true, hidden: false, connected: true, visible: false },
 ])(
   "gates Tools promotions with first win $firstWin and hidden $hidden",
-  async ({ firstWin, hidden, visible }) => {
-    const { CloudTools } = await import("./rpc/amicitedCloud");
+  async ({ firstWin, hidden, visible, snoozed, connected }) => {
+    const { CloudToolPromotions } = await import("./rpc/amicitedCloud");
     localStorage.setItem("amicited.first-win", String(firstWin));
-    localStorage.setItem("amicited.cloud.upsell", JSON.stringify({ dismissed: hidden }));
+    localStorage.setItem(
+      "amicited.cloud.upsell",
+      JSON.stringify({ dismissed: hidden, snoozedUntil: snoozed ? Number.MAX_SAFE_INTEGER : 0 }),
+    );
     try {
-      await using screen = await render(<CloudTools />);
+      await using screen = await render(
+        <CloudToolPromotions
+          connection={
+            connected
+              ? { state: "connected", workspace: "Acme", scopes: [] }
+              : { state: "disconnected" }
+          }
+        />,
+      );
       if (visible) {
         await expect
           .element(screen.getByRole("heading", { name: "Works better with AmICited" }))

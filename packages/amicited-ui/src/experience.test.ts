@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   normalizeWebsite,
   resultFindings,
+  resultTone,
   resultMarkdown,
   marketingTaskStatus,
 } from "./experience.js";
@@ -40,6 +41,20 @@ describe("marketer website and results", () => {
     expect(resultMarkdown(base)).toContain("Write a title");
     expect(resultMarkdown(base)).not.toContain('"findings"');
     expect(resultFindings(base).map((f) => f.status)).toEqual(["fail", "warn", "pass"]);
+    for (const [statuses, tone] of [
+      [["pass"], "good"],
+      [["warn", "pass"], "warning"],
+      [["fail", "pass"], "critical"],
+      [["unknown", "pass"], "unavailable"],
+      [[], "unavailable"],
+    ] as const) {
+      expect(
+        resultTone({
+          ...base,
+          output: { findings: statuses.map((status) => ({ status, title: status })) },
+        }),
+      ).toBe(tone);
+    }
     expect(resultFindings(base)[0]).toMatchObject({ why: "Search clarity", fix: "Write a title" });
     expect(resultFindings({ ...base, status: "error", output: undefined })).toEqual([]);
     expect(

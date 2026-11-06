@@ -1,3 +1,4 @@
+import { AmICitedBot } from "./AmICitedBot.js";
 import { MarketingShell } from "./shell.js";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import {
@@ -7,6 +8,9 @@ import {
   SectionHead,
   MarketingIcon,
   MarketingToolbar,
+  MarketingScope,
+  MarketingTitle,
+  toolIcon,
 } from "./primitives.js";
 import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
 import type { ToolResult } from "@amicited/tools-core";
@@ -49,14 +53,8 @@ export function FirstRun({
   const [result, setResult] = useState<ToolResult | null>(null);
   if (result)
     return (
-      <MarketingShell
-        path="/tools/seo.site.audit"
-        navigate={marketingNavigate}
-        headerActions={<MarketingButton onClick={skip}>Go to Home →</MarketingButton>}
-      >
-        <div className="am-result-heading">
-          <h2>Your first useful result</h2>
-        </div>
+      <MarketingShell path="/tools/seo.site.audit" navigate={marketingNavigate}>
+        <MarketingTitle>Website health audit</MarketingTitle>
         <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />
         <section className="am-card" id="ai-subscriptions">
           <h2>Want AI to fix these?</h2>
@@ -69,7 +67,7 @@ export function FirstRun({
   return (
     <div data-amicited-shell="" className="am-page am-onboarding">
       <AmICitedMark />
-      <p className="am-eyebrow">YOUR FIRST WIN STARTS HERE</p>
+      <p className="am-eyebrow">Your first win starts here</p>
       <h1>What’s your website?</h1>
       <p>Find out what’s helping your visibility, and what to improve next.</p>
       {brand && (
@@ -119,17 +117,17 @@ export function FirstRun({
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <MarketingButton variant="default" disabled={busy || !ready}>
-            {busy ? "Checking your website…" : brand ? "Update website" : "Continue"}
-          </MarketingButton>
+          <div className="am-onboarding-actions">
+            <MarketingButton variant="default" disabled={busy || !ready}>
+              {busy ? "Checking your website…" : brand ? "Update website" : "Continue"}
+            </MarketingButton>
+            <MarketingButton type="button" variant="link" onClick={skip}>
+              Skip for now
+            </MarketingButton>
+          </div>
         </form>
       )}
       {error && <p role="alert">{error}</p>}
-      <p>
-        <MarketingButton variant="link" onClick={skip}>
-          Skip for now
-        </MarketingButton>
-      </p>
       <small>Free local tools. No AmICited account needed.</small>
     </div>
   );
@@ -163,7 +161,8 @@ export function resultFindings(result: ToolResult) {
     const f = record(item);
     const status = String(f.status ?? f.severity ?? "warn");
     const details = record(f.details ?? output.details);
-    const title = String(f.title ?? f.message ?? "Finding");
+    const rawTitle = String(f.title ?? f.message ?? "Finding");
+    const title = rawTitle === "Missing" && f.group ? `${String(f.group)}: missing` : rawTitle;
     const evidence =
       title === "Page title"
         ? details.title
@@ -176,7 +175,7 @@ export function resultFindings(result: ToolResult) {
               : undefined;
     return {
       evidence: evidence === undefined ? undefined : String(evidence || "Not found"),
-      title: String(f.title ?? f.message ?? (typeof item === "string" ? item : "Finding")),
+      title: typeof item === "string" ? item : title,
       group: typeof f.group === "string" ? f.group : undefined,
       status:
         status === "unknown"
@@ -197,6 +196,83 @@ export function resultFindings(result: ToolResult) {
       ),
     };
   });
+}
+export function rankedFindings(result: ToolResult) {
+  const order: Record<string, number> = { fail: 0, warn: 1, unknown: 2, pass: 3 };
+  return resultFindings(result).sort((a, b) => (order[a.status] ?? 2) - (order[b.status] ?? 2));
+}
+export function resultTone(result: ToolResult) {
+  const findings = resultFindings(result);
+  if (result.status === "error") return "unavailable";
+  if (findings.some((f) => f.status === "fail")) return "critical";
+  if (findings.some((f) => f.status === "warn")) return "warning";
+  if (!findings.length || findings.some((f) => f.status === "unknown")) return "unavailable";
+  return "good";
+}
+export function friendlyAssistant(value: string) {
+  return /claude/i.test(value)
+    ? "Claude"
+    : /codex|chatgpt/i.test(value)
+      ? "ChatGPT"
+      : /gemini/i.test(value)
+        ? "Gemini"
+        : value;
+}
+function AnalysisBanner({
+  tone,
+  lead,
+  action,
+  counts,
+  detail,
+}: {
+  tone: "critical" | "warning" | "good" | "unavailable";
+  lead: string;
+  counts?: string;
+  detail?: string;
+  action?: (() => void) | undefined;
+}) {
+  return (
+    <details className={`am-analysis am-analysis--${tone}`}>
+      <summary>
+        <AmICitedBot
+          mood={
+            tone === "good"
+              ? "happy"
+              : tone === "critical"
+                ? "concerned"
+                : tone === "warning"
+                  ? "watch"
+                  : "busy"
+          }
+          size={34}
+        />
+        <span className="am-analysis-eyebrow">
+          {
+            {
+              good: "ALL CLEAR",
+              critical: "ATTENTION",
+              warning: "WORTH IMPROVING",
+              unavailable: "COULD NOT CHECK",
+            }[tone]
+          }
+        </span>
+        <span className="am-analysis-lead">{lead}</span>
+        {counts && <span className="am-analysis-count">{counts}</span>}
+        {action && tone !== "good" && (
+          <MarketingButton
+            variant="link"
+            onClick={(event) => {
+              event.preventDefault();
+              action();
+            }}
+          >
+            Fix with AI →
+          </MarketingButton>
+        )}
+      </summary>
+      <p>{detail ?? "One-time check using the scope shown above. No daily history is measured."}</p>
+    </details>
+  );
 }
 function humanLabel(key: string) {
   const text = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ");
@@ -313,25 +389,43 @@ function VisibilityResult({
     typeof summary.mentioned === "number" && total > 0
       ? (summary.mentioned / total) * 100
       : summary.shareOfVoice;
+  const series = [
+    { brand: output.brand ?? readBrand()?.name ?? "Your brand", answers: summary.mentioned },
+    ...competitors,
+  ]
+    .map((c, i) => ({
+      brand: String(c.brand),
+      answers: typeof c.answers === "number" ? c.answers : null,
+      you: i === 0,
+      color:
+        i === 0 ? "var(--ai-accent)" : ["#22c1c3", "#f7a93d", "#e85d75", "#9b6dff"][(i - 1) % 4],
+      share:
+        typeof c.answers === "number" && total > 0
+          ? `${((c.answers / total) * 100).toFixed(1)}%`
+          : "—",
+    }))
+    .sort((a, b) => (b.answers ?? 0) - (a.answers ?? 0));
   const [error, setError] = useState("");
   return (
     <div>
-      <div className="am-scope-filters">
-        {typeof output.provider === "string" && (
-          <span>
-            <MarketingIcon name="ai-visibility" />
-            <span>Assistant</span>
-            {output.provider}
-          </span>
-        )}
-      </div>
-      <div className="am-analysis">
-        <MarketingIcon name="ai-visibility" />
-        <span className="am-status am-status-neutral">This check</span>
-        <SectionHead
-          title={`Mentioned in ${formatResultValue(summary.mentioned)} of ${formatResultValue(summary.answered)} answers`}
-        />
-      </div>
+      <AnalysisBanner
+        tone={
+          Number(summary.answered) === 0
+            ? "unavailable"
+            : Number(summary.mentioned) === Number(summary.answered)
+              ? "good"
+              : "warning"
+        }
+        lead={`Mentioned in ${formatResultValue(summary.mentioned)} of ${formatResultValue(summary.answered)} answers`}
+        action={
+          fix
+            ? () =>
+                void fix("Help improve my brand's AI visibility using this check.").catch(
+                  (e: Error) => setError(e.message),
+                )
+            : undefined
+        }
+      />
       <div className="am-visibility-report">
         <div className="am-run-overview">
           <div className="am-kpis">
@@ -353,15 +447,14 @@ function VisibilityResult({
           </div>
           <div className="am-current-bars">
             <SectionHead title="Mentions in this check" />
-            {[
-              { brand: output.brand ?? "Your brand", answers: summary.mentioned },
-              ...competitors,
-            ].map((c) => (
+            {series.map((c) => (
               <div className="am-current-bar" key={String(c.brand)}>
-                <span>{String(c.brand)}</span>
+                <BrandFavicon name={c.brand} />
+                <span>{c.brand}</span>
                 <div>
                   <span
                     style={{
+                      background: c.color,
                       width:
                         typeof c.answers === "number" &&
                         typeof summary.answered === "number" &&
@@ -379,59 +472,22 @@ function VisibilityResult({
         </div>
         <section className="am-brand-legend">
           <SectionHead title="Brand comparison" actions={<span className="am-hint">Share</span>} />
-          {(() => {
-            const own = typeof summary.mentioned === "number" ? summary.mentioned : null;
-            const total = competitors.reduce(
-              (n, c) => n + (typeof c.answers === "number" ? c.answers : 0),
-              own ?? 0,
-            );
-            return [
-              { brand: output.brand ?? readBrand()?.name ?? "Your brand", answers: own, you: true },
-              ...competitors,
-            ]
-              .map((c, i) => ({
-                brand: c.brand,
-                answers: c.answers,
-                you: i === 0,
-                color:
-                  i === 0
-                    ? "var(--ai-accent)"
-                    : ["#22c1c3", "#f7a93d", "#e85d75", "#9b6dff"][(i - 1) % 4],
-              }))
-              .sort((a, b) => Number(b.answers ?? 0) - Number(a.answers ?? 0))
-              .map((c) => (
-                <div className="am-brand-row" key={String(c.brand)}>
-                  <span
-                    className="am-series-dot"
-                    style={{
-                      background: c.color,
-                    }}
-                  />
-                  <BrandFavicon
-                    name={String(c.brand)}
-                    website={
-                      c.you && String(c.brand) === readBrand()?.name
-                        ? readBrand()?.website
-                        : undefined
-                    }
-                  />
-                  <span className="am-brand-name">{String(c.brand)}</span>
-                  {c.you && <span className="am-you">you</span>}
-                  <span className="am-number">
-                    {typeof c.answers === "number" && total > 0
-                      ? `${((c.answers / total) * 100).toFixed(1)}%`
-                      : "—"}
-                  </span>
-                </div>
-              ));
-          })()}
+          {series.map((c) => (
+            <div className="am-brand-row" key={c.brand}>
+              <span className="am-series-dot" style={{ background: c.color }} />
+              <BrandFavicon name={c.brand} website={c.you ? readBrand()?.website : undefined} />
+              <span className="am-brand-name">{c.brand}</span>
+              {c.you && <span className="am-you">you</span>}
+              <span className="am-number">{c.share}</span>
+            </div>
+          ))}
         </section>
       </div>
       {Array.isArray(output.answers) &&
         output.answers.map((v) => {
           const a = record(v);
           return (
-            <article className="am-finding am-answer-row" key={String(a.prompt)}>
+            <article className="am-card am-answer-row" key={String(a.prompt)}>
               <div className="am-answer-head">
                 <h3>{String(a.prompt)}</h3>
                 <span
@@ -464,6 +520,8 @@ function VisibilityResult({
               </p>
               {a.mentioned === false && fix && (
                 <MarketingButton
+                  variant="link"
+                  aria-label="Fix this with AI"
                   onClick={() =>
                     void fix(
                       `Help my brand become a useful recommendation for: ${String(a.prompt)
@@ -472,7 +530,7 @@ function VisibilityResult({
                     ).catch((error: Error) => setError(error.message))
                   }
                 >
-                  Fix this with AI
+                  Fix with AI →
                 </MarketingButton>
               )}
             </article>
@@ -500,24 +558,46 @@ export function MarketingResult({
   const output = record(result.output);
   const findings = resultFindings(result);
   const needsProvider = output.status === "needs_provider";
-  return (
-    <section className="am-card" aria-label="Tool result">
-      <p className="am-result-kind">
-        {result.tool === "ai.visibility.check"
-          ? "AI VISIBILITY"
-          : result.tool.startsWith("seo.")
-            ? "WEBSITE CHECK"
-            : "TOOL RESULTS"}
-      </p>
-      {result.tool !== "ai.visibility.check" && (
-        <h2>
-          {result.status === "error" ||
-          ["could_not_check", "could_not_generate"].includes(String(output.status))
-            ? "Could not complete this check"
-            : "Your results"}
-        </h2>
+  const ranked = rankedFindings(result);
+  const findingRows = ranked.map((f, i) => (
+    <article className="am-finding-row" key={`${f.group}:${f.title}`}>
+      <span className={`am-status am-status-${f.status}`}>
+        {i < 3 ? `${i + 1} · ` : ""}
+        {
+          {
+            fail: "To fix",
+            warn: "Improve",
+            pass: "Passing",
+            unknown: "Unavailable",
+          }[f.status]
+        }
+      </span>
+      <div>
+        <strong>{f.title}</strong> <span>{f.evidence ?? f.group}</span>
+        <details>
+          <summary>Why / How</summary>
+          <p>{f.why}</p>
+          <p>{f.fix}</p>
+        </details>
+      </div>
+      {fix && f.status !== "pass" && (
+        <MarketingButton
+          variant="link"
+          onClick={() =>
+            void fix(
+              `Help me fix this on ${String(record(result.input).url ?? readBrand()?.website ?? "my website")}: ${f.title}\n${f.why}\n${f.fix}`,
+            ).catch((e: Error) => setError(e.message))
+          }
+        >
+          Fix with AI →
+        </MarketingButton>
       )}
-      <div className="am-scope-filters">
+    </article>
+  ));
+
+  return (
+    <section className="am-result" aria-label="Tool result">
+      <MarketingScope>
         {Object.entries(record(result.input))
           .filter(
             ([key, value]) =>
@@ -526,11 +606,18 @@ export function MarketingResult({
           )
           .map(([key, value]) => (
             <span key={key}>
-              <MarketingIcon name="website" />
+              <MarketingIcon name={toolIcon(key === "url" ? "website" : key)} />
               <span>{key === "url" ? "Website" : humanLabel(key)}</span> {String(value)}
             </span>
           ))}
-      </div>
+        {typeof output.provider === "string" && (
+          <span>
+            <MarketingIcon name="assistant" />
+            <span>Assistant</span>
+            {friendlyAssistant(output.provider)}
+          </span>
+        )}
+      </MarketingScope>
       {needsProvider ? (
         <div className="am-finding">
           <h3>Connect Claude or ChatGPT</h3>
@@ -565,6 +652,22 @@ export function MarketingResult({
                 hint="Basic website checks"
               />
             )}
+            {findings.length > 0 && (
+              <>
+                <KpiTile
+                  label="To fix"
+                  value={findings.filter((f) => f.status === "fail").length}
+                />
+                <KpiTile
+                  label="Worth improving"
+                  value={findings.filter((f) => f.status === "warn").length}
+                />
+                <KpiTile
+                  label="Passing"
+                  value={findings.filter((f) => f.status === "pass").length}
+                />
+              </>
+            )}
             {typeof output.readingEase === "number" && (
               <KpiTile
                 label="Reading ease"
@@ -598,32 +701,37 @@ export function MarketingResult({
           )}
 
           {findings.length > 0 && (
-            <div className="am-analysis">
-              <MarketingIcon name="ai-visibility" />
-              <span
-                className={`am-status am-status-${findings.some((f) => f.status === "fail") ? "fail" : "warn"}`}
-              >
-                {findings.some((f) => f.status === "fail") ? "Needs attention" : "Review"}
-              </span>
-              <span>{String(output.coverage ?? "Basic website checks completed.")}</span>
-              <span className="am-analysis-count">
-                {findings.filter((f) => f.status === "fail").length} to fix ·{" "}
-                {findings.filter((f) => f.status === "warn").length} worth improving ·{" "}
-                {findings.filter((f) => f.status === "pass").length} passing
-              </span>
-            </div>
+            <>
+              <AnalysisBanner
+                tone={resultTone(result)}
+                lead={ranked[0]?.title ?? "Check completed"}
+                detail={String(output.coverage ?? "Basic website checks completed.")}
+                counts={`${findings.filter((f) => f.status === "unknown").length} unavailable`}
+                action={
+                  fix
+                    ? () =>
+                        void fix(`Help me fix: ${rankedFindings(result)[0]?.title}`).catch(
+                          (e: Error) => setError(e.message),
+                        )
+                    : undefined
+                }
+              />
+              <section className="am-card am-findings-list">
+                <SectionHead
+                  title="Start here"
+                  subtitle={String(output.coverage ?? "Basic website checks")}
+                />
+                {findingRows.slice(0, 3)}
+              </section>
+              <ResultFooterSlot result={result} />
+              {findingRows.length > 3 && (
+                <details className="am-card am-findings-list">
+                  <summary>All findings · {findingRows.length}</summary>
+                  {findingRows.slice(3)}
+                </details>
+              )}
+            </>
           )}
-          {Array.isArray(output.topFixes) && output.topFixes.length > 0 && (
-            <section className="am-finding">
-              <SectionHead title="Start here" />
-              <ol>
-                {output.topFixes.map((v) => (
-                  <li key={String(v)}>{String(v)}</li>
-                ))}
-              </ol>
-            </section>
-          )}
-          {findings.length > 0 && <ResultFooterSlot result={result} />}
           {Array.isArray(output.groups) && (
             <details>
               <summary>Measured evidence</summary>
@@ -641,62 +749,6 @@ export function MarketingResult({
           {result.tool === "ai.visibility.check" && (
             <VisibilityResult output={{ ...output, brand: record(result.input).brand }} fix={fix} />
           )}
-          {["fail", "warn", "unknown", "pass"].map((status) => {
-            const group = findings.filter((f) => f.status === status);
-            return group.length ? (
-              <details key={status} open={status !== "pass"}>
-                <summary>
-                  {status === "fail"
-                    ? "Needs attention"
-                    : status === "warn"
-                      ? "Worth improving"
-                      : status === "unknown"
-                        ? "Could not check"
-                        : "Looking good"}
-                </summary>
-                {group.map((f) => (
-                  <article className="am-finding" key={`${f.group ?? ""}:${f.title}:${f.fix}`}>
-                    {f.group && <p className="am-eyebrow">{f.group}</p>}
-                    <h4>{f.title}</h4>
-                    {f.evidence && (
-                      <p>
-                        <b>Found:</b> {f.evidence}
-                      </p>
-                    )}
-                    <span className={`am-status am-status-${f.status}`}>
-                      {
-                        {
-                          unknown: "Unavailable",
-                          pass: "Passing",
-                          warn: "Improve",
-                          fail: "Needs attention",
-                        }[f.status]
-                      }
-                    </span>
-                    <p>
-                      <b>Why it matters:</b> {f.why}
-                    </p>
-                    {f.fix && (
-                      <p>
-                        <b>How to fix it:</b> {f.fix}
-                      </p>
-                    )}
-                    {fix && status !== "pass" && (
-                      <MarketingButton
-                        onClick={() =>
-                          void fix(
-                            `Help me fix this on ${String(record(result.input).url ?? readBrand()?.website ?? "my website")}: ${f.title}\n${f.why}\n${f.fix}`,
-                          ).catch((error: Error) => setError(error.message))
-                        }
-                      >
-                        Fix this with AI
-                      </MarketingButton>
-                    )}
-                  </article>
-                ))}
-              </details>
-            ) : null;
-          })}
           {!findings.length && result.tool !== "ai.visibility.check" && (
             <dl>
               {Object.entries(output)
@@ -738,6 +790,7 @@ export function MarketingResult({
           )}
           <MarketingToolbar>
             <MarketingButton
+              aria-label="Copy results"
               onClick={() =>
                 void navigator.clipboard
                   .writeText(resultMarkdown(result))
@@ -745,7 +798,6 @@ export function MarketingResult({
               }
             >
               <MarketingIcon name="copy" />
-              Copy results
             </MarketingButton>
             <MarketingButton
               onClick={() => {
@@ -760,7 +812,7 @@ export function MarketingResult({
               }}
             >
               <MarketingIcon name="download" />
-              Export Markdown
+              Download
             </MarketingButton>
           </MarketingToolbar>
         </>

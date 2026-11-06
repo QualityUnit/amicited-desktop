@@ -177,9 +177,18 @@ describe("content and visibility", () => {
     const generate = vi.fn(async (_prompt: string) => "A sourced draft.");
     const tools = contentTools(fakeFetch({ [url]: fixture("site.html") }), provider(generate));
     expect(
-      await tools.write.run({ brief: "A garden launch", channel: "email", tone: "warm" }, ctx()),
+      await tools.write.run(
+        {
+          brief: "A garden launch",
+          channel: "email",
+          tone: "warm",
+          brandVoice: "Plain and practical",
+        },
+        ctx(),
+      ),
     ).toMatchObject({ status: "ready", draft: "A sourced draft.", model: "fixture-model" });
     expect(await tools.repurpose.run({ url }, ctx())).toMatchObject({ status: "ready" });
+    expect(generate.mock.calls[0]?.[0]).toContain("Plain and practical");
     expect(generate.mock.calls[1]?.[0]).toContain("LinkedIn post");
     const offline = contentTools(fakeFetch({}));
     expect(

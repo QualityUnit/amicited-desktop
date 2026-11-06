@@ -52,14 +52,22 @@ export function AmicitedUpsellCard({
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-stack">
       <h3>Keep building on this result</h3>
-      <p>{comparison.checked}</p>
-      <p>{comparison.missing}</p>
+      <div className="am-cloud-comparison">
+        <div>
+          <h4>This check</h4>
+          <p>{comparison.checked}</p>
+        </div>
+        <div>
+          <h4>Daily tracking</h4>
+          <p>{comparison.missing}</p>
+        </div>
+      </div>
       <p>{comparison.pricing}</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial
         </Button>
-        <Button variant="link" onClick={onConnect}>
+        <Button variant="outline" onClick={onConnect}>
           I already have AmICited
         </Button>
         <Button
@@ -106,7 +114,7 @@ export function AmicitedConnectPanel({
   const pending = busy || connection.state === "connecting";
   return (
     <section aria-label="AmICited connection" className="am-cloud-stack">
-      <h3>AmICited connection</h3>
+      <h3>Your account</h3>
       <p>Your local tools always work without an account.</p>
       {connection.state === "connected" ? (
         <>

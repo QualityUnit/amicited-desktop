@@ -230,7 +230,7 @@ const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void
   <Switch aria-label="Developer features" checked={checked} onCheckedChange={onChange} />
 );
 export function MarketingSettings() {
-  return <MarketingSettingsView connection={<CloudStatusLine />} modeControl={renderModeSwitch} />;
+  return <MarketingSettingsView modeControl={renderModeSwitch} />;
 }
 
 export function MarketingFirstRun() {

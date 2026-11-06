@@ -66,3 +66,9 @@ CSS viewport. These `*-light-1344.png` files support side-by-side shell and repo
 comparison. Completed onboarding uses the shared workspace; visibility includes
 only current-run bars, with no invented history. The journey asserts that Tools
 also suppresses promotional explainers after permanently hiding trial offers.
+
+The r7 quick journey adds `03b-first-win-upsell`, `09-amicited-connect` and
+`04d-sidebar-collapsed` at 1344×1016. It reloads after collapse to verify that the
+rail preference survives, then expands it before continuing. The audit shows the
+first three prioritized findings, followed by the offer and an All findings
+disclosure; visibility bars and legend share ranked series colours.

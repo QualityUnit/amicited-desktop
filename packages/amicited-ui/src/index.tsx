@@ -4,6 +4,8 @@ import {
   MarketingTextarea,
   SectionHead,
   MarketingIcon,
+  toolIcon,
+  MarketingTitle,
 } from "./primitives.js";
 import {
   initialFields,
@@ -71,8 +73,6 @@ export function Home({
     assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error;
   return (
     <>
-      <h2>What will you grow today?</h2>
-      <p>Turn a marketing question into your next useful action.</p>
       <form
         className="am-card"
         onSubmit={(event) => {
@@ -87,6 +87,7 @@ export function Home({
           void startTask(prompt).catch((error: Error) => setError(error.message));
         }}
       >
+        <SectionHead title="What will you grow today?" />
         <label htmlFor="ask">Ask your AI assistant</label>
         <MarketingTextarea
           id="ask"
@@ -122,7 +123,17 @@ export function Home({
               ["Write or repurpose content", "/tools#content"],
             ].map(([label, href]) => (
               <MarketingLink key={label} href={href}>
-                <MarketingIcon name={href?.includes("seo") ? "website" : "Tools"} />
+                <MarketingIcon
+                  name={
+                    href?.includes("seo")
+                      ? "seo"
+                      : href?.includes("visibility")
+                        ? "ai-visibility"
+                        : href?.includes("serp")
+                          ? "serp"
+                          : "content"
+                  }
+                />
                 <span>{label}</span>
                 <MarketingIcon name="arrow" />
               </MarketingLink>
@@ -134,9 +145,9 @@ export function Home({
           {subscriptions}
         </section>
       </div>
-      {cloud}
       <section className="am-card">
         <SectionHead title="Recent results" />
+        {cloud}
         {recent ?? <p>Your completed checks will appear here.</p>}
       </section>
     </>
@@ -171,10 +182,7 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
           </a>
         ))}
       </nav>
-      <SectionHead
-        title="Your marketing toolkit"
-        subtitle="Free local tools. Useful checks, clear results. No account needed."
-      />
+      <p className="am-hint">Free local tools. Useful checks, clear results. No account needed.</p>
       <div className="am-tool-grid">
         {tools
           .filter((tool) => tool.pack === selected)
@@ -185,7 +193,7 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
               href={"/tools/" + tool.name}
             >
               <div className="am-tool-head">
-                <MarketingIcon name={tool.pack} />
+                <MarketingIcon name={toolIcon(tool.name)} />
                 <h3>{tool.title}</h3>
                 <span>Open →</span>
               </div>
@@ -226,99 +234,105 @@ export function ToolForm({
   const required = (tool.inputSchema.required ?? []) as string[];
   return (
     <>
-      <a
-        href="/tools"
-        onClick={(e) => {
-          e.preventDefault();
-          marketingNavigate("/tools");
-        }}
-      >
-        ← All tools
-      </a>
-      <h2>{tool.title}</h2>
-      <p>{tool.description}</p>
-      <form
-        className="am-card"
-        onSubmit={(event) => {
-          event.preventDefault();
-          setBusy(true);
-          setError("");
-          try {
-            sessionStorage.setItem("amicited.inputs." + tool.name, JSON.stringify(values));
-          } catch {
-            /* Inputs remain in the form if storage is blocked. */
-          }
-          const input = serializeFields(properties, required, values);
-          void run(input)
-            .then((value) => {
-              setResult(value);
-              onResult?.(value);
-            })
-            .catch(() => setError("Could not reach the local tools service."))
-            .finally(() => setBusy(false));
-        }}
-      >
-        {Object.entries(properties).map(([key, raw]) => {
-          const schema = resolveField(raw);
-          const label = schema.title ?? fieldLabels[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2");
-          const props = {
-            "aria-label": key,
-            required: required.includes(key),
-            value: values[key] ?? "",
-            onChange: (event: { target: { value: string } }) =>
-              setValues({ ...values, [key]: event.target.value }),
-          };
-          return (
-            <label key={key}>
-              {label}
-              {schema.description && <small>{schema.description}</small>}
-              {schema.type === "boolean" ? (
-                <select {...props}>
-                  <option value="">Use default</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
-              ) : ["text", "brief", "source", "instructions"].some((name) =>
-                  key.toLowerCase().includes(name),
-                ) ? (
-                <MarketingTextarea {...props} rows={6} />
-              ) : (
-                <MarketingInput
-                  {...props}
+      <MarketingTitle>{tool.title}</MarketingTitle>
+      {!result && (
+        <>
+          <a
+            href="/tools"
+            onClick={(e) => {
+              e.preventDefault();
+              marketingNavigate("/tools");
+            }}
+          >
+            ← All tools
+          </a>
+          <h2>{tool.title}</h2>
+          <p>{tool.description}</p>
+          <form
+            className="am-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setBusy(true);
+              setError("");
+              try {
+                sessionStorage.setItem("amicited.inputs." + tool.name, JSON.stringify(values));
+              } catch {
+                /* Inputs remain in the form if storage is blocked. */
+              }
+              const input = serializeFields(properties, required, values);
+              void run(input)
+                .then((value) => {
+                  setResult(value);
+                  onResult?.(value);
+                })
+                .catch(() => setError("Could not reach the local tools service."))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {Object.entries(properties).map(([key, raw]) => {
+              const schema = resolveField(raw);
+              const label =
+                schema.title ?? fieldLabels[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2");
+              const props = {
+                "aria-label": key,
+                required: required.includes(key),
+                value: values[key] ?? "",
+                onChange: (event: { target: { value: string } }) =>
+                  setValues({ ...values, [key]: event.target.value }),
+              };
+              return (
+                <label key={key}>
+                  {label}
+                  {schema.description && <small>{schema.description}</small>}
+                  {schema.type === "boolean" ? (
+                    <select {...props}>
+                      <option value="">Use default</option>
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  ) : ["text", "brief", "source", "instructions"].some((name) =>
+                      key.toLowerCase().includes(name),
+                    ) ? (
+                    <MarketingTextarea {...props} rows={6} />
+                  ) : (
+                    <MarketingInput
+                      {...props}
 
-                  type={["number", "integer"].includes(schema.type ?? "") ? "number" : "text"}
-                  pattern={schema.pattern}
-                  placeholder={
-                    schema.type === "array"
-                      ? "Example: Acme, Contoso"
-                      : key === "category"
-                        ? "Example: email marketing software"
-                        : key === "market"
-                          ? "Example: small businesses in the UK"
-                          : key === "domain"
-                            ? "example.com"
-                            : ""
-                  }
-                />
-              )}
-            </label>
-          );
-        })}
-        <MarketingButton variant="default" disabled={busy || disabled}>
-          {busy
-            ? "Working…"
-            : ["content.write", "content.repurpose"].includes(tool.name)
-              ? "Generate draft"
-              : "Run check"}
-        </MarketingButton>
-        <p role="alert">{error}</p>
-      </form>
+                      type={["number", "integer"].includes(schema.type ?? "") ? "number" : "text"}
+                      pattern={schema.pattern}
+                      placeholder={
+                        schema.type === "array"
+                          ? "Example: Acme, Contoso"
+                          : key === "category"
+                            ? "Example: email marketing software"
+                            : key === "market"
+                              ? "Example: small businesses in the UK"
+                              : key === "domain"
+                                ? "example.com"
+                                : ""
+                      }
+                    />
+                  )}
+                </label>
+              );
+            })}
+            <MarketingButton variant="default" disabled={busy || disabled}>
+              {busy
+                ? "Working…"
+                : ["content.write", "content.repurpose"].includes(tool.name)
+                  ? "Generate draft"
+                  : "Run check"}
+            </MarketingButton>
+            <p role="alert">{error}</p>
+          </form>
+        </>
+      )}
       {result && <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />}
     </>
   );
 }
 export function MarketingSettings({
-  connection,
+  connection: _connection,
   modeControl,
 }: {
   connection?: ReactNode;
@@ -329,7 +343,6 @@ export function MarketingSettings({
   const [message, setMessage] = useState("");
   return (
     <div className="am-page">
-      {connection}
       <section className="am-card" id="website">
         <h2>Your website / brand</h2>
         <form

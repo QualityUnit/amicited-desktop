@@ -139,6 +139,9 @@ try {
         width === 1344 &&
         ![
           "03-first-win",
+          "03b-first-win-upsell",
+          "09-amicited-connect",
+          "04d-sidebar-collapsed",
           "04-home",
           "05-tools-grid",
           "06-ai-visibility",
@@ -182,6 +185,10 @@ try {
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
 
   await capture("04-home");
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await capture("04d-sidebar-collapsed");
+  await page.reload();
+  await page.getByRole("button", { name: "Expand sidebar" }).click();
   await page.locator("#ai-subscriptions").scrollIntoViewIfNeeded();
   await capture("04b-subscriptions");
   await page
@@ -206,7 +213,7 @@ try {
   await page.locator("#ai-subscriptions").scrollIntoViewIfNeeded();
   await capture("02c-provider-ready");
   await page.getByRole("link", { name: "Tools", exact: true }).click();
-  await page.getByRole("heading", { name: "Your marketing toolkit" }).waitFor();
+  await page.getByRole("navigation", { name: "Tool categories" }).waitFor();
   await capture("05-tools-grid");
   await page.getByRole("heading", { name: "Works better with AmICited" }).scrollIntoViewIfNeeded();
   await capture("05b-cloud-capabilities");
@@ -294,7 +301,7 @@ try {
     ),
   );
   await page.reload();
-  await page.getByRole("heading", { name: "Mentioned in 1 of 2 answers" }).scrollIntoViewIfNeeded();
+  await page.getByText("Mentioned in 1 of 2 answers", { exact: true }).scrollIntoViewIfNeeded();
   await page
     .getByRole("region", { name: "Tool result" })
     .evaluate((element) => element.scrollIntoView({ block: "start" }));
@@ -377,7 +384,7 @@ try {
   await page.evaluate("window.t3dev.replay('multi-turn')");
   await page.getByText("first fixture turn complete", { exact: true }).first().waitFor();
   await page.goto(url + "/tasks");
-  await page.getByRole("heading", { name: "Tasks", exact: true }).waitFor();
+  await page.getByRole("link", { name: "Tasks", exact: true }).waitFor();
   await capture("08c-tasks-list");
 
   await page.goto(url + "/marketing-settings");

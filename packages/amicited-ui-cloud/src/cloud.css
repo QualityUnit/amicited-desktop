@@ -28,3 +28,26 @@
   background: var(--ai-surf);
   box-shadow: var(--ai-seam);
 }
+
+.am-cloud-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--ai-line);
+  border-radius: 4px;
+  background: var(--ai-surf);
+}
+.am-cloud-comparison > div {
+  padding: 12px 16px;
+}
+.am-cloud-comparison > div + div {
+  border-left: 1px solid var(--ai-line);
+}
+.am-cloud-comparison h4 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ai-ink-3);
+}
+.am-cloud-actions > :last-child {
+  color: var(--ai-ink-3);
+  font-size: 13px;
+}

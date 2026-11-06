@@ -222,8 +222,16 @@ connection primitives inherit the scoped tokens. No upstream UI-kit file changes
 
 - `apps/web/src/components/settings/SettingsPanels.tsx`: accepts the marketer/developer switch inside the existing General settings content column.
 
-Wave 8 updates the existing marketer adapters in `apps/web/src/marketing.tsx`,
-`routes/_chat.tasks.tsx` and `rpc/amicitedCloud.tsx` for the scoped cloud-style shell,
-compact task rows and first-win promotion gating. Browser regression coverage stays
-in `apps/web/src/amicited-cloud.browser.test.tsx`; the journey harness adds matching
-1344×1016 reference captures. Upstream developer components remain intact.
+## Last verified
+
+Wave 9, 2026-11-06. Existing marketer extension files changed:
+
+- `apps/web/src/marketing.tsx`: removes redundant connection text from General settings.
+- `apps/web/src/routes/_chat.tasks.tsx`: whole-row task links, status tones and an empty state.
+- `apps/web/src/rpc/amicitedCloud.tsx`: shared promotion eligibility, compact promotion rows and connection-page composition.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: connected and snoozed promotion regression rows.
+- `scripts/amicited/journey-screenshots.ts`: seven 1344×1016 parity views and remembered sidebar collapse.
+
+Focused tests (27), six package typechecks, focused lint and staged hooks passed.
+The r7 journey produced 44 captures without an error capture. Upstream developer
+components remain intact; these changes stay within the existing marketer mounts.

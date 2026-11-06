@@ -15,6 +15,23 @@ import {
   Copy,
   Download,
   Send,
+  ShieldCheck,
+  Map,
+  Share2,
+  Braces,
+  Gauge,
+  Radar,
+  PenLine,
+  Tag,
+  Shapes,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sparkles,
+  BookOpen,
+  ScanText,
+  Repeat2,
+  ListFilter,
+  MapPin,
 } from "lucide-react";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import {
@@ -88,27 +105,64 @@ export function SectionHead({
   );
 }
 
-export function MarketingIcon({ name }: { name: string }) {
-  const icons: Record<string, typeof Globe> = {
-    Home: LayoutDashboard,
-    Tasks: ListChecks,
-    Tools: Wrench,
-    Settings,
-    AmICited: PlugZap,
-    website: Globe,
-    seo: Globe,
-    chevron: ChevronsUpDown,
-    arrow: ArrowRight,
-    plus: Plus,
-    "ai-visibility": Bot,
-    content: FileText,
-    serp: Search,
-    copy: Copy,
-    download: Download,
-    send: Send,
-  };
-  const Icon = icons[name] ?? Globe;
+const icons = {
+  Home: LayoutDashboard,
+  Tasks: ListChecks,
+  Tools: Wrench,
+  Settings,
+  AmICited: PlugZap,
+  website: Globe,
+  seo: Gauge,
+  chevron: ChevronsUpDown,
+  arrow: ArrowRight,
+  plus: Plus,
+  "ai-visibility": Radar,
+  content: FileText,
+  serp: Search,
+  copy: Copy,
+  download: Download,
+  send: Send,
+  brand: Tag,
+  category: Shapes,
+  market: MapPin,
+  assistant: Bot,
+  collapse: PanelLeftClose,
+  expand: PanelLeftOpen,
+  sparkles: Sparkles,
+  "seo.ssl.check": ShieldCheck,
+  "seo.robots.check": Bot,
+  "seo.sitemap.check": Map,
+  "seo.llmstxt.check": BookOpen,
+  "seo.meta.check": Share2,
+  "seo.schema.check": Braces,
+  "seo.site.audit": Gauge,
+  "ai.visibility.check": Radar,
+  "content.readability": ScanText,
+  "content.citability": ListChecks,
+  "content.write": PenLine,
+  "content.repurpose": Repeat2,
+  "serp.autocomplete": ListFilter,
+  "serp.fetch": Search,
+} as const;
+export type MarketingIconName = keyof typeof icons;
+export function toolIcon(name: string): MarketingIconName {
+  if (Object.hasOwn(icons, name)) return name as MarketingIconName;
+  throw new Error(`Missing marketing icon: ${name}`);
+}
+export function MarketingIcon({ name }: { name: MarketingIconName }) {
+  const Icon = icons[name];
   return <Icon aria-hidden="true" size={18} strokeWidth={2} />;
+}
+export const MarketingScopeContext = createContext<HTMLElement | null>(null);
+export function MarketingScope({ children }: { children: ReactNode }) {
+  const target = useContext(MarketingScopeContext);
+  const band = <div className="am-scope-filters">{children}</div>;
+  return target ? createPortal(band, target) : band;
+}
+export const MarketingTitleContext = createContext<HTMLElement | null>(null);
+export function MarketingTitle({ children }: { children: ReactNode }) {
+  const target = useContext(MarketingTitleContext);
+  return target ? createPortal(<span className="am-page-title">{children}</span>, target) : null;
 }
 
 export const MarketingToolbarContext = createContext<HTMLElement | null>(null);

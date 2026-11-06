@@ -50,13 +50,19 @@ export function shouldOfferUpsell(
   connected = false,
 ) {
   return (
-    !connected &&
     !sessionShown &&
-    !preferences.dismissed &&
-    (preferences.snoozedUntil ?? 0) <= now &&
-    whatYouAreMissing(result) !== undefined
+    promotionEligible(whatYouAreMissing(result) !== undefined, preferences, now, connected)
   );
 }
+export function promotionEligible(
+  firstWin: boolean,
+  preferences: UpsellPreferences,
+  now: number,
+  connected = false,
+) {
+  return firstWin && !connected && !preferences.dismissed && (preferences.snoozedUntil ?? 0) <= now;
+}
+
 export function snoozeUpsell(now: number): UpsellPreferences {
   return { snoozedUntil: now + 7 * 24 * 60 * 60 * 1000 };
 }
@@ -81,6 +87,9 @@ export function createUpsellGate(storage: PreferenceStorage, session: Preference
     }
   };
   return {
+    eligible(firstWin: boolean, now: number, connected = false) {
+      return promotionEligible(firstWin, read(), now, connected);
+    },
     hidden() {
       return read().dismissed === true;
     },

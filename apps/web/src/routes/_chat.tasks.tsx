@@ -8,18 +8,23 @@ function Tasks() {
   const threads = useThreadShells();
   return (
     <>
-      <h2>Tasks</h2>
-      <p>Your AI work, in one place.</p>
       <section className="am-card am-task-list">
+        {!threads.length && (
+          <p>
+            No tasks yet. <Link to="/new">New task →</Link>
+          </p>
+        )}
         {threads.map((thread) => (
-          <article className="am-task-row" key={thread.id}>
-            <Link
-              to="/$environmentId/$threadId"
-              params={{ environmentId: thread.environmentId, threadId: thread.id }}
+          <Link
+            className="am-task-row"
+            key={thread.id}
+            to="/$environmentId/$threadId"
+            params={{ environmentId: thread.environmentId, threadId: thread.id }}
+          >
+            <h2>{thread.title || "New task"}</h2>
+            <span
+              className={`am-status am-status-${thread.latestRun?.status === "completed" ? "pass" : thread.latestRun?.status === "failed" ? "fail" : thread.hasPendingApprovals || thread.hasPendingUserInput ? "warn" : thread.latestRun?.status === "running" ? "active" : "neutral"}`}
             >
-              <h2>{thread.title || "New task"}</h2>
-            </Link>
-            <span className="am-status am-status-neutral">
               {marketingTaskStatus(
                 thread.latestRun?.status,
                 thread.hasPendingApprovals || thread.hasPendingUserInput,
@@ -33,7 +38,7 @@ function Tasks() {
                     "day",
                   )}
             </time>
-          </article>
+          </Link>
         ))}
       </section>
     </>

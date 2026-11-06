@@ -172,6 +172,12 @@ export function contentTools(fetcher: Fetcher = fetch, provider?: Generation) {
     brief: Schema.String.check(Schema.isMinLength(1)),
     channel: Schema.String,
     tone: Schema.String,
+    brandVoice: Schema.optional(
+      Schema.String.annotate({
+        title: "Brand voice (optional)",
+        description: "Describe your voice or paste a short writing sample.",
+      }),
+    ),
   });
   const write = define(
     "content.write",
