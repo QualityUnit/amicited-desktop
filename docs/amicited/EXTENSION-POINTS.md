@@ -54,3 +54,23 @@ is offered after a first win in a later wave, using
 Bearer key). There is no permanent cloud free plan: the 7-day trial leads to
 Pro at EUR 120 including MCP. Signup:
 https://app.flowhunt.io/sign-in?app=amicited&plan=pro&interval=month .
+
+## Wave 1B marketer experience
+
+The fenced role boundary in `apps/web/src/marketing.tsx` owns marketer navigation
+and settings routing. It replaces the developer settings surface as a whole;
+upstream settings and navigation remain available through Developer features.
+
+- `apps/web/src/routes/__root.tsx`: routes fresh local launches through website setup, returning launches to Home, and suppresses developer onboarding in marketer mode.
+- `apps/web/src/routes/_chat.index.tsx`: prevents draft creation on the marketer landing path.
+- `apps/web/src/routes/_chat.new.tsx`: empty links open a task composer and invalid links offer recovery.
+- `apps/web/src/components/onboarding/WelcomeWizard.tsx`: exports the existing provider connection step for optional advanced setup.
+- `apps/web/src/components/chat/ChatComposer.tsx`: marketer composer prompt.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx`: friendly subscription label; the existing popup retains advanced model selection.
+- `apps/web/src/components/chat/useThreadLifecycle.tsx`: labels completed marketer tasks Done.
+
+The website and brand are browser-local preferences. Workspace folders and tasks
+use the existing authenticated project commands. The latest tool result is retained
+for the current browser session; durable result history is still deferred.
+`ResultFooterSlot` in `@amicited/ui-marketing` intentionally renders nothing for the
+later cloud connection wave. Local tool results never require a cloud account.

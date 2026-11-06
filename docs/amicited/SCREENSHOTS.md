@@ -7,15 +7,20 @@ node scripts/amicited/journey-screenshots.ts .amicited-shots/wave0
 ```
 
 The script launches the actual server and Vite dev stack without file watchers with an explicit temporary home,
-disables live-data seeding, requests unused ports from the OS, pairs headless Chromium, and captures 1440×900 PNGs:
+disables live-data seeding, requests unused ports from the OS, pairs headless Chromium,
+and captures each step in light and dark at 1440×900 and 1280×800:
 
-1. `01-first-launch.png`: account-free first launch.
-2. `02-home.png`: Home and Ask box.
-3. `03-tools-grid.png`: local tool packs.
-4. `04-tool-form.png`: SSL check with example.com entered.
-5. `05-tool-result.png`: completed SSL check (or its structured connection error offline).
-6. `06-tasks.png`: upstream tasks entry point.
-7. `07-settings.png`: mode switch.
+1. `01-first-launch`: website-first, account-free setup.
+2. `02-website-and-ai`: saved website and actual AI subscription readiness.
+3. `03-first-win`: completed SSL check (or an honest connection error); prefers the site audit when registered.
+4. `04-home`: brand, Ask box, quick actions and recent result.
+5. `05-tools-grid`: local marketing tool packs.
+6. `06-tool-form`: SSL check with example.com entered.
+7. `07-new-task`: empty composer, without a missing-prompt error.
+8. `08-settings-general`: website, connection slot and Developer features toggle.
+9. `09-developer-mode`: upstream settings and developer navigation remain reachable.
+
+Files carry theme and viewport suffixes, for example `04-home-dark-1280.png`.
 
 Chromium must be installed in Playwright’s normal cache. The harness depends on
 the existing scripts workspace’s playwright-core; it adds no browser dependency.

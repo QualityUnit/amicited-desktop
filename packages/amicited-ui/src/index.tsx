@@ -1,3 +1,12 @@
+import "./marketing.css";
+import {
+  AmICitedMark,
+  readBrand,
+  saveBrand,
+  normalizeWebsite,
+  MarketingResult,
+} from "./experience.js";
+export * from "./experience.js";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 
@@ -29,22 +38,13 @@ const destinations = [
   ["Home", "/home"],
   ["Tasks", "/tasks"],
   ["Tools", "/tools"],
-  ["Settings", "/marketing-settings"],
+  ["Settings", "/settings/general"],
 ] as const;
 const style = {
-  shell: {
-    display: "flex",
-    height: "100dvh",
-    width: "100%",
-    background: "#f8fafc",
-    color: "#182a3a",
-    fontFamily: "system-ui",
-  },
   nav: { width: 238, flexShrink: 0, padding: 28, background: "#102d32", color: "#edfafa" },
-  main: { flex: 1, minWidth: 0, overflow: "auto", padding: "60px 64px" },
   card: {
-    background: "white",
-    border: "1px solid #dce5e7",
+    background: "var(--card, white)",
+    border: "1px solid var(--border, #dce5e7)",
     borderRadius: 16,
     padding: 28,
     marginTop: 20,
@@ -64,8 +64,8 @@ const style = {
     borderRadius: 8,
     padding: 14,
     margin: "10px 0 20px",
-    color: "#182a3a",
-    background: "white",
+    color: "var(--foreground, #182a3a)",
+    background: "var(--card, white)",
   },
 } as const;
 export function MarketingShell({
@@ -78,9 +78,9 @@ export function MarketingShell({
   navigate: (path: string) => void;
 }) {
   return (
-    <div style={style.shell}>
+    <div className="am-shell">
       <aside style={style.nav}>
-        <strong>{PRODUCT_NAME}</strong>
+        <AmICitedMark />
         <p style={{ opacity: 0.7, fontSize: 13 }}>Your marketing workspace</p>
         <nav aria-label="Main navigation" style={{ marginTop: 48 }}>
           {destinations.map(([label, href]) => (
@@ -111,16 +111,24 @@ export function MarketingShell({
           No account required.
         </p>
       </aside>
-      <main style={style.main}>{children}</main>
+      <main className="am-main">{children}</main>
     </div>
   );
 }
-export function Home({ startTask }: { startTask: (prompt: string) => Promise<void> }) {
+export function Home({
+  startTask,
+  subscriptions,
+  recent,
+}: {
+  startTask: (prompt: string) => Promise<void>;
+  subscriptions?: ReactNode;
+  recent?: ReactNode;
+}) {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState("");
   return (
     <>
-      <p>YOUR WORKSPACE</p>
+      <p className="am-eyebrow">{readBrand()?.name ?? "YOUR WORKSPACE"}</p>
       <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>What will you grow today?</h1>
       <p>Turn a marketing question into your next useful action.</p>
       <form
@@ -136,7 +144,7 @@ export function Home({ startTask }: { startTask: (prompt: string) => Promise<voi
         <textarea
           id="ask"
           style={style.input}
-          placeholder="Help me improve my website’s visibility…"
+          placeholder="What do you want to get done?"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           required
@@ -144,12 +152,28 @@ export function Home({ startTask }: { startTask: (prompt: string) => Promise<voi
         <button style={style.button}>Start a task</button>
         <p role="alert">{error}</p>
       </form>
-      <section style={style.card}>
-        <h2 style={{ fontSize: 20, fontWeight: 600, margin: "20px 0 12px" }}>
-          A quick win for your website
-        </h2>
-        <p>Check your SSL certificate with a free local tool.</p>
-        <a href="/tools/seo.ssl.check">Check website security →</a>
+      <section className="am-card">
+        <h2>Your next useful action</h2>
+        <div className="am-quick">
+          {[
+            ["Check my AI visibility", "/tools#ai-visibility"],
+            ["Audit my website", "/tools/seo.site.audit"],
+            ["Research keywords", "/tools#serp"],
+            ["Write or repurpose content", "/tools#content"],
+          ].map(([label, href]) => (
+            <a key={label} href={href}>
+              {label} →
+            </a>
+          ))}
+        </div>
+      </section>
+      <section className="am-card">
+        <h2>Your AI subscriptions</h2>
+        {subscriptions}
+      </section>
+      <section className="am-card">
+        <h2>Recent results</h2>
+        {recent ?? <p>Your completed checks will appear here.</p>}
       </section>
     </>
   );
@@ -161,7 +185,7 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
       <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>Your marketing toolkit</h1>
       <p>Useful checks, clear results. No account needed.</p>
       {["seo", "ai-visibility", "content", "serp"].map((pack) => (
-        <section key={pack}>
+        <section key={pack} id={pack}>
           <h2 style={{ fontSize: 20, fontWeight: 600, margin: "20px 0 12px" }}>
             {
               {
@@ -204,8 +228,12 @@ export function ToolForm({
   tool,
   run,
   disabled = false,
+  fix,
+  onResult,
 }: {
   tool: ToolCard;
+  fix?: (prompt: string) => Promise<void>;
+  onResult?: (result: ToolResult) => void;
   disabled?: boolean;
   run: (input: unknown) => Promise<ToolResult>;
 }) {
@@ -240,7 +268,10 @@ export function ToolForm({
             ]),
           );
           void run(input)
-            .then(setResult)
+            .then((value) => {
+              setResult(value);
+              onResult?.(value);
+            })
             .catch(() => setError("Could not reach the local tools service."))
             .finally(() => setBusy(false));
         }}
@@ -265,80 +296,68 @@ export function ToolForm({
         </button>
         <p role="alert">{error}</p>
       </form>
-      {result && (
-        <section aria-label="Tool result" style={style.card}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, margin: "20px 0 12px" }}>
-            {result.status === "success" ? "Your results" : "Check could not finish"}
-          </h2>
-          {result.error ? (
-            <p>{result.error.message}</p>
-          ) : (
-            <dl>
-              {Object.entries(result.output as Record<string, unknown>).map(([key, value]) => (
-                <div key={key} style={{ marginBottom: 14 }}>
-                  <dt style={{ fontWeight: 600 }}>{key}</dt>
-                  <dd>
-                    {Array.isArray(value) ? value.join(", ") || "No issues found" : String(value)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
-          <small>
-            Run {result.id} · {result.durationMs} ms
-          </small>
-        </section>
-      )}
+      {result && <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />}
     </>
   );
 }
 export function MarketingSettings() {
+  const [website, setWebsite] = useState(readBrand()?.website ?? "");
+  const [name, setName] = useState(readBrand()?.name ?? "");
+  const [message, setMessage] = useState("");
   return (
-    <>
-      <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>Settings</h1>
-      <section style={style.card}>
-        <h2 style={{ fontSize: 20, fontWeight: 600, margin: "20px 0 12px" }}>Workspace mode</h2>
-        <p>
-          Marketer mode keeps your marketing work front and center. Developer mode includes source
-          control, terminals and advanced settings.
-        </p>
-        <label>
-          Workspace mode
-          <select
-            aria-label="Workspace mode"
-            style={style.input}
-            value={readWorkspaceMode()}
-            onChange={(event) => {
-              setWorkspaceMode(event.target.value === "developer" ? "developer" : "marketer");
-              window.location.assign("/settings/general");
-            }}
-          >
-            <option value="marketer">Marketer</option>
-            <option value="developer">Developer</option>
-          </select>
-        </label>
+    <div className="am-page">
+      <h1>Settings</h1>
+      <section className="am-card">
+        <h2>Your website / brand</h2>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            try {
+              const brand = normalizeWebsite(website);
+              saveBrand({ ...brand, name: name.trim() || brand.name });
+              setMessage("Saved");
+            } catch {
+              setMessage("Enter a website like example.com.");
+            }
+          }}
+        >
+          <label>
+            Website URL
+            <input value={website} onChange={(e) => setWebsite(e.target.value)} required />
+          </label>
+          <label>
+            Brand name
+            <input value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <button>Save</button>
+          <p role="status">{message}</p>
+        </form>
       </section>
-      <p>Local tools are free and work without an AmICited account.</p>
-    </>
+      <section className="am-card" aria-label="AmICited connection">
+        <h2>AmICited connection</h2>
+        <p>Your local tools are free. No account required.</p>
+      </section>
+      <section className="am-card">
+        <WorkspaceModeControl />
+      </section>
+    </div>
   );
 }
-
 export function WorkspaceModeControl() {
   const mode = useWorkspaceMode();
   return (
-    <label>
-      Workspace mode{" "}
-      <select
-        aria-label="Workspace mode"
-        value={mode}
-        onChange={(event) => {
-          setWorkspaceMode(event.target.value === "developer" ? "developer" : "marketer");
-          window.location.assign("/home");
+    <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <input
+        type="checkbox"
+        role="switch"
+        aria-label="Developer features"
+        checked={mode === "developer"}
+        onChange={(e) => {
+          setWorkspaceMode(e.target.checked ? "developer" : "marketer");
+          window.location.assign("/settings/general");
         }}
-      >
-        <option value="marketer">Marketer</option>
-        <option value="developer">Developer</option>
-      </select>
+      />
+      Developer features
     </label>
   );
 }
