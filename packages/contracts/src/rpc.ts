@@ -1,3 +1,4 @@
+import { marketingRpcs } from "@amicited/tools-core/rpc";
 import {
   OrchestrationV2SearchThreadError,
   OrchestrationV2SearchThreadInput,
@@ -1995,6 +1996,7 @@ export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthori
 ) {}
 
 export const WsRpcGroup = RpcGroup.make(
+  ...marketingRpcs,
   WsGuestShareCreateRpc,
   WsServerProbeRpc,
   WsServerGetConfigRpc,

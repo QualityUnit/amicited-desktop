@@ -1,0 +1,21 @@
+{
+  "name": "@amicited/ui-marketing",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "@amicited/tools-core": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

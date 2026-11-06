@@ -1,3 +1,4 @@
+import * as MarketingTools from "@amicited/tools/service";
 import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as SecureRandom from "effect/crypto/SecureRandom";
@@ -2004,7 +2005,14 @@ export const layerWsRpc = (
         return yield* mutateProjectWithClone(projectService, projectCloneTracker, mutation);
       });
 
+      const marketingTools = yield* MarketingTools.MarketingTools.pipe(
+        Effect.provide(MarketingTools.layer),
+      );
       const handlers = ServerWsRpcGroup.of({
+        "amicited.tools.list": () =>
+          marketingTools.list.pipe(Effect.map((cards) => cards.map((card) => ({ ...card })))),
+        "amicited.tools.run": ({ name, input }) =>
+          marketingTools.run(name, input).pipe(Effect.map((result) => ({ ...result }))),
         [ORCHESTRATION_V2_WS_METHODS.dispatchCommand]: (command) =>
           Effect.annotateCurrentSpan({
             "orchestration_v2.command_id": command.commandId,

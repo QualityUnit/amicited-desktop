@@ -72,6 +72,12 @@ describe("command permissions", () => {
       Effect.gen(function* () {
         const registry = yield* setup;
         const refresh = createCommandPermissions(runtime, WS_METHODS.serverRefreshProviders);
+        const marketing = createCommandPermissions(runtime, "amicited.tools.run");
+        registry.set(sessions(env), AsyncResult.success(grant(false)));
+        expect(registry.get(marketing.permissionAtom(env))).toBe(false);
+        registry.set(sessions(env), AsyncResult.success(grant(true)));
+        expect(registry.get(marketing.permissionAtom(env))).toBe(true);
+        yield* marketing.authorize(registry, env);
         registry.set(sessions(env), AsyncResult.success(grant(true)));
         expect(registry.get(refresh.permissionAtom(env))).toBe(false);
         expect((yield* refresh.authorize(registry, env).pipe(Effect.flip))._tag).toBe(

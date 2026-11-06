@@ -49,5 +49,5 @@ node_modules/
 # pnpm content-addressable store; never belongs in the repo.
 .pnpm-store/
 
-# Local UI baseline captures.
+# Local UI captures (baseline and journey screenshots).
 .amicited-shots/
