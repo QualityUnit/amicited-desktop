@@ -1,7 +1,10 @@
 # AmICited extension points
 
-Wave 0 keeps upstream packages intact. This registry supersedes the specification’s
-proposal to store extension patches in `patches/`, which already holds pnpm patches.
+Upstream files change only at small, self-contained extension points listed here.
+No patch files are required; this supersedes section 2 of the specification.
+
+- `apps/web/src/components/chat/ChatHeader.browser.test.tsx`: explicitly selects and restores developer mode for both rename cases.
+- `apps/web/src/components/ChatView.browser.test.tsx`: explicitly selects and restores developer mode for the reserved-draft case.
 
 - `packages/client-runtime/src/state/commandPermissions.test.ts`: extends existing grant coverage to marketing runs.
 - `packages/contracts/package.json`: dependency on the standalone marketing RPC definitions.

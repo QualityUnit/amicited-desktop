@@ -7,8 +7,8 @@ const metrics = "components/amicited/dashboard/metrics/";
 const samples = [
   [
     "status banner",
-    '.am-result [aria-label="ATTENTION"]',
-    '[data-specimen="banner"] > section',
+    '.am-result [data-kit="agent-banner-header"] > span:first-child',
+    '[data-specimen="banner"] [data-kit="agent-banner-header"] > span:first-child',
     "components/amicited/ui/StatusNotification.tsx",
     "StatusNotification",
   ],
@@ -28,7 +28,7 @@ const samples = [
   ],
   [
     "finding badge",
-    ".am-finding-row .am-status",
+    ".am-finding-row .am-badge",
     '[data-specimen="badge"] > span',
     "components/ui/Badge.tsx",
     "Badge",
@@ -105,7 +105,7 @@ const samples = [
   ],
   [
     "input",
-    'input:not([type="checkbox"])',
+    '.am-main #website input[data-slot="input"]:not([type="checkbox"])',
     '[data-specimen="input"] input',
     "components/ui/TextInput.tsx",
     "TextInput",
@@ -200,8 +200,17 @@ export async function checkFonts(page: Page) {
     return result;
   });
 }
-async function read(target: Locator) {
+async function read(target: Locator): Promise<Style> {
   return target.evaluate((el) => {
+    const leaf =
+      el.querySelector(".truncate") ??
+      Array.from(el.querySelectorAll("*")).find((child) =>
+        Array.from(child.childNodes).some(
+          (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+        ),
+      ) ??
+      el;
+    const textStyle = getComputedStyle(leaf);
     const c = getComputedStyle(el);
     const props = [
       "fontFamily",
@@ -215,13 +224,20 @@ async function read(target: Locator) {
       "height",
       "borderRadius",
     ] as const;
-    return Object.fromEntries(props.map((key) => [key, c[key]]));
+    return {
+      ...Object.fromEntries(props.map((key) => [key, c[key]])),
+      textFamily: textStyle.fontFamily,
+      textSize: textStyle.fontSize,
+      textWeight: textStyle.fontWeight,
+      textColor: textStyle.color,
+    };
   });
 }
 export async function captureComputedStyles(page: Page, out: string, stage: string) {
+  if (await page.locator(".am-onboarding").isVisible()) return;
   if (!reference) {
     reference = await page.context().browser()!.newPage({ deviceScaleFactor: 2 });
-    await reference.setViewportSize({ width: 1022, height: 1800 });
+    await reference.setViewportSize(page.viewportSize()!);
     await reference.emulateMedia({ reducedMotion: "reduce" });
     await reference.setContent(
       await NodeFSP.readFile(NodePath.join(out, "cloud-specimens.html"), "utf8"),
@@ -231,7 +247,9 @@ export async function captureComputedStyles(page: Page, out: string, stage: stri
   const theme = await page.evaluate(() =>
     document.documentElement.classList.contains("dark") ? "dark" : "light",
   );
+  await reference.setViewportSize(page.viewportSize()!);
   await reference.evaluate((theme) => {
+    document.querySelectorAll(".dark").forEach((el) => el.classList.remove("dark"));
     document.documentElement.classList.toggle("dark", theme === "dark");
     document.documentElement.setAttribute("data-theme", theme);
   }, theme);
@@ -243,6 +261,24 @@ export async function captureComputedStyles(page: Page, out: string, stage: stri
     if (!(await target.isVisible())) continue;
     const specimen = reference.locator(cloudSelector).first();
     if (!(await specimen.isVisible())) throw new Error("Cloud component missing: " + name);
+    const contentWidth = await page
+      .locator(".am-main")
+      .first()
+      .evaluate(
+        (el) =>
+          el.clientWidth -
+          parseFloat(getComputedStyle(el).paddingLeft) -
+          parseFloat(getComputedStyle(el).paddingRight),
+      );
+    await specimen.evaluate(
+      (el, width) => {
+        const parent = el.closest<HTMLElement>("[data-specimen]");
+        if (parent) parent.style.width = `${width}px`;
+      },
+      ["search row", "domain control", "sidebar nav row", "active nav row"].includes(name)
+        ? 248
+        : contentWidth,
+    );
     const actual = await read(target),
       cloud = await read(specimen);
     const differences = Object.keys(actual).filter((key) => actual[key] !== cloud[key]);
@@ -252,17 +288,32 @@ export async function captureComputedStyles(page: Page, out: string, stage: stri
     );
     const declaration = new RegExp(`(?:const|function) ${component}\\b`).exec(sourceText);
     const line = sourceText.slice(0, declaration?.index ?? 0).split("\n").length;
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("DOM.enable");
-    await cdp.send("CSS.enable");
-    await target.evaluate((el, key) => el.setAttribute("data-parity-font", key), key);
-    const { root } = await cdp.send("DOM.getDocument");
-    const { nodeId } = await cdp.send("DOM.querySelector", {
-      nodeId: root.nodeId,
-      selector: `[data-parity-font="${key}"]`,
-    });
-    const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
-    await cdp.detach();
+    const faces = async (view: Page, element: Locator) => {
+      const cdp = await view.context().newCDPSession(view);
+      await cdp.send("DOM.enable");
+      await cdp.send("CSS.enable");
+      await element.evaluate((el, key) => {
+        const leaf =
+          el.querySelector(".truncate") ??
+          Array.from(el.querySelectorAll("*")).find((child) =>
+            Array.from(child.childNodes).some(
+              (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
+            ),
+          ) ??
+          el;
+        leaf.setAttribute("data-parity-font", key);
+      }, key);
+      const { root } = await cdp.send("DOM.getDocument");
+      const { nodeId } = await cdp.send("DOM.querySelector", {
+        nodeId: root.nodeId,
+        selector: `[data-parity-font="${key}"]`,
+      });
+      const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
+      await cdp.detach();
+      return fonts.map((f) => `${f.familyName} (${f.isCustomFont ? "loaded" : "system"})`);
+    };
+    const actualFaces = await faces(page, target);
+    const cloudFaces = await faces(reference, specimen);
     rows.set(key, {
       name,
       theme,
@@ -271,7 +322,7 @@ export async function captureComputedStyles(page: Page, out: string, stage: stri
       actual,
       cloud,
       differences,
-      usedFaces: fonts.map((f) => `${f.familyName} (${f.isCustomFont ? "loaded" : "system"})`),
+      usedFaces: [`Desktop: ${actualFaces.join(", ")}`, `Cloud: ${cloudFaces.join(", ")}`],
       reason: differences.length
         ? "Independent component measurements; see the property-specific exceptions below."
         : "",
@@ -298,13 +349,13 @@ export async function writeComputedStyles(out: string) {
   );
   const compact = (style: Style) => Object.values(style).join("; ");
   const md =
-    `# Computed style parity\n\n${result.reference}. Generated at 2×. Each source cell names the component declaration, under the exported frontend/src. Cloud specimens have the token root, Inter chrome and Geist content roots, and independently compiled tailwindShared/uiTokens/amicitedTokens stylesheets.\n\nThe fixture adapters replace routing, translation, disabled-reason and card-maximize services; tooltips render their children. These adapters do not supply classes, fonts or dimensions to the measured nodes. Flowbite uses the real cloud customTheme. Filter chips render HeaderFilterItem with the source filterTrigger function; the desktop scope is a noninteractive snapshot.\n\nValues: family; size; weight; line height; tracking; color; background; padding; height; radius.\n\n| Element / theme | Cloud source | Used face (CDP) | Desktop | Cloud | Differences |\n|---|---|---|---|---|---|\n` +
+    `# Computed style parity\n\n${result.reference}. Generated at 2×. Each source cell names the component declaration, under the exported frontend/src. Cloud specimens have the token root and actual dashboard Inter inheritance, without an invented Geist wrapper, and independently compiled tailwindShared/uiTokens/amicitedTokens stylesheets.\n\nThe fixture adapters replace routing, translation, disabled-reason and card-maximize services; tooltips render their children. These adapters do not supply classes, fonts or dimensions to the measured nodes. Flowbite uses the real cloud customTheme. Filter chips render HeaderFilterItem with the source filterTrigger function; the desktop scope is a noninteractive snapshot.\n\nValues: family; size; weight; line height; tracking; color; background; padding; height; radius; visible text family; size; weight; color.\n\n| Element / theme | Cloud source | Used face (CDP) | Desktop | Cloud | Differences |\n|---|---|---|---|---|---|\n` +
     result.rows
       .map(
         (row) =>
           `| ${row.name} / ${row.theme} | ${row.source} | ${row.usedFaces.join(", ")} | ${compact(row.actual)} | ${compact(row.cloud)} | ${row.differences.join(", ") || "Match"} |`,
       )
       .join("\n") +
-    `\n\nMissing: ${missing.join(", ") || "none"}.\n\nExceptions: local KPI strips are static summaries, while the cloud comparison uses trends tabs (no invented period deltas). Tab widths and heights can differ with the number of metrics and the real local captions. The legend fixture has one plain series; desktop series carry favicon tiles and the owner badge. The T3 input has a 30px inner element inside a 32px bordered field wrapper; cloud TextInput draws the border on its 32px input. Dashboard specimens include the actual ink/container classes from AmICitedDashboardPage.tsx:212. Primary and secondary controls retain T3 accessibility and focus behavior. Scope chips are text snapshots rather than live country/provider dropdowns. No unequal row is reported as a match.\n`;
+    `\n\nMissing: ${missing.join(", ") || "none"}.\n\nExceptions: local KPI strips are static summaries, while the cloud comparison uses trends tabs (no invented period deltas). Tab widths and heights can differ with the number of metrics and the real local captions. The legend fixture has one plain series; desktop series carry favicon tiles and the owner badge. Text measurement selects the label rather than the decorative ranking number. The T3 input has a 30px inner element inside a 32px bordered field wrapper; cloud TextInput draws the border on its 32px input. Dashboard specimens include the actual ink/container classes from AmICitedDashboardPage.tsx:212. Primary and secondary controls retain T3 accessibility and focus behavior. Scope chips are text snapshots rather than live country/provider dropdowns. Finding-row height includes the local Why / How disclosure, whose summary adds 5px compared with the cloud signal specimen; padding remains 10px 16px. Filter text uses ink-3 for the immutable scope label, while the cloud interactive control uses ink. Trends-tab height includes the local metric caption (Of supplied brands), adding an 18px line. No unequal row is reported as a match.\n`;
   await NodeFSP.writeFile("docs/amicited/parity/computed-styles.md", md);
 }

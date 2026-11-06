@@ -104,16 +104,25 @@ export function MarketingShell({
                           Active domain
                         </small>
                       </span>
-                      <MarketingIcon name="edit" />
+                      <svg
+                        aria-hidden="true"
+                        className="text-ai-ink-4 size-4 shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m8 9 4-4 4 4m-8 6 4 4 4-4" />
+                      </svg>
                     </a>
                   </MarketingTooltip>
                 </>
               }
               footer={
                 <div className="am-rail-footer">
-                  <div>
-                    <strong>Free</strong> <span>local tools</span>
-                  </div>
+                  <MarketingIcon name="assistant" />
                   {connectionStatus ?? (
                     <p>
                       AmICited · Not connected{" "}
@@ -260,14 +269,13 @@ export function MarketingShell({
                     >
                       <MarketingIcon name="sparkles" />
                       New task
-                      <kbd>⌘J</kbd>
+                      <kbd>⌘+J</kbd>
                     </MarketingButton>
                   )}
                 </div>
               </header>
               <div className="am-filter-band" ref={setScope} />
               <main
-                data-amicited-font=""
                 className={taskView ? "am-main am-task text-body" : "am-main text-body"}
                 onClick={(event) => {
                   if (event.defaultPrevented) return;

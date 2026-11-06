@@ -14,3 +14,6 @@ spec in Claude Docs is updated.
 | v1 tools         | AI visibility check, site audit basics, content tools, SERP & keywords.                                                                                                                                                                                                                              | §9 lists the full library.                                      |
 | Extension points | Registry in `docs/amicited/EXTENSION-POINTS.md`, not `patches/` (upstream uses `patches/` for pnpm dependency patches, which cannot patch workspace sources).                                                                                                                                        | §2: patches in `patches/`.                                      |
 | Release bar      | Council of Claude Opus and GPT Sol, judging the scripted marketer journey from screenshots plus code. Both must score at least 8/10.                                                                                                                                                                 | Not in spec.                                                    |
+
+Upstream changes use small, self-contained extension points listed in
+`docs/amicited/EXTENSION-POINTS.md`. No patch files are required (overrides §2).

@@ -20,17 +20,15 @@ const win = {
   },
 };
 it("compares only measured scope and never treats failures as a win", () => {
-  expect(whatYouAreMissing(win)?.checked).toContain(
-    "1 assistant (Claude), 1 prompt, from this machine, now",
-  );
-  expect(whatYouAreMissing(win)?.checked).toContain("1 prompt");
+  expect(whatYouAreMissing(win)?.checked).toBe("You completed a one-time Claude visibility check.");
+  expect(whatYouAreMissing(win)?.teaser).toBe("ChatGPT · Perplexity · Gemini · not checked");
   expect(
     whatYouAreMissing({
       ...win,
       input: { brand: "Acme" },
       output: { ...win.output, summary: { mentioned: 1, answered: 2 } },
     })?.checked,
-  ).toContain("Acme was named in 1 of 2 answers");
+  ).toContain("Acme was named in 1 of 2 Claude answers in this check.");
   expect(
     whatYouAreMissing({ ...win, tool: "seo.site.audit", output: { status: "checked", score: 41 } })
       ?.checked,

@@ -1,5 +1,5 @@
 import "./index.css";
-import { page } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 import { MarketingShell } from "@amicited/ui-marketing";
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
@@ -472,6 +472,7 @@ it("opens marketer search from the sidebar and shortcut and follows a result", a
     >
       <MarketingShell path="/home" navigate={navigate}>
         <p>Home</p>
+        <textarea aria-label="Home composer" />
       </MarketingShell>
     </MarketingSearchContext>,
   );
@@ -488,6 +489,14 @@ it("opens marketer search from the sidebar and shortcut and follows a result", a
   await screen.getByRole("link", { name: "Write a launch brief Task" }).click();
   expect(navigate).toHaveBeenCalledWith("/local/task");
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
-  await screen.getByRole("link", { name: "Recent visibility check Recent result" }).click();
-  expect(navigate).toHaveBeenCalledWith("/tools/ai.visibility.check");
+  await screen.getByRole("searchbox").element().focus();
+  await userEvent.keyboard("{ArrowDown}{Enter}");
+  expect(navigate).toHaveBeenLastCalledWith("/tools/seo.site.audit");
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+  await userEvent.keyboard("{Enter}");
+  expect(navigate).toHaveBeenLastCalledWith("/tools/ai.visibility.check");
+  const calls = navigate.mock.calls.length;
+  await screen.getByRole("textbox", { name: "Home composer" }).element().focus();
+  await userEvent.keyboard("{Meta>}j{/Meta}");
+  expect(navigate).toHaveBeenCalledTimes(calls);
 });

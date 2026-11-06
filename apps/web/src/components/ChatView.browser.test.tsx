@@ -37,6 +37,16 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
 }));
 
 it("a new draft does not load its reserved thread before the server lists it", async () => {
+  using _mode = (() => {
+    const previous = localStorage.getItem("amicited.workspace-mode");
+    localStorage.setItem("amicited.workspace-mode", "developer");
+    return {
+      [Symbol.dispose]() {
+        if (previous === null) localStorage.removeItem("amicited.workspace-mode");
+        else localStorage.setItem("amicited.workspace-mode", previous);
+      },
+    };
+  })();
   using _environment = installFakeEnvironment([]);
   using fetchSpy = vi.spyOn(globalThis, "fetch");
   __setClientSettingsForTests({

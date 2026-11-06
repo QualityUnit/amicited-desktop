@@ -120,3 +120,11 @@ result into the actual audit route. Tool-grid dark parity also runs at 1344.
 Native answer fixtures include every schema field; the harness checks the rendered
 excerpt and rejects missing-answer or schema-error states. Both harnesses keep
 using isolated state and their own processes and ports.
+
+Wave 16 captures the search with a keyboard-selected row and score/time on the
+recent result. The settings form also runs in dark mode, so the input comparison
+uses the real T3 field rather than the borderless search input. Reference specimens
+use dashboard inheritance, the complete domain control, matching badge severity,
+signal contents, viewport and content widths, with transitions disabled. CDP
+records used faces on both sides. Owner-facing captures omit fixture prefixes;
+the data remains controlled and no paid generation runs.

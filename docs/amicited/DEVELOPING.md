@@ -87,22 +87,22 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 15 (round 13 evidence), 2026-11-06, Node 26.12.1:
+Wave 16 (round 14 evidence), 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx packages/amicited-tools/src/library.test.ts
+vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx packages/amicited-tools/src/library.test.ts apps/web/src/components/chat/ChatHeader.browser.test.tsx apps/web/src/components/ChatView.browser.test.tsx
 pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter @amicited/tools --filter @amicited/cloud-client --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
 pnpm --dir scripts exec effect-tsgo tsrs --noEmit
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r13
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r13
-vp run check:changed 6718192b2
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r14
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r14
+vp run check:changed
 ```
 
-Focused tests: 46 passed in six files. Marketing UI, cloud UI, server, web and
+Focused tests: 49 passed in eight files (including the three upstream cases). Marketing UI, cloud UI, server, web and
 scripts typechecks pass; existing Effect schema-brand suggestions are informational.
 The journey requires the independent cloud specimens described in SCREENSHOTS.md.
-It captures the complete 2× parity set and 1440 journey with labelled fixtures.
+It captures the complete 2× parity set and 1440 journey with controlled fixtures and no debug prefixes.
 No paid provider or production MCP connection is invoked.
 
 Search navigation and the concrete visibility/audit offers are included in the
@@ -117,7 +117,17 @@ than font loading: localhost reaches CDP, DevTools must be excluded, and first-r
 shell markers are nested. The normal desktop dev launcher is never used, and the
 owner's desktop process is untouched.
 
-A plain check:changed also includes earlier integration-branch changes and exposes
-pre-existing formatting in workflow skills/specification and three upstream
-browser-test failures: the ChatView reserved-draft case and ChatHeader untouched
-rename cases for blur and Enter. The round is checked against its starting commit above; hooks still run.
+The earlier claim that the three browser failures were upstream baseline failures
+was incorrect. This branch changed fresh storage to marketer mode. The two
+ChatHeader untouched-rename cases (blur and Enter) expected “New thread”; the
+ChatView reserved-draft case expected the developer sidebar. Their fixtures now
+explicitly select developer mode and restore the previous storage value after
+unmount. Their original assertions are unchanged.
+
+The unscoped command selects the closest remote-main merge base, currently
+`upstream/main` (`d694c44d0784`), and passes all fast checks: 784 tests plus 27
+React Compiler checks, both Knip passes and 45 affected-package typechecks.
+An explicit `vp run check:changed origin/main` was also attempted after fetching.
+That fork ref (`1efb72d1b7cd`) predates the upstream import, selects 31,735 files,
+and fails before running checks with `spawn E2BIG`. It is not a passing result;
+no origin ref was rewritten to conceal the tooling limit.

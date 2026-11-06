@@ -45,6 +45,16 @@ function header(title: string) {
 it.each(["blur", "Enter"] as const)(
   "preserves a concurrent title update when an untouched rename ends with %s",
   async (finish) => {
+    using _mode = (() => {
+      const previous = localStorage.getItem("amicited.workspace-mode");
+      localStorage.setItem("amicited.workspace-mode", "developer");
+      return {
+        [Symbol.dispose]() {
+          if (previous === null) localStorage.removeItem("amicited.workspace-mode");
+          else localStorage.setItem("amicited.workspace-mode", previous);
+        },
+      };
+    })();
     persisted.title = "New thread";
     await using screen = await render(header(persisted.title));
     await screen.getByRole("button", { name: "Thread actions for New thread" }).dblClick();

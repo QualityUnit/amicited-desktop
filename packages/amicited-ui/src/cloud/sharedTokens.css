@@ -14,6 +14,9 @@
   --color-primary-contrast: #ffffff;
   --color-primary-700-contrast: #ffffff;
   --color-ui-accent: var(--ui-accent);
+  --color-ui-good: var(--ui-good);
+  --color-ui-warn: var(--ui-warn);
+  --color-ui-bad: var(--ui-bad);
   --color-ui-good-ink: var(--ui-good-ink);
   --color-ui-warn-ink: var(--ui-warn-ink);
   --color-ui-bad-ink: var(--ui-bad-ink);

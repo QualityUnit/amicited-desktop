@@ -26,8 +26,8 @@ AmICitedDomainSwitcher.tsx and SideNavGroup.tsx respectively. The desktop header
 uses the shared PageBreadcrumbs trail. Its New task leaf is plain text because
 the upstream task form already owns the page heading.
 
-The shell uses Inter, as BrandingProvider does in the cloud. Content opts into
-Geist with `data-amicited-font`; figures use Geist Mono. The token stylesheet is
+The shell and dashboard content use Inter, as BrandingProvider does in the cloud.
+Onboarding explicitly opts into Geist; figures use Geist Mono. The token stylesheet is
 copied verbatim and scoped by `data-amicited-tokens`. Inter and Fraunces bytes
 match the export; Geist files retain their bundled npm provenance. Tailwind scans
 the port directory explicitly. Shared gray-900 is scoped through a shell variable
@@ -63,3 +63,14 @@ the authenticated tool registry, latest session result and saved tasks; its
 sidebar entry and ⌘K open the same modal in first-run and subsequent shells.
 The comparison table also measures the banner, search row, domain control,
 finding badge, signal row and tool tab. Differences are recorded, not hidden.
+
+Reference transitions are disabled before theme measurements, and CDP records
+the used text faces on both sides. Matched labels are measured separately from
+component geometry.
+Sidebar and tool-group icons use the cloud’s Tabler paths. Numeric report values
+and answer positions use Geist Mono. The small tint Badge, 40px Inter tabs, domain selector, signal rows and compact
+48px disclosure summaries follow the exported cloud source. Search ports the
+ReportSearchBox header, groups, footer and blurred top-aligned backdrop, with
+arrow selection and Enter activation. Recent results show their score and time;
+the corresponding tool is omitted. The visibility offer describes the measured
+brand result and lists unchecked assistants, leaving methodology in the report.

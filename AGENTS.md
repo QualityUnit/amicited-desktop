@@ -15,8 +15,9 @@ say so in the PR instead of silently diverging.
 
 Upstream T3 Code `main` is merged weekly. Never delete or rewrite upstream
 packages. AmICited code lives only in new `@amicited/*` packages under
-`packages/` and `apps/`. Upstream files change only at documented extension
-points, each kept as a patch in `patches/`. See section 2 of the spec.
+`packages/` and `apps/`. Upstream files change only at small, self-contained
+extension points listed in `docs/amicited/EXTENSION-POINTS.md`. No patch files
+are required; this overrides section 2 of the specification.
 
 ## Workflow skills
 

@@ -190,6 +190,7 @@ function MarketingSearchData({ children }: { children: ReactNode }) {
       title: resultTitle(recent),
       href: "/tools/" + recent.tool,
       kind: "Recent result",
+      detail: `${typeof recent.output === "object" && recent.output && "score" in recent.output ? `${recent.output.score}/100 · ` : ""}${new Date(recent.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
     });
   items.push(
     ...threads.map((thread) => ({

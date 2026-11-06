@@ -28,6 +28,7 @@ export async function cloudSpecimens(out) {
  import {Button} from '${source}/components/ui/Button.tsx';
  import {DashboardTrendsTabs} from '${metrics}/DashboardTrendsTabs.tsx';
  import {DashboardTrendsLegend} from '${metrics}/DashboardTrendsLegend.tsx';
+ import {AgentBannerHeader} from '${source}/components/amicited/ui/AgentBannerHeader.tsx';
  import {StatusNotification} from '${source}/components/amicited/ui/StatusNotification.tsx';
  import {SIGNAL_ROW_CLASS} from '${source}/components/amicited/ui/signalRow.ts';
  import {TabStrip} from '${source}/components/ui/TabStrip.tsx';
@@ -35,20 +36,20 @@ export async function cloudSpecimens(out) {
  import {HeaderFilterItem} from '${source}/components/amicited/HeaderFilterItem.tsx';
  import {filterTrigger} from '${source}/components/ui/controlSurface.ts';
  const specimens=<ThemeProvider theme={customTheme}><div data-amicited-tokens="" style={{'--font-ai-sans':'Geist','--font-ai-mono':'"Geist Mono"','--font-ai-serif':'Fraunces',fontFamily:'Inter, sans-serif'}}>
- <div data-specimen="banner"><StatusNotification tone="critical" ariaLabel="Attention" label="ATTENTION" open={false} onToggle={()=>{}} expandLabel="Show" collapseLabel="Hide" header="Check completed">Evidence</StatusNotification></div>
+ <div data-specimen="banner"><StatusNotification tone="critical" ariaLabel="Attention" label="ATTENTION" open={false} onToggle={()=>{}} expandLabel="Show" collapseLabel="Hide" header={<AgentBannerHeader title="Check completed"/>}>Evidence</StatusNotification></div>
  <div data-specimen="search"><SideNavRow title="Search" iconNode={<svg/>}/></div>
- <div data-specimen="domain"><button className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border">example.com</button></div>
- <div data-specimen="badge"><Badge tone="warn" size="sm">Improve</Badge></div>
- <div data-specimen="finding" className="@container/signals"><div className={SIGNAL_ROW_CLASS}><span>Improve</span><span>Check your site</span><span>Fix</span></div></div>
+ <div data-specimen="domain"><button className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border"><span className="bg-ai-bg grid size-6 shrink-0 place-items-center overflow-hidden rounded-[7px]"><svg className="text-ai-ink-3 size-3.5"/></span><span className="flex min-w-0 flex-1 flex-col overflow-hidden"><span className="block truncate text-[13px] leading-tight font-semibold">example.com</span><span className="text-ai-ink-3 hidden truncate text-[11px] font-normal lg:block">Active domain</span></span><svg className="text-ai-ink-4 size-4 shrink-0"/></button></div>
+ <div data-specimen="badge"><Badge tone="bad" size="sm">1 · To fix</Badge></div>
+ <div data-specimen="finding" className="@container/signals text-body text-ai-ink"><div className={SIGNAL_ROW_CLASS}><Badge tone="bad" size="sm">1 · To fix</Badge><div><strong>Check your site</strong><details><summary className="text-xs font-normal py-0.5 text-ai-ink-3">Why / How</summary></details></div><button>Fix with AI →</button></div></div>
  <div data-specimen="strip"><TabStrip placement="content" tabs={[{key:'seo',title:'Site audit basics',pathname:'/tools'}]} activeKey="seo" ariaLabel="Tools" onTabChange={()=>{}} /></div>
  <div data-specimen="nav"><SideNavRow title="Tasks" iconNode={<svg/>}/></div>
  <div data-specimen="active"><SideNavRow title="Home" active iconNode={<svg/>}/></div>
  <div data-specimen="secondary"><Button>Edit inputs</Button></div>
  <div data-specimen="filter"><HeaderFilterItem active={false} onClear={()=>{}}><button className={filterTrigger('md',false)}>Website example.com</button></HeaderFilterItem></div>
- <div data-amicited-font="" className="text-body">
+ <div className="text-body">
  <div data-specimen="head"><Card><SectionHead dense titleAs="h2" title="Recent results" sub="A useful check"/></Card></div>
  <div data-specimen="body"><Text role="body" tone="ink-2">A useful check</Text></div>
- <div data-specimen="input"><TextInput placeholder="Website URL"/></div>
+ <div data-specimen="input"><TextInput defaultValue="https://example.com" placeholder="Website URL"/></div>
  <div data-specimen="primary"><Button variant="primary">Send task</Button></div>
  
  <div data-specimen="link"><Button variant="link">Fix with AI →</Button></div>
@@ -154,7 +155,9 @@ export async function cloudSpecimens(out) {
   const candidates = new Set(
     (html + " " + sourceFiles.join(" ")).split(/[\s"'`<>]+/).filter(Boolean),
   );
-  const css = compiled.build([...candidates]);
+  const css =
+    compiled.build([...candidates]) +
+    "\n*,*::before,*::after{transition:none!important;animation:none!important}";
   await NodeFSP.writeFile(
     NodePath.join(out, "cloud-specimens.html"),
     `<!doctype html><style>${css}</style>${html}`,

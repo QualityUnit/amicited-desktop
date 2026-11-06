@@ -132,6 +132,7 @@ try {
               "02b-provider-sign-in",
               "02c-provider-ready",
               "09-amicited-connect",
+              "11-settings-general",
               "03-first-win",
               "04-home",
               "04b-subscriptions",
@@ -183,6 +184,9 @@ try {
         await page
           .getByRole("button", { name: "Connect with AmICited", exact: true })
           .waitFor({ state: "visible" });
+      await page.addStyleTag({
+        content: "*,*::before,*::after{transition:none!important;animation:none!important}",
+      });
       await page.evaluate(() => document.fonts.ready);
       await NodeFSP.writeFile(
         NodePath.join(out, "browser-fonts.json"),
@@ -257,6 +261,7 @@ try {
   await capture("04-home");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.getByRole("dialog").waitFor();
+  await page.getByRole("searchbox").press("ArrowDown");
   await capture("04e-search-open");
   await page
     .getByRole("dialog")
@@ -367,7 +372,7 @@ try {
         output: {
           status: "checked",
           message:
-            "Fixture: one assistant, no live search. Position is first appearance among supplied brands.",
+            "one assistant, no live search. Position is first appearance among supplied brands.",
           provider: "Claude",
           model: "fixture",
           scope: {
@@ -406,7 +411,13 @@ try {
       }),
     ),
   );
-  await page.evaluate(() => sessionStorage.removeItem("amicited.cloud.upsell"));
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("amicited.capture-offer") === "reset") {
+      sessionStorage.removeItem("amicited.cloud.upsell");
+      sessionStorage.removeItem("amicited.capture-offer");
+    }
+  });
+  await page.evaluate(() => sessionStorage.setItem("amicited.capture-offer", "reset"));
   await page.reload();
   await page.getByText("Mentioned in 1 of 2 answers", { exact: true }).scrollIntoViewIfNeeded();
   await page
@@ -454,9 +465,9 @@ try {
       "content.write",
       {
         status: "ready",
-        message: "Fixture: review this draft before publishing.",
+        message: "review this draft before publishing.",
         draft:
-          "Fixture: Grow fresh herbs at home.\n\nStart with a sunny windowsill and a small pot. Water each morning and harvest leaves for dinner.",
+          "Grow fresh herbs at home.\n\nStart with a sunny windowsill and a small pot. Water each morning and harvest leaves for dinner.",
         provider: "Replay",
         model: "fixture",
       },
@@ -481,8 +492,8 @@ try {
             tool,
             input:
               tool === "content.write"
-                ? { topic: "Fixture: grow fresh herbs at home" }
-                : { query: "Fixture: garden tools" },
+                ? { topic: "grow fresh herbs at home" }
+                : { query: "garden tools" },
             status: "success",
             startedAt: "2026-11-06",
             durationMs: 1,

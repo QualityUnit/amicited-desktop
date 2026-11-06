@@ -76,10 +76,10 @@ export const AmICitedFreeToolCard: FC<AmICitedFreeToolCardProps> = ({
       )}
 
       <div
-        className="mt-auto flex items-center justify-between gap-2 border-t border-dashed pt-3"
+        className="mt-auto flex items-center justify-between gap-2 border-t pt-3"
         style={{ borderColor: "var(--ai-line-2)" }}
       >
-        <span className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--ai-ink)] group-hover:text-[var(--ai-accent)]">
+        <span className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--ai-accent)] group-hover:text-[var(--ai-accent)]">
           Open
           <TbArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </span>

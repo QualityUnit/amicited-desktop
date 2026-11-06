@@ -53,6 +53,11 @@ export function AmicitedUpsellCard({
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-stack">
       <h3>Keep building on this result</h3>
       <p>{comparison.checked}</p>
+      {comparison.teaser && (
+        <p className="text-ai-ink-4 rounded-lg border border-ai-line px-3 py-2 text-[13px]">
+          {comparison.teaser}
+        </p>
+      )}
       <p className="text-ai-ink-3 text-[13px]">{comparison.missing}</p>
       <p>{comparison.pricing}</p>
       <div className="am-cloud-actions">

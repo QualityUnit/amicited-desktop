@@ -189,7 +189,7 @@ try {
             runAt: "2026-11-06T12:00:00Z",
           },
           message:
-            "Fixture: one assistant, no live search. Position is first appearance among supplied brands.",
+            "one assistant, no live search. Position is first appearance among supplied brands.",
           summary: {
             mentioned: 1,
             answered: 2,
@@ -237,6 +237,11 @@ try {
   NodeFS.writeFileSync(NodePath.join(out, "electron-fonts.json"), JSON.stringify(report, null, 2));
   NodeFS.rmSync(NodePath.join(out, "electron-error.json"), { force: true });
 } catch (error) {
+  const failurePage = browser
+    ?.contexts()[0]
+    ?.pages()
+    .find((p) => p.url().startsWith("t3code-dev:"));
+  await failurePage?.screenshot({ path: NodePath.join(out, "electron-failure.png") });
   NodeFS.writeFileSync(
     NodePath.join(out, "electron-error.json"),
     JSON.stringify({ error: String(error), home }, null, 2),

@@ -12,24 +12,21 @@ export function whatYouAreMissing(result: WinResult) {
   if (!isUsefulResult(result)) return undefined;
   let checked: string;
   let missing: string;
+  let teaser: string | undefined;
   if (result.tool === "ai.visibility.check") {
     const scope = record(record(result.output).scope);
     const assistants = Array.isArray(scope.assistants)
       ? scope.assistants.filter((v): v is string => typeof v === "string")
       : [];
-    const prompts = Array.isArray(scope.prompts)
-      ? scope.prompts.length
-      : typeof scope.prompts === "number"
-        ? scope.prompts
-        : undefined;
-    const runAt = typeof scope.runAt === "string" ? scope.runAt : undefined;
-    checked = assistants.length
-      ? `You checked ${assistants.length} assistant${assistants.length === 1 ? "" : "s"} (${assistants.join(", ")}), ${prompts === undefined ? "prompt count not reported" : `${prompts} prompt${prompts === 1 ? "" : "s"}`}, from this machine, now${runAt ? ` (${runAt})` : ""}. This was a one-time check; country was not verified.`
-      : "You completed a one-time visibility check. Its coverage is shown in your result.";
     const summary = record(record(result.output).summary);
-    if (typeof summary.mentioned === "number" && typeof summary.answered === "number") {
-      checked += ` ${String(record(result.input).brand ?? "Your brand")} was named in ${summary.mentioned} of ${summary.answered} answers.`;
-    }
+    checked =
+      typeof summary.mentioned === "number" && typeof summary.answered === "number"
+        ? `${String(record(result.input).brand ?? "Your brand")} was named in ${summary.mentioned} of ${summary.answered} ${assistants.join(" and ") || "AI"} answers in this check.`
+        : `You completed a one-time ${assistants.join(" and ") || "AI"} visibility check.`;
+    teaser = ["ChatGPT", "Perplexity", "Gemini"]
+      .filter((name) => !assistants.includes(name))
+      .join(" · ");
+    if (teaser) teaser += " · not checked";
     missing =
       "With AmICited: ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Copilot and Claude, tracked daily, in the countries you choose, with competitors, citation sources and history.";
   } else if (/audit/.test(result.tool)) {
@@ -44,7 +41,12 @@ export function whatYouAreMissing(result: WinResult) {
     missing =
       "With AmICited: AI articles and citation-gap briefs to plan content around sources AI assistants cite.";
   } else return undefined;
-  return { checked, missing, pricing: "7-day trial, then EUR 120/month Pro, cancel anytime" };
+  return {
+    checked,
+    missing,
+    teaser,
+    pricing: "7-day trial, then EUR 120/month Pro, cancel anytime",
+  };
 }
 export interface UpsellPreferences {
   snoozedUntil?: number;

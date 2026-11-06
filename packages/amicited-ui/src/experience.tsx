@@ -1,3 +1,4 @@
+import { Badge } from "./cloud/Badge.js";
 import { MarketingTooltip, MarketingMenu } from "./primitives.js";
 import * as Schema from "effect/Schema";
 import { answerSchema } from "@amicited/tools/visibility-schema";
@@ -571,7 +572,7 @@ function VisibilityResult({
             return (
               <article data-answer-row="" className={SIGNAL_ROW_CLASS} key={a.prompt}>
                 <span
-                  className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
+                  className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full px-2 h-[18px] text-[11px] leading-[14px] font-medium font-[Inter] am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
                 >
                   {a.mentioned === true
                     ? "Mentioned"
@@ -661,10 +662,8 @@ export function MarketingResult({
   const ranked = rankedFindings(result);
   const findingRows = ranked.map((f, i) => (
     // oxlint-disable-next-line react/no-array-index-key -- Findings are immutable snapshots and can share a title within one group.
-    <article className="am-finding-row" key={`${f.group}:${f.title}:${i}`}>
-      <span
-        className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium am-status am-status-${f.status}`}
-      >
+    <article className={`am-finding-row ${SIGNAL_ROW_CLASS}`} key={`${f.group}:${f.title}:${i}`}>
+      <Badge status={f.status}>
         {i < 3 ? `${i + 1} · ` : ""}
         {
           {
@@ -674,7 +673,7 @@ export function MarketingResult({
             unknown: "Unavailable",
           }[f.status]
         }
-      </span>
+      </Badge>
       <div>
         <strong>{f.title}</strong> {f.evidence && <span>{f.evidence}</span>}
         <details>
@@ -794,7 +793,7 @@ export function MarketingResult({
               }
             />
           )}
-          <KpiStrip className="mb-5">
+          <KpiStrip className="mb-4">
             {typeof output.score === "number" && (
               <KpiTile
                 label="Audit score"
@@ -843,14 +842,16 @@ export function MarketingResult({
 
           {findings.length > 0 && (
             <>
-              <Card className="am-card am-findings-list">
-                <SectionHead
-                  title={resultTone(result) === "good" ? "Checks passing" : "Start here"}
-                  subtitle={`${Math.min(3, findings.length)} of ${findings.length} findings, most important first`}
-                />
+              <Card className={`am-card am-findings-list p-0 ${SIGNAL_LIST_CLASS}`}>
+                <div className="px-5 pt-5">
+                  <SectionHead
+                    title={resultTone(result) === "good" ? "Checks passing" : "Start here"}
+                    subtitle={`${Math.min(3, findings.length)} of ${findings.length} findings, most important first`}
+                  />
+                </div>
                 {findingRows.slice(0, 3)}
               </Card>
-              <Card className="am-card am-disclosures">
+              <Card className="am-card am-disclosures p-0">
                 {findingRows.length > 3 && (
                   <details className="am-disclosure">
                     <summary>More findings · {findingRows.length - 3}</summary>
