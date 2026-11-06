@@ -1,40 +1,31 @@
+import { MarketingShell } from "./shell.js";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
-import { MarketingButton, MarketingInput, KpiTile, SectionHead } from "./primitives.js";
+import {
+  MarketingButton,
+  MarketingInput,
+  KpiTile,
+  SectionHead,
+  MarketingIcon,
+  MarketingToolbar,
+} from "./primitives.js";
 import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
 import type { ToolResult } from "@amicited/tools-core";
-export type Brand = { website: string; name: string };
-export function readBrand(): Brand | null {
-  try {
-    return JSON.parse(localStorage.getItem("amicited.brand") ?? "null") as Brand | null;
-  } catch {
-    return null;
-  }
-}
-export function saveBrand(brand: Brand) {
-  localStorage.setItem("amicited.brand", JSON.stringify(brand));
-}
-export function normalizeWebsite(value: string): Brand {
-  const url = new URL(value.includes("://") ? value : `https://${value}`);
-  if (!["https:", "http:"].includes(url.protocol) || !url.hostname.includes("."))
-    throw new Error("Enter a website like example.com.");
-  const name = url.hostname
-    .replace(/^www\./, "")
-    .split(".")[0]!
-    .replace(/-/g, " ");
-  return { website: url.origin, name: name.charAt(0).toUpperCase() + name.slice(1) };
-}
-export function AmICitedMark() {
-  return (
-    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <svg aria-hidden="true" width="30" height="30" viewBox="0 0 32 32">
-        <rect width="32" height="32" rx="9" fill="var(--ai-accent)" />
-        <path d="M8 24 16 7l8 17h-5l-3-7-3 7Z" fill="white" />
-        <circle cx="24" cy="8" r="3" fill="white" />
-      </svg>
-      <strong>AmICited</strong>
-    </span>
-  );
-}
+import {
+  AmICitedMark,
+  readBrand,
+  saveBrand,
+  normalizeWebsite,
+  BrandFavicon,
+  type Brand,
+} from "./brand.js";
+export {
+  AmICitedMark,
+  readBrand,
+  saveBrand,
+  normalizeWebsite,
+  BrandFavicon,
+  type Brand,
+} from "./brand.js";
 export function FirstRun({
   ready = true,
   subscriptions,
@@ -58,11 +49,13 @@ export function FirstRun({
   const [result, setResult] = useState<ToolResult | null>(null);
   if (result)
     return (
-      <div data-amicited-shell="" className="am-page am-onboarding">
-        <AmICitedMark />
+      <MarketingShell
+        path="/tools/seo.site.audit"
+        navigate={marketingNavigate}
+        headerActions={<MarketingButton onClick={skip}>Go to Home →</MarketingButton>}
+      >
         <div className="am-result-heading">
-          <h1>Your first useful result</h1>
-          <MarketingButton onClick={skip}>Go to Home →</MarketingButton>
+          <h2>Your first useful result</h2>
         </div>
         <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />
         <section className="am-card" id="ai-subscriptions">
@@ -71,7 +64,7 @@ export function FirstRun({
           {subscriptions}
         </section>
         <MarketingButton onClick={skip}>Go to Home →</MarketingButton>
-      </div>
+      </MarketingShell>
     );
   return (
     <div data-amicited-shell="" className="am-page am-onboarding">
@@ -119,7 +112,7 @@ export function FirstRun({
             />
           </label>
           <label>
-            Brand name <small>(optional)</small>
+            Brand name <span className="am-hint">(optional)</span>
             <MarketingInput
               placeholder="We’ll use your domain"
               value={name}
@@ -311,95 +304,149 @@ function VisibilityResult({
   fix?: ((prompt: string) => Promise<void>) | undefined;
 }) {
   const summary = record(output.summary);
+  const competitors = Array.isArray(summary.competitors) ? summary.competitors.map(record) : [];
+  const total = competitors.reduce(
+    (n, c) => n + (typeof c.answers === "number" ? c.answers : 0),
+    typeof summary.mentioned === "number" ? summary.mentioned : 0,
+  );
+  const share =
+    typeof summary.mentioned === "number" && total > 0
+      ? (summary.mentioned / total) * 100
+      : summary.shareOfVoice;
   const [error, setError] = useState("");
   return (
     <div>
-      <SectionHead
-        title={`Mentioned in ${formatResultValue(summary.mentioned)} of ${formatResultValue(summary.answered)} answers`}
-      />
-      <div className="am-kpis">
-        <KpiTile
-          label="Brand mentions"
-          value={summary.mentioned == null ? null : String(summary.mentioned)}
-          hint="Across answered prompts"
-        />
-        <KpiTile
-          label="Share of voice"
-          value={summary.shareOfVoice == null ? null : `${summary.shareOfVoice}%`}
-          hint="Among supplied brands"
-        />
-        <KpiTile
-          label="Answers checked"
-          value={summary.answered == null ? null : String(summary.answered)}
-          hint="One assistant · this run"
+      <div className="am-scope-filters">
+        {typeof output.provider === "string" && (
+          <span>
+            <MarketingIcon name="ai-visibility" />
+            <span>Assistant</span>
+            {output.provider}
+          </span>
+        )}
+      </div>
+      <div className="am-analysis">
+        <MarketingIcon name="ai-visibility" />
+        <span className="am-status am-status-neutral">This check</span>
+        <SectionHead
+          title={`Mentioned in ${formatResultValue(summary.mentioned)} of ${formatResultValue(summary.answered)} answers`}
         />
       </div>
-      <p>{String(output.message ?? "")}</p>
-      <section className="am-card">
-        <SectionHead
-          title="Brand comparison"
-          subtitle="Share of mentions among supplied brands in this check"
-        />
-        {(() => {
-          const competitors = Array.isArray(summary.competitors)
-            ? summary.competitors.map(record)
-            : [];
-          const own = typeof summary.mentioned === "number" ? summary.mentioned : null;
-          const total = competitors.reduce(
-            (n, c) => n + (typeof c.answers === "number" ? c.answers : 0),
-            own ?? 0,
-          );
-          return [
-            { brand: output.brand ?? readBrand()?.name ?? "Your brand", answers: own },
-            ...competitors,
-          ].map((c, i) => (
-            <div className="am-brand-row" key={String(c.brand)}>
-              <span
-                className="am-series-dot"
-                style={{
-                  background:
-                    i === 0
-                      ? "var(--ai-accent)"
-                      : [
-                          "#22c1c3",
-                          "#f7a93d",
-                          "#e85d75",
-                          "#9b6dff",
-                          "#10b981",
-                          "#f472b6",
-                          "#0ea5e9",
-                        ][(i - 1) % 7],
-                }}
-              />
-              <b>{String(c.brand)}</b>
-              {i === 0 && <span className="am-you">you</span>}
-              <span className="am-number">
-                {typeof c.answers === "number" && total > 0
-                  ? `${((c.answers / total) * 100).toFixed(1)}%`
-                  : "—"}
-              </span>
-            </div>
-          ));
-        })()}
-      </section>
+      <div className="am-visibility-report">
+        <div className="am-run-overview">
+          <div className="am-kpis">
+            <KpiTile
+              label="Brand mentions"
+              value={summary.mentioned == null ? null : String(summary.mentioned)}
+              hint="Across answered prompts"
+            />
+            <KpiTile
+              label="Share of voice"
+              value={share == null ? null : `${Number(share).toFixed(1)}%`}
+              hint="Among supplied brands"
+            />
+            <KpiTile
+              label="Answers checked"
+              value={summary.answered == null ? null : String(summary.answered)}
+              hint="One assistant · this run"
+            />
+          </div>
+          <div className="am-current-bars">
+            <SectionHead title="Mentions in this check" />
+            {[
+              { brand: output.brand ?? "Your brand", answers: summary.mentioned },
+              ...competitors,
+            ].map((c) => (
+              <div className="am-current-bar" key={String(c.brand)}>
+                <span>{String(c.brand)}</span>
+                <div>
+                  <span
+                    style={{
+                      width:
+                        typeof c.answers === "number" &&
+                        typeof summary.answered === "number" &&
+                        summary.answered > 0
+                          ? `${Math.min(100, (c.answers / summary.answered) * 100)}%`
+                          : "0%",
+                    }}
+                  />
+                </div>
+                <span className="am-number">{formatResultValue(c.answers)}</span>
+              </div>
+            ))}
+          </div>
+          <p className="am-run-scope">{String(output.message ?? "")}</p>
+        </div>
+        <section className="am-brand-legend">
+          <SectionHead title="Brand comparison" actions={<span className="am-hint">Share</span>} />
+          {(() => {
+            const own = typeof summary.mentioned === "number" ? summary.mentioned : null;
+            const total = competitors.reduce(
+              (n, c) => n + (typeof c.answers === "number" ? c.answers : 0),
+              own ?? 0,
+            );
+            return [
+              { brand: output.brand ?? readBrand()?.name ?? "Your brand", answers: own, you: true },
+              ...competitors,
+            ]
+              .map((c, i) => ({
+                brand: c.brand,
+                answers: c.answers,
+                you: i === 0,
+                color:
+                  i === 0
+                    ? "var(--ai-accent)"
+                    : ["#22c1c3", "#f7a93d", "#e85d75", "#9b6dff"][(i - 1) % 4],
+              }))
+              .sort((a, b) => Number(b.answers ?? 0) - Number(a.answers ?? 0))
+              .map((c) => (
+                <div className="am-brand-row" key={String(c.brand)}>
+                  <span
+                    className="am-series-dot"
+                    style={{
+                      background: c.color,
+                    }}
+                  />
+                  <BrandFavicon
+                    name={String(c.brand)}
+                    website={
+                      c.you && String(c.brand) === readBrand()?.name
+                        ? readBrand()?.website
+                        : undefined
+                    }
+                  />
+                  <span className="am-brand-name">{String(c.brand)}</span>
+                  {c.you && <span className="am-you">you</span>}
+                  <span className="am-number">
+                    {typeof c.answers === "number" && total > 0
+                      ? `${((c.answers / total) * 100).toFixed(1)}%`
+                      : "—"}
+                  </span>
+                </div>
+              ));
+          })()}
+        </section>
+      </div>
       {Array.isArray(output.answers) &&
         output.answers.map((v) => {
           const a = record(v);
           return (
-            <article className="am-card" key={String(a.prompt)}>
-              <h3>{String(a.prompt)}</h3>
-              <span
-                className={`am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
-              >
-                {a.mentioned === true
-                  ? "Mentioned"
-                  : a.mentioned === false
-                    ? "Not mentioned"
-                    : "Could not check"}
-              </span>
-              <p>
-                Position: <span className="am-number">{formatResultValue(a.position)}</span>
-              </p>
+            <article className="am-finding am-answer-row" key={String(a.prompt)}>
+              <div className="am-answer-head">
+                <h3>{String(a.prompt)}</h3>
+                <span
+                  className={`am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
+                >
+                  {a.mentioned === true
+                    ? "Mentioned"
+                    : a.mentioned === false
+                      ? "Not mentioned"
+                      : "Could not check"}
+                </span>
+                <p>
+                  Position: <span className="am-number">{formatResultValue(a.position)}</span>
+                </p>
+              </div>
               <p>{String(a.excerpt ?? "No answer available").slice(0, 700)}</p>
               <p>
                 Cited domains:{" "}
@@ -455,19 +502,35 @@ export function MarketingResult({
   const needsProvider = output.status === "needs_provider";
   return (
     <section className="am-card" aria-label="Tool result">
-      <p className="am-eyebrow">
+      <p className="am-result-kind">
         {result.tool === "ai.visibility.check"
           ? "AI VISIBILITY"
           : result.tool.startsWith("seo.")
             ? "WEBSITE CHECK"
             : "TOOL RESULTS"}
       </p>
-      <h2>
-        {result.status === "error" ||
-        ["could_not_check", "could_not_generate"].includes(String(output.status))
-          ? "Could not complete this check"
-          : "Your results"}
-      </h2>
+      {result.tool !== "ai.visibility.check" && (
+        <h2>
+          {result.status === "error" ||
+          ["could_not_check", "could_not_generate"].includes(String(output.status))
+            ? "Could not complete this check"
+            : "Your results"}
+        </h2>
+      )}
+      <div className="am-scope-filters">
+        {Object.entries(record(result.input))
+          .filter(
+            ([key, value]) =>
+              ["url", "website", "brand", "market", "category"].includes(key) &&
+              typeof value === "string",
+          )
+          .map(([key, value]) => (
+            <span key={key}>
+              <MarketingIcon name="website" />
+              <span>{key === "url" ? "Website" : humanLabel(key)}</span> {String(value)}
+            </span>
+          ))}
+      </div>
       {needsProvider ? (
         <div className="am-finding">
           <h3>Connect Claude or ChatGPT</h3>
@@ -533,16 +596,25 @@ export function MarketingResult({
                   : "Hard to read. Simplify words and sentences."}
             </p>
           )}
-          {typeof output.coverage === "string" && <p>{output.coverage}</p>}
+
           {findings.length > 0 && (
-            <p className="am-number">
-              {findings.filter((f) => f.status === "fail").length} to fix ·{" "}
-              {findings.filter((f) => f.status === "warn").length} worth improving ·{" "}
-              {findings.filter((f) => f.status === "pass").length} passing
-            </p>
+            <div className="am-analysis">
+              <MarketingIcon name="ai-visibility" />
+              <span
+                className={`am-status am-status-${findings.some((f) => f.status === "fail") ? "fail" : "warn"}`}
+              >
+                {findings.some((f) => f.status === "fail") ? "Needs attention" : "Review"}
+              </span>
+              <span>{String(output.coverage ?? "Basic website checks completed.")}</span>
+              <span className="am-analysis-count">
+                {findings.filter((f) => f.status === "fail").length} to fix ·{" "}
+                {findings.filter((f) => f.status === "warn").length} worth improving ·{" "}
+                {findings.filter((f) => f.status === "pass").length} passing
+              </span>
+            </div>
           )}
           {Array.isArray(output.topFixes) && output.topFixes.length > 0 && (
-            <section className="am-card">
+            <section className="am-finding">
               <SectionHead title="Start here" />
               <ol>
                 {output.topFixes.map((v) => (
@@ -551,6 +623,7 @@ export function MarketingResult({
               </ol>
             </section>
           )}
+          {findings.length > 0 && <ResultFooterSlot result={result} />}
           {Array.isArray(output.groups) && (
             <details>
               <summary>Measured evidence</summary>
@@ -591,7 +664,14 @@ export function MarketingResult({
                       </p>
                     )}
                     <span className={`am-status am-status-${f.status}`}>
-                      {f.status === "unknown" ? "Unavailable" : humanLabel(f.status)}
+                      {
+                        {
+                          unknown: "Unavailable",
+                          pass: "Passing",
+                          warn: "Improve",
+                          fail: "Needs attention",
+                        }[f.status]
+                      }
                     </span>
                     <p>
                       <b>Why it matters:</b> {f.why}
@@ -656,7 +736,7 @@ export function MarketingResult({
               Open this search →
             </a>
           )}
-          <div className="am-actions">
+          <MarketingToolbar>
             <MarketingButton
               onClick={() =>
                 void navigator.clipboard
@@ -664,6 +744,7 @@ export function MarketingResult({
                   .catch(() => setError("Could not copy. Try exporting instead."))
               }
             >
+              <MarketingIcon name="copy" />
               Copy results
             </MarketingButton>
             <MarketingButton
@@ -678,13 +759,14 @@ export function MarketingResult({
                 URL.revokeObjectURL(url);
               }}
             >
+              <MarketingIcon name="download" />
               Export Markdown
             </MarketingButton>
-          </div>
+          </MarketingToolbar>
         </>
       )}
       {error && <p role="alert">{error}</p>}
-      <ResultFooterSlot result={result} />
+      {!findings.length && <ResultFooterSlot result={result} />}
     </section>
   );
 }

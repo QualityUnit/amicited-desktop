@@ -110,12 +110,14 @@ try {
   await page.getByRole("heading", { name: "What’s your website?" }).waitFor();
   const capture = async (name: string) => {
     for (const [theme, width, height] of [
+      ["light", 1344, 1016],
       ["light", 1440, 900],
       ["dark", 1440, 900],
       ["light", 1280, 800],
       ["dark", 1280, 800],
     ] as const) {
       if (
+        width !== 1344 &&
         process.env.AMICITED_JOURNEY_QUICK === "1" &&
         (width !== 1440 ||
           (theme !== "light" &&
@@ -131,6 +133,17 @@ try {
               "06-ai-visibility",
               "06b-visibility-result-fixture",
             ].includes(name)))
+      )
+        continue;
+      if (
+        width === 1344 &&
+        ![
+          "03-first-win",
+          "04-home",
+          "05-tools-grid",
+          "06-ai-visibility",
+          "08c-tasks-list",
+        ].includes(name)
       )
         continue;
       await page.setViewportSize({ width, height });
@@ -379,6 +392,9 @@ try {
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
   if (await page.getByRole("link", { name: "Track this daily with AmICited →" }).count())
     throw new Error("Home promoted a permanently hidden trial");
+  await page.goto(url + "/tools");
+  if (await page.getByRole("heading", { name: "Works better with AmICited" }).count())
+    throw new Error("Tools promoted a permanently hidden trial");
   await page.goto(url + "/settings/general");
   await page.getByRole("heading", { name: "Your website / brand" }).waitFor();
   await capture("11-settings-general");

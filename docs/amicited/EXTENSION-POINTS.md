@@ -221,3 +221,9 @@ connection primitives inherit the scoped tokens. No upstream UI-kit file changes
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: marketer-only connection progress and readiness copy, suppressing developer setup details.
 
 - `apps/web/src/components/settings/SettingsPanels.tsx`: accepts the marketer/developer switch inside the existing General settings content column.
+
+Wave 8 updates the existing marketer adapters in `apps/web/src/marketing.tsx`,
+`routes/_chat.tasks.tsx` and `rpc/amicitedCloud.tsx` for the scoped cloud-style shell,
+compact task rows and first-win promotion gating. Browser regression coverage stays
+in `apps/web/src/amicited-cloud.browser.test.tsx`; the journey harness adds matching
+1344×1016 reference captures. Upstream developer components remain intact.

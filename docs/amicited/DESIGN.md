@@ -1,7 +1,7 @@
 # Marketer design
 
 Marketer mode follows the AmICited dialect in the read-only reference
-`flowhunt2/DESIGN.md` and dashboard `metrics/theme.ts`. Its Signal Blue accent,
+live cloud dashboard screenshots and flowhunt2 dashboard source. Live `metrics/ui.tsx` and shell code win over `flowhunt2/DESIGN.md` wherever they disagree. Its Signal Blue accent,
 neutral ground, hairlines and seam shadows apply only below
 `[data-amicited-shell]`. Developer mode retains the upstream theme.
 
@@ -17,8 +17,8 @@ neutral ground, hairlines and seam shadows apply only below
 | `--font-ai-sans` / `--font-ai-mono`    | `--font-sans` / `--font-mono`                               |
 
 The dark ancestor changes neutral and status ink ramps without changing the
-brand accent. Geist, Geist Mono and Fraunces are bundled with OFL notices and
-provenance in the marketing package. Page headings use Fraunces once; section
+brand accent. Inter, Geist, Geist Mono and Fraunces are bundled with OFL notices and
+provenance in the marketing package. Inter at 14px styles chrome; Fraunces is reserved for first launch. Section
 heads use Geist and comparable figures use Geist Mono. Unknown values use an
 em dash. Unavailable checks use amber with warning ink.
 
@@ -27,3 +27,6 @@ task controls use the same theme. `KpiTile` and `SectionHead` compose semantic
 containers (upstream has no Card primitive). Nav rows use an accent wash;
 visibility brand rows reserve the accent for “you” and start competitors at the
 second series color. Results show only measured figures, without invented trends.
+
+Cards and banners use 4px corners and 20px padding. Inputs use 8px corners,
+navigation rows 9px, and mono status tags 2px. Content has fluid 24px gutters.

@@ -90,6 +90,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
     <MarketingUiContext value={marketingUi}>
       <ResultFooterContext value={renderCloudFooter}>
         <MarketingShell
+          connectionStatus={<CloudStatusLine />}
           mode={mode}
           taskView={taskTarget !== null}
           path={path}

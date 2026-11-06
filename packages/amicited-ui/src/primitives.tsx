@@ -1,3 +1,21 @@
+import { createPortal } from "react-dom";
+import {
+  LayoutDashboard,
+  ListChecks,
+  Wrench,
+  Settings,
+  PlugZap,
+  Globe,
+  ChevronsUpDown,
+  ArrowRight,
+  Plus,
+  Bot,
+  FileText,
+  Search,
+  Copy,
+  Download,
+  Send,
+} from "lucide-react";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import {
   createContext,
@@ -43,8 +61,10 @@ export function KpiTile({
   return (
     <div className="am-kpi">
       <div className="am-label">{label}</div>
-      <div className="am-figure">{value ?? "—"}</div>
-      {hint && <div className="am-hint">{hint}</div>}
+      <div className="am-kpi-value">
+        <span className="am-figure">{value ?? "—"}</span>
+        {hint && <span className="am-hint">{hint}</span>}
+      </div>
     </div>
   );
 }
@@ -66,4 +86,34 @@ export function SectionHead({
       {actions}
     </div>
   );
+}
+
+export function MarketingIcon({ name }: { name: string }) {
+  const icons: Record<string, typeof Globe> = {
+    Home: LayoutDashboard,
+    Tasks: ListChecks,
+    Tools: Wrench,
+    Settings,
+    AmICited: PlugZap,
+    website: Globe,
+    seo: Globe,
+    chevron: ChevronsUpDown,
+    arrow: ArrowRight,
+    plus: Plus,
+    "ai-visibility": Bot,
+    content: FileText,
+    serp: Search,
+    copy: Copy,
+    download: Download,
+    send: Send,
+  };
+  const Icon = icons[name] ?? Globe;
+  return <Icon aria-hidden="true" size={18} strokeWidth={2} />;
+}
+
+export const MarketingToolbarContext = createContext<HTMLElement | null>(null);
+export function MarketingToolbar({ children }: { children: ReactNode }) {
+  const target = useContext(MarketingToolbarContext);
+  const actions = <div className="am-actions">{children}</div>;
+  return target ? createPortal(actions, target) : actions;
 }

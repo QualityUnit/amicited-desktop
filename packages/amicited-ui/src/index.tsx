@@ -1,4 +1,10 @@
-import { MarketingButton, MarketingInput, MarketingTextarea, SectionHead } from "./primitives.js";
+import {
+  MarketingButton,
+  MarketingInput,
+  MarketingTextarea,
+  SectionHead,
+  MarketingIcon,
+} from "./primitives.js";
 import {
   initialFields,
   resolveField,
@@ -8,7 +14,6 @@ import {
 } from "./fields.js";
 import "./marketing.css";
 import {
-  AmICitedMark,
   readBrand,
   saveBrand,
   normalizeWebsite,
@@ -17,7 +22,7 @@ import {
   MarketingLink,
 } from "./experience.js";
 export * from "./experience.js";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 
 export const PRODUCT_NAME = "AmICited Desktop";
@@ -44,74 +49,7 @@ export function setWorkspaceMode(mode: "marketer" | "developer") {
   localStorage.setItem(MODE_KEY, mode);
   window.dispatchEvent(new Event("amicited-mode"));
 }
-const destinations = [
-  ["Home", "/home"],
-  ["Tasks", "/tasks"],
-  ["Tools", "/tools"],
-  ["Settings", "/settings/general"],
-  ["AmICited", "/marketing-settings"],
-] as const;
-export function MarketingShell({
-  children,
-  path,
-  navigate,
-  taskView = false,
-  mode = "marketer",
-}: {
-  children: ReactNode;
-  path: string;
-  navigate: (path: string) => void;
-  taskView?: boolean;
-  mode?: "marketer" | "developer";
-}) {
-  if (mode === "developer") return children;
-  return (
-    <div data-amicited-shell="" className="am-shell">
-      <aside className="am-rail">
-        <AmICitedMark />
-        <p style={{ opacity: 0.7, fontSize: 13 }}>Your marketing workspace</p>
-        <nav aria-label="Main navigation" style={{ marginTop: 48 }}>
-          {destinations.map(([label, href]) => (
-            <a
-              key={href}
-              href={href}
-              onClick={(event) => {
-                event.preventDefault();
-                navigate(href);
-              }}
-              className="am-nav-row"
-              aria-current={
-                path === href || (href === "/tools" && path.startsWith("/tools/"))
-                  ? "page"
-                  : undefined
-              }
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
-        <p style={{ marginTop: 100, fontSize: 13, opacity: 0.7 }}>
-          Local tools. Your AI.
-          <br />
-          No account required.
-        </p>
-      </aside>
-      <main
-        className={taskView ? "am-main am-task" : "am-main"}
-        onClick={(event) => {
-          if (event.defaultPrevented) return;
-          const link = (event.target as HTMLElement).closest("a");
-          if (link?.getAttribute("href")?.startsWith("/") && !event.metaKey && !event.ctrlKey) {
-            event.preventDefault();
-            navigate(link.getAttribute("href")!);
-          }
-        }}
-      >
-        {children}
-      </main>
-    </div>
-  );
-}
+export { MarketingShell } from "./shell.js";
 export function Home({
   startTask,
   assistantName,
@@ -133,8 +71,7 @@ export function Home({
     assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error;
   return (
     <>
-      <p className="am-eyebrow">{readBrand()?.name ?? "YOUR WORKSPACE"}</p>
-      <h1>What will you grow today?</h1>
+      <h2>What will you grow today?</h2>
       <p>Turn a marketing question into your next useful action.</p>
       <form
         className="am-card"
@@ -160,6 +97,7 @@ export function Home({
           required
         />
         <MarketingButton variant="default" disabled={assistantsLoading}>
+          <MarketingIcon name="send" />
           Send task
         </MarketingButton>
         {!assistantsLoading && !visibleError && (
@@ -173,25 +111,29 @@ export function Home({
           {visibleError}
         </p>
       </form>
-      <section className="am-card">
-        <SectionHead title="Your next useful action" />
-        <div className="am-quick">
-          {[
-            ["Check my AI visibility", "/tools#ai-visibility"],
-            ["Audit my website", "/tools/seo.site.audit"],
-            ["Research keywords", "/tools#serp"],
-            ["Write or repurpose content", "/tools#content"],
-          ].map(([label, href]) => (
-            <MarketingLink key={label} href={href}>
-              {label} →
-            </MarketingLink>
-          ))}
-        </div>
-      </section>
-      <section className="am-card" id="ai-subscriptions">
-        <SectionHead title="Your AI subscriptions" />
-        {subscriptions}
-      </section>
+      <div className="am-home-grid">
+        <section className="am-card">
+          <SectionHead title="Your next useful action" />
+          <div className="am-quick">
+            {[
+              ["Check my AI visibility", "/tools#ai-visibility"],
+              ["Audit my website", "/tools/seo.site.audit"],
+              ["Research keywords", "/tools#serp"],
+              ["Write or repurpose content", "/tools#content"],
+            ].map(([label, href]) => (
+              <MarketingLink key={label} href={href}>
+                <MarketingIcon name={href?.includes("seo") ? "website" : "Tools"} />
+                <span>{label}</span>
+                <MarketingIcon name="arrow" />
+              </MarketingLink>
+            ))}
+          </div>
+        </section>
+        <section className="am-card" id="ai-subscriptions">
+          <SectionHead title="Your AI subscriptions" />
+          {subscriptions}
+        </section>
+      </div>
       {cloud}
       <section className="am-card">
         <SectionHead title="Recent results" />
@@ -200,49 +142,57 @@ export function Home({
     </>
   );
 }
+const packs = [
+  ["seo", "Site audit basics"],
+  ["ai-visibility", "AI visibility"],
+  ["content", "Content tools"],
+  ["serp", "SERP & keywords"],
+] as const;
 export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
+  const [selected, setSelected] = useState(() => window.location.hash.slice(1) || "seo");
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep pack selection synchronized with incoming tool links and browser history.
+  useEffect(() => {
+    const update = () => setSelected(window.location.hash.slice(1) || "seo");
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
   return (
     <>
-      <p className="am-eyebrow">FREE · RUNS LOCALLY</p>
-      <h1>Your marketing toolkit</h1>
-      <p>Useful checks, clear results. No account needed.</p>
-      {["seo", "ai-visibility", "content", "serp"].map((pack) => (
-        <section key={pack} id={pack}>
-          <h2 className="am-pack-title">
-            {
-              {
-                seo: "Site audit basics",
-                "ai-visibility": "AI visibility",
-                content: "Content tools",
-                serp: "SERP & keywords",
-              }[pack]
-            }
-          </h2>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: 16,
-            }}
+      <nav className="am-pack-tabs" aria-label="Tool categories">
+        {packs.map(([pack, label]) => (
+          <a
+            key={pack}
+            href={"#" + pack}
+            aria-current={selected === pack ? "page" : undefined}
+            onClick={() => setSelected(pack)}
           >
-            {tools
-              .filter((tool) => tool.pack === pack)
-              .map((tool) => (
-                <MarketingLink
-                  className="am-card am-tool-card"
-                  key={tool.name}
-                  href={"/tools/" + tool.name}
-                >
-                  <span className="am-status am-status-neutral">Free local tool</span>
-                  <h3>{tool.title}</h3>
-                  <p>{tool.description}</p>
-                  <span>Open tool →</span>
-                </MarketingLink>
-              ))}
-          </div>
-          {!tools.some((tool) => tool.pack === pack) && <p>More tools coming soon.</p>}
-        </section>
-      ))}
+            <MarketingIcon name={pack} />
+            {label}
+          </a>
+        ))}
+      </nav>
+      <SectionHead
+        title="Your marketing toolkit"
+        subtitle="Free local tools. Useful checks, clear results. No account needed."
+      />
+      <div className="am-tool-grid">
+        {tools
+          .filter((tool) => tool.pack === selected)
+          .map((tool) => (
+            <MarketingLink
+              className="am-card am-tool-card"
+              key={tool.name}
+              href={"/tools/" + tool.name}
+            >
+              <div className="am-tool-head">
+                <MarketingIcon name={tool.pack} />
+                <h3>{tool.title}</h3>
+                <span>Open →</span>
+              </div>
+              <p>{tool.description}</p>
+            </MarketingLink>
+          ))}
+      </div>
     </>
   );
 }
@@ -285,7 +235,7 @@ export function ToolForm({
       >
         ← All tools
       </a>
-      <h1>{tool.title}</h1>
+      <h2>{tool.title}</h2>
       <p>{tool.description}</p>
       <form
         className="am-card"
@@ -379,9 +329,8 @@ export function MarketingSettings({
   const [message, setMessage] = useState("");
   return (
     <div className="am-page">
-      <h1>Settings</h1>
       {connection}
-      <section className="am-card">
+      <section className="am-card" id="website">
         <h2>Your website / brand</h2>
         <form
           onSubmit={(e) => {

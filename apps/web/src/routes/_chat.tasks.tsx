@@ -8,34 +8,34 @@ function Tasks() {
   const threads = useThreadShells();
   return (
     <>
-      <h1>Tasks</h1>
+      <h2>Tasks</h2>
       <p>Your AI work, in one place.</p>
-      <Link to="/new">New task</Link>
-      {threads.map((thread) => (
-        <article className="am-card" key={thread.id}>
-          <p className="am-eyebrow">Task</p>
-          <Link
-            to="/$environmentId/$threadId"
-            params={{ environmentId: thread.environmentId, threadId: thread.id }}
-          >
-            <h2>{thread.title || "New task"}</h2>
-            <p>Open task →</p>
-          </Link>
-          <small>
-            {marketingTaskStatus(
-              thread.latestRun?.status,
-              thread.hasPendingApprovals || thread.hasPendingUserInput,
-            )}{" "}
-            ·{" "}
-            {new Date(thread.updatedAt).toDateString() === new Date(now).toDateString()
-              ? "Today"
-              : new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
-                  -Math.max(1, Math.round((now - Date.parse(thread.updatedAt)) / 86400000)),
-                  "day",
-                )}
-          </small>
-        </article>
-      ))}
+      <section className="am-card am-task-list">
+        {threads.map((thread) => (
+          <article className="am-task-row" key={thread.id}>
+            <Link
+              to="/$environmentId/$threadId"
+              params={{ environmentId: thread.environmentId, threadId: thread.id }}
+            >
+              <h2>{thread.title || "New task"}</h2>
+            </Link>
+            <span className="am-status am-status-neutral">
+              {marketingTaskStatus(
+                thread.latestRun?.status,
+                thread.hasPendingApprovals || thread.hasPendingUserInput,
+              )}
+            </span>
+            <time dateTime={thread.updatedAt}>
+              {new Date(thread.updatedAt).toDateString() === new Date(now).toDateString()
+                ? "Today"
+                : new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
+                    -Math.max(1, Math.round((now - Date.parse(thread.updatedAt)) / 86400000)),
+                    "day",
+                  )}
+            </time>
+          </article>
+        ))}
+      </section>
     </>
   );
 }

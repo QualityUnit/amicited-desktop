@@ -173,3 +173,70 @@ it("keeps Home Ask until an assistant is ready, then sends the same prompt", asy
   await screen.getByRole("button", { name: "Send task" }).click();
   expect(startTask).toHaveBeenCalledWith("Plan my campaign");
 });
+
+it.each([
+  { firstWin: false, hidden: false, visible: false },
+  { firstWin: true, hidden: false, visible: true },
+  { firstWin: true, hidden: true, visible: false },
+])(
+  "gates Tools promotions with first win $firstWin and hidden $hidden",
+  async ({ firstWin, hidden, visible }) => {
+    const { CloudTools } = await import("./rpc/amicitedCloud");
+    localStorage.setItem("amicited.first-win", String(firstWin));
+    localStorage.setItem("amicited.cloud.upsell", JSON.stringify({ dismissed: hidden }));
+    try {
+      await using screen = await render(<CloudTools />);
+      if (visible) {
+        await expect
+          .element(screen.getByRole("heading", { name: "Works better with AmICited" }))
+          .toBeVisible();
+        await screen.getByRole("button", { name: "Daily AI visibility tracking →" }).click();
+        await expect
+          .element(screen.getByRole("button", { name: "Start 7-day free trial" }))
+          .toBeVisible();
+      } else {
+        await expect
+          .element(screen.getByRole("heading", { name: "Works better with AmICited" }))
+          .not.toBeInTheDocument();
+        await expect
+          .element(screen.getByRole("button", { name: "Start 7-day free trial" }))
+          .not.toBeInTheDocument();
+      }
+    } finally {
+      localStorage.removeItem("amicited.first-win");
+      localStorage.removeItem("amicited.cloud.upsell");
+    }
+  },
+);
+
+it("ranks visibility brands by measured mentions and uses the same share precision", async () => {
+  const { MarketingResult } = await import("@amicited/ui-marketing");
+  await using screen = await render(
+    <MarketingResult
+      result={{
+        id: "visibility",
+        tool: "ai.visibility.check",
+        input: { brand: "Acme" },
+        status: "success",
+        startedAt: "2026-11-06",
+        durationMs: 1,
+        output: {
+          status: "checked",
+          summary: {
+            mentioned: 1,
+            answered: 2,
+            shareOfVoice: 33,
+            competitors: [{ brand: "Contoso", answers: 2 }],
+          },
+        },
+      }}
+    />,
+  );
+  const shares = screen.getByText("33.3%", { exact: true });
+  await expect.element(shares.first()).toBeVisible();
+  await expect.element(shares.last()).toBeVisible();
+  expect([...document.querySelectorAll(".am-brand-name")].map((row) => row.textContent)).toEqual([
+    "Contoso",
+    "Acme",
+  ]);
+});

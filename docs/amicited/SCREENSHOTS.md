@@ -59,3 +59,10 @@ an inline connection message. Connection captures scroll the setup card into vie
 ready selection collapses it to the In use chip. After the connection captures,
 the harness verifies that permanently hiding trial offers confirms the saved choice
 and suppresses Home's promotion. Quick mode retains the r3 theme coverage.
+
+The r6 quick journey also captures `03-first-win`, `04-home`, `05-tools-grid`,
+`06-ai-visibility` and `08c-tasks-list` at 1344×1016, matching the cloud reference
+CSS viewport. These `*-light-1344.png` files support side-by-side shell and report
+comparison. Completed onboarding uses the shared workspace; visibility includes
+only current-run bars, with no invented history. The journey asserts that Tools
+also suppresses promotional explainers after permanently hiding trial offers.

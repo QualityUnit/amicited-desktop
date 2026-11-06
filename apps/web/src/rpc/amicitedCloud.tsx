@@ -211,6 +211,11 @@ export function CloudHome({ offer = true }: { offer?: boolean }) {
 }
 export function CloudTools() {
   const [selected, setSelected] = useState<string | null>(null);
+  if (
+    localStorage.getItem("amicited.first-win") !== "true" ||
+    createUpsellGate(localStorage, sessionStorage).hidden()
+  )
+    return null;
   return (
     <section className="am-card">
       <h2>Works better with AmICited</h2>
@@ -265,7 +270,7 @@ export function CloudPage() {
   const { connection } = useCloud();
   return (
     <div className="am-page">
-      <h1>AmICited</h1>
+      <h2>AmICited</h2>
       <p>
         See who cites you across ChatGPT, Perplexity, Gemini and Google AI Overviews. Track changes
         every day against your competitors.
@@ -280,20 +285,22 @@ export function CloudPage() {
       )}
       <CloudHome offer={false} />
       <CloudSettings />
-      <MarketingButton
-        variant="link"
-        onClick={() => {
-          const saved = createUpsellGate(localStorage, sessionStorage).dismiss();
-          setHideMessage(
-            saved
-              ? "Trial offers are permanently hidden."
-              : "Could not save your choice. Please try again.",
-          );
-        }}
-      >
-        Permanently hide trial offers
-      </MarketingButton>
-      <p role="status">{hideMessage}</p>
+      <footer className="am-preferences-footer">
+        <MarketingButton
+          variant="link"
+          onClick={() => {
+            const saved = createUpsellGate(localStorage, sessionStorage).dismiss();
+            setHideMessage(
+              saved
+                ? "Trial offers are permanently hidden."
+                : "Could not save your choice. Please try again.",
+            );
+          }}
+        >
+          Permanently hide trial offers
+        </MarketingButton>
+        <p role="status">{hideMessage}</p>
+      </footer>
     </div>
   );
 }

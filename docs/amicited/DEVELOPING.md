@@ -87,22 +87,26 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 7, 2026-11-06, Node 26.12.1, from the repository root:
+Wave 8, 2026-11-06, Node 26.12.1, from the repository root:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-tools/src/library.test.ts apps/web/src/hooks/useHandleNewThread.test.ts apps/web/src/amicited-cloud.browser.test.tsx
-pnpm --filter @amicited/ui-marketing --filter @amicited/tools --filter t3 run typecheck
+vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-tools/src/library.test.ts apps/web/src/hooks/useHandleNewThread.test.ts apps/web/src/amicited-cloud.browser.test.tsx
+pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter t3 run typecheck
 (cd apps/web && pnpm exec effect-tsgo tsrs --noEmit)
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r5
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r6
 ```
 
-Focused tests: 27 passed across 4 files. Typechecks: 4 packages passed (the two
-AmICited packages above, server, and web); existing Effect schema-brand suggestions
-are informational. Web has no package typecheck script, so its checker is invoked
-directly. The journey passed with 35 PNG captures (25 light, 10 dark), with no
-`journey-error.png`. The staged hook checks (`vp staged`: format, lint, both Knip
-passes) passed. The journey uses isolated temporary state and free Replay for the task
-turn; visibility answers are explicitly labelled fixtures. It also verifies the
-saved trial-offer confirmation and suppression on Home, the single blocked-send
-warning, the New task subscriptions heading, and the Brand comparison title. No production MCP connection
-or paid generation is exercised.
+Focused tests: 33 passed across 5 files. Typechecks: 4 packages passed (marketing
+UI, cloud UI, server and web); existing Effect schema-brand suggestions are
+informational. The journey passed with 40 PNG captures (30 light, 10 dark),
+including Home, Tools, visibility, first-win audit and Tasks at the cloud reference's
+1344×1016 CSS viewport, with no `journey-error.png`. Staged format, lint and both
+Knip passes passed. Browser-panel verification confirmed the 272px rail, 52px
+header and functional Content tools category against isolated journey state.
+
+Tools promotions now have regression cases for no first win, an eligible win and
+permanently hidden offers; both prohibited cases failed before the guard. The
+visibility regression verifies ranked brands and consistent share precision. The
+journey also checks that permanently hiding offers suppresses both Home and Tools.
+It uses temporary state, free Replay for task turns and explicitly labelled
+visibility fixtures. No production MCP connection or paid generation is exercised.

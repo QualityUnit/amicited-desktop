@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "@amicited/tools-core": "workspace:*",
-    "react": "catalog:"
+    "lucide-react": "^0.564.0",
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "vite-plus": "catalog:"
   }
 }
