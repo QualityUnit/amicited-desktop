@@ -145,7 +145,12 @@ it("opens AmICited from the first-win offer on welcome", async () => {
 it("keeps Home Ask until an assistant is ready, then sends the same prompt", async () => {
   const { Home } = await import("@amicited/ui-marketing");
   const startTask = vi.fn(async () => {});
-  await using screen = await render(<Home startTask={startTask} />);
+  await using screen = await render(<Home startTask={startTask} assistantsLoading />);
+  await expect.element(screen.getByRole("button", { name: "Send task" })).toBeDisabled();
+  await expect
+    .element(screen.getByText("Connect an assistant first", { exact: true }))
+    .not.toBeInTheDocument();
+  await screen.rerender(<Home startTask={startTask} />);
   await screen.getByLabelText("Ask your AI assistant").fill("Plan my campaign");
   await screen.getByRole("button", { name: "Send task" }).click();
   await expect
@@ -155,6 +160,9 @@ it("keeps Home Ask until an assistant is ready, then sends the same prompt", asy
     .element(screen.getByLabelText("Ask your AI assistant"))
     .toHaveValue("Plan my campaign");
   expect(startTask).not.toHaveBeenCalled();
+  await expect
+    .element(screen.getByText("Connect an assistant first", { exact: true }))
+    .not.toBeInTheDocument();
   await screen.rerender(<Home startTask={startTask} assistantName="Claude" />);
   await expect
     .element(screen.getByRole("alert"))

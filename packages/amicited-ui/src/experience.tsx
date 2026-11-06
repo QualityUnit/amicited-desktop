@@ -337,7 +337,7 @@ function VisibilityResult({
       <p>{String(output.message ?? "")}</p>
       <section className="am-card">
         <SectionHead
-          title="Top brands"
+          title="Brand comparison"
           subtitle="Share of mentions among supplied brands in this check"
         />
         {(() => {
@@ -719,6 +719,7 @@ export function MarketingLink({ href, onClick, ...props }: ComponentProps<"a">) 
 export function marketingTaskStatus(status: string | undefined, needsInput: boolean) {
   if (status === "failed") return "Couldn't finish";
   if (needsInput) return "Needs you";
+  if (status === "interrupted" || status === "cancelled") return "Stopped";
   if (status === "completed") return "Done";
   if (status === "running") return "Working";
   return "Ready";

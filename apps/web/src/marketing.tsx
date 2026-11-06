@@ -1,7 +1,12 @@
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
-import { MarketingUiContext, MarketingButton, MarketingTextarea } from "@amicited/ui-marketing";
+import {
+  MarketingUiContext,
+  MarketingButton,
+  MarketingTextarea,
+  SectionHead,
+} from "@amicited/ui-marketing";
 import type { ComponentProps } from "react";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { isUsefulResult } from "@amicited/tools-core";
@@ -133,12 +138,17 @@ export function MarketingHome() {
   return (
     <Home
       assistantName={actions.assistantName}
+      assistantsLoading={actions.assistantsLoading}
       startTask={(prompt) => actions.startTask(prompt, true)}
       subscriptions={<MarketingSubscriptions />}
       cloud={<CloudHome />}
       recent={
         recent && isUsefulResult(recent) ? (
-          <Link to="/tools/$toolName" params={{ toolName: recent.tool }} className="am-card">
+          <Link
+            to="/tools/$toolName"
+            params={{ toolName: recent.tool }}
+            className="am-finding am-recent-result"
+          >
             {resultTitle(recent)} ·{" "}
             {typeof recent.output === "object" && recent.output && "score" in recent.output
               ? `${recent.output.score}/100`
@@ -273,6 +283,7 @@ function useMarketingTask() {
   const newThread = useNewThreadHandler();
   const settings = usePrimarySettings();
   const allProviders = useEnvironmentProviders();
+  const assistantsLoading = !environmentId || !allProviders.has(environmentId);
   const providers = environmentId ? (allProviders.get(environmentId) ?? []) : [];
   const readyProviders = providers.filter(
     (provider) =>
@@ -324,11 +335,13 @@ function useMarketingTask() {
   };
   return {
     assistantName,
+    assistantsLoading,
     taskError,
     prepare: async (brand: Brand) => {
       await prepare(brand);
     },
     startTask: async (prompt: string, sendImmediately = false) => {
+      if (assistantsLoading) return;
       if (!assistant) {
         setTaskError("Connect Claude or ChatGPT to send this task");
         document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
@@ -520,6 +533,8 @@ export function MarketingNewTask() {
   const actions = useMarketingTask();
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState("");
+  const visibleError =
+    actions.assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error;
   return (
     <div className="am-page">
       <p className="am-eyebrow">YOUR AI ASSISTANT</p>
@@ -542,18 +557,24 @@ export function MarketingNewTask() {
             required
           />
         </label>
-        <MarketingButton variant="default">Send task</MarketingButton>
-        <p>
-          {actions.assistantName
-            ? `${actions.assistantName} will start working on this`
-            : "Connect an assistant first"}
-        </p>
-        {error &&
-          !(actions.assistantName && error === "Connect Claude or ChatGPT to send this task") && (
-            <p role="alert">{error}</p>
-          )}
+        <MarketingButton variant="default" disabled={actions.assistantsLoading}>
+          Send task
+        </MarketingButton>
+        {!visibleError && !actions.assistantsLoading && (
+          <p>
+            {actions.assistantName
+              ? `${actions.assistantName} will start working on this`
+              : "Connect an assistant first"}
+          </p>
+        )}
+        {visibleError && (
+          <p role="alert" className="am-status am-status-warn">
+            {visibleError}
+          </p>
+        )}
       </form>
       <section className="am-card" id="ai-subscriptions">
+        <SectionHead title="Your AI subscriptions" />
         <MarketingSubscriptions />
       </section>
     </div>

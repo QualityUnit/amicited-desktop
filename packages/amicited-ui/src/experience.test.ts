@@ -70,13 +70,15 @@ describe("marketer website and results", () => {
       { title: "Unavailable", status: "unknown", group: "Search preview" },
     ]);
   });
-});
 
-it("distinguishes failed tasks and requests for input from idle tasks", () => {
-  expect(marketingTaskStatus("failed", false)).toBe("Couldn't finish");
-  expect(marketingTaskStatus("waiting", true)).toBe("Needs you");
-  expect(marketingTaskStatus("completed", false)).toBe("Done");
-  expect(marketingTaskStatus("running", false)).toBe("Working");
-  for (const status of [undefined, "interrupted", "queued", "cancelled"])
-    expect(marketingTaskStatus(status, false)).toBe("Ready");
+  it("distinguishes failed tasks and requests for input from idle tasks", () => {
+    expect(marketingTaskStatus("failed", false)).toBe("Couldn't finish");
+    expect(marketingTaskStatus("waiting", true)).toBe("Needs you");
+    expect(marketingTaskStatus("completed", false)).toBe("Done");
+    expect(marketingTaskStatus("running", false)).toBe("Working");
+    for (const status of ["interrupted", "cancelled"])
+      expect(marketingTaskStatus(status, false)).toBe("Stopped");
+    for (const status of [undefined, "queued"])
+      expect(marketingTaskStatus(status, false)).toBe("Ready");
+  });
 });

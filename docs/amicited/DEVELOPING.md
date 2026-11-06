@@ -87,21 +87,22 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 6, 2026-11-06, Node 26.12.1, from the repository root:
+Wave 7, 2026-11-06, Node 26.12.1, from the repository root:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-tools/src/library.test.ts apps/web/src/hooks/useHandleNewThread.test.ts apps/web/src/amicited-cloud.browser.test.tsx
-pnpm --filter @amicited/ui-marketing --filter @amicited/cloud-client --filter @amicited/tools --filter t3 run typecheck
+vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-tools/src/library.test.ts apps/web/src/hooks/useHandleNewThread.test.ts apps/web/src/amicited-cloud.browser.test.tsx
+pnpm --filter @amicited/ui-marketing --filter @amicited/tools --filter t3 run typecheck
 (cd apps/web && pnpm exec effect-tsgo tsrs --noEmit)
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r4
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r5
 ```
 
-Focused tests: 30 passed across 5 files. Typechecks: 5 packages passed (the three
+Focused tests: 27 passed across 4 files. Typechecks: 4 packages passed (the two
 AmICited packages above, server, and web); existing Effect schema-brand suggestions
 are informational. Web has no package typecheck script, so its checker is invoked
 directly. The journey passed with 35 PNG captures (25 light, 10 dark), with no
 `journey-error.png`. The staged hook checks (`vp staged`: format, lint, both Knip
 passes) passed. The journey uses isolated temporary state and free Replay for the task
 turn; visibility answers are explicitly labelled fixtures. It also verifies the
-saved trial-offer confirmation and suppression on Home. No production MCP connection
+saved trial-offer confirmation and suppression on Home, the single blocked-send
+warning, the New task subscriptions heading, and the Brand comparison title. No production MCP connection
 or paid generation is exercised.

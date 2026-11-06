@@ -438,7 +438,7 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
         score: known.length
           ? Math.round(known.reduce((n, g) => n + g.result.score!, 0) / known.length)
           : null,
-        coverage: `${known.length}/${groups.length} checks returned a score${known.length < groups.length ? "; unavailable checks are excluded" : ""}.`,
+        coverage: `${known.length}/${groups.length} audit categories returned a score${known.length < groups.length ? "; unavailable checks are excluded" : ""}.`,
         groups,
         topFixes: groups
           .flatMap((g) => g.result.findings)

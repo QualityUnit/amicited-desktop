@@ -115,18 +115,22 @@ export function MarketingShell({
 export function Home({
   startTask,
   assistantName,
+  assistantsLoading = false,
   subscriptions,
   recent,
   cloud,
 }: {
   startTask: (prompt: string) => Promise<void>;
   assistantName?: string | undefined;
+  assistantsLoading?: boolean;
   subscriptions?: ReactNode;
   recent?: ReactNode;
   cloud?: ReactNode;
 }) {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState("");
+  const visibleError =
+    assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error;
   return (
     <>
       <p className="am-eyebrow">{readBrand()?.name ?? "YOUR WORKSPACE"}</p>
@@ -136,6 +140,7 @@ export function Home({
         className="am-card"
         onSubmit={(event) => {
           event.preventDefault();
+          if (assistantsLoading) return;
           if (!assistantName) {
             setError("Connect Claude or ChatGPT to send this task");
             document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
@@ -154,14 +159,18 @@ export function Home({
           onChange={(event) => setPrompt(event.target.value)}
           required
         />
-        <MarketingButton variant="default">Send task</MarketingButton>
-        <p>
-          {assistantName
-            ? `${assistantName} will start working on this`
-            : "Connect an assistant first"}
-        </p>
-        <p role="alert">
-          {assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error}
+        <MarketingButton variant="default" disabled={assistantsLoading}>
+          Send task
+        </MarketingButton>
+        {!assistantsLoading && !visibleError && (
+          <p>
+            {assistantName
+              ? `${assistantName} will start working on this`
+              : "Connect an assistant first"}
+          </p>
+        )}
+        <p role="alert" className={visibleError ? "am-status am-status-warn" : undefined}>
+          {visibleError}
         </p>
       </form>
       <section className="am-card">

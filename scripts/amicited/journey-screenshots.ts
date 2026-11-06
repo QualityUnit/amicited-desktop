@@ -176,6 +176,8 @@ try {
     .fill("Help me plan a campaign");
   await page.getByRole("button", { name: "Send task", exact: true }).click();
   await page.getByText("Connect Claude or ChatGPT to send this task", { exact: true }).waitFor();
+  if (await page.getByText("Connect an assistant first", { exact: true }).count())
+    throw new Error("Blocked send repeats its connection helper");
   await capture("04c-no-assistant");
   await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
   await page.getByRole("heading", { name: "Connect Claude", exact: true }).scrollIntoViewIfNeeded();
@@ -283,6 +285,7 @@ try {
   await page
     .getByRole("region", { name: "Tool result" })
     .evaluate((element) => element.scrollIntoView({ block: "start" }));
+  await page.getByRole("heading", { name: "Brand comparison", exact: true }).waitFor();
   await capture("06-ai-visibility");
   await capture("06b-visibility-result-fixture");
   await page.getByRole("button", { name: "Fix this with AI", exact: true }).first().click();
@@ -305,6 +308,7 @@ try {
   await capture("07-content-result");
   await page.goto(url + "/new");
   await page.getByRole("heading", { name: "New task", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Your AI subscriptions", exact: true }).waitFor();
   await capture("08-new-task");
   await page
     .getByRole("textbox", { name: "What do you want to get done?" })

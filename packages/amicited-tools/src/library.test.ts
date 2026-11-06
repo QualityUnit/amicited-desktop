@@ -117,7 +117,7 @@ describe("site tools", () => {
         issues: [],
       }),
     }).audit.run({ url }, ctx());
-    expect(complete.coverage).toBe("6/6 checks returned a score.");
+    expect(complete.coverage).toBe("6/6 audit categories returned a score.");
   });
 });
 describe("SERP tools", () => {

@@ -279,7 +279,8 @@ body:has(.am-onboarding) {
   color: var(--ai-bad-ink);
 }
 .am-status-warn,
-.am-status-unknown {
+.am-status-unknown,
+[data-amicited-shell] p.am-status-warn {
   background: var(--ai-warn-soft);
   color: var(--ai-warn-ink);
 }
@@ -455,4 +456,11 @@ body:has(.am-onboarding) {
 
 [data-amicited-shell] [aria-label="Task breadcrumb"] h2 {
   margin: 0;
+}
+
+.am-recent-result {
+  display: block;
+}
+[data-amicited-shell] details > .am-finding:first-of-type {
+  padding-top: 0;
 }

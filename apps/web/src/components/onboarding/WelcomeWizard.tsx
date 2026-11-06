@@ -1045,9 +1045,11 @@ function AgentCard({
             </Button>
           )}
         {marketingDriver && !provider?.enabled ? (
-          <Button size="xs" variant="ghost" disabled={marketingEnabling} onClick={onMarketingRetry}>
-            Try again
-          </Button>
+          !marketingEnabling && (
+            <Button size="xs" variant="ghost" onClick={onMarketingRetry}>
+              Try again
+            </Button>
+          )
         ) : providerState === "ready" ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-foreground">
             <CheckIcon className="size-3.5" />
