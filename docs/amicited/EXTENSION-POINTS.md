@@ -71,8 +71,9 @@ upstream settings and navigation remain available through Developer features.
 The website and brand are browser-local preferences. Workspace folders and tasks
 use the existing authenticated project commands. The latest tool result is retained
 for the current browser session; durable result history is still deferred.
-`ResultFooterSlot` in `@amicited/ui-marketing` intentionally renders nothing for the
-later cloud connection wave. Local tool results never require a cloud account.
+`ResultFooterSlot` in `@amicited/ui-marketing` uses a context supplied by the web
+adapter to mount the optional cloud offer below the complete free result. Local
+tool results never require a cloud account.
 
 ## Wave 1A tools and provider integration
 
@@ -102,6 +103,7 @@ user's browser tab; blocked or changed Google layouts are explicit results. Site
 checks are basic heuristics, not full standards validators. Sitemap indexes count
 child sitemap entries rather than claiming a count of all pages. Visibility has no
 live search and ranks only the supplied brand/competitors by first occurrence.
+
 ## Cloud connection (Wave 2)
 
 `@amicited/cloud-client` owns the native loopback OAuth/PKCE flow, SDK streamable
@@ -147,10 +149,10 @@ are advertised while disconnected so an agent can explain the Settings connectio
 they fail honestly until connected. The remote `read_tool` enforces read-only tool
 execution; writes go through the separate destructive proxy.
 
-### Pending mounts
+### Completed mounts
 
-No marketer routes or Wave 1 packages are changed here. `@amicited/ui-cloud`
-exports these components; the mount adapter provides `ui={{Button, Input}}` from
+`apps/web/src/rpc/amicitedCloud.tsx` mounts the cloud components through
+`apps/web/src/marketing.tsx`. The adapter provides `ui={{Button, Input}}` from
 the existing web UI kit and a system-browser `openExternal(url)` callback:
 
 - Result renderer's `ResultFooterSlot`: `AmicitedUpsellCard` props are `result`
@@ -172,8 +174,13 @@ the existing web UI kit and a system-browser `openExternal(url)` callback:
   honest error state. No report URL is fabricated.
 
 Browser-safe imports use `@amicited/cloud-client/model` and `/upsell`; the root
-export contains Node networking and must stay on the server. No screenshot
-harness or live provider eval was run in this unmounted wave, as directed by the
-brief; component browser tests cover the UI and fake HTTP fixtures cover auth.
+export contains Node networking and must stay on the server. The journey
+harness captures the integrated mounts; component browser tests cover the UI and
+fake HTTP fixtures cover auth. No live provider eval was run.
 The existing MCP tool-use eval runner passed a one-case dry run; no paid model
 was invoked.
+
+The marketer settings navigation links AmICited to `/marketing-settings`; General
+shows the same connection panel first. Home shows the cloud summary when connected
+and a quiet connection link after a persisted first win otherwise. Tools retain
+all free cards and append optional cloud explainers.

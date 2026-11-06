@@ -1,4 +1,6 @@
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
+import { CloudFooter, CloudHome, CloudSettings, CloudTools } from "./rpc/amicitedCloud";
+import { ResultFooterContext } from "@amicited/ui-marketing";
 import { newProjectId } from "./lib/utils";
 import { projectEnvironment } from "./state/projects";
 import { useProjects } from "./state/entities";
@@ -13,7 +15,7 @@ import {
   Home,
   ToolsGrid,
   ToolForm,
-  MarketingSettings,
+  MarketingSettings as MarketingSettingsView,
   MarketingShell,
   useWorkspaceMode,
   setWorkspaceMode,
@@ -29,6 +31,8 @@ import { useEnvironmentProviders, usePrimaryEnvironmentId } from "./state/enviro
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 
+const renderCloudFooter = (result: ToolResult) => <CloudFooter result={result} />;
+
 const listCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tools.list",
   label: "marketing:list",
@@ -43,32 +47,34 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const path = useLocation({ select: (location) => location.pathname });
   const navigate = useNavigate();
   return mode === "marketer" ? (
-    <MarketingShell path={path} navigate={(path) => void navigate({ to: path })}>
-      {path === "/settings/general" || path === "/marketing-settings" ? (
-        <MarketingSettings />
-      ) : path.startsWith("/settings") ? (
-        <MarketingSettings />
-      ) : path === "/usage" ? (
-        <div className="am-page">
-          <h1>Your AI plan usage</h1>
-          <p>
-            These limits come from your AI subscriptions. Local website checks do not use your AI
-            allowance.
-          </p>
-          <section className="am-card">
-            <MarketingSubscriptions usageLink={false} />
-          </section>
-        </div>
-      ) : ["/pull-requests", "/source-control"].includes(path) ? (
-        <Home
-          startTask={async () => {
-            await navigate({ to: "/new" });
-          }}
-        />
-      ) : (
-        children
-      )}
-    </MarketingShell>
+    <ResultFooterContext value={renderCloudFooter}>
+      <MarketingShell path={path} navigate={(path) => void navigate({ to: path })}>
+        {path === "/settings/general" || path === "/marketing-settings" ? (
+          <MarketingSettings />
+        ) : path.startsWith("/settings") ? (
+          <MarketingSettings />
+        ) : path === "/usage" ? (
+          <div className="am-page">
+            <h1>Your AI plan usage</h1>
+            <p>
+              These limits come from your AI subscriptions. Local website checks do not use your AI
+              allowance.
+            </p>
+            <section className="am-card">
+              <MarketingSubscriptions usageLink={false} />
+            </section>
+          </div>
+        ) : ["/pull-requests", "/source-control"].includes(path) ? (
+          <Home
+            startTask={async () => {
+              await navigate({ to: "/new" });
+            }}
+          />
+        ) : (
+          children
+        )}
+      </MarketingShell>
+    </ResultFooterContext>
   ) : (
     <>
       <button
@@ -98,6 +104,7 @@ export function MarketingHome() {
     <Home
       startTask={actions.startTask}
       subscriptions={<MarketingSubscriptions />}
+      cloud={<CloudHome />}
       recent={recent ? <MarketingResult result={recent} fix={actions.startTask} /> : undefined}
     />
   );
@@ -127,7 +134,13 @@ export function MarketingTools({ name }: { name?: string }) {
   }, [environmentId]);
   if (error) return <p role="alert">{error}</p>;
   if (!tools.length) return <p>Loading local tools…</p>;
-  if (!name) return <ToolsGrid tools={tools} />;
+  if (!name)
+    return (
+      <>
+        <ToolsGrid tools={tools} />
+        <CloudTools />
+      </>
+    );
   const tool = tools.find((tool) => tool.name === name);
   if (!tool)
     return (
@@ -153,7 +166,9 @@ export function MarketingTools({ name }: { name?: string }) {
     />
   );
 }
-export { MarketingSettings };
+export function MarketingSettings() {
+  return <MarketingSettingsView connection={<CloudSettings />} />;
+}
 
 export function MarketingFirstRun() {
   const environmentId = usePrimaryEnvironmentId();
@@ -161,30 +176,39 @@ export function MarketingFirstRun() {
   const run = useAtomCommand(runCommand);
   const navigate = useNavigate();
   return (
-    <FirstRun
-      fix={actions.startTask}
-      subscriptions={<MarketingSubscriptions />}
-      prepare={actions.prepare}
-      skip={() => {
-        localStorage.setItem("amicited.onboarded", "true");
-        void navigate({ to: "/home" });
-      }}
-      check={async (brand) => {
-        if (!environmentId) throw new Error("Not connected");
-        const response = await run({
-          environmentId,
-          input: { name: "seo.site.audit", input: { url: brand.website } },
-        });
-        if (response._tag !== "Success") throw new Error("Could not run check");
-        const result = response.value as unknown as ToolResult;
-        rememberResult(result);
-        return result;
-      }}
-    />
+    <ResultFooterContext value={renderCloudFooter}>
+      <FirstRun
+        fix={actions.startTask}
+        subscriptions={<MarketingSubscriptions />}
+        prepare={actions.prepare}
+        skip={() => {
+          localStorage.setItem("amicited.onboarded", "true");
+          void navigate({ to: "/home" });
+        }}
+        check={async (brand) => {
+          if (!environmentId) throw new Error("Not connected");
+          const response = await run({
+            environmentId,
+            input: { name: "seo.site.audit", input: { url: brand.website } },
+          });
+          if (response._tag !== "Success") throw new Error("Could not run check");
+          const result = response.value as unknown as ToolResult;
+          rememberResult(result);
+          return result;
+        }}
+      />
+    </ResultFooterContext>
   );
 }
 function rememberResult(result: ToolResult) {
   sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
+  const needsProvider =
+    typeof result.output === "object" &&
+    result.output !== null &&
+    "status" in result.output &&
+    result.output.status === "needs_provider";
+  if (result.status === "success" && !needsProvider)
+    localStorage.setItem("amicited.first-win", "true");
 }
 function useMarketingTask() {
   const environmentId = usePrimaryEnvironmentId();

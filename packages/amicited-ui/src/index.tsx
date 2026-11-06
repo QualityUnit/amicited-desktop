@@ -39,6 +39,7 @@ const destinations = [
   ["Tasks", "/tasks"],
   ["Tools", "/tools"],
   ["Settings", "/settings/general"],
+  ["AmICited", "/marketing-settings"],
 ] as const;
 const style = {
   nav: { width: 238, flexShrink: 0, padding: 28, background: "#102d32", color: "#edfafa" },
@@ -119,10 +120,12 @@ export function Home({
   startTask,
   subscriptions,
   recent,
+  cloud,
 }: {
   startTask: (prompt: string) => Promise<void>;
   subscriptions?: ReactNode;
   recent?: ReactNode;
+  cloud?: ReactNode;
 }) {
   const [prompt, setPrompt] = useState("");
   const [error, setError] = useState("");
@@ -171,6 +174,7 @@ export function Home({
         <h2>Your AI subscriptions</h2>
         {subscriptions}
       </section>
+      {cloud}
       <section className="am-card">
         <h2>Recent results</h2>
         {recent ?? <p>Your completed checks will appear here.</p>}
@@ -307,13 +311,14 @@ export function ToolForm({
     </>
   );
 }
-export function MarketingSettings() {
+export function MarketingSettings({ connection }: { connection?: ReactNode }) {
   const [website, setWebsite] = useState(readBrand()?.website ?? "");
   const [name, setName] = useState(readBrand()?.name ?? "");
   const [message, setMessage] = useState("");
   return (
     <div className="am-page">
       <h1>Settings</h1>
+      {connection}
       <section className="am-card">
         <h2>Your website / brand</h2>
         <form
@@ -340,10 +345,7 @@ export function MarketingSettings() {
           <p role="status">{message}</p>
         </form>
       </section>
-      <section className="am-card" aria-label="AmICited connection">
-        <h2>AmICited connection</h2>
-        <p>Your local tools are free. No account required.</p>
-      </section>
+
       <section className="am-card">
         <WorkspaceModeControl />
       </section>

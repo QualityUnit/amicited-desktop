@@ -14,11 +14,17 @@ and captures each step in light and dark at 1440×900 and 1280×800:
 2. `02-website-and-ai`: saved website and actual AI subscription readiness.
 3. `03-first-win`: completed website health audit using `seo.site.audit`, including partial check coverage.
 4. `04-home`: brand, Ask box, quick actions and recent result.
-5. `05-tools-grid`: local marketing tool packs. `05-site-audit` captures the audit tool result and `05b-ai-visibility` captures the explicit connect-assistant state.
-6. `06-tool-form`: SSL check with example.com entered; `06-tool-result` captures its completed result.
-7. `07-new-task`: empty composer, without a missing-prompt error.
-8. `08-settings-general`: website, connection slot and Developer features toggle.
-9. `09-developer-mode`: upstream settings and developer navigation remain reachable.
+5. `05-tools-grid`, `05b-cloud-capabilities`, `05c-cloud-explainer`: free tools and optional cloud tracking.
+6. `06-ai-visibility`: honest needs-provider result with installed assistants disabled.
+7. `07-content-result`: local readability result.
+8. `08-new-task`: empty task composer, then creation of a draft.
+9. `09-amicited-connect`: disconnected connection panel.
+10. `10-api-key-disclosure`: expanded workspace-key controls, without credentials.
+11. `11-settings-general`: connection panel above brand settings.
+12. `12-developer-mode`: upstream settings and developer navigation.
+
+`03b-first-win-upsell` scrolls below the complete free result to show its offer.
+The disconnected harness never connects to the production MCP endpoint.
 
 Files carry theme and viewport suffixes, for example `04-home-dark-1280.png`.
 Set `AMICITED_JOURNEY_QUICK=1` to capture only light at 1440×900.

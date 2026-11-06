@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ToolResult } from "@amicited/tools-core";
 export type Brand = { website: string; name: string };
 export function readBrand(): Brand | null {
@@ -244,8 +244,10 @@ function ResultValue({ value }: { value: unknown }): ReactNode {
 export function resultMarkdown(result: ToolResult) {
   return `# Website check\n\n${result.status === "error" ? (result.error?.message ?? "Could not check") : JSON.stringify(result.output, null, 2)}`;
 }
-export function ResultFooterSlot(_props: { result: ToolResult }) {
-  return null;
+export const ResultFooterContext = createContext<((result: ToolResult) => ReactNode) | null>(null);
+export function ResultFooterSlot({ result }: { result: ToolResult }) {
+  const render = useContext(ResultFooterContext);
+  return render?.(result) ?? null;
 }
 export function MarketingResult({
   result,

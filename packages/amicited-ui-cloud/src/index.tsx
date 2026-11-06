@@ -1,3 +1,4 @@
+import "./cloud.css";
 import {
   useEffect,
   useRef,
@@ -47,15 +48,12 @@ export function AmicitedUpsellCard({
   const comparison = whatYouAreMissing(result);
   if (!visible || connected || !comparison) return null;
   return (
-    <aside
-      aria-label="More with AmICited"
-      className="rounded-xl border border-border p-5 space-y-3"
-    >
+    <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-stack">
       <h3>Keep building on this result</h3>
       <p>{comparison.checked}</p>
       <p>{comparison.missing}</p>
       <p>{comparison.pricing}</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="am-cloud-actions">
         <Button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</Button>
         <Button onClick={onConnect}>I already have AmICited → Connect</Button>
         <Button
@@ -109,7 +107,7 @@ export function AmicitedConnectPanel({
   }
   const pending = busy || connection.state === "connecting";
   return (
-    <section aria-label="AmICited connection" className="space-y-3">
+    <section aria-label="AmICited connection" className="am-cloud-stack">
       <h3>AmICited connection</h3>
       <p>Your local tools always work without an account.</p>
       {connection.state === "connected" ? (
@@ -205,10 +203,7 @@ export function AmicitedConnectedBadge({
     }
   }
   return (
-    <section
-      aria-label="AmICited connected"
-      className="rounded-xl border border-border p-4 space-y-2"
-    >
+    <section aria-label="AmICited connected" className="am-cloud-card am-cloud-stack">
       <h3>AmICited connected</h3>
       <p>{domains.length ? domains.join(", ") : "No domains tracked yet"}</p>
       {headlines.map((item) => (

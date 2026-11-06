@@ -133,38 +133,48 @@ try {
   await capture("02-website-and-ai");
   await page.getByRole("button", { name: "Run my free website check" }).click();
   await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
   await capture("03-first-win");
+  await page.getByRole("complementary", { name: "More with AmICited" }).scrollIntoViewIfNeeded();
+  await capture("03b-first-win-upsell");
   await page.getByRole("button", { name: "Go to Home →" }).click();
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
+  await page
+    .getByRole("link", { name: "Track this daily with AmICited →" })
+    .scrollIntoViewIfNeeded();
   await capture("04-home");
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("heading", { name: "Your marketing toolkit" }).waitFor();
   await capture("05-tools-grid");
-  await page.goto(url + "/tools/seo.ssl.check");
-  await page.getByRole("textbox", { name: "domain" }).fill("example.com");
-  await capture("06-tool-form");
-  await page.getByRole("button", { name: "Run check" }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor();
-  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
-  await capture("06-tool-result");
-  await page.goto(url + "/tools/seo.site.audit");
-  await page.getByRole("textbox", { name: "url", exact: true }).fill("https://example.com");
-  await page.getByRole("button", { name: "Run check" }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor();
-  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
-  await capture("05-site-audit");
+  await page.getByRole("heading", { name: "Works better with AmICited" }).scrollIntoViewIfNeeded();
+  await capture("05b-cloud-capabilities");
+  await page.getByRole("button", { name: "Daily AI visibility tracking →" }).click();
+  await page.getByRole("dialog", { name: "Daily AI visibility tracking" }).waitFor();
+  await capture("05c-cloud-explainer");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.goto(url + "/tools/ai.visibility.check");
   await page.getByRole("textbox", { name: "brand", exact: true }).fill("Acme");
   await page.getByRole("textbox", { name: "website", exact: true }).fill("https://example.com");
   await page.getByRole("textbox", { name: "category", exact: true }).fill("garden tools");
   await page.getByRole("button", { name: "Run check" }).click();
   await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page
+    .getByRole("heading", { name: "Connect Claude or ChatGPT", exact: true })
+    .scrollIntoViewIfNeeded();
+  await capture("06-ai-visibility");
+  await page.goto(url + "/tools/content.readability");
+  await page
+    .getByRole("textbox", { name: "text", exact: true })
+    .fill(
+      "Good content answers a clear question. Keep sentences short. Give your readers useful facts and practical next steps.",
+    );
+  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
   await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
-  await page.getByRole("heading", { name: "Connect Claude or ChatGPT", exact: true }).waitFor();
-  await capture("05b-ai-visibility");
+  await capture("07-content-result");
   await page.goto(url + "/new");
   await page.getByRole("heading", { name: "New task", exact: true }).waitFor();
-  await capture("07-new-task");
+  await capture("08-new-task");
   await page
     .getByRole("textbox", { name: "What do you want to get done?" })
     .fill("Draft a short marketing plan");
@@ -172,12 +182,18 @@ try {
 
   await page.waitForURL(/\/draft\//);
 
+  await page.goto(url + "/marketing-settings");
+  await page.getByRole("button", { name: "Connect with AmICited", exact: true }).waitFor();
+  await capture("09-amicited-connect");
+  await page.getByText("Use an API key instead", { exact: true }).click();
+  await page.getByRole("textbox", { name: "Workspace API key" }).waitFor();
+  await capture("10-api-key-disclosure");
   await page.goto(url + "/settings/general");
   await page.getByRole("heading", { name: "Your website / brand" }).waitFor();
-  await capture("08-settings-general");
+  await capture("11-settings-general");
   await page.getByRole("switch", { name: "Developer features" }).click();
   await page.getByRole("switch", { name: "Developer features" }).waitFor();
-  await capture("09-developer-mode");
+  await capture("12-developer-mode");
   console.log(out);
 } finally {
   await browser?.close();

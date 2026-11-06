@@ -65,3 +65,17 @@ JS
 ```
 
 Captures are ignored by Git. A fresh home intentionally has no projects or threads.
+
+## Known baseline
+
+On an idle host, apps/web passes 5493/5493 tests. Heavy host load can cause
+spurious web browser failures. On this machine apps/server has nine failures
+that also fail on pure upstream `eb988f2ac`:
+
+- `src/cli/invocation.test.ts` (2)
+- `src/environment/ServerEnvironment.test.ts` (1)
+- `src/process/externalLauncher.test.ts` (1)
+- `src/project/AgentSessionScanner.test.ts` (1)
+- `src/usage/UsageService.test.ts` (2)
+- `src/vcs/GitVcsDriverCore.test.ts` (1)
+- `src/provider/Drivers/ClaudeSkills.test.ts` (1)

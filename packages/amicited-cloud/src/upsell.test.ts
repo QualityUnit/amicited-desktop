@@ -13,10 +13,13 @@ const win = {
   },
 };
 it("compares only measured scope and never treats failures as a win", () => {
-  expect(whatYouAreMissing(win)?.checked).toContain("1 assistant (Claude) from 1 country, once");
+  expect(whatYouAreMissing(win)?.checked).toContain(
+    "1 assistant (Claude), 1 prompt, from this machine, now",
+  );
   expect(whatYouAreMissing(win)?.checked).toContain("1 prompt");
   expect(whatYouAreMissing({ ...win, output: {} })?.checked).not.toContain("Claude");
   expect(whatYouAreMissing({ ...win, status: "error" })).toBeUndefined();
+  expect(whatYouAreMissing({ ...win, output: { status: "needs_provider" } })).toBeUndefined();
   expect(whatYouAreMissing({ ...win, tool: "seo.ssl.check" })).toBeUndefined();
   expect(whatYouAreMissing({ ...win, tool: "site.audit" })?.missing).toContain("uptime");
   expect(whatYouAreMissing({ ...win, tool: "content.brief" })?.missing).toContain("citation-gap");

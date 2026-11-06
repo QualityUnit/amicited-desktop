@@ -7,7 +7,8 @@ function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 export function whatYouAreMissing(result: WinResult) {
-  if (result.status !== "success") return undefined;
+  if (result.status !== "success" || record(result.output).status === "needs_provider")
+    return undefined;
   let checked: string;
   let missing: string;
   if (result.tool === "ai.visibility.check") {
@@ -15,19 +16,15 @@ export function whatYouAreMissing(result: WinResult) {
     const assistants = Array.isArray(scope.assistants)
       ? scope.assistants.filter((v): v is string => typeof v === "string")
       : [];
-    const countries = Array.isArray(scope.countries)
-      ? scope.countries.filter((v): v is string => typeof v === "string")
-      : [];
     const prompts = Array.isArray(scope.prompts)
       ? scope.prompts.length
       : typeof scope.prompts === "number"
         ? scope.prompts
         : undefined;
     const runAt = typeof scope.runAt === "string" ? scope.runAt : undefined;
-    checked =
-      assistants.length && countries.length
-        ? `You checked ${assistants.length} assistant${assistants.length === 1 ? "" : "s"} (${assistants.join(", ")}) from ${countries.length} countr${countries.length === 1 ? "y" : "ies"}, once${prompts === undefined ? "" : `, across ${prompts} prompt${prompts === 1 ? "" : "s"}`}${runAt ? ` (${runAt})` : ""}.`
-        : "You completed a one-time visibility check. Its coverage is shown in your result.";
+    checked = assistants.length
+      ? `You checked ${assistants.length} assistant${assistants.length === 1 ? "" : "s"} (${assistants.join(", ")}), ${prompts === undefined ? "prompt count not reported" : `${prompts} prompt${prompts === 1 ? "" : "s"}`}, from this machine, now${runAt ? ` (${runAt})` : ""}. This was a one-time check; country was not verified.`
+      : "You completed a one-time visibility check. Its coverage is shown in your result.";
     missing =
       "With AmICited: ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Copilot and Claude, tracked daily, in the countries you choose, with competitors, citation sources and history.";
   } else if (/audit/.test(result.tool)) {
