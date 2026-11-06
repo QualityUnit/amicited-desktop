@@ -99,7 +99,7 @@ AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-
 Focused tests: 30 passed across 5 files. Typechecks: 5 packages passed (the three
 AmICited packages above, server, and web); existing Effect schema-brand suggestions
 are informational. Web has no package typecheck script, so its checker is invoked
-directly. The journey passed with 35 PNG captures (24 light, 11 dark), with no
+directly. The journey passed with 35 PNG captures (25 light, 10 dark), with no
 `journey-error.png`. The staged hook checks (`vp staged`: format, lint, both Knip
 passes) passed. The journey uses isolated temporary state and free Replay for the task
 turn; visibility answers are explicitly labelled fixtures. It also verifies the
