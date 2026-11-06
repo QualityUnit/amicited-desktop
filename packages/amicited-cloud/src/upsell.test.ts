@@ -22,6 +22,17 @@ const win = {
 it("compares only measured scope and never treats failures as a win", () => {
   expect(whatYouAreMissing(win)?.checked).toBe("You completed a one-time Claude visibility check.");
   expect(whatYouAreMissing(win)?.teaser).toBe("ChatGPT · Perplexity · Gemini · not checked");
+  for (const [id, name] of [
+    ["codex", "ChatGPT"],
+    ["claudeAgent", "Claude"],
+  ]) {
+    const offer = whatYouAreMissing({
+      ...win,
+      output: { ...win.output, scope: { ...win.output.scope, assistants: [id] } },
+    });
+    expect(offer?.checked).toBe(`You completed a one-time ${name} visibility check.`);
+    expect(offer?.teaser).not.toContain(name);
+  }
   expect(
     whatYouAreMissing({
       ...win,
@@ -104,4 +115,21 @@ it("maps the server domain summary objects to visible domain names", () => {
     ]),
   ).toEqual(["example.com", "acme.com"]);
   expect(domainNames(undefined)).toEqual([]);
+});
+
+it("preserves the winning result's offer across transcript remounts and keeps snooze authoritative", () => {
+  const values = new Map<string, string>();
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+  };
+  const gate = createUpsellGate(storage, storage);
+  const result = { ...win, id: "visibility-result" };
+  expect(gate.claim(result, 0)).toBe(true);
+  expect(createUpsellGate(storage, storage).claim(result, 0)).toBe(true);
+  expect(gate.claim({ ...result, id: "second-result" }, 0)).toBe(false);
+  gate.snooze(0);
+  expect(gate.claim(result, 1)).toBe(false);
 });

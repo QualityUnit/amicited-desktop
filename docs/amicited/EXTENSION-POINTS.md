@@ -284,3 +284,30 @@ contains only its local additive size. The web marketing adapter supplies the
 T3 menu to result export and authenticates the tool registry for marketer search;
 its browser test covers sidebar, keyboard, tool, result and task navigation.
 The patches/ policy remains an owner decision; this round does not change it.
+
+## Chat-first marketer mode (Wave 18)
+
+This supersedes the earlier dashboard landing and website-first flow above.
+
+- `apps/web/src/routes/__root.tsx`: fresh marketer launches enter chat without website onboarding.
+- `apps/web/src/marketing.tsx`: opens an upstream draft in the implicit workspace; supplies recent chats and existing subscription connection.
+- `apps/web/src/components/chat/DraftHeroHeadline.tsx`: marketer headline and four starters seed the existing draft store.
+- `apps/web/src/components/chat/ChatComposer.tsx`: optional website/connection row; hands a preserved prompt to the selected assistant after connection.
+- `apps/web/src/components/chat/ChatHeader.tsx`: marketer New chat title.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx`: plain assistant name, including the Replay development provider.
+- `apps/web/src/components/chat/MessagesTimeline.logic.ts`: carries marketing outputs on folded work groups.
+- `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: shows compact results beneath a folded work group in marketer mode.
+- `apps/web/src/components/chat/TimelineWorkEntryRow.tsx`: renders the same card inside expanded tool activity.
+- `apps/web/src/rpc/amicitedCloud.tsx`: existing promotion gate in chat and quiet connected chip.
+- `apps/server/scripts/dev-replay-agent.ts`: adds a free marketing scenario alongside upstream scenarios.
+
+`marketingChat.tsx` is a thin web adapter to the package-owned result card. The
+assistant identity bridge records driver identity separately from instance IDs;
+the offer compares friendly assistant names against the measured scope.
+
+- `apps/web/src/components/chat/MessagesTimeline.tsx`: opts marketer mode into keeping marketing-result turns unfolded; developer mode retains upstream folding.
+- `apps/web/src/components/chat/useComposerSend.ts`: includes the optional website context in the outgoing marketer message.
+- `apps/web/src/components/chat/MessagesTimeline.logic.test.ts`: covers keeping results visible and refreshing completed folded entries.
+- `apps/web/src/components/ChatView.browser.test.tsx`: extends the existing draft fixture with marketer-mode starters while retaining developer assertions.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: replaces retired dashboard assertions with compact-card, result-context and chat-sidebar coverage.
+- `apps/web/src/components/chat/ComposerControlsBar.tsx`: friendly disconnected assistant label in marketer mode.

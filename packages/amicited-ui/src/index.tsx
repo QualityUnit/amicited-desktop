@@ -1,3 +1,4 @@
+import { CompactMarketingResult } from "./chat.js";
 import { Card } from "./cloud/Card.js";
 import { AmICitedFreeToolCard } from "./cloud/AmICitedFreeToolCard.js";
 import { packs } from "./packs.js";
@@ -5,7 +6,6 @@ import {
   MarketingButton,
   MarketingInput,
   MarketingTextarea,
-  SectionHead,
   MarketingIcon,
   toolIcon,
   MarketingTitle,
@@ -23,7 +23,7 @@ import {
   saveBrand,
   normalizeWebsite,
   MarketingResult,
-  MarketingLink,
+  resultMarkdown,
 } from "./experience.js";
 export * from "./experience.js";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -54,115 +54,6 @@ export function setWorkspaceMode(mode: "marketer" | "developer") {
   window.dispatchEvent(new Event("amicited-mode"));
 }
 export { MarketingShell } from "./shell.js";
-export function Home({
-  startTask,
-  assistantName,
-  assistantsLoading = false,
-  subscriptions,
-  recent,
-  cloud,
-}: {
-  startTask: (prompt: string) => Promise<void>;
-  assistantName?: string | undefined;
-  assistantsLoading?: boolean;
-  subscriptions?: ReactNode;
-  recent?: ReactNode;
-  cloud?: ReactNode;
-}) {
-  const [prompt, setPrompt] = useState("");
-  const [error, setError] = useState("");
-  const visibleError =
-    assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error;
-  return (
-    <>
-      <form
-        className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (assistantsLoading) return;
-          if (!assistantName) {
-            setError("Connect Claude or ChatGPT to send this task");
-            document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
-            return;
-          }
-          setError("");
-          void startTask(prompt).catch((error: Error) => setError(error.message));
-        }}
-      >
-        <SectionHead title="What will you grow today?" />
-        <label htmlFor="ask">Ask your AI assistant</label>
-        <MarketingTextarea
-          id="ask"
-
-          placeholder="What do you want to get done?"
-          value={prompt}
-          onChange={(event) => setPrompt(event.target.value)}
-          required
-        />
-        <MarketingButton
-          variant="default"
-          disabled={assistantsLoading}
-          type={assistantName ? "submit" : "button"}
-          onClick={
-            !assistantName
-              ? () =>
-                  document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" })
-              : undefined
-          }
-        >
-          {assistantName && <MarketingIcon name="send" />}
-          {assistantName ? "Send task" : "Connect an assistant"}
-        </MarketingButton>
-        {!assistantsLoading && !visibleError && assistantName && (
-          <p>
-            {assistantName ? `${assistantName} will start working on this` : "Connect an assistant"}
-          </p>
-        )}
-        <p role="alert" className={visibleError ? "am-status am-status-warn" : undefined}>
-          {visibleError}
-        </p>
-      </form>
-      <div className="am-home-grid">
-        <Card className="am-card">
-          <SectionHead title="Quick actions" />
-          <div className="am-quick">
-            {[
-              ["Check my AI visibility", "/tools#ai-visibility"],
-              ["Audit my website", "/tools/seo.site.audit"],
-              ["Research keywords", "/tools#serp"],
-              ["Write or repurpose content", "/tools#content"],
-            ].map(([label, href]) => (
-              <MarketingLink key={label} href={href}>
-                <MarketingIcon
-                  name={
-                    href?.includes("seo")
-                      ? "seo"
-                      : href?.includes("visibility")
-                        ? "ai-visibility"
-                        : href?.includes("serp")
-                          ? "serp"
-                          : "content"
-                  }
-                />
-                <span>{label}</span>
-                <MarketingIcon name="arrow" />
-              </MarketingLink>
-            ))}
-          </div>
-        </Card>
-        <Card className="am-card" id="ai-subscriptions">
-          <SectionHead title="Your AI subscriptions" />
-          {subscriptions}
-        </Card>
-      </div>
-      <Card className="am-card">
-        <SectionHead title="Recent results" />
-        {recent ?? <p>Your completed checks will appear here.</p>}
-        {cloud}
-      </Card>
-    </>
-  );
-}
 export function ToolsGrid({
   tools,
   selectedPack,
@@ -226,13 +117,16 @@ export function ToolForm({
   disabled = false,
   fix,
   onResult,
+  fullResult = false,
 }: {
   tool: ToolCard;
+  fullResult?: boolean;
   fix?: (prompt: string) => Promise<void>;
   onResult?: (result: ToolResult) => void;
   disabled?: boolean;
   run: (input: unknown) => Promise<ToolResult>;
 }) {
+  const [expanded, setExpanded] = useState(fullResult);
   const [values, setValues] = useState<Record<string, string>>(() => initialFields(tool));
   const [result, setResult] = useState<ToolResult | null>(() => {
     try {
@@ -333,7 +227,26 @@ export function ToolForm({
           </form>
         </>
       )}
-      {result && (
+      {result && !expanded && (
+        <>
+          <CompactMarketingResult result={result} open={() => setExpanded(true)} />
+          {fix && (
+            <MarketingButton
+              variant="default"
+              onClick={() =>
+                void fix(`Help me understand this result.\n${resultMarkdown(result)}`).catch(
+                  (e: Error) => setError(e.message),
+                )
+              }
+            >
+              Ask AI about this
+            </MarketingButton>
+          )}
+          <MarketingButton onClick={() => setResult(null)}>Edit inputs</MarketingButton>
+          {error && <p role="alert">{error}</p>}
+        </>
+      )}
+      {result && expanded && (
         <MarketingResult
           title={tool.title}
           result={result}
@@ -430,10 +343,9 @@ export {
   MarketingButton,
   MarketingInput,
   MarketingTextarea,
-  KpiTile,
   SectionHead,
   MarketingIcon,
   toolIcon,
 } from "./primitives.js";
 
-export { MarketingSearchContext, type SearchItem } from "./search.js";
+export { marketingStarters, marketingToolResult, CompactMarketingResult } from "./chat.js";

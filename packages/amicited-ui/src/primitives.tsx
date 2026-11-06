@@ -1,5 +1,4 @@
 import { controlSurface, CONTROL_AREA } from "./cloud/controlSurface.js";
-import { KpiCell } from "./cloud/metrics.js";
 import { CloudSectionHead } from "./cloud/SectionHead.js";
 import { createPortal } from "react-dom";
 import {
@@ -39,7 +38,6 @@ import {
   ListFilter,
   MapPin,
 } from "lucide-react";
-/* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import {
   createContext,
   useContext,
@@ -91,17 +89,6 @@ export function MarketingTextarea(props: ComponentProps<"textarea">) {
       className={`${controlSurface()} ${CONTROL_AREA} my-2 min-h-20 ${props.className ?? ""}`}
     />
   );
-}
-export function KpiTile({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: ReactNode;
-  hint?: string;
-}) {
-  return <KpiCell label={label} value={value ?? "—"} sub={hint} />;
 }
 export function SectionHead({
   title,

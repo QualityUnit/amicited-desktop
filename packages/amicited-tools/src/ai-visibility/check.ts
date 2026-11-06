@@ -57,7 +57,7 @@ export function visibilityTool(provider?: Generation) {
         `What should I shortlist when choosing ${context}? Include source URLs if available.`,
       ];
       const scope = {
-        assistants: provider ? [provider.provider] : [],
+        assistants: provider ? [provider.assistant ?? provider.provider] : [],
         countries: ["Location not verified; request runs from this machine."],
         prompts,
         runAt: new Date().toISOString(),

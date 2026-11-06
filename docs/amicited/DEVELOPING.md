@@ -87,47 +87,32 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 16 (round 14 evidence), 2026-11-06, Node 26.12.1:
+Wave 18 (chat-first, r16 evidence), 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx packages/amicited-tools/src/library.test.ts apps/web/src/components/chat/ChatHeader.browser.test.tsx apps/web/src/components/ChatView.browser.test.tsx
-pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter @amicited/tools --filter @amicited/cloud-client --filter t3 run typecheck
+vp test run packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui/src/experience.test.ts packages/amicited-tools/src/library.test.ts
+vp test run packages/amicited-ui/src/chat.test.ts apps/web/src/amicited-cloud.browser.test.tsx apps/web/src/components/ChatView.browser.test.tsx apps/web/src/components/chat/MessagesTimeline.logic.test.ts apps/server/scripts/dev-replay-agent.test.ts
+pnpm --filter @amicited/ui-marketing --filter @amicited/tools-core --filter @amicited/tools --filter @amicited/cloud-client --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
-pnpm --dir scripts exec effect-tsgo tsrs --noEmit
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r14
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r14
+node scripts/amicited/journey-screenshots.ts .amicited-shots/r16
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r16
 vp run check:changed
 ```
 
-Focused tests: 49 passed in eight files (including the three upstream cases). Marketing UI, cloud UI, server, web and
-scripts typechecks pass; existing Effect schema-brand suggestions are informational.
-The journey requires the independent cloud specimens described in SCREENSHOTS.md.
-It captures the complete 2× parity set and 1440 journey with controlled fixtures and no debug prefixes.
-No paid provider or production MCP connection is invoked.
+The focused tests, affected-package typechecks, server and web typechecks pass.
+Existing Effect schema-brand suggestions are informational. The unscoped fast
+check selects upstream/main as its closest merge base and covers formatting,
+lint, both Knip passes, GraphQL generation, affected tests and React Compiler.
 
-Search navigation and the concrete visibility/audit offers are included in the
-journey. Native visibility answers include excerpt, citations and all required
-schema fields; the harness fails if renderer decoding rejects them.
+The browser journey completes in light/dark at 1344×1016 and light at 1440×900,
+all at 2×. It includes connected and disconnected empty chats, marketing cards,
+the inline offer, full result, history, secondary pages and developer-mode T3
+references. Isolated Electron captures the empty chat and marketing turn in both
+themes. Inter, Geist, Geist Mono and Fraunces load in both clients; font reports
+record devicePixelRatio 2. No journey-error.png remains.
 
-The actual built Electron main mounts the marketer UI under an isolated OS home,
-T3 home and port offset. Inter, Geist, Geist Mono and Fraunces all load at 2×.
-Home, the real audit and visibility fixtures are captured in both themes.
-The previous native evidence failure was in target selection/CDP setup, rather
-than font loading: localhost reaches CDP, DevTools must be excluded, and first-run
-shell markers are nested. The normal desktop dev launcher is never used, and the
-owner's desktop process is untouched.
-
-The earlier claim that the three browser failures were upstream baseline failures
-was incorrect. This branch changed fresh storage to marketer mode. The two
-ChatHeader untouched-rename cases (blur and Enter) expected “New thread”; the
-ChatView reserved-draft case expected the developer sidebar. Their fixtures now
-explicitly select developer mode and restore the previous storage value after
-unmount. Their original assertions are unchanged.
-
-The unscoped command selects the closest remote-main merge base, currently
-`upstream/main` (`d694c44d0784`), and passes all fast checks: 784 tests plus 27
-React Compiler checks, both Knip passes and 45 affected-package typechecks.
-An explicit `vp run check:changed origin/main` was also attempted after fetching.
-That fork ref (`1efb72d1b7cd`) predates the upstream import, selects 31,735 files,
-and fails before running checks with `spawn E2BIG`. It is not a passing result;
-no origin ref was rewritten to conceal the tooling limit.
+The controlled Replay scenarios exercise real provider streaming, tool output
+loading and approval handling without a paid model or production cloud account.
+Real Claude/ChatGPT authentication and a production AmICited connection are not
+invoked by this evidence run. Provider instructions and MCP descriptions are
+unchanged, so this wave does not change the model-facing eval catalogue.

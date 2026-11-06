@@ -544,6 +544,7 @@ type MessagesTimelineRowContent =
       createdAt: string;
       runId?: RunId | null;
       groupId: string;
+      marketingEntries?: readonly WorkLogEntry[];
       hiddenCount: number;
       expanded: boolean;
       summary: string;
@@ -1391,6 +1392,7 @@ function deriveTimelineTurnFolds(
 }
 
 export function deriveMessagesTimelineRows(input: {
+  keepMarketingResults?: boolean;
   timelineEntries: ReadonlyArray<TimelineEntry>;
   pendingApprovalRequestIds?: ReadonlySet<RuntimeRequestId>;
   latestRun?: TimelineLatestRun | null;
@@ -1453,11 +1455,21 @@ export function deriveMessagesTimelineRows(input: {
     isWorking: input.isWorking,
   });
   const runlessWorkActive = input.isWorking && input.runlessWorkActive === true;
+  const marketingRunIds = input.keepMarketingResults
+    ? timelineEntries.flatMap((entry) => {
+        const payload = entry.kind === "work" ? entry.entry.structuredPayload : undefined;
+        return payload?.type === "dynamic_tool" &&
+          payload.toolName?.toLowerCase().includes("marketing_tools_run") &&
+          payload.runId
+          ? [payload.runId]
+          : [];
+      })
+    : [];
   const foldsByAnchorEntryId = deriveTurnFolds({
     timelineEntries: timelineEntries,
     terminalAssistantMessageIds,
     latestRun: input.latestRun ?? null,
-    unfoldedRunIds: new Set([...activeVisualResponseRunIds, ...failedRunIds]),
+    unfoldedRunIds: new Set([...activeVisualResponseRunIds, ...failedRunIds, ...marketingRunIds]),
     runlessWorkActive,
     liveSubagentEntryIds,
     completeSupersededReplyEntryIds: completeSupersededReplyIds,
@@ -1915,6 +1927,21 @@ export function deriveMessagesTimelineRows(input: {
             createdAt: timelineEntry.createdAt,
             runId: timelineEntry.entry.runId ?? null,
             groupId,
+            ...(visibleGroupedEntries.some(
+              (entry) =>
+                entry.structuredPayload?.type === "dynamic_tool" &&
+                entry.structuredPayload.toolName?.toLowerCase().includes("marketing_tools_run"),
+            )
+              ? {
+                  marketingEntries: visibleGroupedEntries.filter(
+                    (entry) =>
+                      entry.structuredPayload?.type === "dynamic_tool" &&
+                      entry.structuredPayload.toolName
+                        ?.toLowerCase()
+                        .includes("marketing_tools_run"),
+                  ),
+                }
+              : {}),
             hiddenCount: visibleGroupedEntries.length,
             expanded,
             summary:
@@ -2488,6 +2515,7 @@ function isRowUnchanged(a: MessagesTimelineRow, b: MessagesTimelineRow): boolean
         a.createdAt === bw.createdAt &&
         a.runId === bw.runId &&
         a.groupId === bw.groupId &&
+        Equal.equals(a.marketingEntries, bw.marketingEntries) &&
         a.hiddenCount === bw.hiddenCount &&
         a.expanded === bw.expanded &&
         a.summary === bw.summary &&

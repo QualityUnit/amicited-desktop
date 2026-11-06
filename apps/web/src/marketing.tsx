@@ -3,14 +3,7 @@ import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
-import {
-  MarketingUiContext,
-  MarketingButton,
-  MarketingTextarea,
-  SectionHead,
-  MarketingIcon,
-  toolIcon,
-} from "@amicited/ui-marketing";
+import { MarketingUiContext, MarketingButton } from "@amicited/ui-marketing";
 import type { ComponentProps } from "react";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { isUsefulResult } from "@amicited/tools-core";
@@ -20,34 +13,19 @@ import { resolveAppModelSelectionState } from "./modelSelection";
 import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
-import {
-  CloudFooter,
-  CloudHome,
-  CloudTools,
-  CloudPage,
-  CloudStatusLine,
-} from "./rpc/amicitedCloud";
+import { CloudFooter, CloudTools, CloudPage } from "./rpc/amicitedCloud";
 import { ResultFooterContext } from "@amicited/ui-marketing";
-import { newProjectId } from "./lib/utils";
-import { projectEnvironment } from "./state/projects";
-import { useThreadShells, useProjects } from "./state/entities";
+import { useThreadShells } from "./state/entities";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 import type { ServerProvider } from "@t3tools/contracts";
-import type { Brand } from "@amicited/ui-marketing";
 import { useAtomValue } from "@effect/atom-react";
 import {
-  FirstRun,
-  readBrand,
-  Home,
   ToolsGrid,
   ToolForm,
   MarketingSettings as MarketingSettingsView,
   MarketingShell,
-  MarketingSearchContext,
-  type SearchItem,
   useWorkspaceMode,
-  resultTitle,
 } from "@amicited/ui-marketing";
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
@@ -71,7 +49,7 @@ import {
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 
-export const KitButton = ({
+const KitButton = ({
   variant = "outline",
   type = "submit",
   ...props
@@ -97,7 +75,7 @@ export const KitButton = ({
 const KitInput = ({ size: _size, ...props }: ComponentProps<"input">) => (
   <Input nativeInput size="amicited" {...props} />
 );
-export function KitTooltip({ children, label }: { children: ReactNode; label: string }) {
+function KitTooltip({ children, label }: { children: ReactNode; label: string }) {
   const [open, setOpen] = useState(false);
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
@@ -146,160 +124,76 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tools.run",
   label: "marketing:run",
 });
-function readRecent() {
-  try {
-    return JSON.parse(
-      sessionStorage.getItem("amicited.last-result") ?? "null",
-    ) as ToolResult | null;
-  } catch {
-    return null;
-  }
-}
-
-function MarketingSearchData({ children }: { children: ReactNode }) {
-  const environmentId = usePrimaryEnvironmentId();
-  const list = useAtomCommand(listCommand);
-  const load = useEffectEvent(list);
-  const threads = useThreadShells();
-  const [tools, setTools] = useState<readonly ToolCard[]>([]);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Search reads the authenticated tool registry for this environment.
-  useEffect(() => {
-    if (!environmentId) return;
-    let active = true;
-    void load({ environmentId, input: undefined }).then((result) => {
-      if (active && result._tag === "Success") setTools(result.value as unknown as ToolCard[]);
-    });
-    return () => {
-      active = false;
-    };
-  }, [environmentId]);
-  const [recent, setRecent] = useState(readRecent);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Refresh the browser-session result when a tool completes.
-  useEffect(() => {
-    const update = () => setRecent(readRecent());
-    window.addEventListener("amicited-result", update);
-    return () => window.removeEventListener("amicited-result", update);
-  }, []);
-  const items: SearchItem[] = tools.map((tool) => ({
-    title: tool.title,
-    href: "/tools/" + tool.name,
-    kind: "Tool",
-  }));
-  if (recent && isUsefulResult(recent))
-    items.unshift({
-      title: resultTitle(recent),
-      href: "/tools/" + recent.tool,
-      kind: "Recent result",
-      detail: `${typeof recent.output === "object" && recent.output && "score" in recent.output ? `${recent.output.score}/100 · ` : ""}${new Date(recent.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-    });
-  items.push(
-    ...threads.map((thread) => ({
-      title: thread.title || "New task",
-      href: `/${thread.environmentId}/${thread.id}`,
-      kind: "Task" as const,
-    })),
-  );
-  return <MarketingSearchContext value={items}>{children}</MarketingSearchContext>;
-}
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
+  const chats = useMarketingChats();
   const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
   const hash = useLocation({ select: (location) => location.hash });
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <MarketingSearchData>
-        <ResultFooterContext value={renderCloudFooter}>
-          <MarketingShell
-            connectionStatus={<CloudStatusLine />}
-            mode={mode}
-            taskView={taskTarget !== null}
-            path={path}
-            hash={hash}
-            navigate={(path) => void navigate({ to: path })}
-          >
-            {path === "/marketing-settings" ? (
-              <CloudPage />
-            ) : path === "/settings/general" ? (
-              <MarketingSettings />
-            ) : path.startsWith("/settings") ? (
-              <MarketingSettings />
-            ) : path === "/usage" ? (
-              <div className="am-page">
-                <h1>Your AI plan usage</h1>
-                <p>
-                  These limits come from your AI subscriptions. Local website checks do not use your
-                  AI allowance.
-                </p>
-                <section className="am-card">
-                  <MarketingSubscriptions usageLink={false} />
-                </section>
-              </div>
-            ) : ["/pull-requests", "/source-control"].includes(path) ? (
-              <MarketingHome />
-            ) : (
-              children
-            )}
-          </MarketingShell>
-        </ResultFooterContext>
-      </MarketingSearchData>
+      <ResultFooterContext value={renderCloudFooter}>
+        <MarketingShell
+          chats={chats}
+          mode={mode}
+          taskView={taskTarget !== null}
+          path={path}
+          hash={hash}
+          navigate={(path) => void navigate({ to: path })}
+        >
+          {path === "/marketing-settings" ? (
+            <CloudPage />
+          ) : path === "/settings/general" ? (
+            <MarketingSettings />
+          ) : path.startsWith("/settings") ? (
+            <MarketingSettings />
+          ) : path === "/usage" ? (
+            <div className="am-page">
+              <h1>Your AI plan usage</h1>
+              <p>
+                These limits come from your AI subscriptions. Local website checks do not use your
+                AI allowance.
+              </p>
+              <section className="am-card">
+                <MarketingSubscriptions usageLink={false} />
+              </section>
+            </div>
+          ) : ["/pull-requests", "/source-control"].includes(path) ? (
+            <MarketingHome />
+          ) : (
+            children
+          )}
+        </MarketingShell>
+      </ResultFooterContext>
     </MarketingUiContext>
   ) : (
     children
   );
 }
 export function MarketingHome() {
-  const actions = useMarketingTask();
-  const [recent] = useState<ToolResult | null>(() => {
-    try {
-      return JSON.parse(
-        sessionStorage.getItem("amicited.last-result") ?? "null",
-      ) as ToolResult | null;
-    } catch {
-      return null;
-    }
+  const environmentId = usePrimaryEnvironmentId();
+  const environment = usePrimaryEnvironment();
+  const scratch = useScratchProject();
+  const open = useEffectEvent(async () => {
+    if (environmentId) await scratch.startScratchThread(environmentId);
   });
-  return (
-    <Home
-      assistantName={actions.assistantName}
-      assistantsLoading={actions.assistantsLoading}
-      startTask={(prompt) => actions.startTask(prompt, true)}
-      subscriptions={<MarketingSubscriptions />}
-      cloud={<CloudHome />}
-      recent={
-        recent && isUsefulResult(recent) ? (
-          <Link
-            to="/tools/$toolName"
-            params={{ toolName: recent.tool }}
-            className="am-finding am-recent-result"
-          >
-            <MarketingIcon name={toolIcon(recent.tool)} />
-            <strong>{resultTitle(recent)}</strong>
-            <span className="am-number">
-              {typeof recent.output === "object" && recent.output && "score" in recent.output
-                ? `${recent.output.score}/100`
-                : "View results"}
-            </span>
-            <time dateTime={recent.startedAt}>
-              {new Date(recent.startedAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </time>
-            <MarketingIcon name="arrow" />
-          </Link>
-        ) : undefined
-      }
-    />
-  );
+  const [error, setError] = useState("");
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Open the implicit workspace through the existing project service once the environment connects.
+  useEffect(() => {
+    if (environment?.connection.phase === "connected")
+      void open().catch(() => setError("Could not open your chat. Please try again."));
+  }, [environment?.connection.phase]);
+  return error ? <p role="alert">{error}</p> : <p role="status">Opening your chat…</p>;
 }
 
 export function MarketingTools({ name }: { name?: string }) {
   const selectedPack = useLocation({
     select: (location) => location.hash.replace(/^#/, "") || "seo",
   });
+  const navigate = useNavigate();
+  const returnChat = sessionStorage.getItem("amicited.return-chat");
   const actions = useMarketingTask();
   const environmentId = usePrimaryEnvironmentId();
   const list = useAtomCommand(listCommand);
@@ -341,8 +235,18 @@ export function MarketingTools({ name }: { name?: string }) {
     );
   return (
     <>
+      <button
+        type="button"
+        onClick={() => {
+          sessionStorage.removeItem("amicited.return-chat");
+          void navigate({ to: returnChat ?? "/home" });
+        }}
+      >
+        ← Back to chat
+      </button>
       <ToolForm
         fix={actions.startTask}
+        fullResult={Boolean(sessionStorage.getItem("amicited.return-chat"))}
         onResult={rememberResult}
         key={name}
         tool={tool}
@@ -354,12 +258,6 @@ export function MarketingTools({ name }: { name?: string }) {
           return result.value as unknown as ToolResult;
         }}
       />
-      {actions.taskError && (
-        <section className="am-card" id="ai-subscriptions">
-          <p role="alert">{actions.taskError}</p>
-          <MarketingSubscriptions />
-        </section>
-      )}
     </>
   );
 }
@@ -371,42 +269,7 @@ export function MarketingSettings() {
 }
 
 export function MarketingFirstRun() {
-  const environment = usePrimaryEnvironment();
-  const environmentId = usePrimaryEnvironmentId();
-  const actions = useMarketingTask();
-  const run = useAtomCommand(runCommand);
-  const navigate = useNavigate();
-  return (
-    <MarketingUiContext value={marketingUi}>
-      <MarketingSearchData>
-        <ResultFooterContext value={renderCloudFooter}>
-          <div data-amicited-shell="" className="am-first-run-surface">
-            <FirstRun
-              ready={environment?.connection.phase === "connected"}
-              fix={actions.startTask}
-              subscriptions={<MarketingSubscriptions />}
-              prepare={actions.prepare}
-              skip={() => {
-                localStorage.setItem("amicited.onboarded", "true");
-                void navigate({ to: "/home" });
-              }}
-              check={async (brand) => {
-                if (!environmentId) throw new Error("Not connected");
-                const response = await run({
-                  environmentId,
-                  input: { name: "seo.site.audit", input: { url: brand.website } },
-                });
-                if (response._tag !== "Success") throw new Error("Could not run check");
-                const result = response.value as unknown as ToolResult;
-                rememberResult(result);
-                return result;
-              }}
-            />
-          </div>
-        </ResultFooterContext>
-      </MarketingSearchData>
-    </MarketingUiContext>
-  );
+  return <MarketingHome />;
 }
 function rememberResult(result: ToolResult) {
   if (!isUsefulResult(result)) return;
@@ -424,7 +287,6 @@ function useMarketingTask() {
   const newThread = useNewThreadHandler();
   const settings = usePrimarySettings();
   const allProviders = useEnvironmentProviders();
-  const assistantsLoading = !environmentId || !allProviders.has(environmentId);
   const providers = environmentId ? (allProviders.get(environmentId) ?? []) : [];
   const readyProviders = providers.filter(
     (provider) =>
@@ -437,74 +299,23 @@ function useMarketingTask() {
     readyProviders.find(
       (provider) => provider.instanceId === settings.textGenerationModelSelection?.instanceId,
     ) ?? readyProviders[0];
-  const assistantName = assistant
-    ? assistant.driver === "claudeAgent"
-      ? "Claude"
-      : assistant.driver === "codex"
-        ? "ChatGPT"
-        : assistant.displayName
-    : undefined;
-  const [taskError, setTaskError] = useState("");
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Bring the connection card mounted by a blocked task into view.
-  useEffect(() => {
-    if (taskError) document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
-  }, [taskError]);
-  const create = useAtomCommand(projectEnvironment.create);
-  const environment = usePrimaryEnvironment();
-  const projects = useProjects();
-  const prepare = async (brand: Brand) => {
-    if (!environmentId) throw new Error("Still connecting. Please try again.");
-    const existing = projects.find(
-      (p) => p.environmentId === environmentId && p.title === brand.name,
-    );
-    if (existing) return scopeProjectRef(existing.environmentId, existing.id);
-    const workspaceRoot = environment?.serverConfig?.scratchWorkspaceRoot;
-    if (!workspaceRoot) throw new Error("Still getting your workspace ready. Please try again.");
-    const projectId = newProjectId();
-    const result = await create({
-      environmentId,
-      input: {
-        projectId,
-        title: brand.name,
-        workspaceRoot: workspaceRoot + "/" + new URL(brand.website).hostname,
-        createWorkspaceRootIfMissing: true,
-      },
-    });
-    if (result._tag !== "Success")
-      throw new Error("Could not get your website ready. Please try again.");
-    return scopeProjectRef(environmentId, projectId);
-  };
   return {
-    assistantName,
-    assistantsLoading,
-    taskError,
-    prepare: async (brand: Brand) => {
-      await prepare(brand);
-    },
     startTask: async (prompt: string, sendImmediately = false) => {
-      if (assistantsLoading) return;
-      if (!assistant) {
-        setTaskError("Connect Claude or ChatGPT to send this task");
-        document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
-        throw new Error("Connect Claude or ChatGPT to send this task");
-      }
-      setTaskError("");
       const open = async (project: Parameters<typeof newThread>[0]) => {
         const draft = await newThread(project, {
           prompt,
-          sendImmediately,
-          modelSelection:
-            settings.textGenerationModelSelection?.instanceId === assistant.instanceId
-              ? settings.textGenerationModelSelection
-              : resolveAppModelSelectionState(settings, [assistant]),
+          sendImmediately: sendImmediately && Boolean(assistant),
+          ...(assistant
+            ? {
+                modelSelection:
+                  settings.textGenerationModelSelection?.instanceId === assistant.instanceId
+                    ? settings.textGenerationModelSelection
+                    : resolveAppModelSelectionState(settings, [assistant]),
+              }
+            : {}),
         });
         if (!draft) throw new Error("Could not open your task");
       };
-      const brand = readBrand();
-      if (brand) {
-        await open(await prepare(brand));
-        return;
-      }
       if (!environmentId) throw new Error("Not connected");
       const project = await scratch.openScratchProject(environmentId);
       if (!project) throw new Error("Could not start task");
@@ -512,7 +323,13 @@ function useMarketingTask() {
     },
   };
 }
-function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
+export function MarketingSubscriptions({
+  usageLink = true,
+  onSelected,
+}: {
+  usageLink?: boolean;
+  onSelected?: (selection: import("@t3tools/contracts").ModelSelection) => void;
+}) {
   const environmentId = usePrimaryEnvironmentId();
   const all = useEnvironmentProviders();
   const providers = environmentId ? all.get(environmentId) : undefined;
@@ -567,6 +384,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
       input: { patch: { textGenerationModelSelection: selection } },
     });
     if (result._tag !== "Success") throw new Error("Could not save assistant");
+    onSelected?.(selection);
   };
   return (
     <>
@@ -598,6 +416,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                 <span className="am-status am-status-pass">In use</span>
               ) : ready ? (
                 <MarketingButton
+                  type="button"
                   variant="link"
                   onClick={() =>
                     void choose(driver!).catch(() =>
@@ -611,6 +430,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                 </MarketingButton>
               ) : (
                 <MarketingButton
+                  type="button"
                   onClick={() => {
                     setConnect(label ?? null);
                     void enable(provider);
@@ -670,53 +490,12 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
   );
 }
 export function MarketingNewTask() {
-  const actions = useMarketingTask();
-  const [prompt, setPrompt] = useState("");
-  const [error, setError] = useState("");
-  const visibleError =
-    actions.assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error;
-  return (
-    <div className="am-page">
-      <p className="am-eyebrow">YOUR AI ASSISTANT</p>
-      <h1>New task</h1>
-      <p>Start with a goal, a question, or a rough idea.</p>
-      <form
-        className="am-card"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void actions.startTask(prompt, true).catch((error: Error) => setError(error.message));
-        }}
-      >
-        <label>
-          What do you want to get done?
-          <MarketingTextarea
-            autoFocus
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="What do you want to get done?"
-            required
-          />
-        </label>
-        <MarketingButton variant="default" disabled={actions.assistantsLoading}>
-          Send task
-        </MarketingButton>
-        {!visibleError && !actions.assistantsLoading && (
-          <p>
-            {actions.assistantName
-              ? `${actions.assistantName} will start working on this`
-              : "Connect an assistant first"}
-          </p>
-        )}
-        {visibleError && (
-          <p role="alert" className="am-status am-status-warn">
-            {visibleError}
-          </p>
-        )}
-      </form>
-      <section className="am-card" id="ai-subscriptions">
-        <SectionHead title="Your AI subscriptions" />
-        <MarketingSubscriptions />
-      </section>
-    </div>
-  );
+  return <MarketingHome />;
+}
+
+function useMarketingChats() {
+  return useThreadShells()
+    .filter((t) => !t.archivedAt)
+    .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .map((t) => ({ title: t.title || "New chat", href: `/${t.environmentId}/${t.id}` }));
 }

@@ -10,6 +10,7 @@ import {
   type Fetcher,
 } from "../common.ts";
 export interface Generation {
+  readonly assistant?: string;
   readonly provider: string;
   readonly model: string;
   readonly generate: (prompt: string, signal: AbortSignal) => Promise<string>;

@@ -34,6 +34,7 @@ export const layer = Layer.unwrap(
             snapshot.auth.status !== "unauthenticated"
               ? {
                   provider: String(selection.instanceId),
+                  assistant: instance.driverKind,
                   model: selection.model,
                   generate: async (prompt, signal) => {
                     const result = await Effect.runPromiseWith(context)(

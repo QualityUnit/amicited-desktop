@@ -11,9 +11,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
-    "@amicited/tools": "workspace:*",
     "@amicited/tools-core": "workspace:*",
-    "effect": "catalog:",
     "lucide-react": "^0.564.0",
     "react": "catalog:",
     "react-dom": "catalog:",

@@ -1,4 +1,4 @@
-import { marketingNavigate, MarketingLink, SectionHead } from "@amicited/ui-marketing";
+import { marketingNavigate, SectionHead } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
 import {
   useEffect,
@@ -9,14 +9,9 @@ import {
 } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
-import {
-  AmicitedConnectPanel,
-  AmicitedConnectedBadge,
-  AmicitedUpsellCard,
-  type CloudHeadline,
-} from "@amicited/ui-cloud";
+import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
-import { SIGNUP_URL, domainNames, type Connection } from "@amicited/cloud-client/model";
+import { SIGNUP_URL, type Connection } from "@amicited/cloud-client/model";
 import type { ToolResult } from "@amicited/tools-core";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
@@ -35,10 +30,6 @@ const connect = () => marketingNavigate("/marketing-settings");
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
   label: "cloud:status",
-});
-const summary = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.cloud.summary",
-  label: "cloud:summary",
 });
 const oauth = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.connectOAuth",
@@ -148,65 +139,6 @@ function CloudSettings() {
       </fieldset>
     </div>
   );
-}
-function headlinesFrom(value: unknown): CloudHeadline[] {
-  return Array.isArray(value)
-    ? value.filter(
-        (v): v is CloudHeadline =>
-          typeof v === "object" &&
-          v !== null &&
-          typeof v.label === "string" &&
-          (typeof v.value === "string" || typeof v.value === "number"),
-      )
-    : [];
-}
-export function CloudHome({ offer = true }: { offer?: boolean }) {
-  const { environmentId, connection } = useCloud();
-  const read = useAtomCommand(summary);
-  const readSummary = useEffectEvent(read);
-  const [data, setData] = useState<{ domains: string[]; headlines: CloudHeadline[] }>({
-    domains: [],
-    headlines: [],
-  });
-  const connected = connection?.state === "connected";
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Fetch the remote workspace summary after reading connection state.
-  useEffect(() => {
-    if (!environmentId || !connected) return;
-    let active = true;
-    void readSummary({ environmentId, input: undefined }).then((r) => {
-      if (active && r._tag === "Success")
-        setData({
-          domains: domainNames(r.value.domains),
-          headlines: headlinesFrom(r.value.headlines),
-        });
-    });
-    return () => {
-      active = false;
-    };
-  }, [environmentId, connected]);
-  if (!connection) return null;
-  if (connection.state === "connected")
-    return (
-      <AmicitedConnectedBadge
-        connection={connection}
-        {...data}
-        ui={ui}
-        openExternal={openExternal}
-        reportLink={async () => {
-          if (!environmentId) throw new Error("Not connected");
-          const r = await read({ environmentId, input: undefined });
-          if (r._tag !== "Success" || !r.value.reportUrl) throw new Error("No report available");
-          return r.value.reportUrl;
-        }}
-      />
-    );
-  return offer && promotionsAllowed(connection) ? (
-    <div className="am-promotion-row">
-      <MarketingLink className="am-track-link" href="/marketing-settings">
-        Track this daily with AmICited →
-      </MarketingLink>
-    </div>
-  ) : null;
 }
 function promotionsAllowed(connection: Connection | null) {
   try {
@@ -318,7 +250,6 @@ export function CloudPage() {
       {promotionsAllowed(connection) && (
         <p className="am-hint">7-day trial, then EUR 120/month Pro, cancel anytime.</p>
       )}
-      <CloudHome offer={false} />
       <CloudSettings />
       <footer className="am-preferences-footer">
         <MarketingButton
@@ -340,19 +271,7 @@ export function CloudPage() {
   );
 }
 
-export function CloudStatusLine() {
+export function CloudConnectedChip() {
   const { connection } = useCloud();
-  return (
-    <p>
-      AmICited ·{" "}
-      {connection?.state === "connected"
-        ? `Connected to ${connection.workspace}`
-        : connection?.state === "error"
-          ? "Could not read connection"
-          : "Not connected"}
-      <MarketingLink href="/marketing-settings">
-        {connection?.state === "connected" ? "Manage →" : "Connect →"}
-      </MarketingLink>
-    </p>
-  );
+  return connection?.state === "connected" ? <span>AmICited connected</span> : null;
 }

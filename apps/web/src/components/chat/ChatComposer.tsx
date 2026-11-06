@@ -1,3 +1,4 @@
+import { MarketingComposerContext } from "../../marketingChat";
 import { readWorkspaceMode } from "@amicited/ui-marketing";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
 import { insertAttachmentReferencesForDraft } from "./composerAttachmentReferences";
@@ -2139,6 +2140,30 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     }
   };
   const submitComposerStable = useStableCallback(submitComposer);
+  const [marketingPendingSend, setMarketingPendingSend] = useState<ModelSelection | null>(null);
+  const marketingSentSelection = useRef<ModelSelection | null>(null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A subscription connection hands the preserved prompt back to the mounted composer after model selection commits.
+  useEffect(() => {
+    if (
+      marketingPendingSend &&
+      marketingSentSelection.current !== marketingPendingSend &&
+      selectedInstanceId === marketingPendingSend.instanceId &&
+      selectedModel === marketingPendingSend.model &&
+      !isSendDisabled &&
+      !noProviderAvailable
+    ) {
+      marketingSentSelection.current = marketingPendingSend;
+      if (promptRef.current.trim()) submitComposerStable();
+    }
+  }, [
+    marketingPendingSend,
+    selectedInstanceId,
+    selectedModel,
+    isSendDisabled,
+    noProviderAvailable,
+    submitComposerStable,
+    promptRef,
+  ]);
   const handleSubmitMessage = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     submitComposer(
@@ -3201,6 +3226,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       data-chat-composer-form="true"
       {...threadContextDropTargetProps()}
     >
+      {readWorkspaceMode() === "marketer" ? (
+        <MarketingComposerContext
+          selectedInstanceId={selectedInstanceId}
+          onSelected={(selection) => {
+            setMarketingPendingSend(selection);
+            onProviderModelSelect(selection.instanceId, selection.model);
+          }}
+        />
+      ) : null}
       <ComposerBanner.Dock>
         <ComposerBanner.Column>
           <ComposerBannerStack items={shelfItems} />
@@ -3439,7 +3473,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                             : projectSelectionRequired
                               ? "Choose a project above to start a thread"
                               : showProviderUnavailable
-                                ? "Enable a provider in Settings to send a message"
+                                ? readWorkspaceMode() === "marketer"
+                                  ? "What do you want to work on? Connect an assistant when you’re ready."
+                                  : "Enable a provider in Settings to send a message"
                                 : readWorkspaceMode() === "marketer"
                                   ? "What do you want to get done?"
                                   : DEFAULT_COMPOSER_PLACEHOLDER

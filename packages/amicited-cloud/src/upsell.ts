@@ -1,5 +1,6 @@
-import { isUsefulResult } from "@amicited/tools-core";
+import { friendlyAssistant, isUsefulResult } from "@amicited/tools-core";
 export interface WinResult {
+  id?: string;
   tool: string;
   status: string;
   output?: unknown;
@@ -16,14 +17,14 @@ export function whatYouAreMissing(result: WinResult) {
   if (result.tool === "ai.visibility.check") {
     const scope = record(record(result.output).scope);
     const assistants = Array.isArray(scope.assistants)
-      ? scope.assistants.filter((v): v is string => typeof v === "string")
+      ? scope.assistants.filter((v): v is string => typeof v === "string").map(friendlyAssistant)
       : [];
     const summary = record(record(result.output).summary);
     checked =
       typeof summary.mentioned === "number" && typeof summary.answered === "number"
         ? `${String(record(result.input).brand ?? "Your brand")} was named in ${summary.mentioned} of ${summary.answered} ${assistants.join(" and ") || "AI"} answers in this check.`
         : `You completed a one-time ${assistants.join(" and ") || "AI"} visibility check.`;
-    teaser = ["ChatGPT", "Perplexity", "Gemini"]
+    teaser = ["ChatGPT", "Claude", "Perplexity", "Gemini"]
       .filter((name) => !assistants.includes(name))
       .join(" · ");
     if (teaser) teaser += " · not checked";
@@ -105,9 +106,15 @@ export function createUpsellGate(storage: PreferenceStorage, session: Preference
     },
     claim(result: WinResult, now: number, connected = false) {
       try {
-        if (!shouldOfferUpsell(result, read(), session.getItem(key) === "shown", now, connected))
-          return false;
-        session.setItem(key, "shown");
+        const claimed = session.getItem(key);
+        if (
+          result.id &&
+          claimed === result.id &&
+          shouldOfferUpsell(result, read(), false, now, connected)
+        )
+          return true;
+        if (!shouldOfferUpsell(result, read(), claimed !== null, now, connected)) return false;
+        session.setItem(key, result.id ?? "shown");
         return true;
       } catch {
         return false;

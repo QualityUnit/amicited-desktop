@@ -1,4 +1,5 @@
-import { useWorkspaceMode } from "@amicited/ui-marketing";
+/* oxlint-disable shadcn/no-unknown-classes -- Marketer styles live in the fork package. */
+import { marketingStarters, useWorkspaceMode } from "@amicited/ui-marketing";
 import type { DraftId } from "~/composerDraftStore";
 import { composerDraftHasUserContent, useComposerDraftStore } from "~/composerDraftStore";
 import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@t3tools/contracts";
@@ -403,6 +404,26 @@ export function DraftHeroHeadline({
         {noProjectShortcut ? <TooltipPopup side="bottom">{noProjectShortcut}</TooltipPopup> : null}
       </Tooltip>
     ) : null;
+
+  if (marketer)
+    return (
+      <div>
+        <h1 className="text-center text-3xl font-normal">What do you want to work on?</h1>
+        <div className="am-starters">
+          {marketingStarters.map((prompt) => (
+            <button
+              key={prompt}
+              type="button"
+              onClick={() => {
+                if (draftId) useComposerDraftStore.getState().setPrompt(draftId, prompt);
+              }}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
 
   if (isScratchDraft && isTriageDraftPrompt) {
     const environment = environments.find(

@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import type { ToolCallDiffTarget } from "../../diffPanelStore";
@@ -663,9 +664,11 @@ const ConversationTimeline = memo(function ConversationTimeline({
   const pendingApprovalRequestIds = new Set(
     pendingApprovals.filter(isVisiblePendingApproval).map((approval) => approval.requestId),
   );
+  const marketer = useWorkspaceMode() === "marketer";
   const rawRows = useIncrementalTimelineRows(`${listIdentityKey}\0${workspaceRoot ?? ""}`, {
     timelineEntries,
     pendingApprovalRequestIds,
+    keepMarketingResults: marketer,
     latestRun,
     runningRunId,
     expandedRunIds: visibleExpandedRunIds,

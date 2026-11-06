@@ -1,3 +1,5 @@
+import { MarketingTranscriptCard } from "../../marketingChat";
+import { readWorkspaceMode } from "@amicited/ui-marketing";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogButton, WorkLogList, WorkLogRow } from "./WorkLog";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
@@ -587,16 +589,30 @@ export function WorkGroupToggleTimelineRow({
 }) {
   const ctx = use(TimelineRowCtx);
   return (
-    <WorkGroupHeader
-      label={row.summary}
-      iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
-      toolIcon={row.toolIcon}
-      failed={row.hasFailure}
-      expanded={row.expanded}
-      createdAt={row.createdAt}
-      timestampFormat={ctx.timestampFormat}
-      onToggle={() => ctx.onToggleWorkGroup(row.groupId, row.id)}
-    />
+    <>
+      <WorkGroupHeader
+        label={row.summary}
+        iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
+        toolIcon={row.toolIcon}
+        failed={row.hasFailure}
+        expanded={row.expanded}
+        createdAt={row.createdAt}
+        timestampFormat={ctx.timestampFormat}
+        onToggle={() => ctx.onToggleWorkGroup(row.groupId, row.id)}
+      />
+      {!row.expanded && readWorkspaceMode() === "marketer"
+        ? row.marketingEntries?.map((entry) => (
+            <MarketingTranscriptCard
+              key={entry.id}
+              output={undefined}
+              projectedItem={entry.projectedItem}
+              environmentId={ctx.activeThreadEnvironmentId}
+              source={ctx.turnItemSource?.detail}
+              fallback={null}
+            />
+          ))
+        : null}
+    </>
   );
 }
 

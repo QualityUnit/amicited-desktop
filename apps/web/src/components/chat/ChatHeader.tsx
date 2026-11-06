@@ -87,7 +87,7 @@ export const ChatHeader = memo(function ChatHeader({
 }: ChatHeaderProps) {
   const marketer = useWorkspaceMode() === "marketer";
   const shownTitle =
-    marketer && activeThreadTitle === "New thread" ? "New task" : activeThreadTitle;
+    marketer && activeThreadTitle === "New thread" ? "New chat" : activeThreadTitle;
   const activeProjectName = activeProject?.isScratch
     ? marketer
       ? "Your workspace"
@@ -308,7 +308,7 @@ export const ChatHeader = memo(function ChatHeader({
                   render={
                     <button
                       type="button"
-                      aria-label={`${marketer ? "New task" : "New thread"} in ${activeProjectName}`}
+                      aria-label={`${marketer ? "New chat" : "New thread"} in ${activeProjectName}`}
                       onClick={onNewThreadInProject}
                       className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     />
@@ -320,7 +320,7 @@ export const ChatHeader = memo(function ChatHeader({
                   </WorkspaceBreadcrumbText>
                 </TooltipTrigger>
                 <TooltipPopup side="top">
-                  {marketer ? "New task" : "New thread"} in {activeProjectName}
+                  {marketer ? "New chat" : "New thread"} in {activeProjectName}
                 </TooltipPopup>
               </Tooltip>
             </WorkspaceBreadcrumbItem>

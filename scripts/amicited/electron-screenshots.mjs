@@ -38,20 +38,32 @@ NodeFS.mkdirSync(NodePath.join(home, "state/userdata"), { recursive: true });
 NodeFS.writeFileSync(
   NodePath.join(home, "state/userdata/settings.json"),
   JSON.stringify({
-    providerInstances: Object.fromEntries(
-      [
-        "codex",
-        "claudeAgent",
-        "cursor",
-        "grok",
-        "opencode",
-        "antigravity",
-        "kiro",
-        "muse",
-        "pi",
-        "fx",
-      ].map((driver) => [driver, { driver, enabled: false }]),
-    ),
+    providerInstances: {
+      devReplay: {
+        driver: "acpRegistry",
+        enabled: true,
+        displayName: "Replay (dev)",
+        config: {
+          source: "local",
+          commandPath: process.execPath,
+          commandArgs: [NodePath.join(root, "apps/server/scripts/dev-replay-agent.ts")],
+        },
+      },
+      ...Object.fromEntries(
+        [
+          "codex",
+          "claudeAgent",
+          "cursor",
+          "grok",
+          "opencode",
+          "antigravity",
+          "kiro",
+          "muse",
+          "pi",
+          "fx",
+        ].map((driver) => [driver, { driver, enabled: false }]),
+      ),
+    },
   }),
 );
 const web = NodeChildProcess.spawn(process.execPath, ["scripts/amicited/serve-web.ts"], {
@@ -156,82 +168,17 @@ try {
       await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
     }
   }
-  await page.getByRole("textbox", { name: "Website URL" }).fill("https://example.com");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor({ timeout: 120000 });
-  await capture("audit");
-  await page.getByRole("button", { name: "Go to Home →" }).first().click();
-  await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
-  await capture("home");
-  await page.evaluate(() => {
-    sessionStorage.setItem(
-      "amicited.last-result",
-      JSON.stringify({
-        id: "native-visibility-fixture",
-        tool: "ai.visibility.check",
-        input: {
-          brand: "Acme",
-          website: "https://example.com",
-          category: "garden tools",
-          competitors: ["Contoso"],
-        },
-        startedAt: "2026-11-06T12:00:00Z",
-        durationMs: 1,
-        status: "success",
-        output: {
-          status: "checked",
-          provider: "Claude",
-          model: "fixture",
-          scope: {
-            assistants: ["Claude"],
-            countries: [],
-            prompts: ["Best garden tools?", "Best value garden tools?"],
-            runAt: "2026-11-06T12:00:00Z",
-          },
-          message:
-            "one assistant, no live search. Position is first appearance among supplied brands.",
-          summary: {
-            mentioned: 1,
-            answered: 2,
-            shareOfVoice: 33.3,
-            competitors: [{ brand: "Contoso", answers: 2 }],
-          },
-          answers: [
-            {
-              prompt: "Best garden tools?",
-              mentioned: true,
-              position: 2,
-              status: "answered",
-              excerpt: "Contoso and Acme",
-              competitorsMentioned: ["Contoso"],
-              citations: ["https://contoso.example/"],
-            },
-            {
-              prompt: "Best value garden tools?",
-              mentioned: false,
-              position: null,
-              status: "answered",
-              excerpt: "Contoso",
-              competitorsMentioned: ["Contoso"],
-              citations: [],
-            },
-          ],
-        },
-      }),
-    );
-    location.hash = "/tools/ai.visibility.check";
-  });
-  await page.getByRole("tablist", { name: "This visibility check" }).waitFor();
-  await page.getByText("Contoso and Acme", { exact: true }).first().waitFor();
-  if (await page.getByText("No answer available", { exact: true }).count())
-    throw new Error("Visibility fixture lost its excerpt");
-  if (await page.getByText("Could not read this answer.", { exact: true }).count())
-    throw new Error("Visibility fixture failed answer schema decoding");
-  await capture("visibility");
+  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+  await capture("empty-chat");
+  await page.evaluate(() => window.t3dev.replay("marketing"));
+  await page.getByRole("article", { name: "Marketing tool result" }).waitFor({ timeout: 120000 });
+  await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+  await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+  await capture("tool-card-turn");
   await cdp.detach();
   const report = JSON.parse(NodeFS.readFileSync(NodePath.join(out, "electron-fonts.json"), "utf8"));
   report.verified = Object.values(report.fonts).every(Boolean);
-  report.captures = ["audit", "home", "visibility"].flatMap((name) =>
+  report.captures = ["empty-chat", "tool-card-turn"].flatMap((name) =>
     ["light", "dark"].map((theme) => `electron-${name}-${theme}-1344.png`),
   );
   NodeFS.writeFileSync(NodePath.join(out, "electron-fonts.json"), JSON.stringify(report, null, 2));

@@ -98,7 +98,7 @@ export const Route = createRootRoute({
       location.pathname === "/"
     ) {
       throw redirect({
-        to: localStorage.getItem("amicited.onboarded") ? "/home" : "/welcome",
+        to: "/home",
         replace: true,
       });
     }

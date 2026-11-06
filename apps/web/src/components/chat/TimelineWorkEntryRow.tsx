@@ -1,3 +1,5 @@
+import { readWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingTranscriptCard } from "../../marketingChat";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogDetails, WorkLogRow } from "./WorkLog";
 import {
@@ -396,6 +398,21 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       }
     : {};
 
+  if (
+    readWorkspaceMode() === "marketer" &&
+    payload?.type === "dynamic_tool" &&
+    payload.toolName?.toLowerCase().includes("marketing_tools_run")
+  ) {
+    return (
+      <MarketingTranscriptCard
+        output={payload.output}
+        projectedItem={workEntry.projectedItem}
+        environmentId={ctx.activeThreadEnvironmentId}
+        source={ctx.turnItemSource?.detail}
+        fallback={<span>Checking your marketing result…</span>}
+      />
+    );
+  }
   return (
     <WorkLogRow
       data-v2-item-type={workEntry.projectedItem?.item.type}

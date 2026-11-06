@@ -1,3 +1,4 @@
+import { readBrand, readWorkspaceMode } from "@amicited/ui-marketing";
 import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
 import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
 import {
@@ -927,7 +928,11 @@ export function useComposerSend(input: ComposerSendInput) {
       model: ctxSelectedModel,
       models: ctxSelectedProviderModels,
       effort: ctxSelectedPromptEffort,
-      text: messageTextForSend || ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
+      text:
+        (messageTextForSend || ATTACHMENT_ONLY_BOOTSTRAP_PROMPT) +
+        (readWorkspaceMode() === "marketer" && readBrand()?.website
+          ? `\n\nWebsite: ${readBrand()?.website}`
+          : ""),
     });
     if (composerRef.current?.validateProviderInput(outgoingMessageText) === false) {
       return;

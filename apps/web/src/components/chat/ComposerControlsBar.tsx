@@ -1,3 +1,4 @@
+import { readWorkspaceMode } from "@amicited/ui-marketing";
 import type { ChatComposerProps } from "./ChatComposer";
 import type { PromptUltrathink } from "./TraitsPicker";
 import type { ProviderInstanceEntry } from "../../providerInstances";
@@ -264,7 +265,11 @@ export function ComposerControlsBar(props: {
       className="shrink-0"
     >
       <CircleAlertIcon className="size-4" />
-      {providerSetupInstanceId ? "Open provider settings" : "No provider available"}
+      {readWorkspaceMode() === "marketer"
+        ? "Choose assistant"
+        : providerSetupInstanceId
+          ? "Open provider settings"
+          : "No provider available"}
     </ComposerControl>
   ) : (
     <>

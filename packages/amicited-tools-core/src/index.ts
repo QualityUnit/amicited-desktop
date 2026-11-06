@@ -177,3 +177,13 @@ export function isUsefulResult(result: { status: string; output?: unknown }) {
   if ("words" in output && Number(output.words) === 0) return false;
   return true;
 }
+
+export function friendlyAssistant(value: string) {
+  return /claude/i.test(value)
+    ? "Claude"
+    : /codex|chatgpt/i.test(value)
+      ? "ChatGPT"
+      : /gemini/i.test(value)
+        ? "Gemini"
+        : value;
+}

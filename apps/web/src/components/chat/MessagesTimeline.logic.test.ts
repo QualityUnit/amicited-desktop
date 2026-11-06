@@ -4364,3 +4364,69 @@ describe("shouldCollapseUserMessage", () => {
     expect(shouldCollapseUserMessage(`${citation} ${"More text. ".repeat(60)}`)).toBe(true);
   });
 });
+
+it("refreshes folded marketing results when the tool completes without changing the activity label", () => {
+  const row: Extract<MessagesTimelineRow, { kind: "work-toggle" }> = {
+    kind: "work-toggle",
+    id: "marketing-work",
+    createdAt: "2026-11-06",
+    groupId: "marketing",
+    hiddenCount: 1,
+    expanded: false,
+    summary: "Website check",
+    summaryKind: "dynamic-tool",
+    hasFailure: false,
+  };
+  const previous = computeStableMessagesTimelineRows([row], { result: [], byId: new Map() });
+  const nextRow = {
+    ...row,
+    marketingEntries: [
+      {
+        id: "marketing",
+        createdAt: "2026-11-06",
+        label: "Website check",
+        tone: "tool" as const,
+        toolData: { output: { score: 41 } },
+      },
+    ],
+  };
+  const next = computeStableMessagesTimelineRows([nextRow], previous);
+  expect(next.result[0]).toBe(nextRow);
+});
+
+it("keeps marketing cards in view while developer mode retains the completed-turn fold", () => {
+  const fixture = makeStreamingTimelineFixture();
+  const visibleTurnItems = fixture.visibleTurnItems.slice(0, 3).map((row) =>
+    row.item.type === "command_execution"
+      ? {
+          ...row,
+          item: {
+            ...row.item,
+            type: "dynamic_tool" as const,
+            status: "completed" as const,
+            toolName: "marketing_tools_run",
+            input: { name: "seo.site.audit" },
+            output: { score: 41 },
+          },
+        }
+      : row,
+  );
+  const timelineEntries = deriveTimelineEntriesFromVisibleTurnItems({
+    visibleTurnItems,
+    optimisticMessages: [],
+  });
+  const input = {
+    timelineEntries,
+    isWorking: false,
+    turnDiffSummaries: [],
+    supportsConversationRollback: false,
+  };
+  expect(deriveMessagesTimelineRows(input).some((row) => row.kind === "turn-fold")).toBe(true);
+  const marketer = deriveMessagesTimelineRows({ ...input, keepMarketingResults: true });
+  expect(marketer.some((row) => row.kind === "turn-fold")).toBe(false);
+  expect(
+    marketer
+      .flatMap((row) => (row.kind === "work" ? row.groupedEntries : []))
+      .some((entry) => entry.structuredPayload?.type === "dynamic_tool"),
+  ).toBe(true);
+});

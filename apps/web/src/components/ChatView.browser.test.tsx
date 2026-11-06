@@ -36,42 +36,55 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   trackRpcRequestSent: () => {},
 }));
 
-it("a new draft does not load its reserved thread before the server lists it", async () => {
-  using _mode = (() => {
-    const previous = localStorage.getItem("amicited.workspace-mode");
-    localStorage.setItem("amicited.workspace-mode", "developer");
-    return {
-      [Symbol.dispose]() {
-        if (previous === null) localStorage.removeItem("amicited.workspace-mode");
-        else localStorage.setItem("amicited.workspace-mode", previous);
-      },
-    };
-  })();
-  using _environment = installFakeEnvironment([]);
-  using fetchSpy = vi.spyOn(globalThis, "fetch");
-  __setClientSettingsForTests({
-    ...DEFAULT_CLIENT_SETTINGS,
-    onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
-  });
-  const draftId = DraftId.make("draft-27443");
-  const threadId = ThreadId.make("thread-27443");
-  useComposerDraftStore
-    .getState()
-    .setProjectDraftThreadId(scopeProjectRef(ENVIRONMENT_ID, PROJECT_ID), draftId, { threadId });
+it.each(["developer", "marketer"] as const)(
+  "a new %s draft does not load its reserved thread before the server lists it",
+  async (mode) => {
+    using _mode = (() => {
+      const previous = localStorage.getItem("amicited.workspace-mode");
+      localStorage.setItem("amicited.workspace-mode", mode);
+      return {
+        [Symbol.dispose]() {
+          if (previous === null) localStorage.removeItem("amicited.workspace-mode");
+          else localStorage.setItem("amicited.workspace-mode", previous);
+        },
+      };
+    })();
+    using _environment = installFakeEnvironment([]);
+    using fetchSpy = vi.spyOn(globalThis, "fetch");
+    __setClientSettingsForTests({
+      ...DEFAULT_CLIENT_SETTINGS,
+      onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+    });
+    const draftId = DraftId.make("draft-27443");
+    const threadId = ThreadId.make("thread-27443");
+    useComposerDraftStore
+      .getState()
+      .setProjectDraftThreadId(scopeProjectRef(ENVIRONMENT_ID, PROJECT_ID), draftId, { threadId });
 
-  const router = getRouter(createMemoryHistory({ initialEntries: [`/draft/${draftId}`] }));
-  await router.load();
-  await using _app = await render(<AppRoot router={router} />, {
-    // AppRoot brings its own router.
-    router: false,
-  });
-  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
-  // The shell snapshot has arrived once the sidebar lists the project, so the connection is up.
-  await expect.element(page.getByText("render", { exact: true }).first()).toBeVisible();
+    const router = getRouter(createMemoryHistory({ initialEntries: [`/draft/${draftId}`] }));
+    await router.load();
+    await using _app = await render(<AppRoot router={router} />, {
+      // AppRoot brings its own router.
+      router: false,
+    });
+    await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+    // The shell snapshot has arrived once the sidebar lists the project, so the connection is up.
+    if (mode === "developer")
+      await expect.element(page.getByText("render", { exact: true }).first()).toBeVisible();
+    else {
+      await expect
+        .element(page.getByRole("heading", { name: "What do you want to work on?" }))
+        .toBeVisible();
+      await page.getByRole("button", { name: "Audit my website for AI search" }).click();
+      await expect
+        .element(page.getByTestId("composer-editor"))
+        .toHaveTextContent("Audit my website for AI search");
+    }
 
-  const threadRequests = fetchSpy.mock.calls
-    .map(([input]) => String(input instanceof Request ? input.url : input))
-    .filter((url) => url.includes(`/api/orchestration/threads/${threadId}/`));
-  // A 404 here marks the thread deleted, and the view never loads it once the send creates it.
-  expect(threadRequests).toEqual([]);
-});
+    const threadRequests = fetchSpy.mock.calls
+      .map(([input]) => String(input instanceof Request ? input.url : input))
+      .filter((url) => url.includes(`/api/orchestration/threads/${threadId}/`));
+    // A 404 here marks the thread deleted, and the view never loads it once the send creates it.
+    expect(threadRequests).toEqual([]);
+  },
+);
