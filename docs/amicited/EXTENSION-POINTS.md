@@ -54,3 +54,31 @@ is offered after a first win in a later wave, using
 Bearer key). There is no permanent cloud free plan: the 7-day trial leads to
 Pro at EUR 120 including MCP. Signup:
 https://app.flowhunt.io/sign-in?app=amicited&plan=pro&interval=month .
+
+Wave 1A adds these fenced marketing integration seams:
+
+- `apps/server/src/mcp/McpHttpServer.ts`: registers the authenticated marketing discovery/run toolkit with the same service as UI RPC.
+- `apps/server/src/mcp/toolkits/marketing/{tools,handlers}.ts`: thin marketing discovery and execution adapters; execution requires environment write access because it can consume the user's AI subscription.
+- `apps/server/src/marketing/MarketingToolsLive.ts`: bridges the portable library to the selected provider instance's existing one-shot runner, resolving connection state on each invocation.
+- `apps/server/src/ws.ts`: supplies the provider-aware marketing service to existing marketing RPC handlers.
+- `packages/provider-core/src/server/textGeneration.ts`: optional marketing text capability, leaving unsupported adapters explicit.
+- `packages/provider-core/src/server/textGenerationOperations.ts`: exposes full marketing answers through the existing structured one-shot runner (no title truncation, no tools).
+- `packages/provider-core/src/server/orchestrationInstructions.ts`: short shared marketing tool catalogue, delivered wherever existing orchestration instructions are injected.
+- `packages/provider-opencode/src/server/textGeneration.ts`: admits marketing generation in existing typed error context.
+- `apps/server/src/provider/AgentContextBudget.test.ts` and `agentContextBudget.json`: register the provider dependency and account for the catalogue and two MCP meta-tools.
+- `evals/mcp-tool-use/run.ts`: imports the real marketing toolkit into the existing eval tool set.
+- `scripts/amicited/journey-screenshots.ts`: captures website audit and disconnected AI visibility results in the isolated journey.
+
+The generic marketing result renderer now expands nested results instead of showing
+`[object Object]`. Its form omits blank optional values and decodes comma-separated
+array inputs so the existing tool cards can submit optional source URLs and competitors.
+No screen styling changes. Wave 1B can replace this generic rendering.
+
+Provider-backed tools use the configured text-generation model, with its exact
+provider/model identity; they do not silently select another assistant. The shared
+runner supports Claude, Codex, OpenCode and Antigravity; drivers without this
+capability return `needs_provider`. SERP uses plain fetch to avoid taking over a
+user's browser tab; blocked or changed Google layouts are explicit results. Site
+checks are basic heuristics, not full standards validators. Sitemap indexes count
+child sitemap entries rather than claiming a count of all pages. Visibility has no
+live search and ranks only the supplied brand/competitors by first occurrence.

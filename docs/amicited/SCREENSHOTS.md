@@ -14,8 +14,10 @@ disables live-data seeding, requests unused ports from the OS, pairs headless Ch
 3. `03-tools-grid.png`: local tool packs.
 4. `04-tool-form.png`: SSL check with example.com entered.
 5. `05-tool-result.png`: completed SSL check (or its structured connection error offline).
-6. `06-tasks.png`: upstream tasks entry point.
-7. `07-settings.png`: mode switch.
+6. `05-site-audit.png`: composite website audit, including partial check coverage.
+7. `05b-ai-visibility.png`: AI visibility result (or the explicit connect-assistant state).
+8. `06-tasks.png`: upstream tasks entry point.
+9. `07-settings.png`: mode switch.
 
 Chromium must be installed in Playwright’s normal cache. The harness depends on
 the existing scripts workspace’s playwright-core; it adds no browser dependency.

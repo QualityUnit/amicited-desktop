@@ -168,6 +168,15 @@ export function fromRunner(name: string, run: Runner): ProviderTextGeneration {
   });
 
   return {
+    generateMarketingText: Effect.fn(`${name}.generateMarketingText`)((input) =>
+      run({
+        operation: "generateMarketingText",
+        cwd: input.cwd,
+        prompt: input.prompt,
+        modelSelection: input.modelSelection,
+        outputSchema: Schema.Struct({ text: Schema.String }),
+      }),
+    ),
     generateCommitMessage,
     generatePrContent,
     generateBranchName,

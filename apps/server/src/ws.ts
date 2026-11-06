@@ -1,3 +1,4 @@
+import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as MarketingTools from "@amicited/tools/service";
 import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -2006,7 +2007,7 @@ export const layerWsRpc = (
       });
 
       const marketingTools = yield* MarketingTools.MarketingTools.pipe(
-        Effect.provide(MarketingTools.layer),
+        Effect.provide(MarketingToolsLive.layer),
       );
       const handlers = ServerWsRpcGroup.of({
         "amicited.tools.list": () =>

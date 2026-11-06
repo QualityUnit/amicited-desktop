@@ -230,14 +230,21 @@ export function ToolForm({
           setBusy(true);
           setError("");
           const input = Object.fromEntries(
-            Object.entries(properties).map(([key, schema]) => [
-              key,
-              schema.type === "number" || schema.type === "integer"
-                ? Number(values[key])
-                : schema.type === "boolean"
-                  ? values[key] === "true"
-                  : (values[key] ?? ""),
-            ]),
+            Object.entries(properties)
+              .filter(([key]) => required.includes(key) || Boolean(values[key]?.trim()))
+              .map(([key, schema]) => [
+                key,
+                schema.type === "array"
+                  ? (values[key] ?? "")
+                      .split(",")
+                      .map((value) => value.trim())
+                      .filter(Boolean)
+                  : schema.type === "number" || schema.type === "integer"
+                    ? Number(values[key])
+                    : schema.type === "boolean"
+                      ? values[key] === "true"
+                      : (values[key] ?? ""),
+              ]),
           );
           void run(input)
             .then(setResult)
@@ -277,9 +284,7 @@ export function ToolForm({
               {Object.entries(result.output as Record<string, unknown>).map(([key, value]) => (
                 <div key={key} style={{ marginBottom: 14 }}>
                   <dt style={{ fontWeight: 600 }}>{key}</dt>
-                  <dd>
-                    {Array.isArray(value) ? value.join(", ") || "No issues found" : String(value)}
-                  </dd>
+                  <dd>{renderToolValue(value)}</dd>
                 </div>
               ))}
             </dl>
@@ -341,4 +346,33 @@ export function WorkspaceModeControl() {
       </select>
     </label>
   );
+}
+
+function renderToolValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined) return "Not available";
+  if (Array.isArray(value))
+    return value.length ? (
+      <ul>
+        {value.map((item, index) => (
+          // oxlint-disable-next-line react/no-array-index-key -- A completed tool result is immutable and may contain duplicate values.
+          <li key={index}>{renderToolValue(item)}</li>
+        ))}
+      </ul>
+    ) : (
+      "None returned"
+    );
+  if (typeof value === "object")
+    return (
+      <dl>
+        {Object.entries(value).map(([key, item]) => (
+          <div key={key}>
+            <dt>
+              <strong>{key}</strong>
+            </dt>
+            <dd>{renderToolValue(item)}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+  return String(value);
 }

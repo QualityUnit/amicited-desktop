@@ -98,6 +98,12 @@ export type ReviewGuideGenerationResult = Omit<
 >;
 
 export interface ProviderTextGeneration {
+  readonly generateMarketingText?: (input: {
+    readonly cwd: string;
+    readonly prompt: string;
+    readonly modelSelection: ModelSelection;
+  }) => Effect.Effect<{ readonly text: string }, TextGenerationError>;
+
   readonly generateCommitMessage: (
     input: CommitMessageGenerationInput,
   ) => Effect.Effect<CommitMessageGenerationResult, TextGenerationError>;

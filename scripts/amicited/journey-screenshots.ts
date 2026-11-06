@@ -23,6 +23,27 @@ async function availablePort() {
   await new Promise<void>((done) => socket.close(() => done()));
   return address.port;
 }
+// Disable installed assistants in this temporary home so captures cannot spend provider usage.
+await NodeFSP.mkdir(NodePath.join(home, "userdata"), { recursive: true });
+await NodeFSP.writeFile(
+  NodePath.join(home, "userdata", "settings.json"),
+  JSON.stringify({
+    providerInstances: Object.fromEntries(
+      [
+        "codex",
+        "claudeAgent",
+        "cursor",
+        "grok",
+        "opencode",
+        "antigravity",
+        "kiro",
+        "muse",
+        "pi",
+        "fx",
+      ].map((driver) => [driver, { driver, enabled: false }]),
+    ),
+  }),
+);
 const serverPort = await availablePort();
 const webPort = await availablePort();
 const env: NodeJS.ProcessEnv = {
@@ -84,7 +105,7 @@ try {
   await page.goto(pairing.replace(new URL(pairing).origin, url));
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
   const capture = async (name: string) => {
-    await page.screenshot({ path: NodePath.join(out, name + ".png") });
+    await page.screenshot({ path: NodePath.join(out, name + ".png"), fullPage: true });
   };
   await capture("01-first-launch");
   await page.goto(url + "/home");
@@ -99,6 +120,24 @@ try {
   await page.getByRole("button", { name: "Run check" }).click();
   await page.getByRole("region", { name: "Tool result" }).waitFor();
   await capture("05-tool-result");
+  await page.goto(url + "/tools/seo.site.audit");
+  await page.getByRole("textbox", { name: "url", exact: true }).fill("https://example.com");
+  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
+  await capture("05-site-audit");
+  await page.goto(url + "/tools/ai.visibility.check");
+  await page.getByRole("textbox", { name: "brand", exact: true }).fill("Acme");
+  await page.getByRole("textbox", { name: "website", exact: true }).fill("https://example.com");
+  await page.getByRole("textbox", { name: "category", exact: true }).fill("garden tools");
+  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await NodeFSP.writeFile(
+    NodePath.join(out, "05b-result.txt"),
+    await page.getByRole("region", { name: "Tool result" }).innerText(),
+  );
+  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
+  await capture("05b-ai-visibility");
   await page.getByRole("link", { name: "Tasks", exact: true }).click();
   await page.getByRole("heading", { name: "Tasks", exact: true }).waitFor();
   await capture("06-tasks");
