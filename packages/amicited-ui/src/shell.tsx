@@ -121,6 +121,8 @@ export function MarketingShell({
                 <button
                   type="button"
                   className="am-nav-group"
+                  aria-hidden={collapsed}
+                  tabIndex={collapsed ? -1 : undefined}
                   aria-expanded={toolsOpen}
                   aria-controls="am-tools-group"
                   onClick={() => {
@@ -133,10 +135,10 @@ export function MarketingShell({
                     }
                   }}
                 >
-                  <span>Tools</span>
+                  <span>Tool packs</span>
                   <MarketingIcon name={toolsOpen ? "down" : "right"} />
                 </button>
-                <div id="am-tools-group" hidden={!toolsOpen}>
+                <div id="am-tools-group" hidden={!collapsed && !toolsOpen}>
                   {packs.map(([pack, label]) => (
                     <a
                       key={pack}

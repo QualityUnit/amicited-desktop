@@ -353,6 +353,7 @@ it("hands the audit website and finding context to AI and labels all-pass result
 it("keeps the Tools disclosure across mounts and marks the hash-selected pack", async () => {
   const { MarketingShell } = await import("@amicited/ui-marketing");
   localStorage.removeItem("amicited.tools-open");
+  localStorage.removeItem("amicited.rail-collapsed");
   try {
     await using screen = await render(
       <MarketingShell path="/tools" hash="content" navigate={() => {}}>
@@ -362,7 +363,7 @@ it("keeps the Tools disclosure across mounts and marks the hash-selected pack", 
     await expect
       .element(screen.getByRole("link", { name: "Content tools", exact: true }))
       .toHaveAttribute("aria-current", "page");
-    await screen.getByRole("button", { name: "Tools", exact: true }).click();
+    await screen.getByRole("button", { name: "Tool packs", exact: true }).click();
     expect(document.querySelector("#am-tools-group")).toHaveAttribute("hidden");
     await screen.rerender(
       <MarketingShell key="remount" path="/tools" hash="content" navigate={() => {}}>
@@ -370,13 +371,20 @@ it("keeps the Tools disclosure across mounts and marks the hash-selected pack", 
       </MarketingShell>,
     );
     await expect
-      .element(screen.getByRole("button", { name: "Tools", exact: true }))
+      .element(screen.getByRole("button", { name: "Tool packs", exact: true }))
       .toHaveAttribute("aria-expanded", "false");
-    await screen.getByRole("button", { name: "Tools", exact: true }).click();
+    await screen.getByRole("button", { name: "Collapse sidebar" }).click();
+    await expect
+      .element(screen.getByRole("link", { name: "Content tools", exact: true }))
+      .toBeVisible();
+    await screen.getByRole("button", { name: "Expand sidebar" }).click();
+    expect(document.querySelector("#am-tools-group")).toHaveAttribute("hidden");
+    await screen.getByRole("button", { name: "Tool packs", exact: true }).click();
     await expect
       .element(screen.getByRole("link", { name: "Content tools", exact: true }))
       .toBeVisible();
   } finally {
+    localStorage.removeItem("amicited.rail-collapsed");
     localStorage.removeItem("amicited.tools-open");
   }
 });

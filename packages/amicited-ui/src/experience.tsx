@@ -242,19 +242,20 @@ function AnalysisBanner({
   detail?: string;
   action?: (() => void) | undefined;
 }) {
+  if (tone === "good")
+    return (
+      <div className="am-analysis am-analysis--good">
+        <AmICitedBot mood="happy" variant="outlined" size={24} />
+        <span className="am-analysis-eyebrow">ALL CLEAR</span>
+        <span className="am-analysis-lead">{lead}</span>
+        {counts && <span className="am-analysis-count">{counts}</span>}
+      </div>
+    );
   return (
     <details className={`am-analysis am-analysis--${tone}`}>
       <summary>
         <AmICitedBot
-          mood={
-            tone === "good"
-              ? "happy"
-              : tone === "critical"
-                ? "concerned"
-                : tone === "warning"
-                  ? "watch"
-                  : "busy"
-          }
+          mood={tone === "critical" ? "concerned" : tone === "warning" ? "watch" : "busy"}
           size={28}
         />
         <span className="am-analysis-eyebrow">
@@ -269,7 +270,7 @@ function AnalysisBanner({
         </span>
         <span className="am-analysis-lead">{lead}</span>
         {counts && <span className="am-analysis-count">{counts}</span>}
-        {action && tone !== "good" && (
+        {action && (
           <MarketingButton
             variant="link"
             onClick={(event) => {
@@ -305,14 +306,14 @@ export function formatResultValue(value: unknown): string {
 function ResultValue({ value }: { value: unknown }): ReactNode {
   if (Array.isArray(value))
     return value.length ? (
-      <ul>
+      <ol className="am-report-list">
         {value.map((item, index) => (
           // oxlint-disable-next-line react/no-array-index-key -- Completed results are immutable and can contain duplicate entries.
           <li key={index}>
             <ResultValue value={item} />
           </li>
         ))}
-      </ul>
+      </ol>
     ) : (
       "None"
     );
@@ -343,6 +344,9 @@ export function resultTitle(result: ToolResult) {
     "content.write": "Marketing draft",
     "content.repurpose": "Repurposed content",
     "content.brief": "Content brief",
+    "serp.autocomplete": "Keyword ideas",
+    "serp.fetch": "Google search results",
+    "serp.paa": "People also ask",
   };
   return titles[result.tool] ?? result.tool.split(".").map(humanLabel).join(" · ");
 }
@@ -453,7 +457,7 @@ function VisibilityResult({
             <KpiTile
               label="Share of voice"
               value={share == null ? null : `${Number(share).toFixed(1)}%`}
-              hint="Among supplied brands"
+              hint="Of supplied brands"
             />
             <KpiTile
               label="Answers checked"
@@ -575,7 +579,9 @@ export function MarketingResult({
   retry,
   rerun,
   fix,
+  title,
 }: {
+  title?: string;
   result: ToolResult;
   retry?: () => void;
   rerun?: () => Promise<void>;
@@ -653,12 +659,16 @@ export function MarketingResult({
         {Object.entries(record(result.input))
           .filter(
             ([key, value]) =>
-              ["url", "website", "brand", "market", "category"].includes(key) &&
+              ["url", "website", "brand", "market", "category", "query"].includes(key) &&
               typeof value === "string",
           )
           .map(([key, value]) => (
             <span key={key}>
-              <MarketingIcon name={toolIcon(key === "url" ? "website" : key)} />
+              <MarketingIcon
+                name={toolIcon(
+                  key === "url" ? "website" : key === "query" ? "serp.autocomplete" : key,
+                )}
+              />
               <span>{key === "url" ? "Website" : humanLabel(key)}</span> {String(value)}
             </span>
           ))}
@@ -800,7 +810,27 @@ export function MarketingResult({
           )}
           {!findings.length && result.tool !== "ai.visibility.check" && (
             <section className="am-card am-result-detail">
-              <SectionHead title={resultTitle(result)} subtitle="Results from this check" />
+              <SectionHead title={title ?? resultTitle(result)} />
+              {typeof output.message === "string" && <p className="am-hint">{output.message}</p>}
+              {typeof output.draft === "string" && (
+                <div className="am-report-prose">
+                  {output.draft.split(/\n\s*\n/).map((paragraph, index) => (
+                    // oxlint-disable-next-line react/no-array-index-key -- Draft paragraphs are immutable snapshots.
+                    <p key={index} style={{ whiteSpace: "pre-wrap" }}>
+                      {paragraph}
+                    </p>
+                  ))}
+                  <MarketingButton
+                    onClick={() =>
+                      void navigator.clipboard
+                        .writeText(String(output.draft))
+                        .catch(() => setError("Could not copy. Try exporting instead."))
+                    }
+                  >
+                    <MarketingIcon name="copy" /> Copy draft
+                  </MarketingButton>
+                </div>
+              )}
               {typeof output.readingEase === "number" && (
                 <p>
                   {output.readingEase >= 60
@@ -813,12 +843,35 @@ export function MarketingResult({
               <dl>
                 {Object.entries(output)
                   .filter(
-                    ([key]) => !["score", "readingEase", "grade", "words", "note"].includes(key),
+                    ([key]) =>
+                      ![
+                        "score",
+                        "readingEase",
+                        "grade",
+                        "words",
+                        "note",
+                        "status",
+                        "provider",
+                        "model",
+                        "draft",
+                        "message",
+                      ].includes(key),
                   )
                   .map(([key, value]) => (
                     <div className="am-detail-row" key={key}>
                       <dt>{humanLabel(key)}</dt>
-                      <dd>
+                      <dd
+                        className={
+                          (
+                            Array.isArray(value)
+                              ? value.length === 0
+                              : value === null ||
+                                (typeof value !== "object" && String(value).length < 80)
+                          )
+                            ? "am-scalar"
+                            : undefined
+                        }
+                      >
                         <ResultValue value={value} />
                       </dd>
                     </div>

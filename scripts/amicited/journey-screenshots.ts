@@ -136,7 +136,11 @@ try {
             ].includes(name)))
       )
         continue;
-      if (width === 1344 && theme === "dark" && !["04-home", "03-first-win"].includes(name))
+      if (
+        width === 1344 &&
+        theme === "dark" &&
+        !["04-home", "03-first-win", "03b-first-win-upsell"].includes(name)
+      )
         continue;
       if (
         width === 1344 &&
@@ -170,6 +174,7 @@ try {
           .getByRole("button", { name: "Connect with AmICited", exact: true })
           .waitFor({ state: "visible" });
       await page.evaluate(() => document.fonts.ready);
+      await page.mouse.move(0, 0);
       await page.screenshot({
         path: NodePath.join(out, name + "-" + theme + "-" + width + ".png"),
         animations: "disabled",
@@ -184,6 +189,7 @@ try {
     .waitFor()
     .catch(async (error) => {
       console.log(await page.locator("body").innerText());
+      await page.mouse.move(0, 0);
       await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
       throw error;
     });
@@ -236,7 +242,7 @@ try {
     .getByRole("navigation", { name: "Tool categories" })
     .getByRole("link", { name: "Site audit basics", exact: true })
     .click();
-  const toolsDisclosure = page.getByRole("button", { name: "Tools", exact: true });
+  const toolsDisclosure = page.getByRole("button", { name: "Tool packs", exact: true });
   await toolsDisclosure.click();
   await page.reload();
   if ((await toolsDisclosure.getAttribute("aria-expanded")) !== "false")
@@ -376,7 +382,8 @@ try {
     [
       "content.write",
       {
-        status: "generated",
+        status: "ready",
+        message: "Fixture: review this draft before publishing.",
         draft:
           "Fixture: Grow fresh herbs at home.\n\nStart with a sunny windowsill and a small pot. Water each morning and harvest leaves for dinner.",
         provider: "Replay",
@@ -389,7 +396,7 @@ try {
       {
         status: "checked",
         suggestions: ["garden tools for beginners", "garden tools for small spaces"],
-        note: "Fixture: saved keyword suggestions; no live search.",
+        failedQueries: [],
       },
       "07d-keywords-fixture",
     ],
@@ -401,7 +408,10 @@ try {
           JSON.stringify({
             id: "labelled-fixture",
             tool,
-            input: { query: "garden tools" },
+            input:
+              tool === "content.write"
+                ? { topic: "Fixture: grow fresh herbs at home" }
+                : { query: "Fixture: garden tools" },
             status: "success",
             startedAt: "2026-11-06",
             durationMs: 1,
@@ -411,7 +421,13 @@ try {
       { tool, output },
     );
     await page.goto(url + "/tools/" + tool);
-    await page.getByRole("region", { name: "Tool result" }).waitFor();
+    await page
+      .getByRole("region", { name: "Tool result" })
+      .waitFor()
+      .catch(async (error) => {
+        console.log(await page.locator("body").innerText());
+        throw error;
+      });
     await capture(name);
   }
 
@@ -470,8 +486,6 @@ try {
   await page.getByText("first fixture turn complete", { exact: true }).first().waitFor();
   await page.getByText("Done", { exact: true }).first().waitFor();
   await capture("08d-task-reply-replay");
-  await page.evaluate("window.t3dev.replay('multi-turn')");
-  await page.getByText("first fixture turn complete", { exact: true }).first().waitFor();
   await page.goto(url + "/tasks");
   await page.getByRole("link", { name: "Tasks", exact: true }).waitFor();
   await capture("08c-tasks-list");

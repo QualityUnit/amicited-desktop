@@ -320,6 +320,7 @@ export function ToolForm({
       )}
       {result && (
         <MarketingResult
+          title={tool.title}
           result={result}
           fix={fix}
           retry={() => setResult(null)}

@@ -87,24 +87,24 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 11, 2026-11-06, Node 26.12.1, from the repository root:
+Wave 12, 2026-11-06, Node 26.12.1, from the repository root:
 
 ```sh
 vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
 pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter t3 run typecheck
 (cd apps/web && pnpm exec effect-tsgo tsrs --noEmit)
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r9
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r10
 ```
 
-Focused tests: 32 passed across 4 files. Direct rerun cases first failed because
-Run again opened the form without calling the tool; they now verify a third call
-with unchanged inputs. Coverage includes pack routing, remembered Tools disclosure,
-and visibility brand/website/prompt/finding handoff. Typechecks pass for marketing
-UI, cloud UI, server and web (4 packages); existing Effect schema-brand suggestions
-are informational.
+Focused tests: 32 passed across 4 files. The extended disclosure case fails with
+the previous visibility condition and passes with tool icons preserved on collapse.
+Typechecks pass for marketing UI, cloud UI, server and web (4 packages); existing
+Effect schema-brand suggestions are informational.
 
-The journey produces 53 captures: 41 light and 12 dark, including the 1344×1016
-parity set, readability, labelled writing/keyword fixtures, dark Home and audit.
-No journey-error.png. Capture readiness also waits for the connection panel after
-theme changes. Captures use temporary state and explicitly labelled fixtures.
-No production MCP connection, paid generation or native Electron run was exercised.
+The journey produces 54 captures: 41 light and 13 dark, including the 1344×1016
+parity set, readability, schema-conforming writing/keyword fixtures, and dark Home,
+audit and trial offer. No journey-error.png. Captures move the pointer away and
+use temporary state, labelled fixtures and a marketer-named Replay task. Report
+prose, numbered suggestions, dark button text and shared spacing were compared
+with the supplied cloud references. No production MCP connection, paid generation
+or native Electron run was exercised.
