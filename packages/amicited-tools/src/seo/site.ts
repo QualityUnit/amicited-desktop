@@ -81,13 +81,17 @@ export function inspectMeta(html: string) {
   return checked(
     [
       finding(
-        "Page title",
+        title.length >= 15 && title.length <= 60
+          ? "Page title is descriptive"
+          : "Write a descriptive page title",
         title.length >= 15 && title.length <= 60,
         "Clear titles help people choose your result.",
         "Write a descriptive title of roughly 15–60 characters.",
       ),
       finding(
-        "Search description",
+        description.length >= 50 && description.length <= 160
+          ? "Search description is useful"
+          : "Add a search description",
         description.length >= 50 && description.length <= 160,
         "A useful summary can improve clicks.",
         "Add a description of roughly 50–160 characters.",
@@ -101,7 +105,9 @@ export function inspectMeta(html: string) {
       finding(
         "Search indexing",
         !/\b(noindex|none)\b/i.test(meta("robots")),
-        "A noindex directive hides this page from search.",
+        /\b(noindex|none)\b/i.test(meta("robots"))
+          ? "A noindex directive hides this page from search."
+          : "This page allows search indexing.",
         "Remove noindex if this page should appear in search.",
       ),
       finding(
@@ -228,7 +234,7 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
         if (error instanceof NotFoundError)
           return checked([
             finding(
-              "Missing",
+              "Publish robots.txt",
               false,
               "No robots.txt was published. Crawlers use their default access rules.",
               "Publish /robots.txt with the crawler access rules you want.",
@@ -302,7 +308,7 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
       if (missing === candidates.length)
         return checked([
           finding(
-            "Missing",
+            "Publish a sitemap",
             false,
             "No sitemap was published at the checked locations.",
             "Publish /sitemap.xml listing your canonical page addresses and add it to robots.txt.",
@@ -348,7 +354,7 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
                 fix: "Check the address and consider publishing a guide.",
               }
             : finding(
-                f.status === "missing" ? "Missing" : f.path,
+                f.status === "missing" ? `Publish ${f.path}` : f.path,
                 f.status === "useful",
                 "This emerging convention can help assistants navigate your content; it does not guarantee visibility.",
                 `Publish ${f.path} with a Markdown title, summary and useful links.`,

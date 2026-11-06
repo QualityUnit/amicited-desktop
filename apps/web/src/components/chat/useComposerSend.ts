@@ -1,4 +1,9 @@
-import { withMarketingWebsite, withMarketingReport } from "../../marketingContext";
+import {
+  readMarketingReport,
+  clearMarketingReport,
+  withMarketingWebsite,
+  withMarketingReport,
+} from "../../marketingContext";
 import { readBrand, readWorkspaceMode } from "@amicited/ui-marketing";
 import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
 import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
@@ -907,29 +912,29 @@ export function useComposerSend(input: ComposerSendInput) {
     // Records bind attachments by the id each side knows: the local id for the optimistic
     // row, the upload id (or local id on the data-URL path) on the wire; the server
     // rebinds them to the persisted id.
+    const reportRef = { environmentId, threadId: threadIdForSend };
+    const report = readWorkspaceMode() === "marketer" ? readMarketingReport(reportRef) : null;
     const buildOutgoingMessageContext = (attachmentIds: ReadonlyArray<string>) =>
-      buildMessageContext({
-        terminalContexts: composerTerminalContextsSnapshot,
-        reviewComments: composerReviewCommentsSnapshot,
-        previewAnnotations: composerPreviewAnnotationsSnapshot,
-        threadContexts: composerThreadContextsSnapshot,
-        environmentContexts: composerEnvironmentContextsSnapshot,
-        attachments: composerAttachmentsSnapshot.map((attachment, index) => ({
-          attachment,
-          attachmentId: attachmentIds[index] ?? attachment.id,
-        })),
-      });
-    const outgoingMessageContext = withMarketingReport(
-      withMarketingWebsite(
-        buildOutgoingMessageContext(composerAttachmentsSnapshot.map((attachment) => attachment.id)),
-        readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
-        isLocalDraftThread,
-      ),
-      readWorkspaceMode() === "marketer"
-        ? JSON.parse(
-            sessionStorage.getItem("amicited.report-context." + window.location.pathname) ?? "null",
-          )
-        : null,
+      withMarketingReport(
+        withMarketingWebsite(
+          buildMessageContext({
+            terminalContexts: composerTerminalContextsSnapshot,
+            reviewComments: composerReviewCommentsSnapshot,
+            previewAnnotations: composerPreviewAnnotationsSnapshot,
+            threadContexts: composerThreadContextsSnapshot,
+            environmentContexts: composerEnvironmentContextsSnapshot,
+            attachments: composerAttachmentsSnapshot.map((attachment, index) => ({
+              attachment,
+              attachmentId: attachmentIds[index] ?? attachment.id,
+            })),
+          }),
+          readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
+          isLocalDraftThread,
+        ),
+        report,
+      );
+    const outgoingMessageContext = buildOutgoingMessageContext(
+      composerAttachmentsSnapshot.map((attachment) => attachment.id),
     );
     const messageIdForSend = newMessageId();
     const messageCreatedAt = new Date().toISOString();
@@ -1424,6 +1429,7 @@ export function useComposerSend(input: ComposerSendInput) {
         failure = startResult;
       } else {
         turnStartSucceeded = true;
+        clearMarketingReport(reportRef);
         setKeepFullHistory(routeThreadKey, false);
         if (freshArm !== undefined) disarmFreshSession(routeThreadKey, freshArm);
         clearUsageLimitsFor(routeThreadKey);

@@ -3465,7 +3465,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                         ? activePendingApproval?.supportsFeedback
                           ? "Send feedback to decline this request"
                           : workspaceMode === "marketer"
-                            ? "Or tell Claude what to do instead"
+                            ? `Or tell ${selectedProvider === "codex" ? "ChatGPT" : selectedProvider === "claudeAgent" ? "Claude" : "your assistant"} what to do instead`
                             : "Send a message to decline and redirect the agent"
                         : activePendingProgress
                           ? isChoiceOnlyPendingQuestion

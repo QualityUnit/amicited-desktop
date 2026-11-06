@@ -87,28 +87,33 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 20 (round 16 fixes, r18 evidence), 2026-11-06, Node 26.12.1:
+Wave 21 (round 17 fixes, r19 evidence), 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-ui/src/chat.test.ts apps/web/src/marketingContext.test.ts apps/server/src/marketing/MarketingToolsLive.test.ts apps/web/src/components/chat/ChatHeader.browser.test.tsx apps/web/src/components/chat/ThreadErrorBanner.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
+vp test run packages/amicited-ui/src/chat.test.ts packages/amicited-tools/src/library.test.ts apps/web/src/marketingContext.test.ts apps/web/src/amicited-cloud.browser.test.tsx apps/server/scripts/dev-replay-agent.test.ts
 pnpm --filter @amicited/ui-marketing --filter @amicited/tools-core --filter @amicited/tools --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
-AMICITED_REAL_PROVIDER=1 AMICITED_KEEP_HOME=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r18
-AMICITED_CAPTURE_HOME="$(cat .amicited-shots/r18/isolated-home.txt)" node scripts/amicited/electron-screenshots.mjs .amicited-shots/r18
+AMICITED_REAL_PROVIDER=1 AMICITED_KEEP_HOME=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r19
+AMICITED_CAPTURE_HOME="$(cat .amicited-shots/r19/isolated-home.txt)" AMICITED_REUSE_REAL=1 AMICITED_KEEP_HOME=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r19
+AMICITED_CAPTURE_HOME="<isolated snapshot of the journey home>" node scripts/amicited/electron-screenshots.mjs .amicited-shots/r19
 vp run check:changed
 ```
 
-The authenticated Claude Haiku turn calls the real local `seo.site.audit`
-through `marketing_tools_run`, returns a 41/100 audit of example.com, and renders
-the result card in browser and Electron. The isolated T3 home uses the normal
-user HOME; no live T3 state is opened for writing. The transcript, rendered
-conversation and complete tool result JSON are retained in r18. Two inexpensive
-real turns were used while extending the proof; later capture passes reuse
-the stopped isolated state and spend no model allowance.
+One authenticated Claude Haiku turn was typed into the composer: “Audit my
+website example.com for AI search. Give me the three most useful next steps.”
+Haiku discovered the catalogue and selected crawler access, website audit and
+AI website guide checks itself. The real audit returned 41/100. Its persisted
+user message records `createdBy: user`, `creationSource: web`, and the run records
+`claude-haiku-4-5`. Subsequent captures reuse stopped state and cost no turns.
 
-The journey includes settled light/dark captures at 1344×1016 and the 1440
-journey, at 2×, plus fresh dark launch, approval and recovery-card fixtures.
-Recovery evidence mounts the real component as a controlled fixture; the real
-Haiku turn authenticated successfully. The native captures reuse that persisted
-real result with an isolated Chromium profile. No production AmICited cloud
-connection was invoked.
+Native verification checks category switching and tool navigation in Electron's
+hash router, then reads the persisted outgoing report question and follow-up.
+The question contains a compact report summary; the follow-up contains no stale
+report. The first native attempt caught a JSON-unsafe optional finding field;
+the focused regression test reproduces that rejection.
+
+Recovery evidence uses a persisted provider failure from the controlled Replay
+sign-in scenario, inside the transcript. It is not an authenticated sign-in
+exercise. Production cloud MCP remains unverified because no account is available.
+The session's earlier Replay result claims the one-off upsell, so suppressing
+another offer after the real audit in that session is expected.

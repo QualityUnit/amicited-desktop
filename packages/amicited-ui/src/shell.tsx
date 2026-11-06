@@ -6,10 +6,11 @@ import {
   Sparkles,
   Settings,
   ArrowLeft,
+  History,
 } from "lucide-react";
 import { useState, type ReactNode, type ComponentProps } from "react";
 import { AmICitedMark } from "./brand.js";
-import { MarketingButton } from "./primitives.js";
+import { MarketingTooltip, MarketingButton } from "./primitives.js";
 export function MarketingShell({
   children,
   path,
@@ -54,11 +55,12 @@ export function MarketingShell({
           {!collapsed && "New chat"}
         </MarketingButton>
         <nav aria-label="Chat history" className="am-chat-history">
-          {!collapsed && <small>Recent chats</small>}
           {collapsed ? (
-            <MarketingButton aria-label="Chat history" onClick={() => setCollapsed(false)}>
-              Chats
-            </MarketingButton>
+            <MarketingTooltip label="Chat history">
+              <MarketingButton aria-label="Chat history" onClick={() => setCollapsed(false)}>
+                <History size={16} />
+              </MarketingButton>
+            </MarketingTooltip>
           ) : (
             history
           )}
@@ -95,7 +97,20 @@ export function MarketingShell({
             <MarketingHeader className="am-page-header">
               Your workspace /{" "}
               {path.startsWith("/tools")
-                ? sessionStorage.getItem("amicited.return-chat")
+                ? path !== "/tools" &&
+                  sessionStorage.getItem(
+                    "amicited.result-origin." +
+                      (() => {
+                        try {
+                          return (
+                            JSON.parse(sessionStorage.getItem("amicited.last-result") ?? "null")
+                              ?.id ?? ""
+                          );
+                        } catch {
+                          return "";
+                        }
+                      })(),
+                  )
                   ? "Chat"
                   : "Tools"
                 : path === "/marketing-settings"

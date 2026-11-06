@@ -277,6 +277,7 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
       <MarketingShell path="/tools" navigate={() => {}}>
         <MarketingCallState status="completed" output="Permission refused" />
         <ToolsGrid
+          navigate={() => {}}
           selectedPack="seo"
           tools={[
             {
@@ -309,5 +310,32 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
     expect(getComputedStyle(card).color).not.toBe(getComputedStyle(card).backgroundColor);
   } finally {
     document.documentElement.classList.remove("dark");
+  }
+});
+
+it("routes tool categories and cards through the navigation bridge", async () => {
+  const { ToolsGrid } = await import("@amicited/ui-marketing");
+  const navigate = vi.fn();
+  await using screen = await render(
+    <ToolsGrid tools={[]} selectedPack="seo" navigate={navigate} />,
+  );
+  await screen.getByRole("link", { name: "Content tools", exact: true }).click();
+  expect(navigate).toHaveBeenCalledWith("/tools?category=content");
+});
+it("keeps report context scoped in hash-routed clients and clears after dispatch", async () => {
+  const { saveMarketingReport, readMarketingReport, clearMarketingReport } =
+    await import("./marketingContext");
+  const first = { environmentId: "local", threadId: "first" };
+  const second = { environmentId: "local", threadId: "second" };
+  try {
+    saveMarketingReport(first, { id: "one" });
+    saveMarketingReport(second, { id: "two" });
+    expect(readMarketingReport(first)).toEqual({ id: "one" });
+    clearMarketingReport(first);
+    expect(readMarketingReport(first)).toBeNull();
+    expect(readMarketingReport(second)).toEqual({ id: "two" });
+  } finally {
+    clearMarketingReport(first);
+    clearMarketingReport(second);
   }
 });

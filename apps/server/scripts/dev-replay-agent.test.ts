@@ -120,6 +120,21 @@ describe("dev replay agent", () => {
     expect(received.at(-1)?.error?.code).toBe(-32602);
   });
 
+  it("reports a sign-in failure through the provider protocol", async () => {
+    const { received } = await talkToAgent([
+      () => ({ method: "session/new", params: { cwd: "/tmp" } }),
+      (sessionId) => ({
+        method: "session/set_model",
+        params: { sessionId, modelId: "marketing-auth" },
+      }),
+      (sessionId) => ({ method: "session/prompt", params: { sessionId } }),
+    ]);
+    expect(received.at(-1)?.error).toMatchObject({
+      code: -32603,
+      message: "Not logged in. Please sign in to Claude to continue.",
+    });
+  });
+
   it("ends the turn with a failed tool call when the user rejects an approval", async () => {
     const { received } = await talkToAgent(
       [

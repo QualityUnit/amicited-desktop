@@ -28,7 +28,7 @@ it("attaches a current report separately from the visible question", async () =>
   const report = { id: "newer", tool: "seo.site.audit", output: { score: 12 } };
   expect(withMarketingReport(undefined, report)?.records[0]).toMatchObject({
     kind: "marketing-report",
-    payload: { report },
+    payload: { report: { id: "newer", tool: "seo.site.audit", score: 12, findings: [] } },
   });
   expect(withMarketingReport(undefined, null)).toBeUndefined();
 });
@@ -43,5 +43,119 @@ it("identifies marketing approvals from the tool identity rather than disclosure
   const { marketingApprovalInput } = await import("./marketingContext");
   const input = { name: "seo.site.audit", input: { url: "https://example.com" } };
   expect(marketingApprovalInput("mcp__t3__marketing_tools_run", input)).toEqual(input);
+  expect(marketingApprovalInput("marketing_tools_run", {})).toBeNull();
   expect(marketingApprovalInput("Bash", { detail: "marketing_tools_run", ...input })).toBeNull();
+});
+
+it("only identifies the operation related to an approval, including concurrent requests", async () => {
+  const { marketingApprovalTool } = await import("./marketingContext");
+  const project = (item: Record<string, unknown>) =>
+    ({
+      sourceThreadId: "chat",
+      item: { runId: "run", nodeId: null, parentItemId: null, ...item },
+    }) as unknown as import("@t3tools/contracts").OrchestrationV2ProjectedTurnItem;
+  const audit = project({
+    id: "audit",
+    type: "dynamic_tool",
+    status: "failed",
+    nodeId: "audit-node",
+    toolName: "marketing_tools_run",
+    input: { name: "seo.site.audit" },
+  });
+  const other = project({
+    id: "other",
+    type: "dynamic_tool",
+    nodeId: "other-node",
+    toolName: "marketing_tools_run",
+    input: { name: "seo.meta.check" },
+  });
+  const command = project({
+    type: "approval_request",
+    requestId: "command",
+    nodeId: "command-node",
+  });
+  const approval = project({
+    type: "approval_request",
+    requestId: "other-request",
+    parentItemId: "other",
+  });
+  expect(marketingApprovalTool([audit, command], "command")).toBeNull();
+  const nativeTool = project({
+    id: "native",
+    type: "dynamic_tool",
+    nativeItemRef: { driver: "acpRegistry", nativeId: "execution" },
+    toolName: "marketing_tools_run",
+    input: { name: "content.readability" },
+  });
+  const nativeRequest = project({
+    type: "approval_request",
+    requestId: "native-request",
+    nativeItemRef: { driver: "acpRegistry", nativeId: "execution" },
+  });
+  expect(marketingApprovalTool([audit, nativeTool, nativeRequest], "native-request")).toBe(
+    nativeTool.item,
+  );
+  expect(marketingApprovalTool([audit, other, command, approval], "other-request")).toBe(
+    other.item,
+  );
+  expect(marketingApprovalTool([audit, other, command, approval], "command")).toBeNull();
+  expect(
+    marketingApprovalTool(
+      [audit, project({ type: "approval_request", requestId: "unknown" })],
+      "unknown",
+    ),
+  ).toBeNull();
+});
+it("binds reports to scoped identities and consumes only the successfully sent report", async () => {
+  const { marketingContextKey, withMarketingReport } = await import("./marketingContext");
+  expect(marketingContextKey({ environmentId: "one", threadId: "chat" })).not.toBe(
+    marketingContextKey({ environmentId: "two", threadId: "chat" }),
+  );
+  const context = withMarketingReport(undefined, {
+    id: "audit",
+    tool: "seo.site.audit",
+    output: {
+      score: 41,
+      details: "large raw HTML",
+      findings: [
+        { title: "Add description", status: "fail", fix: "Write a summary" },
+        { title: "Good", status: "pass" },
+      ],
+    },
+  });
+  expect(context?.records[0]).toMatchObject({
+    payload: {
+      report: {
+        id: "audit",
+        tool: "seo.site.audit",
+        score: 41,
+        findings: [{ title: "Add description", fix: "Write a summary" }],
+      },
+    },
+  });
+});
+it("reads history status from shells without conversation items", async () => {
+  const { marketingHistoryStatus } = await import("./marketingContext");
+  expect(marketingHistoryStatus({ hasPendingApprovals: true, source: {} })).toBe("Needs OK");
+  expect(
+    marketingHistoryStatus({
+      hasPendingApprovals: false,
+      latestRun: { status: "failed" },
+      source: {},
+    }),
+  ).toBe("Failed");
+  expect(marketingHistoryStatus({ hasPendingApprovals: false, source: {} })).toBe("Done");
+});
+
+it("produces JSON-safe report context when a finding has no suggested fix", async () => {
+  const { withMarketingReport } = await import("./marketingContext");
+  const context = withMarketingReport(undefined, {
+    id: "audit",
+    tool: "seo.site.audit",
+    output: { score: 41, findings: [{ title: "Add a description", status: "warn" }] },
+  });
+  const record = context?.records[0];
+  expect(record && "payload" in record ? record.payload : null).toStrictEqual(
+    JSON.parse(JSON.stringify(record && "payload" in record ? record.payload : null)),
+  );
 });

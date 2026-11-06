@@ -44,7 +44,10 @@ await NodeFSP.writeFile(
         "muse",
         "pi",
         "fx",
-      ].map((driver) => [driver, { driver, enabled: false }]),
+      ].map((driver) => [
+        driver,
+        { driver, enabled: process.env.AMICITED_REUSE_REAL === "1" && driver === "devReplay" },
+      ]),
     ),
   }),
 );
@@ -119,6 +122,7 @@ try {
     content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
   });
   await page.goto(pairing.replace(new URL(pairing).origin, url));
+  await page.locator("[data-amicited-shell]").waitFor();
   const capture = async (name: string) => {
     for (const [theme, width, height] of [
       ["light", 1344, 1016],
@@ -134,295 +138,413 @@ try {
         content:
           "*, *::before, *::after { transition: none !important; animation: none !important; }",
       });
+      if (!name.startsWith("reference-")) await page.locator("[data-amicited-shell]").waitFor();
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
     }
   };
-  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-  await page.getByTestId("composer-editor").waitFor();
-  await page.getByRole("button", { name: "Connect Claude", exact: true }).waitFor();
-  await capture("01-first-launch");
-  await page.getByTestId("composer-editor").fill("Plan my next campaign");
-  await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
-  if (!(await page.getByTestId("composer-editor").innerText()).includes("Plan my next campaign"))
-    throw new Error("Connecting lost the typed prompt");
-  await page.getByTestId("composer-editor").fill("");
-  await page.evaluate(async () => {
-    const { serverEnvironment, primaryServerSettingsAtom } = await import(
-      String("/src/state/server.ts")
-    );
-    const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
-    const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
-    const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.devReplay;
-    const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
-      environmentId: readPrimaryEnvironmentId(),
-      input: {
-        providerInstanceMutation: {
-          operation: "upsert",
-          instanceId: "devReplay",
-          instance: { ...instance, enabled: true, config: { ...instance.config, enabled: true } },
-        },
-        patch: {},
-      },
-    });
-    if (result._tag !== "Success") throw new Error("Could not enable the free Replay fixture");
-    await serverEnvironment.refreshProviders.run(appAtomRegistry, {
-      environmentId: readPrimaryEnvironmentId(),
-      input: {},
-    });
-  });
-  await page.waitForFunction(async () => {
-    const { primaryServerProvidersAtom } = await import(String("/src/state/server.ts"));
-    const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
-    return appAtomRegistry
-      .get(primaryServerProvidersAtom)
-      .some(
-        (p: { instanceId: string; enabled: boolean; models: unknown[] }) =>
-          p.instanceId === "devReplay" && p.enabled && p.models.length,
-      );
-  });
-  await page.evaluate(() =>
-    localStorage.setItem(
-      "amicited.brand",
-      JSON.stringify({ website: "https://example.com", name: "Example" }),
-    ),
-  );
-  await page.reload();
-  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-  await capture("02-empty-chat");
-  await page.getByRole("button", { name: "example.com", exact: true }).click();
-  await page.getByRole("button", { name: "Save website" }).waitFor();
-  await capture("02c-website-popover");
-  await page.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.getByRole("button", { name: "Collapse sidebar" }).click();
-  await capture("02d-collapsed-sidebar");
-  await page.getByRole("button", { name: "Expand sidebar" }).click();
-  await page.evaluate(() =>
-    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-      "marketing",
-    ),
-  );
-  await page.locator('[data-state="pending"]').waitFor();
-  await capture("03a-mid-stream");
-  await page
-    .getByRole("article", { name: "Marketing tool result" })
-    .waitFor()
-    .catch(async (e) => {
-      console.error("BEFORE EXPAND", await page.locator("body").innerText());
-      await page
-        .getByRole("button", { name: /Worked for/ })
-        .first()
-        .click();
-      console.error("EXPANDED", await page.locator("body").innerText());
-      await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
-      throw e;
-    });
-  await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
-  await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
-  await capture("03-tool-card-turn");
-  const marketingChatUrl = page.url();
-  await page.getByRole("button", { name: "Open full result" }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor();
-  await capture("04-full-result");
-  await page.getByRole("button", { name: "Back to chat", exact: false }).click();
-  await page
-    .getByRole("article", { name: "Marketing tool result" })
-    .waitFor()
-    .catch(async (e) => {
-      console.error("BEFORE EXPAND", await page.locator("body").innerText());
-      await page
-        .getByRole("button", { name: /Worked for/ })
-        .first()
-        .click();
-      console.error("EXPANDED", await page.locator("body").innerText());
-      await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
-      throw e;
-    });
-  await page.getByRole("button", { name: "Open full result" }).click();
-  await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
-  await page.waitForURL(marketingChatUrl);
-  if (!(await page.getByTestId("composer-editor").innerText()).includes("41"))
-    throw new Error("Ask AI did not attach the tool result");
-  await capture("04b-result-context-chat");
-  await page.getByTestId("composer-editor").fill("");
-  await page.goto(marketingChatUrl);
-  await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
-  await page.evaluate(() =>
-    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-      "marketing",
-    ),
-  );
-  await page
-    .getByRole("article", { name: "Marketing tool result" })
-    .waitFor()
-    .catch(async (e) => {
-      console.error("BEFORE EXPAND", await page.locator("body").innerText());
-      await page
-        .getByRole("button", { name: /Worked for/ })
-        .first()
-        .click();
-      console.error("EXPANDED", await page.locator("body").innerText());
-      await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
-      throw e;
-    });
-  await capture("05-chat-list");
-  await page.getByRole("button", { name: "New chat", exact: true }).click();
-  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-  await page.evaluate(async () => {
-    const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
-    const draftId = location.pathname.split("/").at(-1);
-    useComposerDraftStore
-      .getState()
-      .setModelSelection(
-        draftId,
-        { instanceId: "devReplay", model: "marketing" },
-        { replaceOptions: true, explicit: true },
-      );
-  });
-  await page.getByRole("button", { name: "Manage assistant", exact: true }).waitFor();
-  await capture("02b-empty-connected");
-  for (const [path, name] of [
-    ["/tools", "06-tools"],
-    ["/marketing-settings", "07-amicited"],
-    ["/settings/general", "08-settings"],
-  ]) {
-    await page.goto(url + path);
-    await page.locator(".am-chat-sidebar").waitFor();
-    if (path === "/tools")
-      await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
-    if (path === "/marketing-settings")
-      await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
-    await capture(name!);
-    if (path === "/tools") {
-      await page.locator(".am-tool-grid > a").first().hover();
-      await capture("06b-tools-hover");
-    }
-  }
-  await page.goto(marketingChatUrl);
-  await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
-  await page.evaluate(() =>
-    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-      "marketing-failed",
-    ),
-  );
-  await page
-    .getByText("Could not check: the website did not respond. Try again later.", { exact: true })
-    .waitFor();
-  await capture("09-failed-tool");
-  await page.evaluate(() =>
-    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-      "marketing-approval",
-    ),
-  );
-  await page.getByText("Needs your OK", { exact: true }).first().waitFor();
-  await capture("10-pending-approval");
-  await page
-    .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
-    .last()
-    .click();
-  await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
-  if (process.env.AMICITED_REAL_PROVIDER === "1") {
+  if (process.env.AMICITED_REUSE_REAL !== "1") {
+    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+    await page.getByTestId("composer-editor").waitFor();
+    await page.getByRole("button", { name: "Connect Claude", exact: true }).waitFor();
+    await capture("01-first-launch");
+    await page.getByTestId("composer-editor").fill("Plan my next campaign");
+    await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
+    if (!(await page.getByTestId("composer-editor").innerText()).includes("Plan my next campaign"))
+      throw new Error("Connecting lost the typed prompt");
+    await page.getByTestId("composer-editor").fill("");
     await page.evaluate(async () => {
       const { serverEnvironment, primaryServerSettingsAtom } = await import(
         String("/src/state/server.ts")
       );
       const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
       const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
-      const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent;
+      const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.devReplay;
       const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
         environmentId: readPrimaryEnvironmentId(),
         input: {
           providerInstanceMutation: {
             operation: "upsert",
-            instanceId: "claudeAgent",
+            instanceId: "devReplay",
             instance: { ...instance, enabled: true, config: { ...instance.config, enabled: true } },
           },
           patch: {},
         },
       });
-      if (result._tag !== "Success") throw new Error("Could not enable Claude");
+      if (result._tag !== "Success") throw new Error("Could not enable the free Replay fixture");
+      await serverEnvironment.refreshProviders.run(appAtomRegistry, {
+        environmentId: readPrimaryEnvironmentId(),
+        input: {},
+      });
     });
-    const cli = async (args: string[]) => {
-      const child = NodeChildProcess.spawn(
-        process.execPath,
-        ["apps/server/src/bin.ts", ...args, "--base-dir", home],
-        { env, stdio: ["ignore", "pipe", "pipe"] },
-      );
-      let output = "";
-      child.stdout.on("data", (b) => {
-        output += b.toString();
-      });
-      child.stderr.on("data", (b) => {
-        output += b.toString();
-      });
-      const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
-      return { code, output };
-    };
-    const project = await cli(["project", "add", process.cwd()]);
-    await NodeFSP.writeFile(NodePath.join(out, "real-provider-project.txt"), project.output);
-    const turn = await cli([
-      "thread",
-      "start",
-      "--provider",
-      "claudeAgent",
-      "--model",
-      "claude-haiku-4-5",
-      "--wait",
-      "--json",
-      process.cwd(),
-      "Use marketing_tools_run to run seo.site.audit with the url https://example.com. Summarize the real audit in one sentence. Do not edit any files or call cloud tools.",
-    ]);
-    await NodeFSP.writeFile(NodePath.join(out, "real-provider-transcript.txt"), turn.output);
-    const match = /"threadId"\s*:\s*"([^"]+)"/.exec(turn.output);
-    if (match) {
-      const environment = await page.evaluate(async () => {
-        const m = await import(String("/src/state/environments.ts"));
-        return m.readPrimaryEnvironmentId();
-      });
-      await page.goto(`${url}/${environment}/${match[1]}`);
-      await page.getByTestId("composer-editor").waitFor();
-      await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
-      const transcript = await page.locator("body").innerText();
-      await NodeFSP.appendFile(
-        NodePath.join(out, "real-provider-transcript.txt"),
-        "\nRendered transcript:\n" + transcript,
-      );
-      await page.getByRole("button", { name: "Open full result" }).click();
-      const result = await page.evaluate(() => sessionStorage.getItem("amicited.last-result"));
-      await NodeFSP.writeFile(
-        NodePath.join(out, "real-provider-tool-result.json"),
-        result ?? "null",
-      );
-      await page.goto(`${url}/${environment}/${match[1]}`);
-      await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
-      await capture("11-real-haiku-turn");
-    }
-  }
-  await page.getByRole("button", { name: "New chat", exact: true }).click();
-  await page.getByTestId("composer-editor").waitFor();
-  await page.evaluate(async (root) => {
-    const React = await import(String("/node_modules/.vite/deps/react.js"));
-    const client = await import(String("/node_modules/.vite/deps/react-dom_client.js"));
-    const createRoot = client.createRoot ?? client.default.createRoot;
-    const { MarketingSignInRecovery } = await import(String("/src/marketingChat.tsx"));
-    const { Button } = await import(String("/src/components/ui/button.tsx"));
-    const { Input } = await import(String("/src/components/ui/input.tsx"));
-    const { MarketingUiContext } = await import(
-      String("/@fs/") + root + "/packages/amicited-ui/src/index.tsx"
-    );
-    const host = document.createElement("div");
-    host.id = "recovery-proof";
-    document.querySelector("main main")?.prepend(host);
-    createRoot(host).render(
-      (React.createElement ?? React.default.createElement)(
-        MarketingUiContext,
-        { value: { Button, Input } },
-        (React.createElement ?? React.default.createElement)(MarketingSignInRecovery),
+    await page.waitForFunction(async () => {
+      const { primaryServerProvidersAtom } = await import(String("/src/state/server.ts"));
+      const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+      return appAtomRegistry
+        .get(primaryServerProvidersAtom)
+        .some(
+          (p: { instanceId: string; enabled: boolean; models: unknown[] }) =>
+            p.instanceId === "devReplay" && p.enabled && p.models.length,
+        );
+    });
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "amicited.brand",
+        JSON.stringify({ website: "https://example.com", name: "Example" }),
       ),
     );
-  }, process.cwd());
+    await page.reload();
+    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+    await capture("02-empty-chat");
+    await page.getByRole("button", { name: "example.com", exact: true }).click();
+    await page.getByRole("button", { name: "Save website" }).waitFor();
+    await capture("02c-website-popover");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Collapse sidebar" }).click();
+    await capture("02d-collapsed-sidebar");
+    await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing",
+      ),
+    );
+    await page.locator('[data-state="pending"]').waitFor();
+    await capture("03a-mid-stream");
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .first()
+      .waitFor()
+      .catch(async (e) => {
+        console.error("BEFORE EXPAND", await page.locator("body").innerText());
+        await page
+          .getByRole("button", { name: /Worked for/ })
+          .first()
+          .click();
+        console.error("EXPANDED", await page.locator("body").innerText());
+        await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+        throw e;
+      });
+    await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+    await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+    await capture("03-tool-card-turn");
+    const marketingChatUrl = page.url();
+    await page.getByRole("button", { name: "Open full result" }).click();
+    await page.getByRole("region", { name: "Tool result" }).waitFor();
+    await capture("04-full-result");
+    await page.getByRole("button", { name: "Back to chat", exact: false }).click();
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .first()
+      .waitFor()
+      .catch(async (e) => {
+        console.error("BEFORE EXPAND", await page.locator("body").innerText());
+        await page
+          .getByRole("button", { name: /Worked for/ })
+          .first()
+          .click();
+        console.error("EXPANDED", await page.locator("body").innerText());
+        await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+        throw e;
+      });
+    await page.getByRole("button", { name: "Open full result" }).click();
+    await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+    await page.waitForURL(marketingChatUrl);
+    if (!(await page.getByTestId("composer-editor").innerText()).includes("41"))
+      throw new Error("Ask AI did not attach the tool result");
+    await capture("04b-result-context-chat");
+    await page.getByTestId("composer-editor").fill("");
+    await page.goto(marketingChatUrl);
+    await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing",
+      ),
+    );
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .first()
+      .waitFor()
+      .catch(async (e) => {
+        console.error("BEFORE EXPAND", await page.locator("body").innerText());
+        await page
+          .getByRole("button", { name: /Worked for/ })
+          .first()
+          .click();
+        console.error("EXPANDED", await page.locator("body").innerText());
+        await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+        throw e;
+      });
+    await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+    await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
+    await capture("05-chat-list");
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .first()
+      .click();
+    await capture("05b-chat-menu");
+    await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+    await page.getByRole("textbox", { name: "Chat name" }).fill("Website audit review");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Website audit review/ })
+      .first()
+      .waitFor();
+    const firstHistory = page.locator("[data-chat-history-link]").first();
+    await firstHistory.focus();
+    await firstHistory.press("ArrowDown");
+    if (await firstHistory.evaluate((element) => element === document.activeElement))
+      throw new Error("History ArrowDown did not move focus");
+    await page.getByRole("button", { name: "New chat", exact: true }).click();
+    await page.waitForURL(/\/draft\//);
+    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+    await page.evaluate(async () => {
+      const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+      const draftId = location.pathname.split("/").at(-1);
+      useComposerDraftStore
+        .getState()
+        .setModelSelection(
+          draftId,
+          { instanceId: "devReplay", model: "marketing" },
+          { replaceOptions: true, explicit: true },
+        );
+    });
+    await page.getByRole("button", { name: "Manage assistant", exact: true }).waitFor();
+    await capture("02b-empty-connected");
+    for (const [path, name] of [
+      ["/tools", "06-tools"],
+      ["/marketing-settings", "07-amicited"],
+      ["/settings/general", "08-settings"],
+    ]) {
+      await page.goto(url + path);
+      await page.locator(".am-chat-sidebar").waitFor();
+      if (path === "/tools")
+        await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
+      if (path === "/marketing-settings")
+        await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
+      await capture(name!);
+      if (path === "/tools") {
+        await page.locator(".am-tool-grid > a").first().hover();
+        await capture("06b-tools-hover");
+      }
+    }
+    await page.goto(marketingChatUrl);
+    await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing-failed",
+      ),
+    );
+    await page
+      .getByText("Could not check: the website did not respond. Try again later.", { exact: true })
+      .waitFor();
+    await capture("09-failed-tool");
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing-approval",
+      ),
+    );
+    await page.getByText("Needs your OK", { exact: true }).first().waitFor();
+    await capture("10-pending-approval");
+    await page
+      .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
+      .last()
+      .click();
+    await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing-readability-approval",
+      ),
+    );
+    await page.getByRole("article", { name: "Marketing approval" }).waitFor();
+    await page.getByText("Readability check", { exact: true }).first().waitFor();
+    await capture("10b-readability-approval");
+    await page.getByRole("button", { name: "Don't allow", exact: true }).click();
+    if (process.env.AMICITED_REAL_PROVIDER === "1") {
+      await page.evaluate(async () => {
+        const { serverEnvironment, primaryServerSettingsAtom } = await import(
+          String("/src/state/server.ts")
+        );
+        const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+        const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+        const instance =
+          appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent;
+        const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+          environmentId: readPrimaryEnvironmentId(),
+          input: {
+            providerInstanceMutation: {
+              operation: "upsert",
+              instanceId: "claudeAgent",
+              instance: {
+                ...instance,
+                enabled: true,
+                config: { ...instance.config, enabled: true },
+              },
+            },
+            patch: {},
+          },
+        });
+        if (result._tag !== "Success") throw new Error("Could not enable Claude");
+      });
+      const cli = async (args: string[]) => {
+        const child = NodeChildProcess.spawn(
+          process.execPath,
+          ["apps/server/src/bin.ts", ...args, "--base-dir", home],
+          { env, stdio: ["ignore", "pipe", "pipe"] },
+        );
+        let output = "";
+        child.stdout.on("data", (b) => {
+          output += b.toString();
+        });
+        child.stderr.on("data", (b) => {
+          output += b.toString();
+        });
+        const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+        return { code, output };
+      };
+      const project = await cli(["project", "add", process.cwd()]);
+      await NodeFSP.writeFile(NodePath.join(out, "real-provider-project.txt"), project.output);
+      await page.getByRole("button", { name: "New chat", exact: true }).click();
+      await page.waitForURL(/\/draft\//);
+      await page.getByTestId("composer-editor").waitFor();
+      await page.evaluate(async () => {
+        const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+        const state = useComposerDraftStore.getState();
+        state.setStickyModelSelection({ instanceId: "claudeAgent", model: "claude-haiku-4-5" });
+        state.setModelSelection(
+          location.pathname.split("/").at(-1),
+          { instanceId: "claudeAgent", model: "claude-haiku-4-5" },
+          { replaceOptions: true, explicit: true },
+        );
+      });
+      console.log(
+        "REAL SELECTION",
+        await page
+          .getByTestId("composer-editor")
+          .locator("..")
+          .innerText()
+          .catch(() => ""),
+      );
+      await page
+        .getByRole("button", { name: /Claude Haiku/ })
+        .waitFor({ timeout: 30000 })
+        .catch(async (error) => {
+          await NodeFSP.writeFile(
+            NodePath.join(out, "real-selection-debug.txt"),
+            await page.locator("body").innerText(),
+          );
+          throw error;
+        });
+      await page
+        .getByTestId("composer-editor")
+        .fill(
+          "Audit my website example.com for AI search. Give me the three most useful next steps.",
+        );
+      await page.getByTestId("composer-editor").press("Enter");
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .first()
+        .waitFor({ timeout: 180000 });
+      await page
+        .getByRole("button", { name: "Submit message", exact: true })
+        .waitFor({ timeout: 180000 });
+      const realChatUrl = page.url();
+      const match = /\/([^/]+)$/.exec(new URL(realChatUrl).pathname);
+      if (match) {
+        await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+        const transcript = await page.locator("body").innerText();
+        await NodeFSP.writeFile(
+          NodePath.join(out, "real-provider-transcript.txt"),
+          "\nRendered transcript:\n" + transcript,
+        );
+        await page.getByRole("button", { name: "Open full result" }).click();
+        const result = await page.evaluate(() => sessionStorage.getItem("amicited.last-result"));
+        await NodeFSP.writeFile(
+          NodePath.join(out, "real-provider-tool-result.json"),
+          result ?? "null",
+        );
+        await page.goto(realChatUrl);
+        await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+        await page
+          .getByRole("article", { name: "Marketing tool result" })
+          .filter({ hasText: "Website health audit" })
+          .evaluate((element) => element.scrollIntoView({ block: "center" }));
+        await capture("11-real-haiku-turn");
+      }
+    }
+  }
+  if (process.env.AMICITED_REUSE_REAL === "1") {
+    await page.evaluate(() =>
+      localStorage.setItem(
+        "amicited.brand",
+        JSON.stringify({ website: "https://example.com", name: "Example" }),
+      ),
+    );
+    const { DatabaseSync } = await import("node:sqlite");
+    const database = new DatabaseSync(NodePath.join(home, "userdata/statev2.sqlite"), {
+      readOnly: true,
+    });
+    const run = database
+      .prepare(
+        "SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' AND status = 'completed' ORDER BY requested_at DESC LIMIT 1",
+      )
+      .get() as { thread_id: string };
+    const events = database
+      .prepare(
+        "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE thread_id = ? ORDER BY ordinal",
+      )
+      .all(run.thread_id);
+    database.close();
+    await NodeFSP.writeFile(
+      NodePath.join(out, "real-provider-events.json"),
+      JSON.stringify(
+        events.map((row) => JSON.parse(String(row.payload_json))),
+        null,
+        2,
+      ),
+    );
+    const environment = await page.evaluate(async () =>
+      (await import(String("/src/state/environments.ts"))).readPrimaryEnvironmentId(),
+    );
+    const chatUrl = `${url}/${environment}/${run.thread_id}`;
+    await page.goto(chatUrl);
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .filter({ hasText: "Website health audit" })
+      .waitFor();
+    await NodeFSP.writeFile(
+      NodePath.join(out, "real-provider-transcript.txt"),
+      await page.locator("body").innerText(),
+    );
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .filter({ hasText: "Website health audit" })
+      .evaluate((element) => element.scrollIntoView({ block: "center" }));
+    await capture("11-real-haiku-turn");
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .filter({ hasText: "Website health audit" })
+      .getByRole("button", { name: "Open full result" })
+      .click();
+    await NodeFSP.writeFile(
+      NodePath.join(out, "real-provider-tool-result.json"),
+      (await page.evaluate(() => sessionStorage.getItem("amicited.last-result"))) ?? "null",
+    );
+    await page.goto(chatUrl);
+  }
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+  await page.waitForURL(/\/draft\//);
+  await page.getByTestId("composer-editor").waitFor();
+  await page.evaluate(() =>
+    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+      "marketing-auth",
+    ),
+  );
   await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
   await capture("12-sign-in-recovery");
+  await NodeFSP.writeFile(
+    NodePath.join(out, "sign-in-recovery-transcript.txt"),
+    await page.locator("body").innerText(),
+  );
   await page.reload();
   await page.evaluate(() => localStorage.setItem("t3code:theme", "dark"));
   await page.reload();

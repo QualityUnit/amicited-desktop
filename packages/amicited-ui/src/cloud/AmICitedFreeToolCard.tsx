@@ -42,7 +42,7 @@ export const AmICitedFreeToolCard: FC<AmICitedFreeToolCardProps> = ({
       }
     >
       <div className="flex items-start gap-3">
-        <span className="group-hover:text-ai-on-accent flex size-[38px] shrink-0 items-center justify-center rounded-[4px] bg-[var(--ai-surf-2)] text-[var(--ai-ink-2)] transition-colors group-hover:bg-[var(--ai-ink)]">
+        <span className="group-hover:text-[var(--ai-surf)] flex size-[38px] shrink-0 items-center justify-center rounded-[4px] bg-[var(--ai-surf-2)] text-[var(--ai-ink-2)] transition-colors group-hover:bg-[var(--ai-ink)]">
           {tool.icon}
         </span>
         <div className="min-w-0">

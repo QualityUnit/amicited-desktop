@@ -41,6 +41,9 @@ describe("site tools", () => {
   });
   it("checks meta and graph structured data, reporting missing and invalid data", () => {
     expect(inspectMeta(fixture("site.html")).score).toBe(100);
+    expect(inspectMeta('<html lang="en"><h1>Example Domain</h1></html>').details).toMatchObject({
+      h1s: ["Example Domain"],
+    });
     expect(
       inspectMeta('<html><meta name="robots" content="noindex"><h1>A</h1><h1>B</h1>').findings.find(
         (f) => f.title === "Search indexing",
@@ -98,7 +101,17 @@ describe("site tools", () => {
       ] as const) {
         const result = await tool.run({ url }, ctx());
         expect(result.findings[0]).toMatchObject(
-          code === 503 ? { status: "unknown" } : { title: "Missing", status },
+          code === 503
+            ? { status: "unknown" }
+            : {
+                title:
+                  tool === tools.llms
+                    ? "Publish /llms.txt"
+                    : tool === tools.robots
+                      ? "Publish robots.txt"
+                      : "Publish a sitemap",
+                status,
+              },
         );
         expect(result.score).toBe(code === 503 ? null : status === "fail" ? 0 : 50);
       }

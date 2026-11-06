@@ -178,14 +178,75 @@ try {
   await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
   await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
   await capture("tool-card-turn");
+  await page.getByRole("button", { name: "Open full result" }).click();
+  await page.getByRole("button", { name: "Ask AI about this" }).click();
+  await page.getByTestId("composer-editor").waitFor();
+  await page.getByTestId("composer-editor").press("Enter");
+  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+  NodeFS.writeFileSync(
+    NodePath.join(out, "electron-report-dispatch.txt"),
+    await page.locator("body").innerText(),
+  );
+  await capture("report-context");
+  await page.waitForFunction(
+    () => !Object.keys(sessionStorage).some((key) => key.startsWith("amicited.report-context.")),
+  );
+  await page.getByTestId("composer-editor").fill("Thanks, keep this for the next campaign.");
+  await page.getByTestId("composer-editor").press("Enter");
+  await page.getByRole("link", { name: "Tools", exact: true }).click();
+  await page.getByRole("link", { name: "Content tools", exact: true }).click();
+  if (!page.url().includes("category=content")) throw new Error("Electron lost category route");
+  await capture("tools-content");
+  await page.locator(".am-tool-grid > a").first().click();
+  await page.getByRole("button", { name: /Run/ }).first().waitFor();
+  await capture("tool-form");
   if (process.env.AMICITED_CAPTURE_HOME) {
+    const { DatabaseSync } = await import("node:sqlite");
+    const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
+      readOnly: true,
+    });
+    const row = database
+      .prepare(
+        "SELECT title FROM orchestration_v2_projection_threads WHERE thread_id = (SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' ORDER BY requested_at DESC LIMIT 1)",
+      )
+      .get();
+    database.close();
     await page
-      .getByRole("button", { name: /^Use marketing_tools_run/ })
+      .getByRole("button", { name: new RegExp(row.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
       .first()
       .click();
-    await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .filter({ hasText: "Website health audit" })
+      .waitFor();
+    await page
+      .getByRole("article", { name: "Marketing tool result" })
+      .filter({ hasText: "Website health audit" })
+      .evaluate((element) => element.scrollIntoView({ block: "center" }));
     await capture("real-haiku-turn");
   }
+  const { DatabaseSync } = await import("node:sqlite");
+  const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
+    readOnly: true,
+  });
+  const outgoing = database
+    .prepare(
+      "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE type = 'user_message' ORDER BY updated_at DESC LIMIT 8",
+    )
+    .all()
+    .map((row) => JSON.parse(row.payload_json));
+  database.close();
+  const reportQuestion = outgoing.find((item) =>
+    item.context?.records?.some((record) => record.kind === "marketing-report"),
+  );
+  if (!reportQuestion) throw new Error("Electron outgoing message did not contain report context");
+  const followUp = outgoing.find((item) => item.text.includes("Thanks, keep this"));
+  if (!followUp || followUp.context?.records?.some((record) => record.kind === "marketing-report"))
+    throw new Error("Electron repeated stale report context");
+  NodeFS.writeFileSync(
+    NodePath.join(out, "electron-outgoing-context.json"),
+    JSON.stringify({ reportQuestion, followUp }, null, 2),
+  );
   await cdp.detach();
   const report = JSON.parse(NodeFS.readFileSync(NodePath.join(out, "electron-fonts.json"), "utf8"));
   report.verified = Object.values(report.fonts).every(Boolean);

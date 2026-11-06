@@ -45,6 +45,16 @@ const FIXTURES = "../src/orchestration-v2/testkit/fixtures";
 export const SCENARIOS = [
   { id: "showcase", name: "Showcase", file: "./dev-replay/showcase_transcript.ndjson" },
   {
+    id: "marketing-readability-approval",
+    name: "Readability approval",
+    file: "../../../scripts/amicited/fixtures/readability-approval.ndjson",
+  },
+  {
+    id: "marketing-auth",
+    name: "Marketing sign-in failure",
+    file: "./dev-replay/marketing_failed_transcript.ndjson",
+  },
+  {
     id: "marketing-failed",
     name: "Marketing failure",
     file: "./dev-replay/marketing_failed_transcript.ndjson",
@@ -331,6 +341,8 @@ function runAgent(): void {
         const sessionId = String(params.sessionId);
         const session = sessions.get(sessionId);
         if (session === undefined) throw new Error(`Unknown session ${sessionId}`);
+        if (session.model === "marketing-auth")
+          throw new Error("Not logged in. Please sign in to Claude to continue.");
         const turns = loadTurns(session.model);
         const turn = turns[session.promptCount % Math.max(turns.length, 1)];
         session.promptCount += 1;

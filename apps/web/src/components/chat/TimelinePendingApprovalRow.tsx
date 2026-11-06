@@ -1,8 +1,4 @@
-/* oxlint-disable shadcn/no-unknown-classes -- Marketing card styles are owned by the fork package. */
-import { marketingApprovalInput } from "../../marketingContext";
-import { useThreadVisibleTurnItems } from "../../state/entities";
-import { MarketingButton } from "@amicited/ui-marketing";
-import { useWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingApprovalCard, useMarketingApproval } from "../../marketingChat";
 import {
   FULL_ACCESS_OVERRIDE_QUESTION,
   fullAccessOverrideExplanation,
@@ -43,64 +39,20 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
 }) {
   const { respondingRequestIds, canOperateThread, onRespondToApproval, threadRef } =
     use(TimelineRowCtx);
-  const items = useThreadVisibleTurnItems(threadRef);
-  const requestIndex = items.findIndex(
-    (p) => p.item.type === "approval_request" && p.item.requestId === approval.requestId,
-  );
-  const tool = items
-    .slice(0, requestIndex < 0 ? items.length : requestIndex)
-    .findLast((p) => p.item.type === "dynamic_tool" && p.item.status !== "completed");
-  const marketingTool =
-    tool?.item.type === "dynamic_tool" && tool.item.toolName?.endsWith("marketing_tools_run")
-      ? tool.item
-      : null;
-  const marketer = useWorkspaceMode() === "marketer";
-  const marketingInput = marketingApprovalInput(marketingTool?.toolName, marketingTool?.input);
-  const marketingApproval = marketer && marketingInput !== null;
+  const marketingInput = useMarketingApproval(threadRef, approval.requestId);
   const presentation = APPROVAL_PRESENTATION[approval.requestKind];
   const canRespond = approval.responseCapability === "live";
-  if (marketingApproval) {
-    const raw = marketingInput;
-    const title = raw?.name === "seo.site.audit" ? "website health audit" : "marketing check";
-    let site = raw?.input?.url ?? "your website";
-    try {
-      site = new URL(site).hostname;
-    } catch {
-      /* Keep the supplied target. */
-    }
+  if (marketingInput)
     return (
-      <article className="am-tool-card" aria-label="Marketing approval">
-        <header>
-          <strong>
-            {title === "website health audit" ? "Website health audit" : "Marketing check"}
-          </strong>
-          <small className="am-status-pill">Needs your OK</small>
-        </header>
-        <p>
-          Run a {title} on {site}? It's free and runs on your computer.
-        </p>
-        <div className="am-actions">
-          <MarketingButton
-            variant="default"
-            disabled={
-              !canOperateThread || !canRespond || respondingRequestIds.includes(approval.requestId)
-            }
-            onClick={() => void onRespondToApproval?.(approval.requestId, "accept")}
-          >
-            Allow
-          </MarketingButton>
-          <MarketingButton
-            disabled={
-              !canOperateThread || !canRespond || respondingRequestIds.includes(approval.requestId)
-            }
-            onClick={() => void onRespondToApproval?.(approval.requestId, "decline")}
-          >
-            Don't allow
-          </MarketingButton>
-        </div>
-      </article>
+      <MarketingApprovalCard
+        input={marketingInput}
+        approval={approval}
+        disabled={
+          !canOperateThread || !canRespond || respondingRequestIds.includes(approval.requestId)
+        }
+        onRespond={onRespondToApproval}
+      />
     );
-  }
   return (
     <WorkLogRow
       role="group"
@@ -117,7 +69,6 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
       }
       label={
         <code
-          style={marketingApproval ? { fontFamily: "inherit" } : undefined}
           aria-label={presentation.detailLabel}
           className="block max-h-40 min-w-0 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-foreground select-text! wrap-anywhere [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
           data-approval-detail="complete"

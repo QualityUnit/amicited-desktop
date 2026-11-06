@@ -280,6 +280,9 @@ const workEntryKey = (entry: TimelineWorkEntry) => entry.id;
 export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "working" }> }) {
   const { isCompacting, isPreparingWorktree, backgroundWorktreeSetup } =
     use(TimelineRowActivityCtx);
+  const marketer = useWorkspaceMode() === "marketer";
+  const { pendingApprovals } = use(TimelineRowCtx);
+  if (marketer && pendingApprovals.size > 0) return null;
   const compacting = row.compacting === true || isCompacting;
   const shimmer = isPreparingWorktree || compacting;
   const label = isPreparingWorktree ? (
@@ -361,8 +364,10 @@ function CompactingLabel({ createdAt }: { createdAt: string | null }) {
 }
 
 export function ThinkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "thinking" }> }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const ctx = use(TimelineRowCtx);
   const { isCompacting, isPreparingWorktree } = use(TimelineRowActivityCtx);
+  if (marketer) return null;
   if (isPreparingWorktree || isCompacting) return <WorkLogRow label="" />;
   // A failed group keeps this disclosure while an approval waits, but nothing is thinking then.
   const live = ctx.pendingApprovals.size === 0;
@@ -502,6 +507,7 @@ export function LiveWorkEntryTimelineRow({
   const pendingApproval =
     item?.type === "approval_request" ? ctx.pendingApprovals.get(item.requestId) : undefined;
   if (pendingApproval) return <TimelinePendingApprovalRow approval={pendingApproval} />;
+  if (marketer && row.entry.itemType === "reasoning") return null;
 
   const marketingItem =
     item?.type === "dynamic_tool"
@@ -614,7 +620,12 @@ export function WorkGroupToggleTimelineRow({
   return (
     <>
       <WorkGroupHeader
-        label={row.summary}
+        label={
+          workspaceMode === "marketer" &&
+          (row.marketingEntries?.length || row.summary.includes("T3 Code integration"))
+            ? "Used AmICited tools"
+            : row.summary
+        }
         iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
         toolIcon={row.toolIcon}
         failed={row.hasFailure}

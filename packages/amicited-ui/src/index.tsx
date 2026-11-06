@@ -27,7 +27,7 @@ import {
   resultQuestion,
 } from "./experience.js";
 export * from "./experience.js";
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 
 export const PRODUCT_NAME = "AmICited Desktop";
@@ -57,29 +57,27 @@ export function setWorkspaceMode(mode: "marketer" | "developer") {
 export { MarketingShell } from "./shell.js";
 export function ToolsGrid({
   tools,
-  selectedPack,
+  selectedPack = "seo",
+  navigate,
 }: {
   tools: readonly ToolCard[];
   selectedPack?: string;
+  navigate: (path: string) => void;
 }) {
-  const [selected, setSelected] = useState(() => window.location.hash.slice(1) || "seo");
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep pack selection synchronized with incoming tool links and browser history.
-  useEffect(() => {
-    const update = () => setSelected(window.location.hash.slice(1) || "seo");
-    window.addEventListener("hashchange", update);
-    return () => window.removeEventListener("hashchange", update);
-  }, []);
-  const activePack = selectedPack ?? selected;
+  const activePack = selectedPack;
   return (
     <>
       <nav className="am-pack-tabs" aria-label="Tool categories">
         {packs.map(([pack, label]) => (
           <a
             key={pack}
-            href={"#" + pack}
+            href={"/tools?category=" + pack}
             className="text-body relative flex items-center gap-1.5 px-2 py-2.5 font-medium whitespace-nowrap"
             aria-current={activePack === pack ? "page" : undefined}
-            onClick={() => setSelected(pack)}
+            onClick={(event) => {
+              event.preventDefault();
+              navigate("/tools?category=" + pack);
+            }}
           >
             <MarketingIcon name={pack} />
             {label}
@@ -103,7 +101,7 @@ export function ToolsGrid({
                   i18nKey: tool.name,
                 }}
                 onOpen={(slug) => {
-                  window.location.href = "/tools/" + slug;
+                  navigate("/tools/" + slug);
                 }}
               />
             ))}

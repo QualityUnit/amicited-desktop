@@ -209,9 +209,10 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       ? ctx.pendingApprovals.get(failureItem.requestId)
       : undefined;
   if (pendingApproval) return <TimelinePendingApprovalRow approval={pendingApproval} />;
+  if (workspaceMode === "marketer" && workEntry.itemType === "reasoning") return null;
   if (failureItem?.type === "error" && failureItem.status === "failed") {
     if (workspaceMode === "marketer" && marketingSignInError(failureItem.failure.message))
-      return <MarketingSignInRecovery threadRef={ctx.threadRef} />;
+      return <MarketingSignInRecovery threadRef={ctx.threadRef} errorItemId={failureItem.id} />;
     const warning = failureItem.failure.class === "usage_limit";
     const resetAt = failureItem.failure.resetAt;
     // The reset time is the viewer's local time; naming the zone keeps it

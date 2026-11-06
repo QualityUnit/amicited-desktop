@@ -140,6 +140,12 @@ function ResultValue({ value }: { value: unknown }): ReactNode {
 export function resultTitle(result: Pick<ToolResult, "tool">) {
   const titles: Record<string, string> = {
     "seo.site.audit": "Website health audit",
+    "seo.robots.check": "AI crawler access",
+    "seo.sitemap.check": "Sitemap check",
+    "seo.llmstxt.check": "AI website guide",
+    "seo.meta.check": "Search and social preview",
+    "seo.schema.check": "Structured data check",
+    "seo.ssl.check": "Secure connection check",
     "ai.visibility.check": "AI visibility check",
     "content.readability": "Readability check",
     "content.write": "Marketing draft",
@@ -217,8 +223,17 @@ export function MarketingResult({
     <section className="am-page" aria-label="Tool result">
       <h1>{title ?? resultTitle(result)}</h1>
       <p className="am-hint">
-        {String(record(result.input).url ?? record(result.input).website ?? "")} ·{" "}
-        {new Date(result.startedAt).toLocaleString()}
+        {String(record(result.input).url ?? record(result.input).website ?? "")
+          .replace(/^https?:\/\//, "")
+          .replace(/\/$/, "")}{" "}
+        ·{" "}
+        {new Date(result.startedAt).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })}
       </p>
       <article className="am-tool-card">
         <p>

@@ -3,8 +3,8 @@
 With Node 26.12.1 and the workspace dependencies installed:
 
 ```sh
-node scripts/amicited/journey-screenshots.ts .amicited-shots/r18
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r18
+node scripts/amicited/journey-screenshots.ts .amicited-shots/r19
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r19
 ```
 
 The browser harness owns temporary state and independently allocated ports,
@@ -41,3 +41,12 @@ To reuse a stopped journey home for native evidence, run the journey with
 `AMICITED_KEEP_HOME=1`, then set `AMICITED_CAPTURE_HOME` to the path in the
 private `isolated-home.txt` for the Electron harness. This renders the same
 persisted real audit. Do not run both servers against that home together.
+
+Wave 21 adds scoped report dispatch in Electron (`electron-outgoing-context.json`),
+router category navigation, a non-audit approval, a sidebar row menu and keyboard
+navigation. `real-provider-events.json` records the completed persona turn.
+Use `AMICITED_REUSE_REAL=1` with `AMICITED_CAPTURE_HOME` and `AMICITED_KEEP_HOME=1`
+to recapture that stopped turn without paying for another request. The recovery
+scenario runs through the provider protocol and persists a failed run; it no
+longer mounts a detached recovery component. The real result may contain several
+cards because the assistant chooses its checks.

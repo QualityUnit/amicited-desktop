@@ -1,4 +1,10 @@
-import { shouldResumeMarketingDraft } from "./marketingContext";
+import { flushSync } from "react-dom";
+import { useComposerDraftStore } from "./composerDraftStore";
+import {
+  marketingApprovalTool,
+  marketingApprovalInput,
+  shouldResumeMarketingDraft,
+} from "./marketingContext";
 import { useThreadVisibleTurnItems, useThreadShell } from "./state/entities";
 import { CloudFooter } from "./rpc/amicitedCloud";
 import type { ScopedThreadRef, RunId } from "@t3tools/contracts";
@@ -24,6 +30,8 @@ import {
   MarketingInput,
   MarketingCallState,
   MarketingButton,
+  resultTitle,
+  useWorkspaceMode,
 } from "@amicited/ui-marketing";
 import { MarketingSubscriptions } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
@@ -190,7 +198,22 @@ export function MarketingTranscriptCard({
   const result = marketingToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
   const navigate = useNavigate();
   const path = useLocation({ select: (location) => location.pathname });
-  if (!result && shell?.hasPendingApprovals) return null;
+  const visible = useThreadVisibleTurnItems(
+    projectedItem && environmentId
+      ? { environmentId, threadId: projectedItem.sourceThreadId }
+      : null,
+  );
+  if (
+    !result &&
+    shell?.hasPendingApprovals &&
+    visible.some(
+      (p) =>
+        p.item.type === "approval_request" &&
+        p.item.status === "waiting" &&
+        marketingApprovalTool(visible, p.item.requestId)?.id === projectedItem?.item.id,
+    )
+  )
+    return null;
   if (!result)
     return (
       <MarketingCallState
@@ -244,11 +267,14 @@ export function MarketingTurnOffer({
 export function MarketingSignInRecovery({
   driver = "claudeAgent",
   threadRef,
+  errorItemId,
 }: {
+  errorItemId?: string;
   driver?: "claudeAgent" | "codex";
   threadRef?: ScopedThreadRef | null;
 }) {
   const [open, setOpen] = useState(false);
+  const items = useThreadVisibleTurnItems(threadRef ?? null);
   const thread = useThreadShell(threadRef ?? null);
   const providers = useEnvironmentProviders();
   const activeDriver = threadRef
@@ -256,16 +282,106 @@ export function MarketingSignInRecovery({
         .get(threadRef.environmentId)
         ?.find((provider) => provider.instanceId === thread?.providerInstanceId)?.driver
     : driver;
+  const provider = threadRef
+    ? providers
+        .get(threadRef.environmentId)
+        ?.find((p) => p.instanceId === thread?.providerInstanceId)
+    : undefined;
+  const ready =
+    provider &&
+    (provider.driver === "claudeAgent" || provider.driver === "codex") &&
+    getOnboardingProviderState(provider) === "ready";
   const signInDriver = activeDriver === "codex" ? "codex" : "claudeAgent";
   const label = signInDriver === "codex" ? "ChatGPT" : "Claude";
+  const latestError = items.findLast((p) => p.item.type === "error" && p.item.status === "failed");
+  if (errorItemId && latestError && latestError.item.id !== errorItemId) return null;
+  if (
+    latestError &&
+    thread?.latestRun?.status === "completed" &&
+    latestError.item.runId !== thread.latestRun.runId
+  )
+    return null;
   return (
     <article className="am-tool-card" aria-label="Assistant sign in">
-      <strong>{label} isn't signed in yet</strong>
-      <p>Sign in with your existing subscription to continue.</p>
-      <MarketingButton variant="default" onClick={() => setOpen(true)}>
-        Sign in to {label}
+      <strong>{ready ? `${label} is ready` : `${label} isn't signed in yet`}</strong>
+      <p>
+        {ready
+          ? "Your message is saved. Send it again to continue."
+          : "Sign in with your existing subscription to continue."}
+      </p>
+      <MarketingButton
+        variant="default"
+        onClick={() => {
+          if (ready) {
+            const last = items.findLast((p) => p.item.type === "user_message")?.item;
+            if (threadRef && last?.type === "user_message") {
+              flushSync(() => useComposerDraftStore.getState().setPrompt(threadRef, last.text));
+              document.querySelector<HTMLFormElement>("[data-chat-composer-form]")?.requestSubmit();
+            }
+          } else setOpen(true);
+        }}
+      >
+        {ready ? "Try again" : `Sign in to ${label}`}
       </MarketingButton>
       {open && <MarketingSubscriptions initialDriver={signInDriver} usageLink={false} />}
+    </article>
+  );
+}
+
+export function useMarketingApproval(threadRef: ScopedThreadRef | null, requestId: string) {
+  const items = useThreadVisibleTurnItems(threadRef);
+  const marketer = useWorkspaceMode() === "marketer";
+  const tool = marketingApprovalTool(items, requestId);
+  return marketer && tool ? marketingApprovalInput(tool.toolName, tool.input) : null;
+}
+export function MarketingApprovalCard({
+  input,
+  approval,
+  disabled,
+  onRespond,
+}: {
+  input: NonNullable<ReturnType<typeof marketingApprovalInput>>;
+  approval: import("./session-logic").PendingApproval;
+  disabled: boolean;
+  onRespond:
+    | ((
+        requestId: import("@t3tools/contracts").RuntimeRequestId,
+        decision: "accept" | "decline",
+      ) => unknown)
+    | undefined;
+}) {
+  const title = resultTitle({ tool: input.name ?? "" });
+  let site = input.input?.url;
+  try {
+    if (site) site = new URL(site).hostname;
+  } catch {
+    /* Preserve supplied target. */
+  }
+  return (
+    <article className="am-tool-card am-approval" aria-label="Marketing approval">
+      <header>
+        <strong>{title}</strong>
+        <small className="am-status-pill">Needs your OK</small>
+      </header>
+      <p>
+        Run {title.toLowerCase()}
+        {site ? ` on ${site}` : ""}? It's free and runs on your computer.
+      </p>
+      <div className="am-actions">
+        <MarketingButton
+          variant="default"
+          disabled={disabled}
+          onClick={() => void onRespond?.(approval.requestId, "accept")}
+        >
+          Allow
+        </MarketingButton>
+        <MarketingButton
+          disabled={disabled}
+          onClick={() => void onRespond?.(approval.requestId, "decline")}
+        >
+          Don't allow
+        </MarketingButton>
+      </div>
     </article>
   );
 }

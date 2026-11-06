@@ -1,5 +1,13 @@
-import { marketingReturnThread } from "./marketingContext";
-import { useThreadVisibleTurnItems, useThreadShells } from "./state/entities";
+import { useThreadActions } from "./hooks/useThreadActions";
+import { useOrchestrationCommand } from "./state/use-orchestration-command";
+import { threadEnvironment } from "./state/threads";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import {
+  marketingReturnThread,
+  saveMarketingReport,
+  marketingHistoryStatus,
+} from "./marketingContext";
+import { useThreadShells } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -189,7 +197,7 @@ export function MarketingHome() {
 
 export function MarketingTools({ name }: { name?: string }) {
   const selectedPack = useLocation({
-    select: (location) => location.hash.replace(/^#/, "") || "seo",
+    select: (location) => new URLSearchParams(location.searchStr).get("category") || "seo",
   });
   const navigate = useNavigate();
   const threads = useThreadShells();
@@ -219,7 +227,11 @@ export function MarketingTools({ name }: { name?: string }) {
   if (!name)
     return (
       <>
-        <ToolsGrid tools={tools} selectedPack={selectedPack} />
+        <ToolsGrid
+          tools={tools}
+          selectedPack={selectedPack}
+          navigate={(to) => void navigate({ to })}
+        />
       </>
     );
   const tool = tools.find((tool) => tool.name === name);
@@ -228,7 +240,11 @@ export function MarketingTools({ name }: { name?: string }) {
       <>
         <h1>This tool is not available yet</h1>
         <p>Explore the tools available on this device.</p>
-        <ToolsGrid tools={tools} selectedPack={selectedPack} />
+        <ToolsGrid
+          tools={tools}
+          selectedPack={selectedPack}
+          navigate={(to) => void navigate({ to })}
+        />
       </>
     );
   return (
@@ -248,21 +264,14 @@ export function MarketingTools({ name }: { name?: string }) {
                 },
                 prompt,
               );
-              sessionStorage.setItem(
-                "amicited.report-context." + resultPath,
-                JSON.stringify(report),
-              );
+              saveMarketingReport({ environmentId: environment, threadId: thread }, report);
               await navigate({ to: resultPath });
               return;
             }
           }
-          await actions.startTask(prompt);
-          sessionStorage.setItem(
-            "amicited.report-context." + window.location.pathname,
-            JSON.stringify(report),
-          );
+          await actions.startTask(prompt, false, report);
         }}
-        fullResult={Boolean(sessionStorage.getItem("amicited.return-chat"))}
+        fullResult={Boolean(sessionStorage.getItem("amicited.last-result"))}
         onResult={rememberResult}
         key={name}
         tool={tool}
@@ -316,7 +325,7 @@ function useMarketingTask() {
       (provider) => provider.instanceId === settings.textGenerationModelSelection?.instanceId,
     ) ?? readyProviders[0];
   return {
-    startTask: async (prompt: string, sendImmediately = false) => {
+    startTask: async (prompt: string, sendImmediately = false, report?: unknown) => {
       const open = async (project: Parameters<typeof newThread>[0]) => {
         const draft = await newThread(project, {
           prompt,
@@ -331,6 +340,11 @@ function useMarketingTask() {
             : {}),
         });
         if (!draft) throw new Error("Could not open your task");
+        if (report)
+          saveMarketingReport(
+            { environmentId: project.environmentId, threadId: draft.threadId },
+            report,
+          );
       };
       if (!environmentId) throw new Error("Not connected");
       const project = await scratch.openScratchProject(environmentId);
@@ -525,6 +539,11 @@ function MarketingHistory() {
   const threads = useThreadShells().filter((thread) => !thread.archivedAt);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const path = useLocation({ select: (location) => location.pathname });
+  const { archiveThread, deleteThread } = useThreadActions();
+  const update = useOrchestrationCommand(threadEnvironment.updateMetadata);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
   const sorted = threads.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   const [today] = useState(() => new Date().toDateString());
   return (
@@ -546,21 +565,99 @@ function MarketingHistory() {
         return rows.length ? (
           <section key={group}>
             <small>{group}</small>
-            {rows.map((thread) => (
-              <button
-                type="button"
-                key={thread.environmentId + thread.id}
-                onClick={() =>
-                  void navigate({
-                    to: "/$environmentId/$threadId",
-                    params: { environmentId: thread.environmentId, threadId: thread.id },
-                  })
-                }
-              >
-                <span>{thread.title === "New thread" ? "New chat" : thread.title}</span>
-                <MarketingHistoryStatus thread={thread} />
-              </button>
-            ))}
+            {rows.map((thread) => {
+              const ref = scopeThreadRef(thread.environmentId, thread.id);
+              const key = thread.environmentId + thread.id;
+              return (
+                <div className="am-history-row" key={key}>
+                  {renaming === key ? (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (title.trim())
+                          void update({
+                            environmentId: thread.environmentId,
+                            input: { threadId: thread.id, title: title.trim() },
+                          }).then((result) => {
+                            if (result._tag === "Success") setRenaming(null);
+                          });
+                      }}
+                    >
+                      <Input
+                        aria-label="Chat name"
+                        autoFocus
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") setRenaming(null);
+                        }}
+                      />
+                      <MarketingButton type="submit">Save</MarketingButton>
+                    </form>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        data-chat-history-link=""
+                        aria-current={
+                          decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
+                            ? "page"
+                            : undefined
+                        }
+                        onKeyDown={(event) => {
+                          if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+                          const buttons = Array.from(
+                            event.currentTarget
+                              .closest(".am-flat-history")
+                              ?.querySelectorAll<HTMLButtonElement>("[data-chat-history-link]") ??
+                              [],
+                          );
+                          const index = buttons.indexOf(event.currentTarget);
+                          const next =
+                            event.key === "Home"
+                              ? 0
+                              : event.key === "End"
+                                ? buttons.length - 1
+                                : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) %
+                                  buttons.length;
+                          event.preventDefault();
+                          buttons[next]?.focus();
+                        }}
+                        onClick={() =>
+                          void navigate({
+                            to: "/$environmentId/$threadId",
+                            params: { environmentId: thread.environmentId, threadId: thread.id },
+                          })
+                        }
+                      >
+                        <span>{thread.title === "New thread" ? "New chat" : thread.title}</span>
+                        <MarketingHistoryStatus thread={thread} />
+                      </button>
+                      <Menu>
+                        <MenuTrigger
+                          aria-label={`Chat actions for ${thread.title}`}
+                          render={<Button size="amicited" variant="amicited-secondary" />}
+                        >
+                          …
+                        </MenuTrigger>
+                        <MenuPopup>
+                          <MenuItem
+                            onClick={() => {
+                              setTitle(thread.title);
+                              setRenaming(key);
+                            }}
+                          >
+                            Rename
+                          </MenuItem>
+                          <MenuItem onClick={() => void archiveThread(ref)}>Archive</MenuItem>
+                          <MenuItem onClick={() => void deleteThread(ref)}>Delete</MenuItem>
+                        </MenuPopup>
+                      </Menu>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </section>
         ) : null;
       })}
@@ -573,22 +670,5 @@ function MarketingHistoryStatus({
 }: {
   thread: ReturnType<typeof useThreadShells>[number];
 }) {
-  const items = useThreadVisibleTurnItems({
-    environmentId: thread.environmentId,
-    threadId: thread.id,
-  });
-  const failed =
-    thread.latestRun?.status === "failed" ||
-    items.some((p) => p.item.runId === thread.latestRun?.runId && p.item.status === "failed");
-  return (
-    <small className="am-status-pill">
-      {thread.hasPendingApprovals
-        ? "Needs OK"
-        : failed
-          ? "Failed"
-          : thread.source.activityRunStatus
-            ? "Working"
-            : "Done"}
-    </small>
-  );
+  return <small className="am-status-pill">{marketingHistoryStatus(thread)}</small>;
 }

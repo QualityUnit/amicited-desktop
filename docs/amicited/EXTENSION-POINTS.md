@@ -336,3 +336,14 @@ service; standalone RPC calls continue to use the explicit environment default.
 - `apps/server/src/marketing/MarketingToolsLive.test.ts`: verifies website and report context projection, including rejected URL schemes.
 
 Existing chat-header, composer, timeline and provider-turn seams now share the marketer header, distinguish assistant management from sending, and forward the current report and website separately from the user's text. The isolated native capture harness can reuse a stopped journey home to render the authenticated audit without spending another turn.
+
+- `apps/server/scripts/dev-replay-agent.ts`: adds controlled sign-in failure and non-audit approval scenarios for the marketer journey.
+- `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: names marketing integration groups, hides marketer reasoning and approval timers.
+- `apps/web/src/components/chat/TimelineWorkEntryRow.tsx`: presents only the latest marketer authentication recovery and hides reasoning.
+
+Report questions use `marketingContext` with the environment/thread identity, including
+hash-routed Electron windows. Dispatch retains the summary until the server accepts
+the message, then clears it. History reads shell summaries only. Approval cards require
+an unambiguous same-thread/run execution or native request reference.
+
+- `apps/server/scripts/dev-replay-agent.test.ts`: verifies the controlled sign-in failure crosses the real provider protocol.
