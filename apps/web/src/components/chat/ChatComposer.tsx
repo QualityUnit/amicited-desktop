@@ -1,5 +1,5 @@
 import { MarketingComposerContext } from "../../marketingChat";
-import { readWorkspaceMode } from "@amicited/ui-marketing";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
 import { insertAttachmentReferencesForDraft } from "./composerAttachmentReferences";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
@@ -507,6 +507,7 @@ const NO_PROVIDER_SKILLS: ServerProvider["skills"] = [];
 const NO_PROVIDER_SLASH_COMMANDS: ServerProvider["slashCommands"] = [];
 
 export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps) {
+  const workspaceMode = useWorkspaceMode();
   const {
     composerDraftTarget,
     environmentId,
@@ -2140,6 +2141,32 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     }
   };
   const submitComposerStable = useStableCallback(submitComposer);
+  const [marketingStarterRequested, setMarketingStarterRequested] = useState(0);
+  const marketingStarterSent = useRef(0);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- The separate draft hero requests submission after the updated store prompt renders.
+  useEffect(() => {
+    const request = () => setMarketingStarterRequested((request) => request + 1);
+    window.addEventListener("amicited-starter-send", request);
+    return () => window.removeEventListener("amicited-starter-send", request);
+  }, []);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Submit the externally requested starter once the composer receives its prompt.
+  useEffect(() => {
+    if (
+      marketingStarterRequested > marketingStarterSent.current &&
+      prompt.trim() &&
+      !noProviderAvailable &&
+      !isSendDisabled
+    ) {
+      marketingStarterSent.current = marketingStarterRequested;
+      submitComposerStable();
+    }
+  }, [
+    marketingStarterRequested,
+    prompt,
+    noProviderAvailable,
+    isSendDisabled,
+    submitComposerStable,
+  ]);
   const [marketingPendingSend, setMarketingPendingSend] = useState<ModelSelection | null>(null);
   const marketingSentSelection = useRef<ModelSelection | null>(null);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A subscription connection hands the preserved prompt back to the mounted composer after model selection commits.
@@ -3226,7 +3253,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       data-chat-composer-form="true"
       {...threadContextDropTargetProps()}
     >
-      {readWorkspaceMode() === "marketer" ? (
+      {workspaceMode === "marketer" ? (
         <MarketingComposerContext
           selectedInstanceId={selectedInstanceId}
           onSelected={(selection) => {
@@ -3473,10 +3500,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                             : projectSelectionRequired
                               ? "Choose a project above to start a thread"
                               : showProviderUnavailable
-                                ? readWorkspaceMode() === "marketer"
+                                ? workspaceMode === "marketer"
                                   ? "What do you want to work on? Connect an assistant when you’re ready."
                                   : "Enable a provider in Settings to send a message"
-                                : readWorkspaceMode() === "marketer"
+                                : workspaceMode === "marketer"
                                   ? "What do you want to get done?"
                                   : DEFAULT_COMPOSER_PLACEHOLDER
                     }

@@ -1,4 +1,4 @@
-import { readWorkspaceMode } from "@amicited/ui-marketing";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingTranscriptCard } from "../../marketingChat";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogDetails, WorkLogRow } from "./WorkLog";
@@ -174,6 +174,7 @@ export const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: WorkEn
 });
 
 function WorkEntryLogRow(props: WorkEntryRowProps) {
+  const workspaceMode = useWorkspaceMode();
   const { workEntry, workspaceRoot, displayLabel } = props;
   const ctx = use(TimelineRowCtx);
   const { threadRef, onImageExpand, timestampFormat } = ctx;
@@ -398,21 +399,28 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       }
     : {};
 
+  const marketingItem =
+    failureItem?.type === "dynamic_tool"
+      ? failureItem
+      : payload?.type === "dynamic_tool"
+        ? payload
+        : undefined;
   if (
-    readWorkspaceMode() === "marketer" &&
-    payload?.type === "dynamic_tool" &&
-    payload.toolName?.toLowerCase().includes("marketing_tools_run")
+    workspaceMode === "marketer" &&
+    (marketingItem?.toolName?.toLowerCase().includes("marketing_tools_run") ||
+      workEntry.label.toLowerCase().includes("marketing_tools_run"))
   ) {
     return (
       <MarketingTranscriptCard
-        output={payload.output}
+        output={marketingItem?.output ?? workEntry.toolData}
+        status={marketingItem?.status ?? failureItem?.status}
         projectedItem={workEntry.projectedItem}
         environmentId={ctx.activeThreadEnvironmentId}
         source={ctx.turnItemSource?.detail}
-        fallback={<span>Checking your marketing result…</span>}
       />
     );
   }
+
   return (
     <WorkLogRow
       data-v2-item-type={workEntry.projectedItem?.item.type}

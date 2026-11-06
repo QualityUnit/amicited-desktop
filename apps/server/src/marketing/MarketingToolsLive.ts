@@ -1,9 +1,16 @@
+import * as Context from "effect/Context";
+import type { ModelSelection } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as MarketingTools from "@amicited/tools/service";
 import type { Generation } from "@amicited/tools";
 import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as ServerSettings from "../serverSettings.ts";
+
+export class MarketingCaller extends Context.Service<
+  MarketingCaller,
+  { readonly selection: ModelSelection | undefined }
+>()("t3/marketing/MarketingToolsLive/MarketingCaller") {}
 
 export const layer = Layer.unwrap(
   Effect.gen(function* () {
@@ -20,7 +27,9 @@ export const layer = Layer.unwrap(
         ),
         run: Effect.fn("MarketingTools.run")(function* (name: string, input: unknown) {
           const config = yield* settings.getSettings.pipe(Effect.orElseSucceed(() => null));
-          const selection = config?.textGenerationModelSelection;
+          const caller = yield* Effect.serviceOption(MarketingCaller);
+          const selection =
+            caller._tag === "Some" ? caller.value.selection : config?.textGenerationModelSelection;
           const instance = selection
             ? yield* instances.getInstance(selection.instanceId)
             : undefined;

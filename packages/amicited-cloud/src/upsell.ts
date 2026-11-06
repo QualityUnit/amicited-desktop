@@ -127,6 +127,9 @@ export function createUpsellGate(storage: PreferenceStorage, session: Preference
         /* Storage may be disabled by the browser. */
       }
     },
+    restore() {
+      storage.setItem(key, "{}");
+    },
     dismiss() {
       try {
         storage.setItem(key, JSON.stringify(dismissUpsell()));

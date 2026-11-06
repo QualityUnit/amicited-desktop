@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   FULL_ACCESS_OVERRIDE_QUESTION,
   fullAccessOverrideExplanation,
@@ -37,6 +38,8 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
   approval: PendingApproval;
 }) {
   const { respondingRequestIds, canOperateThread, onRespondToApproval } = use(TimelineRowCtx);
+  const marketer = useWorkspaceMode() === "marketer";
+  const marketingApproval = marketer && /marketing_tools_run/.test(approval.detail ?? "");
   const presentation = APPROVAL_PRESENTATION[approval.requestKind];
   const canRespond = approval.responseCapability === "live";
   return (
@@ -55,15 +58,24 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
       }
       label={
         <code
+          style={marketingApproval ? { fontFamily: "inherit" } : undefined}
           aria-label={presentation.detailLabel}
           className="block max-h-40 min-w-0 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-foreground select-text! wrap-anywhere [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
           data-approval-detail="complete"
           tabIndex={0}
         >
-          {approval.detail || presentation.label}
+          {marketingApproval
+            ? "Let your assistant run this marketing check?"
+            : approval.detail || presentation.label}
         </code>
       }
     >
+      {marketingApproval && (
+        <details>
+          <summary>Check details</summary>
+          <pre>{approval.detail}</pre>
+        </details>
+      )}
       <div className="ms-7.5 flex min-w-0 flex-col gap-1 pb-1 text-xs">
         {approval.appName ? (
           <span className="text-muted-foreground wrap-anywhere">{approval.appName}</span>

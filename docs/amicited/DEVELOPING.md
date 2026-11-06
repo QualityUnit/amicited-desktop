@@ -87,15 +87,15 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 18 (chat-first, r16 evidence), 2026-11-06, Node 26.12.1:
+Wave 19 (chat polish, r17 evidence), 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui/src/experience.test.ts packages/amicited-tools/src/library.test.ts
+vp test run packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts apps/server/src/marketing/MarketingToolsLive.test.ts apps/web/src/marketingContext.test.ts
 vp test run packages/amicited-ui/src/chat.test.ts apps/web/src/amicited-cloud.browser.test.tsx apps/web/src/components/ChatView.browser.test.tsx apps/web/src/components/chat/MessagesTimeline.logic.test.ts apps/server/scripts/dev-replay-agent.test.ts
 pnpm --filter @amicited/ui-marketing --filter @amicited/tools-core --filter @amicited/tools --filter @amicited/cloud-client --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
-node scripts/amicited/journey-screenshots.ts .amicited-shots/r16
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r16
+node scripts/amicited/journey-screenshots.ts .amicited-shots/r17
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r17
 vp run check:changed
 ```
 
@@ -113,6 +113,4 @@ record devicePixelRatio 2. No journey-error.png remains.
 
 The controlled Replay scenarios exercise real provider streaming, tool output
 loading and approval handling without a paid model or production cloud account.
-Real Claude/ChatGPT authentication and a production AmICited connection are not
-invoked by this evidence run. Provider instructions and MCP descriptions are
-unchanged, so this wave does not change the model-facing eval catalogue.
+The optional real Haiku turn was attempted in isolated T3 state; the provider returned an authentication failure before tool execution. The transcript and captures retain this failure. No production cloud connection was invoked. First-message website context now reaches the provider separately from persisted user text; MCP tool descriptions remain unchanged.

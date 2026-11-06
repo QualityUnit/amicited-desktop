@@ -186,7 +186,17 @@ it("keeps chat history and secondary navigation available when collapsed", async
       <MarketingShell
         path="/home"
         navigate={navigate}
-        chats={[{ title: "Campaign audit", href: "/env/chat" }]}
+        history={
+          <a
+            href="/env/chat"
+            onClick={(e) => {
+              e.preventDefault();
+              navigate("/env/chat");
+            }}
+          >
+            Campaign audit
+          </a>
+        }
       >
         <h1>Chat</h1>
       </MarketingShell>,
@@ -199,5 +209,100 @@ it("keeps chat history and secondary navigation available when collapsed", async
     expect(navigate).toHaveBeenCalledWith("/new");
   } finally {
     localStorage.removeItem("amicited.rail-collapsed");
+  }
+});
+
+it("opens result inputs instead of the remembered brand form", async () => {
+  const { ToolForm } = await import("@amicited/ui-marketing");
+  sessionStorage.setItem(
+    "amicited.last-result",
+    JSON.stringify({
+      id: "edit",
+      tool: "seo.site.audit",
+      input: { url: "https://competitor.example", alphabet: false, competitors: ["One", "Two"] },
+      startedAt: "2026-11-06",
+      durationMs: 1,
+      status: "success",
+      output: { score: 41 },
+    }),
+  );
+  sessionStorage.setItem(
+    "amicited.inputs.seo.site.audit",
+    JSON.stringify({ url: "https://wrong.example" }),
+  );
+  try {
+    await using screen = await render(
+      <ToolForm
+        tool={{
+          name: "seo.site.audit",
+          title: "Website audit",
+          description: "Check",
+          pack: "seo",
+          cost: "free",
+          timeoutMs: 1000,
+          schedulable: false,
+          sideEffects: "none",
+          keywords: [],
+          inputSchema: {
+            properties: {
+              url: { type: "string" },
+              alphabet: { type: "boolean" },
+              competitors: { type: "array" },
+            },
+          },
+          outputSchema: {},
+        }}
+        run={vi.fn()}
+      />,
+    );
+    await screen.getByRole("button", { name: "Edit inputs" }).click();
+    await expect
+      .element(screen.getByLabelText("url", { exact: true }))
+      .toHaveValue("https://competitor.example");
+    await expect.element(screen.getByLabelText("alphabet", { exact: true })).toHaveValue("false");
+    await expect
+      .element(screen.getByLabelText("competitors", { exact: true }))
+      .toHaveValue("One, Two");
+  } finally {
+    sessionStorage.removeItem("amicited.last-result");
+    sessionStorage.removeItem("amicited.inputs.seo.site.audit");
+  }
+});
+
+it("renders an inspectable failure and readable dark tool surfaces", async () => {
+  const { MarketingCallState, ToolsGrid } = await import("@amicited/ui-marketing");
+  document.documentElement.classList.add("dark");
+  try {
+    await using screen = await render(
+      <MarketingShell path="/tools" navigate={() => {}}>
+        <MarketingCallState status="completed" output="Permission refused" />
+        <ToolsGrid
+          selectedPack="seo"
+          tools={[
+            {
+              name: "seo.site.audit",
+              title: "Audit fixture",
+              description: "Read this",
+              pack: "seo",
+              cost: "free",
+              timeoutMs: 1000,
+              schedulable: false,
+              sideEffects: "none",
+              keywords: [],
+              inputSchema: {},
+              outputSchema: {},
+            },
+          ]}
+        />
+      </MarketingShell>,
+    );
+    await expect.element(screen.getByText("Could not check", { exact: true })).toBeVisible();
+    await screen.getByText("Inspect tool output").click();
+    await expect.element(screen.getByText("Permission refused", { exact: true })).toBeVisible();
+    const card = document.querySelector<HTMLAnchorElement>(".am-tool-grid > a")!;
+    expect(getComputedStyle(card).backgroundColor).toBe("rgb(31, 41, 55)");
+    expect(getComputedStyle(card).color).not.toBe(getComputedStyle(card).backgroundColor);
+  } finally {
+    document.documentElement.classList.remove("dark");
   }
 });

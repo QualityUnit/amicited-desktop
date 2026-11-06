@@ -108,7 +108,7 @@ try {
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 2,
   });
-  page.setDefaultTimeout(30_000);
+  page.setDefaultTimeout(120_000);
   page.on("pageerror", (e) => console.error("BROWSER ERROR", e));
   page.on("console", (m) => {
     if (m.type() === "error") console.error("BROWSER CONSOLE", m.text());
@@ -181,11 +181,20 @@ try {
   await page.reload();
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
   await capture("02-empty-chat");
+  await page.getByRole("button", { name: "example.com", exact: true }).click();
+  await page.getByRole("button", { name: "Save website" }).waitFor();
+  await capture("02c-website-popover");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Collapse sidebar" }).click();
+  await capture("02d-collapsed-sidebar");
+  await page.getByRole("button", { name: "Expand sidebar" }).click();
   await page.evaluate(() =>
     (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
       "marketing",
     ),
   );
+  await page.locator('[data-state="pending"]').waitFor();
+  await capture("03a-mid-stream");
   await page
     .getByRole("article", { name: "Marketing tool result" })
     .waitFor()
@@ -222,7 +231,7 @@ try {
     });
   await page.getByRole("button", { name: "Open full result" }).click();
   await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
-  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+  await page.waitForURL(marketingChatUrl);
   if (!(await page.getByTestId("composer-editor").innerText()).includes("41"))
     throw new Error("Ask AI did not attach the tool result");
   await capture("04b-result-context-chat");
@@ -252,7 +261,7 @@ try {
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
   await page.locator("[data-chat-provider-model-picker]").click();
   await page.getByRole("option", { name: /Marketing audit/ }).click();
-  await page.getByText("Using Replay (dev)", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Manage assistant", exact: true }).waitFor();
   await capture("02b-empty-connected");
   for (const [path, name] of [
     ["/tools", "06-tools"],
@@ -266,6 +275,94 @@ try {
     if (path === "/marketing-settings")
       await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
     await capture(name!);
+    if (path === "/tools") {
+      await page.locator(".am-tool-grid > a").first().hover();
+      await capture("06b-tools-hover");
+    }
+  }
+  await page.goto(marketingChatUrl);
+  await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
+  await page.evaluate(() =>
+    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+      "marketing-failed",
+    ),
+  );
+  await page.getByText("The tool did not return a usable result.", { exact: true }).waitFor();
+  await capture("09-failed-tool");
+  await page.evaluate(() =>
+    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+      "marketing-approval",
+    ),
+  );
+  await page.getByText("Waiting for approval", { exact: true }).first().waitFor();
+  await capture("10-pending-approval");
+  await page
+    .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
+    .last()
+    .click();
+  await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
+  if (process.env.AMICITED_REAL_PROVIDER === "1") {
+    await page.evaluate(async () => {
+      const { serverEnvironment, primaryServerSettingsAtom } = await import(
+        String("/src/state/server.ts")
+      );
+      const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+      const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+      const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent;
+      const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+        environmentId: readPrimaryEnvironmentId(),
+        input: {
+          providerInstanceMutation: {
+            operation: "upsert",
+            instanceId: "claudeAgent",
+            instance: { ...instance, enabled: true, config: { ...instance.config, enabled: true } },
+          },
+          patch: {},
+        },
+      });
+      if (result._tag !== "Success") throw new Error("Could not enable Claude");
+    });
+    const cli = async (args: string[]) => {
+      const child = NodeChildProcess.spawn(
+        process.execPath,
+        ["apps/server/src/bin.ts", ...args, "--base-dir", home],
+        { env, stdio: ["ignore", "pipe", "pipe"] },
+      );
+      let output = "";
+      child.stdout.on("data", (b) => {
+        output += b.toString();
+      });
+      child.stderr.on("data", (b) => {
+        output += b.toString();
+      });
+      const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+      return { code, output };
+    };
+    const project = await cli(["project", "add", process.cwd()]);
+    await NodeFSP.writeFile(NodePath.join(out, "real-provider-project.txt"), project.output);
+    const turn = await cli([
+      "thread",
+      "start",
+      "--provider",
+      "claudeAgent",
+      "--model",
+      "claude-haiku-4-5",
+      "--wait",
+      "--json",
+      process.cwd(),
+      "Use marketing_tools_run to run content.readability on this exact text: Our product helps small teams plan useful content. Then tell me the reading level in one sentence. Do not edit any files or call cloud tools.",
+    ]);
+    await NodeFSP.writeFile(NodePath.join(out, "real-provider-transcript.txt"), turn.output);
+    const match = /"threadId"\s*:\s*"([^"]+)"/.exec(turn.output);
+    if (match) {
+      const environment = await page.evaluate(async () => {
+        const m = await import(String("/src/state/environments.ts"));
+        return m.readPrimaryEnvironmentId();
+      });
+      await page.goto(`${url}/${environment}/${match[1]}`);
+      await page.getByTestId("composer-editor").waitFor();
+      await capture("11-real-haiku-turn");
+    }
   }
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.goto(url + "/");

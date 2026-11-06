@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { marketingToolResult } from "./chat.js";
+import { marketingToolResult, marketingCallState } from "./chat.js";
 it("decodes direct and MCP text results without accepting partial or unrelated output", () => {
   const result = {
     id: "audit",
@@ -35,4 +35,13 @@ it("decodes direct and MCP text results without accepting partial or unrelated o
       error: { code: "timeout", message: "Could not check" },
     })?.status,
   ).toBe("error");
+});
+
+it("ends undecodable or plain MCP failures instead of leaving a pending card", () => {
+  expect(
+    marketingCallState("completed", { content: [{ text: "Access denied" }], isError: true }),
+  ).toBe("failed");
+  expect(marketingCallState("failed", "Timeout")).toBe("failed");
+  expect(marketingCallState("cancelled", undefined)).toBe("cancelled");
+  expect(marketingCallState("inProgress", undefined)).toBe("pending");
 });

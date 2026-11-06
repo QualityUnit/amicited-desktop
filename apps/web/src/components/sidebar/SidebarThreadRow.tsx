@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
@@ -630,6 +631,7 @@ function ThreadRenameInput(props: {
 }
 
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
+  const marketer = useWorkspaceMode() === "marketer";
   const {
     isRenaming,
     onCancelRename,
@@ -1143,47 +1145,52 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     prBadge === null &&
     diff === null &&
     runningTerminalIds.length === 0;
-  const metaLine = metaLineEmpty ? null : (
-    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-      {thread.branch ? (
-        <>
-          <ThreadWorktreeIndicator thread={thread} />
-          <span className="flex min-w-0 flex-1">
-            <MiddleTruncate value={thread.branch} showTitle={false} />
+  const metaLine =
+    metaLineEmpty || marketer ? null : (
+      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
+        {thread.branch ? (
+          <>
+            <ThreadWorktreeIndicator thread={thread} />
+            <span className="flex min-w-0 flex-1">
+              <MiddleTruncate value={thread.branch} showTitle={false} />
+            </span>
+          </>
+        ) : showsScratchMachine ? (
+          <>
+            <EnvironmentMachineIcon
+              aria-hidden
+              kind={props.environmentMachine}
+              className="size-3 shrink-0"
+            />
+            <span className="min-w-0 flex-1 truncate">{props.scratchMachineLabel}</span>
+          </>
+        ) : (
+          <span className="flex-1" />
+        )}
+        {terminalStatusIcon}
+        {prBadge}
+        {diff ? (
+          <span className="shrink-0 font-mono">
+            <span className="text-diff-addition-foreground">
+              +{formatDiffCount(diff.insertions)}
+            </span>{" "}
+            <span className="text-diff-deletion-foreground">
+              −{formatDiffCount(diff.deletions)}
+            </span>
           </span>
-        </>
-      ) : showsScratchMachine ? (
-        <>
-          <EnvironmentMachineIcon
-            aria-hidden
-            kind={props.environmentMachine}
-            className="size-3 shrink-0"
+        ) : null}
+        <span
+          aria-hidden
+          className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
+        >
+          {remoteMachineIcon}
+          <SidebarProviderStack
+            thread={thread}
+            providerEntryByInstanceId={props.providerEntryByInstanceId}
           />
-          <span className="min-w-0 flex-1 truncate">{props.scratchMachineLabel}</span>
-        </>
-      ) : (
-        <span className="flex-1" />
-      )}
-      {terminalStatusIcon}
-      {prBadge}
-      {diff ? (
-        <span className="shrink-0 font-mono">
-          <span className="text-diff-addition-foreground">+{formatDiffCount(diff.insertions)}</span>{" "}
-          <span className="text-diff-deletion-foreground">−{formatDiffCount(diff.deletions)}</span>
         </span>
-      ) : null}
-      <span
-        aria-hidden
-        className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
-      >
-        {remoteMachineIcon}
-        <SidebarProviderStack
-          thread={thread}
-          providerEntryByInstanceId={props.providerEntryByInstanceId}
-        />
-      </span>
-    </div>
-  );
+      </div>
+    );
   const titleLineIcons = metaLineEmpty ? (
     <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
       {remoteMachineIcon}

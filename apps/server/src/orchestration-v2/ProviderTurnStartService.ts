@@ -1,3 +1,4 @@
+import { marketingWebsiteInstructions } from "@amicited/tools";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { projectComposerContextForProvider } from "@t3tools/shared/composerContextReferences";
 import {
@@ -837,10 +838,11 @@ export const layer: Layer.Layer<
       });
       let effectiveHandoffs = handoffs;
       let resumeFellBack = false;
-      const userText = projectComposerContextForProvider({
-        text: message.text,
-        records: message.context?.records ?? [],
-      });
+      const userText =
+        projectComposerContextForProvider({
+          text: message.text,
+          records: message.context?.records ?? [],
+        }) + marketingWebsiteInstructions(message.context?.records ?? []);
       // Codex and Claude parse /goal from the prompt, so it goes verbatim and history waits a turn.
       const goalDriver = session.driver === "codex" || session.driver === "claudeAgent";
       const goalCommand = goalDriver && parseGoalCommand(message) !== null;

@@ -1,6 +1,6 @@
 import type { ToolResult } from "@amicited/tools-core";
 import { isUsefulResult } from "@amicited/tools-core";
-import { resultTitle, rankedFindings, ResultFooterSlot } from "./experience.js";
+import { resultTitle, rankedFindings } from "./experience.js";
 import { MarketingButton } from "./primitives.js";
 export const marketingStarters = [
   "Audit my website for AI search",
@@ -59,7 +59,7 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
       <article aria-label="Marketing tool result" className="am-tool-card">
         <header>
           <strong>{resultTitle(result)}</strong>
-          <small>{useful ? "Complete" : "Could not check"}</small>
+          <small className="am-status-pill">{useful ? "Complete" : "Could not check"}</small>
         </header>
         {useful && (
           <strong className="am-chat-figure">
@@ -67,7 +67,7 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
               ? `${output.score}/100`
               : typeof summary.mentioned === "number"
                 ? `Mentioned in ${summary.mentioned} of ${summary.answered}`
-                : "Your result is ready"}
+                : marketingPreview(result)}
           </strong>
         )}
         {!useful && (
@@ -80,12 +80,90 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
           {rankedFindings(result)
             .slice(0, 3)
             .map((f) => (
-              <li key={`${f.group}:${f.title}`}>{f.title}</li>
+              <li key={`${f.group}:${f.title}`}>
+                <span className={`am-finding-dot am-finding-${f.status}`} />
+                {f.title}
+              </li>
             ))}
         </ul>
+        <p className="am-hint">
+          {String(
+            record(result.input).url ??
+              record(result.input).website ??
+              record(result.input).domain ??
+              "",
+          )}
+        </p>
         <MarketingButton onClick={open}>Open full result</MarketingButton>
       </article>
-      <ResultFooterSlot result={result} />
     </div>
+  );
+}
+
+export function marketingPreview(result: ToolResult): string {
+  const output = record(result.output);
+  for (const key of ["draft", "text", "content"])
+    if (typeof output[key] === "string") return output[key].slice(0, 200);
+  for (const key of ["keywords", "suggestions", "questions"])
+    if (Array.isArray(output[key]))
+      return `${output[key].length} ${key}: ${output[key]
+        .slice(0, 3)
+        .map((v) =>
+          typeof v === "string" ? v : String(record(v).keyword ?? record(v).query ?? ""),
+        )
+        .join(", ")}`;
+  return (
+    Object.entries(output)
+      .filter(([, value]) => typeof value === "number")
+      .map(([key, value]) => `${key.replace(/([a-z])([A-Z])/g, "$1 $2")}: ${value}`)
+      .join(" · ") || "Your result is ready"
+  );
+}
+export function marketingCallState(status: string | undefined, output: unknown) {
+  if (status === "cancelled" || status === "interrupted") return "cancelled";
+  if (marketingToolResult(output)) return "completed";
+  if (status === "completed" || status === "failed" || status === "error") return "failed";
+  return "pending";
+}
+export function MarketingCallState({
+  status,
+  output,
+}: {
+  status?: string | undefined;
+  output: unknown;
+}) {
+  const state = marketingCallState(status, output);
+  return (
+    <article className="am-tool-card" aria-label="Marketing tool result" data-state={state}>
+      <header>
+        <strong>Marketing check</strong>
+        <small className="am-status-pill">
+          {state === "pending"
+            ? "Checking…"
+            : state === "cancelled"
+              ? "Cancelled"
+              : "Could not check"}
+        </small>
+      </header>
+      {state === "pending" ? (
+        <div className="am-result-skeleton" aria-label="Waiting for result">
+          <div />
+          <div />
+          <div />
+        </div>
+      ) : (
+        <>
+          <p>
+            {state === "cancelled"
+              ? "This check was stopped. You can ask your assistant to try again."
+              : "The tool did not return a usable result."}
+          </p>
+          <details>
+            <summary>Inspect tool output</summary>
+            <pre>{typeof output === "string" ? output : JSON.stringify(output, null, 2)}</pre>
+          </details>
+        </>
+      )}
+    </article>
   );
 }

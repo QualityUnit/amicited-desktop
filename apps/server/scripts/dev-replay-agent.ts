@@ -44,6 +44,16 @@ const FIXTURES = "../src/orchestration-v2/testkit/fixtures";
 // Use acpRegistry transcripts: vendor transcripts carry state in frames this agent drops.
 export const SCENARIOS = [
   { id: "showcase", name: "Showcase", file: "./dev-replay/showcase_transcript.ndjson" },
+  {
+    id: "marketing-failed",
+    name: "Marketing failure",
+    file: "./dev-replay/marketing_failed_transcript.ndjson",
+  },
+  {
+    id: "marketing-approval",
+    name: "Marketing approval",
+    file: "./dev-replay/marketing_approval_transcript.ndjson",
+  },
   { id: "marketing", name: "Marketing audit", file: "./dev-replay/marketing_transcript.ndjson" },
   {
     id: "todo-list",

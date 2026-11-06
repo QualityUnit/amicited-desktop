@@ -1,5 +1,5 @@
 import { MarketingTranscriptCard } from "../../marketingChat";
-import { readWorkspaceMode } from "@amicited/ui-marketing";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogButton, WorkLogList, WorkLogRow } from "./WorkLog";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
@@ -492,6 +492,7 @@ export function LiveWorkEntryTimelineRow({
 }: {
   row: Extract<TimelineRow, { kind: "work-live" }>;
 }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const ctx = use(TimelineRowCtx);
   const threadTarget = useThreadReadTarget(row.entry, ctx.activeThreadEnvironmentId);
   const label = liveWorkEntryLabel(row.entry, ctx.workspaceRoot, row.active);
@@ -502,6 +503,27 @@ export function LiveWorkEntryTimelineRow({
     item?.type === "approval_request" ? ctx.pendingApprovals.get(item.requestId) : undefined;
   if (pendingApproval) return <TimelinePendingApprovalRow approval={pendingApproval} />;
 
+  const marketingItem =
+    item?.type === "dynamic_tool"
+      ? item
+      : row.entry.structuredPayload?.type === "dynamic_tool"
+        ? row.entry.structuredPayload
+        : undefined;
+  if (
+    marketer &&
+    (marketingItem?.toolName?.includes("marketing_tools_run") ||
+      row.entry.label.toLowerCase().includes("marketing_tools_run"))
+  ) {
+    return (
+      <MarketingTranscriptCard
+        output={marketingItem?.output ?? row.entry.toolData}
+        status={marketingItem?.status ?? item?.status}
+        projectedItem={row.entry.projectedItem}
+        environmentId={ctx.activeThreadEnvironmentId}
+        source={ctx.turnItemSource?.detail}
+      />
+    );
+  }
   const failed = workEntryDisplayIndicatesToolFailure(row.entry);
   const thoughtLine = row.thought && !row.expanded ? liveThoughtLine(row.thought.detail ?? "") : "";
   const thoughtIsStatus = thoughtLine !== "" && row.entry === row.thought;
@@ -587,6 +609,7 @@ export function WorkGroupToggleTimelineRow({
 }: {
   row: Extract<TimelineRow, { kind: "work-toggle" }>;
 }) {
+  const workspaceMode = useWorkspaceMode();
   const ctx = use(TimelineRowCtx);
   return (
     <>
@@ -600,7 +623,7 @@ export function WorkGroupToggleTimelineRow({
         timestampFormat={ctx.timestampFormat}
         onToggle={() => ctx.onToggleWorkGroup(row.groupId, row.id)}
       />
-      {!row.expanded && readWorkspaceMode() === "marketer"
+      {!row.expanded && workspaceMode === "marketer"
         ? row.marketingEntries?.map((entry) => (
             <MarketingTranscriptCard
               key={entry.id}
@@ -608,7 +631,7 @@ export function WorkGroupToggleTimelineRow({
               projectedItem={entry.projectedItem}
               environmentId={ctx.activeThreadEnvironmentId}
               source={ctx.turnItemSource?.detail}
-              fallback={null}
+              status={entry.projectedItem?.item.status}
             />
           ))
         : null}

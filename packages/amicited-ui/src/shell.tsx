@@ -1,3 +1,12 @@
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  SquarePen,
+  Wrench,
+  Sparkles,
+  Settings,
+  ArrowLeft,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { AmICitedMark } from "./brand.js";
 import { MarketingButton } from "./primitives.js";
@@ -6,7 +15,7 @@ export function MarketingShell({
   path,
   navigate,
   mode = "marketer",
-  chats = [],
+  history,
 }: {
   children: ReactNode;
   path: string;
@@ -15,7 +24,7 @@ export function MarketingShell({
   hash?: string;
   taskView?: boolean;
   connectionStatus?: ReactNode;
-  chats?: readonly { title: string; href: string }[];
+  history?: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("amicited.rail-collapsed") === "true",
@@ -37,50 +46,77 @@ export function MarketingShell({
               localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
             }}
           >
-            {collapsed ? "→" : "←"}
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </MarketingButton>
         </div>
         <MarketingButton variant="default" aria-label="New chat" onClick={() => navigate("/new")}>
-          {collapsed ? "+" : "+ New chat"}
+          <SquarePen size={16} />
+          {!collapsed && "New chat"}
         </MarketingButton>
         <nav aria-label="Chat history" className="am-chat-history">
           {!collapsed && <small>Recent chats</small>}
-          {chats.map((chat) => (
-            <a
-              key={chat.href}
-              aria-label={chat.title}
-              aria-current={path === chat.href ? "page" : undefined}
-              href={chat.href}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(chat.href);
-              }}
-            >
-              {collapsed ? "·" : chat.title}
-            </a>
-          ))}
+          {!collapsed && history}
         </nav>
         <nav aria-label="Workspace">
-          {[
-            ["Tools", "/tools"],
-            ["AmICited", "/marketing-settings"],
-            ["Settings", "/settings/general"],
-          ].map(([label, href]) => (
+          {(
+            [
+              ["Tools", "/tools", Wrench],
+              ["AmICited", "/marketing-settings", Sparkles],
+              ["Settings", "/settings/general", Settings],
+            ] as const
+          ).map(([label, href, Icon]) => (
             <a
-              key={href}
-              aria-label={label}
-              href={href}
+              key={String(href)}
+              aria-label={String(label)}
+              href={String(href)}
+              aria-current={path.startsWith(String(href)) ? "page" : undefined}
               onClick={(e) => {
                 e.preventDefault();
-                navigate(href!);
+                navigate(String(href));
               }}
             >
-              {collapsed ? label!.slice(0, 1) : label}
+              {typeof Icon !== "string" && Icon && <Icon size={16} />}
+              {!collapsed && String(label)}
             </a>
           ))}
         </nav>
       </aside>
-      <main className="am-chat-main">{children}</main>
+      <main className="am-chat-main">
+        {["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
+          path.startsWith(prefix),
+        ) ? (
+          <>
+            <header className="am-page-header">
+              Your workspace /{" "}
+              {path.startsWith("/tools")
+                ? "Tools"
+                : path === "/marketing-settings"
+                  ? "AmICited"
+                  : "Settings"}
+            </header>
+            <div className="am-secondary-page">
+              <MarketingButton
+                onClick={() => navigate(sessionStorage.getItem("amicited.return-chat") ?? "/home")}
+              >
+                <ArrowLeft size={14} />
+                Back to chat
+              </MarketingButton>
+              <h1>
+                {path === "/tools"
+                  ? "Tools"
+                  : path === "/marketing-settings"
+                    ? "AmICited"
+                    : path.startsWith("/settings")
+                      ? "Settings"
+                      : "Tool result"}
+              </h1>
+              {children}
+            </div>
+          </>
+        ) : (
+          children
+        )}
+      </main>
     </div>
   );
 }

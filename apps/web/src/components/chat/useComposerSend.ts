@@ -1,3 +1,4 @@
+import { withMarketingWebsite } from "../../marketingContext";
 import { readBrand, readWorkspaceMode } from "@amicited/ui-marketing";
 import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
 import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
@@ -918,8 +919,10 @@ export function useComposerSend(input: ComposerSendInput) {
           attachmentId: attachmentIds[index] ?? attachment.id,
         })),
       });
-    const outgoingMessageContext = buildOutgoingMessageContext(
-      composerAttachmentsSnapshot.map((attachment) => attachment.id),
+    const outgoingMessageContext = withMarketingWebsite(
+      buildOutgoingMessageContext(composerAttachmentsSnapshot.map((attachment) => attachment.id)),
+      readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
+      isLocalDraftThread,
     );
     const messageIdForSend = newMessageId();
     const messageCreatedAt = new Date().toISOString();
@@ -928,11 +931,7 @@ export function useComposerSend(input: ComposerSendInput) {
       model: ctxSelectedModel,
       models: ctxSelectedProviderModels,
       effort: ctxSelectedPromptEffort,
-      text:
-        (messageTextForSend || ATTACHMENT_ONLY_BOOTSTRAP_PROMPT) +
-        (readWorkspaceMode() === "marketer" && readBrand()?.website
-          ? `\n\nWebsite: ${readBrand()?.website}`
-          : ""),
+      text: messageTextForSend || ATTACHMENT_ONLY_BOOTSTRAP_PROMPT,
     });
     if (composerRef.current?.validateProviderInput(outgoingMessageText) === false) {
       return;

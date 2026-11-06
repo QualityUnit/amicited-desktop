@@ -3,8 +3,8 @@
 With Node 26.12.1 and the workspace dependencies installed:
 
 ```sh
-node scripts/amicited/journey-screenshots.ts .amicited-shots/r16
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r16
+node scripts/amicited/journey-screenshots.ts .amicited-shots/r17
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r17
 ```
 
 The browser harness owns temporary state and independently allocated ports,
@@ -23,3 +23,10 @@ The marketing Replay fixture is controlled evidence, not a live website audit.
 It spends no subscription allowance. Both harnesses stop only their own children.
 Private stack logs can contain pairing URLs and must not be published. All
 captures are ignored by Git. Dashboard parity specimens are retired.
+
+Set `AMICITED_REAL_PROVIDER=1` on the browser harness to additionally enable the
+logged-in Claude provider in its isolated T3 home, run one Haiku readability
+check, and save `real-provider-transcript.txt` plus a capture. This deliberately
+uses subscription allowance. Default runs remain free. Additional scenarios
+cover terminal failures, pending approvals, the website popover, collapsed
+navigation and returning a result question to its originating chat.

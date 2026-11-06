@@ -187,3 +187,5 @@ export function friendlyAssistant(value: string) {
         ? "Gemini"
         : value;
 }
+
+export { marketingWebsiteInstructions } from "./websiteContext.ts";

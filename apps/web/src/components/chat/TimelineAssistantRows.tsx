@@ -1,3 +1,5 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingTurnOffer } from "../../marketingChat";
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { type RunId } from "@t3tools/contracts";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
@@ -25,6 +27,7 @@ import { TimelineRowCtx, TimelineRowActivityCtx, type TimelineRow } from "./time
 import { MESSAGE_HEADING_LEVEL, MessageAuthorHeading } from "./TimelineRowParts";
 
 export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const ctx = use(TimelineRowCtx);
   // The timeline holds a streaming message's row while only its text grows.
   const liveText = useAssistantMessageText(
@@ -68,6 +71,9 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
             onOpenTurnDiff={ctx.onOpenTurnDiff}
           />
         ) : null}
+        {marketer && row.showAssistantMeta && !row.message.streaming && (
+          <MarketingTurnOffer threadRef={ctx.threadRef} runId={row.message.runId} />
+        )}
         {row.showAssistantMeta ? (
           <AssistantMessageMeta
             className="mt-1.5"

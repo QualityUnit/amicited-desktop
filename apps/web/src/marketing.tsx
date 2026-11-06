@@ -1,3 +1,5 @@
+import { marketingReturnThread } from "./marketingContext";
+import { useThreadShells } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -13,9 +15,11 @@ import { resolveAppModelSelectionState } from "./modelSelection";
 import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
-import { CloudFooter, CloudTools, CloudPage } from "./rpc/amicitedCloud";
-import { ResultFooterContext } from "@amicited/ui-marketing";
-import { useThreadShells } from "./state/entities";
+import { CloudPage } from "./rpc/amicitedCloud";
+import ThreadSidebar from "./components/Sidebar";
+import { SidebarProvider } from "./components/ui/sidebar";
+import { useComposerDraftStore } from "./composerDraftStore";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 import type { ServerProvider } from "@t3tools/contracts";
@@ -114,8 +118,6 @@ const marketingUi = {
   Tooltip: KitTooltip,
 };
 
-const renderCloudFooter = (result: ToolResult) => <CloudFooter result={result} />;
-
 const listCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tools.list",
   label: "marketing:list",
@@ -127,46 +129,50 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
-  const chats = useMarketingChats();
+  const [routeReveal] = useState(() => ({ observedKey: null, pendingKey: null }));
   const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
   const hash = useLocation({ select: (location) => location.hash });
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <ResultFooterContext value={renderCloudFooter}>
-        <MarketingShell
-          chats={chats}
-          mode={mode}
-          taskView={taskTarget !== null}
-          path={path}
-          hash={hash}
-          navigate={(path) => void navigate({ to: path })}
-        >
-          {path === "/marketing-settings" ? (
-            <CloudPage />
-          ) : path === "/settings/general" ? (
-            <MarketingSettings />
-          ) : path.startsWith("/settings") ? (
-            <MarketingSettings />
-          ) : path === "/usage" ? (
-            <div className="am-page">
-              <h1>Your AI plan usage</h1>
-              <p>
-                These limits come from your AI subscriptions. Local website checks do not use your
-                AI allowance.
-              </p>
-              <section className="am-card">
-                <MarketingSubscriptions usageLink={false} />
-              </section>
+      <MarketingShell
+        history={
+          <SidebarProvider>
+            <div className="am-upstream-history">
+              <ThreadSidebar routeReveal={routeReveal} />
             </div>
-          ) : ["/pull-requests", "/source-control"].includes(path) ? (
-            <MarketingHome />
-          ) : (
-            children
-          )}
-        </MarketingShell>
-      </ResultFooterContext>
+          </SidebarProvider>
+        }
+        mode={mode}
+        taskView={taskTarget !== null}
+        path={path}
+        hash={hash}
+        navigate={(path) => void navigate({ to: path })}
+      >
+        {path === "/marketing-settings" ? (
+          <CloudPage />
+        ) : path === "/settings/general" ? (
+          <MarketingSettings />
+        ) : path.startsWith("/settings") ? (
+          <MarketingSettings />
+        ) : path === "/usage" ? (
+          <div className="am-page">
+            <h1>Your AI plan usage</h1>
+            <p>
+              These limits come from your AI subscriptions. Local website checks do not use your AI
+              allowance.
+            </p>
+            <section className="am-card">
+              <MarketingSubscriptions usageLink={false} />
+            </section>
+          </div>
+        ) : ["/pull-requests", "/source-control"].includes(path) ? (
+          <MarketingHome />
+        ) : (
+          children
+        )}
+      </MarketingShell>
     </MarketingUiContext>
   ) : (
     children
@@ -194,6 +200,7 @@ export function MarketingTools({ name }: { name?: string }) {
   });
   const navigate = useNavigate();
   const returnChat = sessionStorage.getItem("amicited.return-chat");
+  const origin = marketingReturnThread(returnChat, useThreadShells());
   const actions = useMarketingTask();
   const environmentId = usePrimaryEnvironmentId();
   const list = useAtomCommand(listCommand);
@@ -221,7 +228,6 @@ export function MarketingTools({ name }: { name?: string }) {
     return (
       <>
         <ToolsGrid tools={tools} selectedPack={selectedPack} />
-        <CloudTools />
       </>
     );
   const tool = tools.find((tool) => tool.name === name);
@@ -235,17 +241,25 @@ export function MarketingTools({ name }: { name?: string }) {
     );
   return (
     <>
-      <button
-        type="button"
-        onClick={() => {
-          sessionStorage.removeItem("amicited.return-chat");
-          void navigate({ to: returnChat ?? "/home" });
-        }}
-      >
-        ← Back to chat
-      </button>
       <ToolForm
-        fix={actions.startTask}
+        fix={async (prompt) => {
+          if (returnChat && origin) {
+            const environment = origin.environmentId;
+            const thread = origin.id;
+            {
+              useComposerDraftStore.getState().setPrompt(
+                {
+                  environmentId: EnvironmentId.make(environment),
+                  threadId: ThreadId.make(thread),
+                },
+                prompt,
+              );
+              await navigate({ to: returnChat });
+              return;
+            }
+          }
+          await actions.startTask(prompt);
+        }}
         fullResult={Boolean(sessionStorage.getItem("amicited.return-chat"))}
         onResult={rememberResult}
         key={name}
@@ -325,15 +339,19 @@ function useMarketingTask() {
 }
 export function MarketingSubscriptions({
   usageLink = true,
+  initialDriver,
   onSelected,
 }: {
   usageLink?: boolean;
+  initialDriver?: "claudeAgent" | "codex";
   onSelected?: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
   const environmentId = usePrimaryEnvironmentId();
   const all = useEnvironmentProviders();
   const providers = environmentId ? all.get(environmentId) : undefined;
-  const [connect, setConnect] = useState<string | null>(null);
+  const [connect, setConnect] = useState<string | null>(
+    initialDriver ? (initialDriver === "codex" ? "ChatGPT" : "Claude") : null,
+  );
   const settings = usePrimarySettings();
   const update = useAtomCommand(serverEnvironment.updateSettings);
   const mutateProvider = useAtomCommand(serverEnvironment.mutateProviderInstance);
@@ -375,6 +393,14 @@ export function MarketingSubscriptions({
     })().catch(() => setSelectionError("Could not connect this assistant. Please try again."));
     setEnabling(false);
   };
+  const enableInitial = useEffectEvent(() => {
+    if (initialDriver) void enable(providers?.find((p) => p.driver === initialDriver));
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep the selected assistant's external authentication setup in step with the mounted connection panel.
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- External authentication reports pending state before its asynchronous handshake.
+    if (initialDriver) enableInitial();
+  }, [initialDriver]);
   const choose = async (driver: string) => {
     const candidates = providers?.filter((p) => p.driver === driver) ?? [];
     const selection = resolveAppModelSelectionState(settings, candidates);
@@ -491,11 +517,4 @@ export function MarketingSubscriptions({
 }
 export function MarketingNewTask() {
   return <MarketingHome />;
-}
-
-function useMarketingChats() {
-  return useThreadShells()
-    .filter((t) => !t.archivedAt)
-    .toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map((t) => ({ title: t.title || "New chat", href: `/${t.environmentId}/${t.id}` }));
 }

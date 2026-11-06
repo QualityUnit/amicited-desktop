@@ -1,5 +1,5 @@
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer styles live in the fork package. */
-import { marketingStarters, useWorkspaceMode } from "@amicited/ui-marketing";
+import { marketingStarters, readBrand, useWorkspaceMode } from "@amicited/ui-marketing";
 import type { DraftId } from "~/composerDraftStore";
 import { composerDraftHasUserContent, useComposerDraftStore } from "~/composerDraftStore";
 import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@t3tools/contracts";
@@ -415,7 +415,10 @@ export function DraftHeroHeadline({
               key={prompt}
               type="button"
               onClick={() => {
-                if (draftId) useComposerDraftStore.getState().setPrompt(draftId, prompt);
+                if (draftId) {
+                  useComposerDraftStore.getState().setPrompt(draftId, prompt);
+                  if (readBrand()) window.dispatchEvent(new Event("amicited-starter-send"));
+                }
               }}
             >
               {prompt}

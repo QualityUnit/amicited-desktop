@@ -37,6 +37,15 @@ export function serializeFields(
       }),
   );
 }
+export function fieldsFromInput(input: unknown): Record<string, string> {
+  if (!input || typeof input !== "object") return {};
+  return Object.fromEntries(
+    Object.entries(input).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value),
+    ]),
+  );
+}
 export function initialFields(tool: ToolCard) {
   const key = "amicited.inputs." + tool.name;
   try {

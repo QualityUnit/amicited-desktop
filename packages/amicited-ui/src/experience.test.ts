@@ -1,3 +1,4 @@
+import { resultQuestion } from "./experience.js";
 import { activeToolPack } from "./packs.js";
 import { describe, expect, it } from "vite-plus/test";
 import {
@@ -111,4 +112,19 @@ it.each([
   ["/home", "content", undefined],
 ])("resolves tool pack for %s %s", (path, hash, expected) => {
   expect(activeToolPack(path, hash)).toBe(expected);
+});
+
+it("asks a short editable question without pasting the report or severity codes", () => {
+  const result = {
+    id: "audit",
+    tool: "seo.site.audit",
+    input: { url: "https://example.com" },
+    startedAt: "2026-11-06",
+    durationMs: 1,
+    status: "success",
+    output: { score: 41, findings: [{ title: "Description", status: "warn" }] },
+  } as ToolResult;
+  expect(resultQuestion(result)).toContain("41/100");
+  expect(resultQuestion(result)).not.toMatch(/warn|Description|##/);
+  expect(resultQuestion(result).length).toBeLessThan(130);
 });

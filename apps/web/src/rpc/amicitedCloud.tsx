@@ -154,10 +154,6 @@ function promotionsAllowed(connection: Connection | null) {
     return false;
   }
 }
-export function CloudTools() {
-  const { connection } = useCloud();
-  return <CloudToolPromotions connection={connection} />;
-}
 export function CloudToolPromotions({ connection }: { connection: Connection | null }) {
   const [selected, setSelected] = useState<string | null>(null);
   if (!promotionsAllowed(connection)) return null;
@@ -228,6 +224,9 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
 
 export function CloudPage() {
   const [hideMessage, setHideMessage] = useState("");
+  const [offersHidden, setOffersHidden] = useState(() =>
+    createUpsellGate(localStorage, sessionStorage).hidden(),
+  );
   const { connection } = useCloud();
   return (
     <section className="am-card am-cloud-page">
@@ -255,7 +254,14 @@ export function CloudPage() {
         <MarketingButton
           variant="link"
           onClick={() => {
+            if (offersHidden) {
+              createUpsellGate(localStorage, sessionStorage).restore();
+              setOffersHidden(false);
+              setHideMessage("Trial offers are enabled.");
+              return;
+            }
             const saved = createUpsellGate(localStorage, sessionStorage).dismiss();
+            if (saved) setOffersHidden(true);
             setHideMessage(
               saved
                 ? "Trial offers are permanently hidden."
@@ -263,7 +269,7 @@ export function CloudPage() {
             );
           }}
         >
-          Permanently hide trial offers
+          {offersHidden ? "Show trial offers again" : "Permanently hide trial offers"}
         </MarketingButton>
         <p role="status">{hideMessage}</p>
       </footer>

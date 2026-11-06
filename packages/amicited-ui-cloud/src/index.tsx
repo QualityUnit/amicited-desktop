@@ -50,16 +50,8 @@ export function AmicitedUpsellCard({
   const comparison = whatYouAreMissing(result);
   if (!visible || connected || !comparison) return null;
   return (
-    <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-stack">
-      <h3>Keep building on this result</h3>
-      <p>{comparison.checked}</p>
-      {comparison.teaser && (
-        <p className="text-ai-ink-4 rounded-lg border border-ai-line px-3 py-2 text-[13px]">
-          {comparison.teaser}
-        </p>
-      )}
-      <p className="text-ai-ink-3 text-[13px]">{comparison.missing}</p>
-      <p>{comparison.pricing}</p>
+    <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
+      <p>{comparison.missing} · 7-day trial, then EUR 120/month Pro.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial
@@ -209,7 +201,7 @@ export function AmicitedConnectedBadge({
     }
   }
   return (
-    <section aria-label="AmICited connected" className="am-cloud-card am-cloud-stack">
+    <section aria-label="AmICited connected" className="am-cloud-card am-cloud-offer">
       <h3>AmICited connected</h3>
       <p>{domains.length ? domains.join(", ") : "No domains tracked yet"}</p>
       {headlines.map((item) => (

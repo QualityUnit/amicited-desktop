@@ -1,5 +1,5 @@
 import { expect, it, vi } from "vite-plus/test";
-import { serializeFields, initialFields } from "./fields.js";
+import { serializeFields, initialFields, fieldsFromInput } from "./fields.js";
 it("serializes nullable competitor lists and explicit boolean choices", () => {
   const properties = {
     competitors: { anyOf: [{ type: "array" }, { type: "null" }] },
@@ -34,4 +34,21 @@ it("prefills the saved brand and restores inputs after an assistant connection d
   } finally {
     vi.unstubAllGlobals();
   }
+});
+
+it("edits the opened result inputs, retaining competitor arrays and false choices", () => {
+  const input = {
+    url: "https://competitor.example",
+    competitors: ["Acme", "Contoso"],
+    alphabet: false,
+  };
+  const values = fieldsFromInput(input);
+  expect(values).toEqual({ url: input.url, competitors: "Acme, Contoso", alphabet: "false" });
+  expect(
+    serializeFields(
+      { url: { type: "string" }, competitors: { type: "array" }, alphabet: { type: "boolean" } },
+      ["url"],
+      values,
+    ),
+  ).toEqual(input);
 });

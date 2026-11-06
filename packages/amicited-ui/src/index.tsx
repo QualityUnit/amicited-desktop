@@ -12,6 +12,7 @@ import {
 } from "./primitives.js";
 import {
   initialFields,
+  fieldsFromInput,
   resolveField,
   serializeFields,
   fieldLabels,
@@ -23,7 +24,7 @@ import {
   saveBrand,
   normalizeWebsite,
   MarketingResult,
-  resultMarkdown,
+  resultQuestion,
 } from "./experience.js";
 export * from "./experience.js";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -234,15 +235,20 @@ export function ToolForm({
             <MarketingButton
               variant="default"
               onClick={() =>
-                void fix(`Help me understand this result.\n${resultMarkdown(result)}`).catch(
-                  (e: Error) => setError(e.message),
-                )
+                void fix(resultQuestion(result)).catch((e: Error) => setError(e.message))
               }
             >
               Ask AI about this
             </MarketingButton>
           )}
-          <MarketingButton onClick={() => setResult(null)}>Edit inputs</MarketingButton>
+          <MarketingButton
+            onClick={() => {
+              setValues(fieldsFromInput(result.input));
+              setResult(null);
+            }}
+          >
+            Edit inputs
+          </MarketingButton>
           {error && <p role="alert">{error}</p>}
         </>
       )}
@@ -251,7 +257,10 @@ export function ToolForm({
           title={tool.title}
           result={result}
           fix={fix}
-          retry={() => setResult(null)}
+          retry={() => {
+            setValues(fieldsFromInput(result.input));
+            setResult(null);
+          }}
           rerun={async () => {
             const next = await run(result.input);
             setResult(next);
@@ -348,4 +357,9 @@ export {
   toolIcon,
 } from "./primitives.js";
 
-export { marketingStarters, marketingToolResult, CompactMarketingResult } from "./chat.js";
+export {
+  marketingStarters,
+  marketingToolResult,
+  MarketingCallState,
+  CompactMarketingResult,
+} from "./chat.js";

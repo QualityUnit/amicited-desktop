@@ -1,4 +1,5 @@
-import { readWorkspaceMode } from "@amicited/ui-marketing";
+import { getTraitsSectionVisibility } from "./TraitsPicker";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import type { ChatComposerProps } from "./ChatComposer";
 import type { PromptUltrathink } from "./TraitsPicker";
 import type { ProviderInstanceEntry } from "../../providerInstances";
@@ -90,6 +91,7 @@ export function ComposerControlsBar(props: {
   modelPickerIconClassName: string | undefined;
   getModelDisabledReason: ChatComposerProps["getModelDisabledReason"];
 }) {
+  const workspaceMode = useWorkspaceMode();
   const {
     environmentId,
     routeKind,
@@ -228,7 +230,12 @@ export function ComposerControlsBar(props: {
       triggerShortcuts={
         pickerOwnsModeShortcut ? "composer.effort composer.mode" : "composer.effort"
       }
-      effortColumn={<ComposerEffortColumn traits={traitsInput} />}
+      effortColumn={
+        workspaceMode !== "marketer" ||
+        (traitsInput && getTraitsSectionVisibility(traitsInput).hasAnyControls) ? (
+          <ComposerEffortColumn traits={traitsInput} />
+        ) : undefined
+      }
       footer={
         <ComposerPickerFooter
           traits={traitsInput}
@@ -265,7 +272,7 @@ export function ComposerControlsBar(props: {
       className="shrink-0"
     >
       <CircleAlertIcon className="size-4" />
-      {readWorkspaceMode() === "marketer"
+      {workspaceMode === "marketer"
         ? "Choose assistant"
         : providerSetupInstanceId
           ? "Open provider settings"

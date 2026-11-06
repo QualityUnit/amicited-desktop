@@ -26,3 +26,5 @@ export function createMarketingTools(provider?: Generation) {
   registry.register(visibilityTool(provider));
   return registry;
 }
+
+export { marketingWebsiteInstructions } from "@amicited/tools-core";

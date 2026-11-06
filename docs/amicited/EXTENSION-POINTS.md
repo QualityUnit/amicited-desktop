@@ -74,8 +74,8 @@ upstream settings and navigation remain available through Developer features.
 The website and brand are browser-local preferences. Workspace folders and tasks
 use the existing authenticated project commands. The latest tool result is retained
 for the current browser session; durable result history is still deferred.
-`ResultFooterSlot` in `@amicited/ui-marketing` uses a context supplied by the web
-adapter to mount the optional cloud offer below the complete free result. Local
+The completed assistant response mounts the optional compact cloud offer after
+the free result and summary. Local
 tool results never require a cloud account.
 
 ## Wave 1A tools and provider integration
@@ -158,12 +158,12 @@ execution; writes go through the separate destructive proxy.
 `apps/web/src/marketing.tsx`. The adapter provides `ui={{Button, Input}}` using
 marketing buttons and the web Input, plus a system-browser `openExternal(url)` callback:
 
-- Result renderer's `ResultFooterSlot`: `AmicitedUpsellCard` props are `result`
+- Completed assistant response: `AmicitedUpsellCard` props are `result`
   (`{tool,status,output?}`), `gate`, `ui`, `openExternal`, `onConnect`, optional
   `connected`. Create one stable `createUpsellGate(localStorage, sessionStorage)`
   from `@amicited/cloud-client/upsell`. Successful eligible results claim one
   offer per session; Not now persists seven days, and the AmICited settings action hides offers indefinitely.
-  Mount below the free result. `onConnect` navigates to the connection settings.
+  Mount after the final assistant message, once per run. `onConnect` navigates to the connection settings.
 - AmICited page, connection slot: `AmicitedConnectPanel` props are
   `connection`, `actions={connectOAuth,connectApiKey,disconnect}`, `onChange`,
   `openExternal`, `ui`. Bind mutations through `createEnvironmentRpcCommand` and
@@ -306,8 +306,22 @@ assistant identity bridge records driver identity separately from instance IDs;
 the offer compares friendly assistant names against the measured scope.
 
 - `apps/web/src/components/chat/MessagesTimeline.tsx`: opts marketer mode into keeping marketing-result turns unfolded; developer mode retains upstream folding.
-- `apps/web/src/components/chat/useComposerSend.ts`: includes the optional website context in the outgoing marketer message.
+- `apps/web/src/components/chat/useComposerSend.ts`: preserves user text and adds website context separately on the first message.
 - `apps/web/src/components/chat/MessagesTimeline.logic.test.ts`: covers keeping results visible and refreshing completed folded entries.
 - `apps/web/src/components/ChatView.browser.test.tsx`: extends the existing draft fixture with marketer-mode starters while retaining developer assertions.
 - `apps/web/src/amicited-cloud.browser.test.tsx`: replaces retired dashboard assertions with compact-card, result-context and chat-sidebar coverage.
 - `apps/web/src/components/chat/ComposerControlsBar.tsx`: friendly disconnected assistant label in marketer mode.
+
+## Chat polish seams
+
+- `apps/web/src/components/Sidebar.tsx`: marketer mode omits project scopes, folders and developer chrome while retaining upstream history, search and actions.
+- `apps/web/src/components/sidebar/SidebarThreadRow.tsx`: marketer rows omit Git and worktree metadata.
+- `apps/web/src/components/chat/TimelineAssistantRows.tsx`: renders the compact offer after a completed assistant response for its marketing run.
+- `apps/web/src/components/chat/TimelinePendingApprovalRow.tsx`: plain-language marketing approval with inspectable original details.
+- `apps/server/src/orchestration-v2/ProviderTurnStartService.ts`: projects the first message’s separate website context into provider instructions, preserving stored user text.
+- `apps/web/src/marketingContext{,.test}.ts`: typed adapter for first-message website context and focused projection coverage.
+- `apps/server/scripts/dev-replay-agent.ts`: exposes controlled marketing failure and approval evidence scenarios.
+
+The existing composer, model-picker and work-log seams use reactive workspace mode.
+Agent marketing calls provide the calling thread’s model selection to the shared
+service; standalone RPC calls continue to use the explicit environment default.

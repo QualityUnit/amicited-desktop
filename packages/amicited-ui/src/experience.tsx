@@ -1,6 +1,6 @@
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import { MarketingButton } from "./primitives.js";
-import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
+import { useState, type ComponentProps, type ReactNode } from "react";
 import { isUsefulResult, type ToolResult } from "@amicited/tools-core";
 
 export {
@@ -64,15 +64,8 @@ export function resultFindings(result: ToolResult) {
             : status === "fail" || status === "error" || status === "critical"
               ? "fail"
               : "warn",
-      why: String(
-        f.whyItMatters ??
-          f.why ??
-          f.description ??
-          "This can affect how people and search engines experience your website.",
-      ),
-      fix: String(
-        f.fix ?? f.recommendation ?? "Ask your AI assistant to investigate and suggest a fix.",
-      ),
+      why: String(f.whyItMatters ?? f.why ?? f.description ?? ""),
+      fix: String(f.fix ?? f.recommendation ?? ""),
     };
   });
 }
@@ -172,6 +165,11 @@ function markdownValue(value: unknown, depth = 2): string {
       .join("\n\n");
   return formatResultValue(value);
 }
+export function resultQuestion(result: ToolResult) {
+  const issues = rankedFindings(result).filter((f) => f.status !== "pass").length;
+  const score = record(result.output).score;
+  return `Help me ${issues ? `fix the ${issues} issues from` : "understand"} my ${resultTitle(result).toLowerCase()}${typeof score === "number" ? ` (${score}/100)` : ""}.`;
+}
 export function resultMarkdown(result: ToolResult) {
   const title = `# ${resultTitle(result)}\n\n`;
   if (result.status === "error") return title + (result.error?.message ?? "Could not check");
@@ -197,11 +195,6 @@ export function resultMarkdown(result: ToolResult) {
         .join("\n\n")
     );
   return title + markdownValue(output);
-}
-export const ResultFooterContext = createContext<((result: ToolResult) => ReactNode) | null>(null);
-export function ResultFooterSlot({ result }: { result: ToolResult }) {
-  const render = useContext(ResultFooterContext);
-  return render?.(result) ?? null;
 }
 export function MarketingResult({
   result,
@@ -273,9 +266,7 @@ export function MarketingResult({
             <MarketingButton
               variant="default"
               onClick={() =>
-                void fix(
-                  `Help me understand this result and decide what to do next.\n${resultMarkdown(result)}`,
-                ).catch((e: Error) => setError(e.message))
+                void fix(resultQuestion(result)).catch((e: Error) => setError(e.message))
               }
             >
               Ask AI about this
@@ -293,7 +284,6 @@ export function MarketingResult({
         </div>
         {error && <p role="alert">{error}</p>}
       </article>
-      <ResultFooterSlot result={result} />
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { attachSidebarTree } from "../lib/sidebarTree";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
 import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
@@ -892,6 +893,7 @@ function readRouteThreadKey(router: AnyRouter): string | null {
 }
 
 export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReveal }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const {
     projects,
     serverConfigs,
@@ -1331,12 +1333,13 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     threads,
     delegatedUnderParent,
     routeRowThreadKey,
-    folderGroups: boringSidebarEnabled
-      ? scopedProjectGroups.length === 0
-        ? // An archived project keeps a folder for its active threads, below the rest.
-          [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
-        : scopedProjectGroups
-      : null,
+    folderGroups:
+      !marketer && boringSidebarEnabled
+        ? scopedProjectGroups.length === 0
+          ? // An archived project keeps a folder for its active threads, below the rest.
+            [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
+          : scopedProjectGroups
+        : null,
     keepEmptyFolders: (group) =>
       scopedProjectGroups.length > 0 || (group.pinned && !group.archived),
   });
@@ -2964,14 +2967,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
   return (
     <>
       <ThreadContextDragGhost />
-      <SidebarChromeHeader isElectron={isElectron} />
+      {!marketer && <SidebarChromeHeader isElectron={isElectron} />}
       <SidebarContent
         ref={sidebarContentRef}
         className="min-h-full"
         fixedHeader={
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
-              hasProjects={projectGroups.length > 0}
+              hasProjects={!marketer && projectGroups.length > 0}
               projectScope={
                 <Combobox
                   items={projectScopeItems}
@@ -3315,13 +3318,15 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         );
                         const isCard =
                           section === "active" || section === "pinned" || section === "working";
-                        const rowVariant = folderRow
-                          ? folderRowsMultiline
-                            ? "folder-multiline"
-                            : "folder"
-                          : isCard
-                            ? "card"
-                            : "slim";
+                        const rowVariant = marketer
+                          ? "folder"
+                          : folderRow
+                            ? folderRowsMultiline
+                              ? "folder-multiline"
+                              : "folder"
+                            : isCard
+                              ? "card"
+                              : "slim";
                         return (
                           <SortableThreadRow
                             key={threadKey}
@@ -3641,7 +3646,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           ) : null}
         </SidebarGroup>
       </SidebarContent>
-      <SidebarChromeFooter />
+      {!marketer && <SidebarChromeFooter />}
     </>
   );
 }
