@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import type {
   ModelSelection,
   ProviderInstanceId,
@@ -44,7 +45,8 @@ export const ComposerFooterModeControls = memo(function ComposerFooterModeContro
   onRuntimeModeChange: (mode: RuntimeMode) => void;
 }) {
   const size = props.size ?? "sm";
-  const accessDisplay = props.accessDisplay ?? "label";
+  const accessDisplay =
+    useWorkspaceMode() === "marketer" ? "hidden" : (props.accessDisplay ?? "label");
   const composerFloatingLayerProps = useComposerMenuProps();
   const [open, setOpen] = useComposerMenuState(props.hidden);
   const permissionsChipRef = useRef<HTMLButtonElement>(null);

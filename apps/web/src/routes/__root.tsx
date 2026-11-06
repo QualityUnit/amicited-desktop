@@ -1,3 +1,4 @@
+import { MarketingNavigationBridge } from "../marketingNavigation";
 import { useWorkspaceMode, readWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingBoundary, MarketingFirstRun } from "../marketing";
 import { type ServerLifecycleWelcomePayload } from "@t3tools/contracts";
@@ -177,7 +178,12 @@ function RootRouteBranch() {
     return hostedPromptLinkLanding;
   }
 
-  if (pathname === "/welcome" && marketingMode) return <MarketingFirstRun />;
+  if (pathname === "/welcome" && marketingMode)
+    return (
+      <MarketingNavigationBridge>
+        <MarketingFirstRun />
+      </MarketingNavigationBridge>
+    );
 
   if (pathname === "/welcome") {
     return (
@@ -198,9 +204,11 @@ function RootRouteBranch() {
   }
 
   const appShell = marketingMode ? (
-    <MarketingBoundary>
-      <Outlet />
-    </MarketingBoundary>
+    <MarketingNavigationBridge>
+      <MarketingBoundary>
+        <Outlet />
+      </MarketingBoundary>
+    </MarketingNavigationBridge>
   ) : (
     <CommandPalette>
       <AppSidebarLayout>

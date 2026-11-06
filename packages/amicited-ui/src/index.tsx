@@ -14,6 +14,7 @@ import {
   normalizeWebsite,
   MarketingResult,
   marketingNavigate,
+  MarketingLink,
 } from "./experience.js";
 export * from "./experience.js";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
@@ -147,8 +148,8 @@ export function Home({
           onChange={(event) => setPrompt(event.target.value)}
           required
         />
-        <MarketingButton className="am-primary">Continue</MarketingButton>
-        <p>Next, review your request and press Send to start your assistant.</p>
+        <MarketingButton variant="default">Send task</MarketingButton>
+        <p>Your selected assistant will start working on this request.</p>
         <p role="alert">{error}</p>
       </form>
       <section className="am-card">
@@ -160,9 +161,9 @@ export function Home({
             ["Research keywords", "/tools#serp"],
             ["Write or repurpose content", "/tools#content"],
           ].map(([label, href]) => (
-            <a key={label} href={href}>
+            <MarketingLink key={label} href={href}>
               {label} →
-            </a>
+            </MarketingLink>
           ))}
         </div>
       </section>
@@ -200,18 +201,22 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-              gap: 20,
+              gap: 16,
             }}
           >
             {tools
               .filter((tool) => tool.pack === pack)
               .map((tool) => (
-                <a className="am-card am-tool-card" key={tool.name} href={"/tools/" + tool.name}>
+                <MarketingLink
+                  className="am-card am-tool-card"
+                  key={tool.name}
+                  href={"/tools/" + tool.name}
+                >
                   <span className="am-status am-status-neutral">Free local tool</span>
                   <h3>{tool.title}</h3>
                   <p>{tool.description}</p>
                   <span>Open tool →</span>
-                </a>
+                </MarketingLink>
               ))}
           </div>
           {!tools.some((tool) => tool.pack === pack) && <p>More tools coming soon.</p>}
@@ -324,8 +329,12 @@ export function ToolForm({
             </label>
           );
         })}
-        <MarketingButton className="am-primary" disabled={busy || disabled}>
-          {busy ? "Checking…" : "Run check"}
+        <MarketingButton variant="default" disabled={busy || disabled}>
+          {busy
+            ? "Working…"
+            : tool.name.startsWith("content.") && tool.name !== "content.readability"
+              ? "Generate draft"
+              : "Run check"}
         </MarketingButton>
         <p role="alert">{error}</p>
       </form>
@@ -369,7 +378,7 @@ export function MarketingSettings({
             Brand name
             <MarketingInput value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <MarketingButton className="am-primary">Save</MarketingButton>
+          <MarketingButton variant="default">Save</MarketingButton>
           <p role="status">{message}</p>
         </form>
       </section>

@@ -829,6 +829,7 @@ export function ConnectedAgentsStep({
           ) : (
             <AgentCard
               key={driver}
+              marketingDriver={marketingDriver}
               driver={driver}
               provider={provider}
               terminalOpen={terminalSession?.driver === driver}
@@ -982,12 +983,14 @@ function OnboardingCodexSetup({
 }
 
 function AgentCard({
+  marketingDriver,
   driver,
   provider,
   terminalOpen,
   terminalAvailable,
   onOpenTerminal,
 }: {
+  readonly marketingDriver?: string | undefined;
   readonly driver: OnboardingAgentDriver;
   readonly provider: ServerProvider | undefined;
   readonly terminalOpen: boolean;
@@ -1010,8 +1013,16 @@ function AgentCard({
       <div className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-foreground">{displayName}</span>
         <p className="mt-0.5 text-xs leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
-          {providerState === "ready" ? "Ready to help." : summary.headline}
-          {providerState !== "ready" && summary.detail ? ` · ${summary.detail}` : ""}
+          {marketingDriver && !provider?.enabled
+            ? `Turning on ${marketingDriver === "claudeAgent" ? "Claude" : "ChatGPT"}…`
+            : providerState === "ready"
+              ? marketingDriver
+                ? "Ready to help."
+                : "Ready to code."
+              : summary.headline}
+          {!marketingDriver && providerState !== "ready" && summary.detail
+            ? ` · ${summary.detail}`
+            : ""}
         </p>
       </div>
       <div className="shrink-0">

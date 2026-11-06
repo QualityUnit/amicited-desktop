@@ -342,9 +342,17 @@ describe("useNewThreadHandler", () => {
 
     const opened = await useNewThreadHandler()(
       { environmentId: "environment-ssh", projectId: "project-remote" } as never,
-      { prompt: "Read the playbook. " },
+      {
+        prompt: "Read the playbook. ",
+        modelSelection: { instanceId: "claudeAgent", model: "claude-sonnet-4-6" } as never,
+      },
     );
 
+    expect(testState.draftStore.setModelSelection).toHaveBeenCalledWith(
+      "draft-open",
+      { instanceId: "claudeAgent", model: "claude-sonnet-4-6" },
+      { replaceOptions: true, explicit: true },
+    );
     expect(opened?.draftId).toBe("draft-open");
     expect(testState.draftStore.setPrompt).toHaveBeenCalledWith(
       "draft-open",

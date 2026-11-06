@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import * as Schema from "effect/Schema";
-import { ToolRegistry, type ToolDefinition } from "./index.ts";
+import { ToolRegistry, isUsefulResult, type ToolDefinition } from "./index.ts";
 const definition = (
   run: ToolDefinition<string, string>["run"],
   timeoutMs = 50,
@@ -66,4 +66,10 @@ describe("ToolRegistry", () => {
     expect(signal?.aborted).toBe(true);
     vi.useRealTimers();
   });
+});
+
+it("rejects blocked and unreadable searches as first wins", () => {
+  for (const status of ["verification_required", "consent_required", "could_not_parse"]) {
+    expect(isUsefulResult({ status: "success", output: { status, organic: [] } })).toBe(false);
+  }
 });

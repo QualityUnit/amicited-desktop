@@ -1,6 +1,12 @@
-import { marketingNavigate } from "@amicited/ui-marketing";
+import { marketingNavigate, MarketingLink } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
-import { useEffect, useEffectEvent, useState, type ButtonHTMLAttributes } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useState,
+  useSyncExternalStore,
+  type ComponentProps,
+} from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import {
@@ -16,11 +22,11 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { createLocalApi } from "../localApi";
-const CloudButton = (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
-  <MarketingButton {...props} />
-);
 import { MarketingButton } from "@amicited/ui-marketing";
 import { Input } from "../components/ui/input";
+const CloudButton = (props: ComponentProps<typeof MarketingButton>) => (
+  <MarketingButton {...props} />
+);
 const ui = { Button: CloudButton, Input };
 const openExternal = (url: string) => {
   void createLocalApi().shell.openExternal(url);
@@ -46,18 +52,34 @@ const disconnect = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.disconnect",
   label: "cloud:disconnect",
 });
+const cloudConnections = new Map<string, Connection>();
+const cloudListeners = new Set<() => void>();
+const subscribeCloud = (listener: () => void) => {
+  cloudListeners.add(listener);
+  return () => {
+    cloudListeners.delete(listener);
+  };
+};
 function useCloud() {
   const environmentId = usePrimaryEnvironmentId();
   const read = useAtomCommand(status);
   const readStatus = useEffectEvent(read);
-  const [connection, setConnection] = useState<Connection | null>(null);
+  const connection = useSyncExternalStore(subscribeCloud, () =>
+    environmentId ? (cloudConnections.get(environmentId) ?? null) : null,
+  );
+  const setConnection = (value: Connection) => {
+    if (!environmentId) return;
+    cloudConnections.set(environmentId, value);
+    cloudListeners.forEach((listener) => listener());
+  };
+  const updateConnection = useEffectEvent(setConnection);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read status from the destination environment on entry.
   useEffect(() => {
     if (!environmentId) return;
     let active = true;
     void readStatus({ environmentId, input: undefined }).then((result) => {
       if (active)
-        setConnection(
+        updateConnection(
           result._tag === "Success"
             ? result.value
             : {
@@ -138,7 +160,7 @@ function headlinesFrom(value: unknown): CloudHeadline[] {
       )
     : [];
 }
-export function CloudHome() {
+export function CloudHome({ offer = true }: { offer?: boolean }) {
   const { environmentId, connection } = useCloud();
   const read = useAtomCommand(summary);
   const readSummary = useEffectEvent(read);
@@ -178,9 +200,9 @@ export function CloudHome() {
         }}
       />
     );
-  return localStorage.getItem("amicited.first-win") === "true" ? (
+  return offer && localStorage.getItem("amicited.first-win") === "true" ? (
     <section className="am-card">
-      <a href="/marketing-settings">Track this daily with AmICited →</a>
+      <MarketingLink href="/marketing-settings">Track this daily with AmICited →</MarketingLink>
       <p>Keep your visibility history across assistants, countries and competitors.</p>
     </section>
   ) : null;
@@ -202,7 +224,10 @@ export function CloudTools() {
       </div>
       {selected && (
         <dialog
-          open
+          ref={(node) => {
+            if (node && !node.open) node.showModal();
+          }}
+          onCancel={() => setSelected(null)}
           aria-label={selected}
           className="am-cloud-sheet"
           onKeyDown={(event) => {
@@ -218,13 +243,13 @@ export function CloudTools() {
                 : "Follow your citations across ChatGPT, Perplexity, Gemini and Google AI Overviews every day. Keep a history so you can see what improves."}
           </p>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-          <CloudButton onClick={() => openExternal(SIGNUP_URL)}>
+          <CloudButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
             Start 7-day free trial
           </CloudButton>{" "}
-          <CloudButton className="am-text-button" onClick={connect}>
+          <CloudButton variant="link" onClick={connect}>
             I already have AmICited
           </CloudButton>{" "}
-          <CloudButton className="am-text-button" autoFocus onClick={() => setSelected(null)}>
+          <CloudButton variant="link" autoFocus onClick={() => setSelected(null)}>
             Close
           </CloudButton>
         </dialog>
@@ -245,15 +270,15 @@ export function CloudPage() {
       {connection?.state !== "connected" && (
         <>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-          <MarketingButton onClick={() => openExternal(SIGNUP_URL)}>
+          <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
             Start 7-day free trial
           </MarketingButton>
         </>
       )}
-      <CloudHome />
+      <CloudHome offer={false} />
       <CloudSettings />
       <MarketingButton
-        className="am-text-button"
+        variant="link"
         onClick={() => createUpsellGate(localStorage, sessionStorage).dismiss()}
       >
         Permanently hide trial offers
@@ -272,7 +297,7 @@ export function CloudStatusLine() {
         : connection?.state === "error"
           ? "Could not read connection"
           : "Not connected"}
-      . <a href="/marketing-settings">Manage AmICited →</a>
+      . <MarketingLink href="/marketing-settings">Manage AmICited →</MarketingLink>
     </p>
   );
 }

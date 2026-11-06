@@ -24,8 +24,8 @@ proposal to store extension patches in `patches/`, which already holds pnpm patc
 
 New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,tools.*}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.
-The Home Ask box creates an upstream scratch task and preserves its prompt in the
-composer; the user selects their own provider and sends it there.
+Home Ask and New task seed the selected assistant and send through the upstream
+composer once it mounts. Fix this with AI opens the same composer for review.
 
 ## Tools and transports
 
@@ -208,3 +208,14 @@ detour in session storage. No provider credentials are stored in the browser.
 There is no upstream Card component in this checkout; marketer cards and section
 heads remain semantic containers. Existing Switch, task composer and provider
 connection primitives inherit the scoped tokens. No upstream UI-kit file changes.
+
+## Marketer task handoff and copy
+
+- `apps/web/src/hooks/useHandleNewThread.ts` and its test: optional model selection and immediate-send intent seed an empty draft before navigation.
+- `apps/web/src/components/ChatView.tsx`: hands an explicit marketer send intent to the existing composer send operation.
+- `apps/web/src/components/chat/DraftHeroProjectHeading.tsx` and `DraftHeroHeadline.tsx`: gate task wording and the no-project escape on workspace mode.
+- `apps/web/src/components/chat/ChatHeader.tsx`: marketer task breadcrumbs and workspace label.
+- `apps/web/src/components/chat/ComposerFooterControls.tsx` and `apps/web/src/components/ComposerContextPermissions.tsx`: hide advanced permission chips in marketer mode; server permission enforcement is unchanged.
+- `apps/web/src/marketingNavigation.tsx`: routes standalone marketing UI events through TanStack Router.
+- `apps/web/src/routes/__root.tsx`: mounts the navigation bridge for both onboarding and the marketer shell.
+- `apps/web/src/components/onboarding/WelcomeWizard.tsx`: marketer-only connection progress and readiness copy, suppressing developer setup details.

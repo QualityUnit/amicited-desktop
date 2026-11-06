@@ -85,3 +85,59 @@ it("scopes marketer tokens to the shell and removes them in developer mode", asy
   );
   expect(document.querySelector("[data-amicited-shell]")).toBeNull();
 });
+
+it("opens AmICited from the first-win offer on welcome", async () => {
+  const { MarketingNavigationBridge } = await import("./marketingNavigation");
+  const { FirstRun, ResultFooterContext } = await import("@amicited/ui-marketing");
+  const storage = new Map<string, string>();
+  const fixtureStorage = {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      storage.set(key, value);
+    },
+  };
+  const gate = createUpsellGate(fixtureStorage, fixtureStorage);
+  const result = {
+    id: "audit",
+    tool: "seo.site.audit",
+    input: { url: "https://example.com" },
+    status: "success",
+    startedAt: "2026-11-06",
+    durationMs: 1,
+    output: { status: "checked", score: 50 },
+  } as const;
+  await using screen = await render(
+    <MarketingNavigationBridge>
+      <ResultFooterContext
+        value={() => (
+          <AmicitedUpsellCard
+            ui={ui}
+            result={result}
+            gate={gate}
+            openExternal={() => {}}
+            onConnect={() =>
+              window.dispatchEvent(
+                new CustomEvent("amicited-navigate", { detail: "/marketing-settings" }),
+              )
+            }
+          />
+        )}
+      >
+        <FirstRun
+          subscriptions={null}
+          prepare={async () => {}}
+          check={async () => result}
+          skip={() => {}}
+          fix={async () => {}}
+        />
+      </ResultFooterContext>
+    </MarketingNavigationBridge>,
+    { router: "/welcome" },
+  );
+  await screen.getByRole("textbox", { name: "Website URL" }).fill("example.com");
+  await screen.getByRole("button", { name: "Continue", exact: true }).click();
+  await screen.getByRole("button", { name: "I already have AmICited", exact: true }).click();
+  await vi.waitFor(() =>
+    expect(screen.router?.state.location.pathname).toBe("/marketing-settings"),
+  );
+});

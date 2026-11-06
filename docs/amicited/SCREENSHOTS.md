@@ -49,3 +49,7 @@ a free Replay reply and two saved tasks. Quick mode also captures dark 1440
 for 01, 03, 04, 06 and 06b. Step 06 now shows the successful visibility fixture;
 06a preserves the disconnected state. The connected cloud summary remains covered by the local MCP
 fixture tests rather than a production connection.
+
+The r3 journey also captures `04b-subscriptions` in both themes, asserts Claude in
+the review draft, and sends the New task form through Replay without a second
+composer submission. Quick mode includes dark 02, its connection states, and 09.

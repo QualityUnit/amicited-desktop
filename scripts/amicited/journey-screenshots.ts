@@ -31,6 +31,7 @@ await NodeFSP.writeFile(
   JSON.stringify({
     providerInstances: Object.fromEntries(
       [
+        "devReplay",
         "codex",
         "claudeAgent",
         "cursor",
@@ -41,7 +42,7 @@ await NodeFSP.writeFile(
         "muse",
         "pi",
         "fx",
-      ].map((driver) => [driver, { driver, enabled: false }]),
+      ].map((driver) => [driver, { driver, enabled: driver === "devReplay" }]),
     ),
   }),
 );
@@ -120,8 +121,13 @@ try {
           (theme !== "light" &&
             ![
               "01-first-launch",
+              "02-website-and-ai",
+              "02b-provider-sign-in",
+              "02c-provider-ready",
+              "09-amicited-connect",
               "03-first-win",
               "04-home",
+              "04b-subscriptions",
               "06-ai-visibility",
               "06b-visibility-result-fixture",
             ].includes(name)))
@@ -145,7 +151,14 @@ try {
   await capture("01-first-launch");
   await page.getByRole("textbox", { name: "Website URL" }).fill("https://example.com");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page
+    .getByRole("region", { name: "Tool result" })
+    .waitFor()
+    .catch(async (error) => {
+      console.log(await page.locator("body").innerText());
+      await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+      throw error;
+    });
   await capture("02-website-and-ai");
   await page.getByRole("region", { name: "Tool result" }).waitFor();
   await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
@@ -156,6 +169,8 @@ try {
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
 
   await capture("04-home");
+  await page.locator("#ai-subscriptions").scrollIntoViewIfNeeded();
+  await capture("04b-subscriptions");
   await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
   await page.getByRole("heading", { name: "Connect Claude", exact: true }).scrollIntoViewIfNeeded();
   await capture("02b-provider-sign-in");
@@ -264,6 +279,7 @@ try {
     .getByText("Help my brand become a useful recommendation for:", { exact: false })
     .first()
     .waitFor();
+  await page.getByText("Claude", { exact: true }).waitFor();
   await capture("06c-fix-with-ai-task");
   await page.goto(url + "/tools/content.readability");
   await page
@@ -281,11 +297,51 @@ try {
   await page
     .getByRole("textbox", { name: "What do you want to get done?" })
     .fill("Draft a short marketing plan");
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  // Exercise the one-step form with the free provider, through the normal settings command.
+  await page.evaluate(async () => {
+    const { serverEnvironment } = await import(String("/src/state/server.ts"));
+    const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+    const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+    const disabled = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+      environmentId: readPrimaryEnvironmentId(),
+      input: {
+        providerInstanceMutation: {
+          operation: "upsert",
+          instanceId: "claudeAgent",
+          instance: { driver: "claudeAgent", enabled: false, config: { enabled: false } },
+        },
+        patch: {},
+      },
+    });
+    if (disabled._tag !== "Success")
+      throw new Error("Could not disable paid assistants for the fixture");
+    const result = await serverEnvironment.updateSettings.run(appAtomRegistry, {
+      environmentId: readPrimaryEnvironmentId(),
+      input: {
+        patch: { textGenerationModelSelection: { instanceId: "devReplay", model: "multi-turn" } },
+      },
+    });
+    if (result._tag !== "Success") throw new Error("Could not select Replay for the task fixture");
+  });
+  await page.waitForFunction(async () => {
+    const { primaryServerSettingsAtom } = await import(String("/src/state/server.ts"));
+    const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+    return (
+      appAtomRegistry.get(primaryServerSettingsAtom).textGenerationModelSelection?.instanceId ===
+        "devReplay" &&
+      appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent?.enabled ===
+        false
+    );
+  });
+  await page.getByRole("button", { name: "Send task", exact: true }).click();
 
-  await page.waitForURL(/\/draft\//);
+  await page.waitForURL(
+    (location) =>
+      location.pathname.startsWith("/draft/") ||
+      location.pathname.split("/").filter(Boolean).length === 2,
+  );
+  await page.getByText("Draft a short marketing plan", { exact: true }).first().waitFor();
   await capture("08b-task-draft");
-  await page.evaluate("window.t3dev.replay('multi-turn')");
   await page.getByText("first fixture turn complete", { exact: true }).first().waitFor();
   await page.getByText("Done", { exact: true }).first().waitFor();
   await capture("08d-task-reply-replay");

@@ -63,6 +63,7 @@ export function unavailable(message = "Could not check. Check the address and yo
     details: {},
   };
 }
+export class NotFoundError extends Error {}
 export type Fetcher = typeof fetch;
 export async function get(url: string, signal: AbortSignal, fetcher: Fetcher = fetch) {
   const target = new URL(url);
@@ -75,6 +76,8 @@ export async function get(url: string, signal: AbortSignal, fetcher: Fetcher = f
       Accept: "text/html,application/xml,text/plain,application/json",
     },
   });
+  if (response.status === 404 || response.status === 410)
+    throw new NotFoundError(`Missing: ${target.pathname}`);
   if (!response.ok) throw new Error(`Website returned ${response.status}`);
   const text = await response.text();
   if (text.length > 5_000_000) throw new Error("Page is too large");

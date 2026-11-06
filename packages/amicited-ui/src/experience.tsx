@@ -1,6 +1,6 @@
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import { MarketingButton, MarketingInput, KpiTile, SectionHead } from "./primitives.js";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ComponentProps, type ReactNode } from "react";
 import type { ToolResult } from "@amicited/tools-core";
 export type Brand = { website: string; name: string };
 export function readBrand(): Brand | null {
@@ -32,12 +32,14 @@ export function AmICitedMark() {
   );
 }
 export function FirstRun({
+  ready = true,
   subscriptions,
   prepare,
   check,
   skip,
   fix,
 }: {
+  ready?: boolean;
   subscriptions: ReactNode;
   prepare: (brand: Brand) => Promise<void>;
   check: (brand: Brand) => Promise<ToolResult>;
@@ -73,7 +75,7 @@ export function FirstRun({
       {brand && (
         <p className="am-card">
           <b>{brand.name}</b> · {brand.website}{" "}
-          <MarketingButton className="am-text-button" onClick={() => setBrand(null)}>
+          <MarketingButton variant="link" onClick={() => setBrand(null)}>
             Edit
           </MarketingButton>
         </p>
@@ -117,14 +119,14 @@ export function FirstRun({
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <MarketingButton className="am-primary" disabled={busy}>
+          <MarketingButton variant="default" disabled={busy || !ready}>
             {busy ? "Checking your website…" : brand ? "Update website" : "Continue"}
           </MarketingButton>
         </form>
       )}
       {error && <p role="alert">{error}</p>}
       <p>
-        <MarketingButton className="am-text-button" onClick={skip}>
+        <MarketingButton variant="link" onClick={skip}>
           Skip for now
         </MarketingButton>
       </p>
@@ -410,7 +412,9 @@ function VisibilityResult({
                 <MarketingButton
                   onClick={() =>
                     void fix(
-                      `Help my brand become a useful recommendation for: ${String(a.prompt)}. Suggest evidence and content improvements.`,
+                      `Help my brand become a useful recommendation for: ${String(a.prompt)
+                        .trim()
+                        .replace(/[.!?]+$/, "")}. Suggest evidence and content improvements.`,
                     ).catch(() => setError("Could not open your task. Try again."))
                   }
                 >
@@ -593,7 +597,7 @@ export function MarketingResult({
                       <MarketingButton
                         onClick={() =>
                           void fix(
-                            `Help me fix this finding for ${JSON.stringify(result.input)}: ${f.title}\n${f.why}\n${f.fix}`,
+                            `Help me fix this on ${String(record(result.input).url ?? readBrand()?.website ?? "my website")}: ${f.title}\n${f.why}\n${f.fix}`,
                           ).catch(() => setError("Could not start a task. Please try again."))
                         }
                       >
@@ -607,15 +611,42 @@ export function MarketingResult({
           })}
           {!findings.length && result.tool !== "ai.visibility.check" && (
             <dl>
-              {Object.entries(output).map(([key, value]) => (
-                <div className="am-finding" key={key}>
-                  <dt>{humanLabel(key)}</dt>
-                  <dd>
-                    <ResultValue value={value} />
-                  </dd>
-                </div>
-              ))}
+              {Object.entries(output)
+                .filter(
+                  ([key]) => !["score", "readingEase", "grade", "words", "note"].includes(key),
+                )
+                .map(([key, value]) => (
+                  <div className="am-finding" key={key}>
+                    <dt>{humanLabel(key)}</dt>
+                    <dd>
+                      <ResultValue value={value} />
+                    </dd>
+                  </div>
+                ))}
             </dl>
+          )}
+          {result.tool === "serp.fetch" && (
+            <p>
+              AI Overview:{" "}
+              {record(output.aiOverview).present == null
+                ? "Could not check"
+                : record(output.aiOverview).present
+                  ? "Present"
+                  : "Not present"}
+            </p>
+          )}
+          {typeof output.note === "string" && <p className="am-hint">{output.note}</p>}
+          {result.tool === "serp.fetch" && output.status !== "checked" && (
+            <a
+              href={
+                "https://www.google.com/search?" +
+                new URLSearchParams({ q: String(record(result.input).query ?? "") })
+              }
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open this search →
+            </a>
           )}
           <div className="am-actions">
             <MarketingButton
@@ -652,4 +683,27 @@ export function MarketingResult({
 
 export function marketingNavigate(path: string) {
   window.dispatchEvent(new CustomEvent("amicited-navigate", { detail: path }));
+}
+
+export function MarketingLink({ href, onClick, ...props }: ComponentProps<"a">) {
+  return (
+    <a
+      {...props}
+      href={href}
+      onClick={(event) => {
+        onClick?.(event);
+        if (
+          !event.defaultPrevented &&
+          href?.startsWith("/") &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.shiftKey &&
+          event.button === 0
+        ) {
+          event.preventDefault();
+          marketingNavigate(href);
+        }
+      }}
+    />
+  );
 }

@@ -11,7 +11,7 @@ export function parseSerp(html: string) {
       status: "verification_required" as const,
       message: "Google asked for verification; open in Browser to continue.",
       organic: [],
-      aiOverview: { present: false, citations: [] },
+      aiOverview: { present: null, citations: [] },
       peopleAlsoAsk: [],
     };
   if (/consent\.google|before you continue to Google|name=["']set_eom/i.test(html))
@@ -19,7 +19,7 @@ export function parseSerp(html: string) {
       status: "consent_required" as const,
       message: "Google asked for consent; open in Browser to continue.",
       organic: [],
-      aiOverview: { present: false, citations: [] },
+      aiOverview: { present: null, citations: [] },
       peopleAlsoAsk: [],
     };
   const organic: { title: string; url: string }[] = [];
@@ -45,7 +45,7 @@ export function parseSerp(html: string) {
       ? "Results from this machine. Google layout and location can change results."
       : "Could not read Google's results. Open in Browser to inspect the page.",
     organic,
-    aiOverview: { present: Boolean(overview), citations },
+    aiOverview: { present: organic.length ? Boolean(overview) : null, citations },
     peopleAlsoAsk: [...new Set(peopleAlsoAsk)],
   };
 }
@@ -117,7 +117,10 @@ export function serpTools(fetcher: Fetcher = fetch) {
     ]),
     message: Schema.String,
     organic: Schema.Array(Schema.Struct({ title: Schema.String, url: Schema.String })),
-    aiOverview: Schema.Struct({ present: Schema.Boolean, citations: Schema.Array(Schema.String) }),
+    aiOverview: Schema.Struct({
+      present: Schema.NullOr(Schema.Boolean),
+      citations: Schema.Array(Schema.String),
+    }),
     peopleAlsoAsk: Schema.Array(Schema.String),
   });
   const results = define(
@@ -140,7 +143,7 @@ export function serpTools(fetcher: Fetcher = fetch) {
           status: "could_not_check" as const,
           message: "Could not reach Google. Try again or open in Browser.",
           organic: [],
-          aiOverview: { present: false, citations: [] },
+          aiOverview: { present: null, citations: [] },
           peopleAlsoAsk: [],
         };
       }

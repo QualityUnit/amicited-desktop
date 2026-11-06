@@ -6,6 +6,7 @@ import {
   define,
   finding,
   get,
+  NotFoundError,
   plain,
   unavailable,
   urlInput,
@@ -223,7 +224,17 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
           ),
           parsed,
         );
-      } catch {
+      } catch (error) {
+        if (error instanceof NotFoundError)
+          return checked([
+            finding(
+              "Missing",
+              false,
+              "No robots.txt was published. Crawlers use their default access rules.",
+              "Publish /robots.txt with the crawler access rules you want.",
+              true,
+            ),
+          ]);
         return unavailable("Could not check robots.txt.");
       }
     },
@@ -245,7 +256,9 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
       } catch {
         /* The conventional sitemap can still be checked when robots.txt is unavailable. */
       }
-      for (const location of [...new Set(locations)].slice(0, 5)) {
+      let missing = 0;
+      const candidates = [...new Set(locations)].slice(0, 5);
+      for (const location of candidates) {
         try {
           const xml = await get(new URL(location, url).href, signal, fetcher);
           const valid =
@@ -281,10 +294,20 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
               latest: latest === null ? null : new Date(latest).toISOString(),
             },
           );
-        } catch {
+        } catch (error) {
+          if (error instanceof NotFoundError) missing++;
           /* Try the next advertised location. */
         }
       }
+      if (missing === candidates.length)
+        return checked([
+          finding(
+            "Missing",
+            false,
+            "No sitemap was published at the checked locations.",
+            "Publish /sitemap.xml listing your canonical page addresses and add it to robots.txt.",
+          ),
+        ]);
       return unavailable("Could not find a readable sitemap.");
     },
   );
@@ -304,8 +327,12 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
               /\[[^\]]+\]\(https?:\/\//.test(text) &&
               !/<html\b/i.test(text);
             return { path, status: useful ? "useful" : "needs_work", characters: text.length };
-          } catch {
-            return { path, status: "could_not_check", characters: null };
+          } catch (error) {
+            return {
+              path,
+              status: error instanceof NotFoundError ? "missing" : "could_not_check",
+              characters: null,
+            };
           }
         }),
       );
@@ -321,10 +348,10 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
                 fix: "Check the address and consider publishing a guide.",
               }
             : finding(
-                f.path,
+                f.status === "missing" ? "Missing" : f.path,
                 f.status === "useful",
                 "This emerging convention can help assistants navigate your content; it does not guarantee visibility.",
-                "Add a Markdown title, summary and useful links.",
+                `Publish ${f.path} with a Markdown title, summary and useful links.`,
                 true,
               ),
         ),

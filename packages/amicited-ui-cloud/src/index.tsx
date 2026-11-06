@@ -11,7 +11,9 @@ import { DOCS_URL, SIGNUP_URL, type Connection } from "@amicited/cloud-client/mo
 import { createUpsellGate, whatYouAreMissing, type WinResult } from "@amicited/cloud-client/upsell";
 
 export interface CloudUi {
-  Button: ComponentType<ButtonHTMLAttributes<HTMLButtonElement>>;
+  Button: ComponentType<
+    ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "outline" | "link" }
+  >;
   Input: ComponentType<Omit<InputHTMLAttributes<HTMLInputElement>, "size">>;
 }
 export interface CloudActions {
@@ -54,14 +56,14 @@ export function AmicitedUpsellCard({
       <p>{comparison.missing}</p>
       <p>{comparison.pricing}</p>
       <div className="am-cloud-actions">
-        <Button className="am-primary" onClick={() => openExternal(SIGNUP_URL)}>
+        <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial
         </Button>
-        <Button className="am-text-button" onClick={onConnect}>
+        <Button variant="link" onClick={onConnect}>
           I already have AmICited
         </Button>
         <Button
-          className="am-text-button"
+          variant="link"
           onClick={() => {
             gate.snooze(Date.now());
             setVisible(false);
@@ -132,7 +134,7 @@ export function AmicitedConnectPanel({
             </div>
           )}
           <Button
-            className="am-primary"
+            variant="outline"
             disabled={pending}
             onClick={() => void run(actions.connectOAuth)}
           >

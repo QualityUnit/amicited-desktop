@@ -6,17 +6,20 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
+export type MarketingButtonProps = ComponentProps<"button"> & {
+  variant?: "default" | "outline" | "secondary" | "link";
+};
 type Primitives = {
-  Button: ComponentType<ComponentProps<"button">>;
+  Button: ComponentType<MarketingButtonProps>;
   Input: ComponentType<ComponentProps<"input">>;
   Textarea: ComponentType<ComponentProps<"textarea">>;
 };
 export const MarketingUiContext = createContext<Primitives>({
-  Button: (props) => <button {...props} />,
+  Button: ({ variant: _variant, ...props }) => <button {...props} />,
   Input: (props) => <input {...props} />,
   Textarea: (props) => <textarea {...props} />,
 });
-export function MarketingButton(props: ComponentProps<"button">) {
+export function MarketingButton(props: MarketingButtonProps) {
   const { Button } = useContext(MarketingUiContext);
   return <Button {...props} />;
 }

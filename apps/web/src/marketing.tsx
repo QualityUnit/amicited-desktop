@@ -3,19 +3,6 @@ import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
 import { MarketingUiContext, MarketingButton, MarketingTextarea } from "@amicited/ui-marketing";
 import type { ComponentProps } from "react";
-const KitButton = ({ className, type = "submit", ...props }: ComponentProps<"button">) => (
-  <Button
-    type={type}
-    variant={
-      className === "am-text-button" ? "link" : className === "am-primary" ? "default" : "outline"
-    }
-    {...props}
-  />
-);
-const KitInput = ({ size: _size, ...props }: ComponentProps<"input">) => (
-  <Input nativeInput {...props} />
-);
-const marketingUi = { Button: KitButton, Input: KitInput, Textarea };
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { isUsefulResult } from "@amicited/tools-core";
 import { usePrimarySettings } from "./hooks/useSettings";
@@ -57,9 +44,25 @@ import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
 import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
-import { useEnvironmentProviders, usePrimaryEnvironmentId } from "./state/environments";
+import {
+  useEnvironmentProviders,
+  usePrimaryEnvironment,
+  usePrimaryEnvironmentId,
+} from "./state/environments";
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
+
+const KitButton = ({
+  variant = "outline",
+  type = "submit",
+  ...props
+}: ComponentProps<typeof MarketingButton>) => (
+  <Button type={type} variant={variant} data-am-variant={variant} {...props} />
+);
+const KitInput = ({ size: _size, ...props }: ComponentProps<"input">) => (
+  <Input nativeInput {...props} />
+);
+const marketingUi = { Button: KitButton, Input: KitInput, Textarea };
 
 const renderCloudFooter = (result: ToolResult) => <CloudFooter result={result} />;
 
@@ -77,14 +80,6 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
   const navigate = useNavigate();
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Router bridge for the standalone marketing UI package.
-  useEffect(() => {
-    const listener = (event: Event) => {
-      void navigate({ to: (event as CustomEvent<string>).detail });
-    };
-    window.addEventListener("amicited-navigate", listener);
-    return () => window.removeEventListener("amicited-navigate", listener);
-  }, [navigate]);
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
       <ResultFooterContext value={renderCloudFooter}>
@@ -140,7 +135,7 @@ export function MarketingHome() {
   });
   return (
     <Home
-      startTask={actions.startTask}
+      startTask={(prompt) => actions.startTask(prompt, true)}
       subscriptions={<MarketingSubscriptions />}
       cloud={<CloudHome />}
       recent={
@@ -222,6 +217,7 @@ export function MarketingSettings() {
 }
 
 export function MarketingFirstRun() {
+  const environment = usePrimaryEnvironment();
   const environmentId = usePrimaryEnvironmentId();
   const actions = useMarketingTask();
   const run = useAtomCommand(runCommand);
@@ -231,6 +227,7 @@ export function MarketingFirstRun() {
       <ResultFooterContext value={renderCloudFooter}>
         <div data-amicited-shell="" className="am-first-run-surface">
           <FirstRun
+            ready={environment?.connection.phase === "connected"}
             fix={actions.startTask}
             subscriptions={<MarketingSubscriptions />}
             prepare={actions.prepare}
@@ -264,7 +261,9 @@ function useMarketingTask() {
   const environmentId = usePrimaryEnvironmentId();
   const scratch = useScratchProject();
   const newThread = useNewThreadHandler();
+  const settings = usePrimarySettings();
   const create = useAtomCommand(projectEnvironment.create);
+  const environment = usePrimaryEnvironment();
   const projects = useProjects();
   const prepare = async (brand: Brand) => {
     if (!environmentId) throw new Error("Still connecting. Please try again.");
@@ -272,18 +271,15 @@ function useMarketingTask() {
       (p) => p.environmentId === environmentId && p.title === brand.name,
     );
     if (existing) return scopeProjectRef(existing.environmentId, existing.id);
-    const base = await scratch.openScratchProject(
-      environmentId,
-      "Could not get your website ready",
-    );
-    if (!base) throw new Error("Could not get ready. Please try again.");
+    const workspaceRoot = environment?.serverConfig?.scratchWorkspaceRoot;
+    if (!workspaceRoot) throw new Error("Still getting your workspace ready. Please try again.");
     const projectId = newProjectId();
     const result = await create({
       environmentId,
       input: {
         projectId,
         title: brand.name,
-        workspaceRoot: base.workspaceRoot + "/" + new URL(brand.website).hostname,
+        workspaceRoot: workspaceRoot + "/" + new URL(brand.website).hostname,
         createWorkspaceRootIfMissing: true,
       },
     });
@@ -295,16 +291,24 @@ function useMarketingTask() {
     prepare: async (brand: Brand) => {
       await prepare(brand);
     },
-    startTask: async (prompt: string) => {
+    startTask: async (prompt: string, sendImmediately = false) => {
+      const open = async (project: Parameters<typeof newThread>[0]) => {
+        const draft = await newThread(project, {
+          prompt,
+          sendImmediately,
+          modelSelection: settings.textGenerationModelSelection ?? undefined,
+        });
+        if (!draft) throw new Error("Could not open your task");
+      };
       const brand = readBrand();
       if (brand) {
-        await newThread(await prepare(brand), { prompt });
+        await open(await prepare(brand));
         return;
       }
       if (!environmentId) throw new Error("Not connected");
       const project = await scratch.openScratchProject(environmentId);
       if (!project) throw new Error("Could not start task");
-      await newThread(scopeProjectRef(project.environmentId, project.id), { prompt });
+      await open(scopeProjectRef(project.environmentId, project.id));
     },
   };
 }
@@ -355,7 +359,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
               </span>
               {ready ? (
                 <MarketingButton
-                  className="am-text-button"
+                  variant="link"
                   onClick={() =>
                     void choose(driver!).catch(() =>
                       setSelectionError("Could not save your assistant. Please try again."),
@@ -419,7 +423,8 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
           )}
           <p>
             1. Install the assistant if needed. 2. Sign in with your existing subscription in the
-            window below. 3. When Ready appears, choose Use above. Your login stays on this device.
+            window below. 3. When Ready appears, select your assistant above. Your login stays on
+            this device.
           </p>
 
           {environmentId && (
@@ -433,7 +438,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
       )}
       {selectionError && <p role="alert">{selectionError}</p>}
       <p>Gemini · Coming soon</p>
-      {usageLink && <a href="/usage">View AI plan usage →</a>}
+      {usageLink && <Link to="/usage">View AI plan usage →</Link>}
     </>
   );
 }
@@ -451,7 +456,7 @@ export function MarketingNewTask() {
         onSubmit={(e) => {
           e.preventDefault();
           void actions
-            .startTask(prompt)
+            .startTask(prompt, true)
             .catch(() => setError("Could not start a task. Please try again."));
         }}
       >
@@ -465,8 +470,8 @@ export function MarketingNewTask() {
             required
           />
         </label>
-        <MarketingButton>Continue</MarketingButton>
-        <p>Next, review your request and press Send to start your assistant.</p>
+        <MarketingButton variant="default">Send task</MarketingButton>
+        <p>Your selected assistant will start working on this request.</p>
         {error && <p role="alert">{error}</p>}
       </form>
       <MarketingSubscriptions />

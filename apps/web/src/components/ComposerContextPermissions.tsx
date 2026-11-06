@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import type { EnvironmentId, RuntimeMode } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 
@@ -32,7 +33,9 @@ export function ComposerContextPermissions(props: {
   );
   const options = resolveRuntimeModeOptions(modes, useManagedPolicy(props.environmentId));
   const composerMenuProps = useComposerMenuProps();
+  const marketer = useWorkspaceMode() === "marketer";
   const { icon: Icon, label } = runtimeModeConfig[mode];
+  if (marketer) return null;
   return (
     <Menu>
       <Tooltip>

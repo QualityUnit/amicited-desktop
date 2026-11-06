@@ -240,7 +240,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   const marketer = useWorkspaceMode() === "marketer";
   const triggerText = marketer
     ? ({ codex: "ChatGPT", claudeAgent: "Claude", gemini: "Gemini" }[
-        String(props.lockedProvider)
+        String(props.lockedProvider ?? activeEntry?.driverKind)
       ] ?? "AI assistant")
     : (props.triggerLabel ?? multipleLabel ?? triggerTitle);
   const triggerTextProps = {

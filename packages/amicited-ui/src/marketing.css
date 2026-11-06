@@ -408,3 +408,33 @@ body:has(.am-onboarding) {
   min-height: 100dvh;
   overflow: auto;
 }
+
+[data-amicited-shell] {
+  --contrast-muted-foreground: var(--ai-ink-3);
+}
+.dark [data-amicited-shell] [data-am-variant="outline"] {
+  background: var(--ai-surf);
+  color: var(--ai-ink);
+}
+.dark [data-amicited-shell] [data-am-variant="secondary"] {
+  background: var(--ai-surf-2);
+  color: var(--ai-ink-2);
+}
+[data-amicited-shell] .am-card > :first-child {
+  margin-top: 0 !important;
+}
+[data-amicited-shell] .am-tool-card {
+  margin: 0;
+  gap: 8px;
+}
+[data-amicited-shell] .am-tool-card h3 {
+  margin-bottom: 0;
+}
+.am-cloud-sheet::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+[data-amicited-shell] p.am-hint {
+  color: var(--ai-ink-3);
+  font-size: 12px;
+}

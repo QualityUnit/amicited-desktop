@@ -80,39 +80,31 @@ describe("site tools", () => {
       details: { count: 2 },
     });
     const llms = await tools.llms.run({ url }, ctx());
-    expect(llms.findings.map((f) => f.status)).toEqual(["pass", "unknown"]);
-    expect(llms.score).toBe(100);
+    expect(llms.findings.map((f) => f.status)).toEqual(["pass", "warn"]);
+    expect(llms.score).toBe(75);
   });
-  it("returns unavailable for failed checks and excludes them from audit scores", async () => {
-    const tools = siteTools(fakeFetch({ [url]: fixture("site.html") }), {
-      ...sslCheck,
-      run: async () => {
-        throw new Error("offline");
-      },
-    });
-    expect(await tools.sitemap.run({ url }, ctx())).toMatchObject({
-      status: "could_not_check",
-      score: null,
-    });
-    expect(await tools.llms.run({ url }, ctx())).toMatchObject({
-      status: "could_not_check",
-      score: null,
-    });
-    const audit = await tools.audit.run({ url }, ctx());
-    expect(audit).toMatchObject({ status: "partial", score: 100 });
-    expect(audit.groups).toHaveLength(6);
-    const offline = siteTools(fakeFetch({}), {
-      ...sslCheck,
-      run: async () => {
-        throw new Error("offline");
-      },
-    });
-    expect(await offline.audit.run({ url }, ctx())).toMatchObject({
-      status: "could_not_check",
-      score: null,
-    });
-    expect(await offline.meta.run({ url }, ctx())).toMatchObject({ status: "could_not_check" });
-    expect(await offline.schema.run({ url }, ctx())).toMatchObject({ status: "could_not_check" });
+  it("scores missing files but excludes unreachable checks", async () => {
+    for (const code of [404, 410, 503]) {
+      const tools = siteTools(async () => new Response("", { status: code }), {
+        ...sslCheck,
+        run: async () => {
+          throw new Error("offline");
+        },
+      });
+      for (const [tool, status] of [
+        [tools.robots, "warn"],
+        [tools.sitemap, "fail"],
+        [tools.llms, "warn"],
+      ] as const) {
+        const result = await tool.run({ url }, ctx());
+        expect(result.findings[0]).toMatchObject(
+          code === 503 ? { status: "unknown" } : { title: "Missing", status },
+        );
+        expect(result.score).toBe(code === 503 ? null : status === "fail" ? 0 : 50);
+      }
+      const audit = await tools.audit.run({ url }, ctx());
+      expect(audit.score).toBe(code === 503 ? null : 33);
+    }
   });
 });
 describe("SERP tools", () => {

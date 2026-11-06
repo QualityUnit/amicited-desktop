@@ -1,7 +1,9 @@
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing styles belong to @amicited/ui-marketing. */
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useThreadShells } from "../state/entities";
 function Tasks() {
+  const [now] = useState(() => Date.now());
   const threads = useThreadShells();
   return (
     <>
@@ -19,7 +21,18 @@ function Tasks() {
             <p>Open task →</p>
           </Link>
           <small>
-            {thread.latestRun?.status ?? "Ready to continue"} · {thread.createdAt.slice(0, 10)}
+            {thread.latestRun?.status === "completed"
+              ? "Done"
+              : thread.latestRun?.status === "running"
+                ? "Working"
+                : "Needs you"}{" "}
+            ·{" "}
+            {new Date(thread.createdAt).toDateString() === new Date(now).toDateString()
+              ? "Today"
+              : new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
+                  -Math.max(1, Math.round((now - Date.parse(thread.createdAt)) / 86400000)),
+                  "day",
+                )}
           </small>
         </article>
       ))}

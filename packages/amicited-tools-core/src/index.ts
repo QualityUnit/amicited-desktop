@@ -150,7 +150,16 @@ export function isUsefulResult(result: { status: string; output?: unknown }) {
   const output = result.output as Record<string, unknown>;
   if (Object.keys(output).length === 0) return false;
   if ("draft" in output && (typeof output.draft !== "string" || !output.draft.trim())) return false;
-  if (["needs_provider", "could_not_check", "could_not_generate"].includes(String(output.status)))
+  if (
+    [
+      "needs_provider",
+      "could_not_check",
+      "could_not_generate",
+      "verification_required",
+      "consent_required",
+      "could_not_parse",
+    ].includes(String(output.status))
+  )
     return false;
   if (
     output.summary &&

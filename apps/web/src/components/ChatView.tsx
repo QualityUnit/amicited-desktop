@@ -2990,6 +2990,31 @@ export default function ChatView(props: ChatViewProps) {
   };
   const onWorktreeSetupWorkLocallyStable = useStableCallback(onWorktreeSetupWorkLocally);
   const onComposerSendStable = useStableCallback(onSend);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A marketer form hands its first message to the mounted upstream composer.
+  useEffect(() => {
+    if (
+      developerMode ||
+      !draftId ||
+      !canOperateThread ||
+      isEnvironmentChanging ||
+      threadDetailLoading ||
+      isSendBusy
+    )
+      return;
+    const key = "amicited.send." + draftId;
+    if (sessionStorage.getItem(key) !== "true" || !promptRef.current.trim()) return;
+    sessionStorage.removeItem(key);
+    queueMicrotask(() => void onComposerSendStable());
+  }, [
+    developerMode,
+    draftId,
+    canOperateThread,
+    isEnvironmentChanging,
+    threadDetailLoading,
+    isSendBusy,
+    onComposerSendStable,
+    promptRef,
+  ]);
   const sendPreviewAnnotation = (
     annotation: PreviewAnnotationPayload,
     image: ComposerImageAttachment | null,
@@ -3055,7 +3080,7 @@ export default function ChatView(props: ChatViewProps) {
     ) : null;
   const resendAfterWorkLocally = () => {
     setWorkLocallyResendDraftId(null);
-    void onComposerSendStable();
+    queueMicrotask(() => void onComposerSendStable());
   };
   const resendAfterWorkLocallyStable = useStableCallback(resendAfterWorkLocally);
   const workLocallyResendReady =
