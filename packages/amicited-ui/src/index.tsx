@@ -1,3 +1,4 @@
+import { packs } from "./packs.js";
 import {
   MarketingButton,
   MarketingInput,
@@ -152,12 +153,6 @@ export function Home({
     </>
   );
 }
-const packs = [
-  ["seo", "Site audit basics"],
-  ["ai-visibility", "AI visibility"],
-  ["content", "Content tools"],
-  ["serp", "SERP & keywords"],
-] as const;
 export function ToolsGrid({
   tools,
   selectedPack,
@@ -323,7 +318,18 @@ export function ToolForm({
           </form>
         </>
       )}
-      {result && <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />}
+      {result && (
+        <MarketingResult
+          result={result}
+          fix={fix}
+          retry={() => setResult(null)}
+          rerun={async () => {
+            const next = await run(result.input);
+            setResult(next);
+            onResult?.(next);
+          }}
+        />
+      )}
     </>
   );
 }

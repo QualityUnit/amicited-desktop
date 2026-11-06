@@ -87,25 +87,24 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 10, 2026-11-06, Node 26.12.1, from the repository root:
+Wave 11, 2026-11-06, Node 26.12.1, from the repository root:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-cloud/src/upsell.test.ts apps/web/src/amicited-cloud.browser.test.tsx
-pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter @amicited/cloud-client --filter t3 run typecheck
+vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
+pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter t3 run typecheck
 (cd apps/web && pnpm exec effect-tsgo tsrs --noEmit)
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r8
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r9
 ```
 
-Focused tests: 20 passed across 3 files. The repeat-run browser cases failed before
-the fix because Edit inputs was absent; both successful and unavailable results now
-preserve inputs through a changed second run. Browser coverage also verifies the
-audit banner's website/finding handoff and all-pass section heading. Typechecks
-passed for marketing UI, cloud UI, cloud client, server and web (5 packages);
-existing Effect schema-brand suggestions are informational.
+Focused tests: 32 passed across 4 files. Direct rerun cases first failed because
+Run again opened the form without calling the tool; they now verify a third call
+with unchanged inputs. Coverage includes pack routing, remembered Tools disclosure,
+and visibility brand/website/prompt/finding handoff. Typechecks pass for marketing
+UI, cloud UI, server and web (4 packages); existing Effect schema-brand suggestions
+are informational.
 
-The journey produces 46 captures: 36 light and 10 dark, including nine parity
-views at 1344×1016, with no journey-error.png. It exercises tool-pack routing,
-changed-input reruns, sidebar persistence, free Replay tasks and permanent offer
-dismissal. Browser-panel verification reached account-free first launch and Skip.
-Captures use temporary state and explicitly labelled visibility fixtures.
+The journey produces 53 captures: 41 light and 12 dark, including the 1344×1016
+parity set, readability, labelled writing/keyword fixtures, dark Home and audit.
+No journey-error.png. Capture readiness also waits for the connection panel after
+theme changes. Captures use temporary state and explicitly labelled fixtures.
 No production MCP connection, paid generation or native Electron run was exercised.

@@ -76,7 +76,7 @@ it("scopes marketer tokens to the shell and removes them in developer mode", asy
   expect(shell).not.toBeNull();
   expect(getComputedStyle(shell!).getPropertyValue("--primary").trim()).toBe("#3b5cff");
   document.documentElement.classList.add("dark");
-  expect(getComputedStyle(shell!).getPropertyValue("--ai-bg").trim()).toBe("#11151e");
+  expect(getComputedStyle(shell!).getPropertyValue("--ai-bg").trim()).toBe("#111928");
   document.documentElement.classList.remove("dark");
   await screen.rerender(
     <MarketingShell mode="developer" path="/home" navigate={() => {}}>
@@ -305,6 +305,9 @@ it.each([false, true])(
       { text: "Revised copy" },
     ]);
     await screen.getByRole("button", { name: "Run again", exact: true }).click();
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(3));
+    expect(run.mock.calls[2]?.[0]).toEqual({ text: "Revised copy" });
+    await screen.getByRole("button", { name: "Edit inputs", exact: true }).click();
     await expect
       .element(screen.getByRole("textbox", { name: "text", exact: true }))
       .toHaveValue("Revised copy");
@@ -345,4 +348,61 @@ it("hands the audit website and finding context to AI and labels all-pass result
   );
   await expect.element(screen.getByRole("heading", { name: "Checks passing" })).toBeVisible();
   await expect.element(screen.getByText("0 unavailable")).not.toBeInTheDocument();
+});
+
+it("keeps the Tools disclosure across mounts and marks the hash-selected pack", async () => {
+  const { MarketingShell } = await import("@amicited/ui-marketing");
+  localStorage.removeItem("amicited.tools-open");
+  try {
+    await using screen = await render(
+      <MarketingShell path="/tools" hash="content" navigate={() => {}}>
+        Tools
+      </MarketingShell>,
+    );
+    await expect
+      .element(screen.getByRole("link", { name: "Content tools", exact: true }))
+      .toHaveAttribute("aria-current", "page");
+    await screen.getByRole("button", { name: "Tools", exact: true }).click();
+    expect(document.querySelector("#am-tools-group")).toHaveAttribute("hidden");
+    await screen.rerender(
+      <MarketingShell key="remount" path="/tools" hash="content" navigate={() => {}}>
+        Tools
+      </MarketingShell>,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: "Tools", exact: true }))
+      .toHaveAttribute("aria-expanded", "false");
+    await screen.getByRole("button", { name: "Tools", exact: true }).click();
+    await expect
+      .element(screen.getByRole("link", { name: "Content tools", exact: true }))
+      .toBeVisible();
+  } finally {
+    localStorage.removeItem("amicited.tools-open");
+  }
+});
+it("includes visibility inputs, prompts and findings in the AI handoff", async () => {
+  const { MarketingResult } = await import("@amicited/ui-marketing");
+  const fix = vi.fn(async (_prompt: string) => {});
+  await using screen = await render(
+    <MarketingResult
+      fix={fix}
+      result={{
+        id: "visibility-context",
+        tool: "ai.visibility.check",
+        status: "success",
+        durationMs: 1,
+        startedAt: "2026-11-06",
+        input: { brand: "Acme", website: "https://example.com" },
+        output: {
+          summary: { answered: 1, mentioned: 0 },
+          answers: [{ prompt: "Best garden tools?", mentioned: false, excerpt: "Contoso only" }],
+        },
+      }}
+    />,
+  );
+  await screen.getByRole("button", { name: "Fix with AI →", exact: true }).first().click();
+  expect(fix.mock.calls[0]?.[0]).toContain("Acme");
+  expect(fix.mock.calls[0]?.[0]).toContain("https://example.com");
+  expect(fix.mock.calls[0]?.[0]).toContain("Best garden tools?");
+  expect(fix.mock.calls[0]?.[0]).toContain("Contoso only");
 });

@@ -111,6 +111,7 @@ try {
   const capture = async (name: string) => {
     for (const [theme, width, height] of [
       ["light", 1344, 1016],
+      ["dark", 1344, 1016],
       ["light", 1440, 900],
       ["dark", 1440, 900],
       ["light", 1280, 800],
@@ -135,6 +136,8 @@ try {
             ].includes(name)))
       )
         continue;
+      if (width === 1344 && theme === "dark" && !["04-home", "03-first-win"].includes(name))
+        continue;
       if (
         width === 1344 &&
         ![
@@ -147,6 +150,9 @@ try {
           "06-ai-visibility",
           "08c-tasks-list",
           "07b-second-run",
+          "07-content-result",
+          "07c-writing-fixture",
+          "07d-keywords-fixture",
         ].includes(name)
       )
         continue;
@@ -158,6 +164,11 @@ try {
       }, theme);
       if (name === "01-first-launch")
         await page.getByRole("heading", { name: "What’s your website?" }).waitFor();
+      await page.locator("main, .am-onboarding").first().waitFor({ state: "visible" });
+      if (name === "09-amicited-connect")
+        await page
+          .getByRole("button", { name: "Connect with AmICited", exact: true })
+          .waitFor({ state: "visible" });
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({
         path: NodePath.join(out, name + "-" + theme + "-" + width + ".png"),
@@ -216,9 +227,26 @@ try {
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("navigation", { name: "Tool categories" }).waitFor();
   await capture("05-tools-grid");
-  await page.getByRole("link", { name: "Content", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Tool categories" })
+    .getByRole("link", { name: "Content tools", exact: true })
+    .click();
   await page.getByRole("link", { name: "Readability check", exact: false }).waitFor();
-  await page.getByRole("link", { name: "Site audit", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Tool categories" })
+    .getByRole("link", { name: "Site audit basics", exact: true })
+    .click();
+  const toolsDisclosure = page.getByRole("button", { name: "Tools", exact: true });
+  await toolsDisclosure.click();
+  await page.reload();
+  if ((await toolsDisclosure.getAttribute("aria-expanded")) !== "false")
+    throw new Error("Tools disclosure did not persist");
+  await toolsDisclosure.click();
+  if (
+    (await page.locator('#am-tools-group [aria-current="page"]').innerText()) !==
+    "Site audit basics"
+  )
+    throw new Error("Active tool pack missing");
   await page.getByRole("link", { name: "Website health audit", exact: false }).waitFor();
   await page.getByRole("heading", { name: "Works better with AmICited" }).scrollIntoViewIfNeeded();
   await capture("05b-cloud-capabilities");
@@ -332,6 +360,8 @@ try {
   await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
   await capture("07-content-result");
   await page.getByRole("button", { name: "Run again", exact: true }).click();
+  await page.getByRole("button", { name: "Run again", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Edit inputs", exact: true }).click();
   const revisedCopy =
     "Plant herbs in a sunny spot. Water them every morning. Pick fresh leaves for dinner.";
   await page.getByRole("textbox", { name: "text", exact: true }).fill(revisedCopy);
@@ -341,6 +371,49 @@ try {
   await page.getByRole("button", { name: "Edit inputs", exact: true }).click();
   if ((await page.getByRole("textbox", { name: "text", exact: true }).inputValue()) !== revisedCopy)
     throw new Error("Second run lost the revised inputs");
+
+  for (const [tool, output, name] of [
+    [
+      "content.write",
+      {
+        status: "generated",
+        draft:
+          "Fixture: Grow fresh herbs at home.\n\nStart with a sunny windowsill and a small pot. Water each morning and harvest leaves for dinner.",
+        provider: "Replay",
+        model: "fixture",
+      },
+      "07c-writing-fixture",
+    ],
+    [
+      "serp.autocomplete",
+      {
+        status: "checked",
+        suggestions: ["garden tools for beginners", "garden tools for small spaces"],
+        note: "Fixture: saved keyword suggestions; no live search.",
+      },
+      "07d-keywords-fixture",
+    ],
+  ] as const) {
+    await page.evaluate(
+      ({ tool, output }) =>
+        sessionStorage.setItem(
+          "amicited.last-result",
+          JSON.stringify({
+            id: "labelled-fixture",
+            tool,
+            input: { query: "garden tools" },
+            status: "success",
+            startedAt: "2026-11-06",
+            durationMs: 1,
+            output,
+          }),
+        ),
+      { tool, output },
+    );
+    await page.goto(url + "/tools/" + tool);
+    await page.getByRole("region", { name: "Tool result" }).waitFor();
+    await capture(name);
+  }
 
   await page.goto(url + "/new");
   await page.getByRole("heading", { name: "New task", exact: true }).waitFor();

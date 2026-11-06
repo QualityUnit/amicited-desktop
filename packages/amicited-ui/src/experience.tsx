@@ -59,6 +59,9 @@ export function FirstRun({
         <MarketingResult
           result={result}
           fix={fix}
+          rerun={async () => {
+            if (brand) setResult(await check(brand));
+          }}
           retry={() => {
             setResult(null);
             setBrand(null);
@@ -252,7 +255,7 @@ function AnalysisBanner({
                   ? "watch"
                   : "busy"
           }
-          size={34}
+          size={28}
         />
         <span className="am-analysis-eyebrow">
           {
@@ -277,7 +280,9 @@ function AnalysisBanner({
             Fix with AI →
           </MarketingButton>
         )}
-        <ChevronDown className="am-banner-chevron" size={16} aria-hidden="true" />
+        <span className="am-banner-chevron">
+          <ChevronDown size={14} aria-hidden="true" />
+        </span>
       </summary>
       <p>{detail ?? "One-time check using the scope shown above. No daily history is measured."}</p>
     </details>
@@ -285,7 +290,7 @@ function AnalysisBanner({
 }
 function humanLabel(key: string) {
   const text = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ");
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
 export function formatResultValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
@@ -383,8 +388,10 @@ export function resultMarkdown(result: ToolResult) {
 }
 function VisibilityResult({
   output,
+  input,
   fix,
 }: {
+  input: unknown;
   output: Record<string, unknown>;
   fix?: ((prompt: string) => Promise<void>) | undefined;
 }) {
@@ -429,9 +436,9 @@ function VisibilityResult({
         action={
           fix
             ? () =>
-                void fix("Help improve my brand's AI visibility using this check.").catch(
-                  (e: Error) => setError(e.message),
-                )
+                void fix(
+                  `Help improve my brand's AI visibility using this check.\nInputs: ${JSON.stringify(input)}\nPrompts and findings: ${JSON.stringify(output)}`,
+                ).catch((e: Error) => setError(e.message))
             : undefined
         }
       />
@@ -539,7 +546,10 @@ function VisibilityResult({
                       void fix(
                         `Help my brand become a useful recommendation for: ${String(a.prompt)
                           .trim()
-                          .replace(/[.!?]+$/, "")}. Suggest evidence and content improvements.`,
+                          .replace(
+                            /[.!?]+$/,
+                            "",
+                          )}. Suggest evidence and content improvements.\nInputs: ${JSON.stringify(input)}\nPrompts and findings: ${JSON.stringify(output)}`,
                       ).catch((error: Error) => setError(error.message))
                     }
                   >
@@ -563,13 +573,16 @@ export function ResultFooterSlot({ result }: { result: ToolResult }) {
 export function MarketingResult({
   result,
   retry,
+  rerun,
   fix,
 }: {
   result: ToolResult;
   retry?: () => void;
+  rerun?: () => Promise<void>;
   fix?: ((prompt: string) => Promise<void>) | undefined;
 }) {
   const [error, setError] = useState("");
+  const [running, setRunning] = useState(false);
   const output = record(result.output);
   const findings = resultFindings(result);
   const needsProvider = output.status === "needs_provider";
@@ -616,7 +629,24 @@ export function MarketingResult({
       {retry && (
         <MarketingToolbar>
           <MarketingButton onClick={retry}>Edit inputs</MarketingButton>
-          <MarketingButton onClick={retry}>Run again</MarketingButton>
+          {rerun && (
+            <MarketingButton
+              disabled={running}
+              onClick={async () => {
+                setRunning(true);
+                setError("");
+                try {
+                  await rerun();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Could not run again.");
+                } finally {
+                  setRunning(false);
+                }
+              }}
+            >
+              {running ? "Working…" : "Run again"}
+            </MarketingButton>
+          )}
         </MarketingToolbar>
       )}
       <MarketingScope>
@@ -641,7 +671,7 @@ export function MarketingResult({
         )}
       </MarketingScope>
       {needsProvider ? (
-        <div className="am-finding">
+        <div className="am-card">
           <h3>Connect Claude or ChatGPT</h3>
           <p>
             {result.tool.startsWith("content.")
@@ -660,10 +690,10 @@ export function MarketingResult({
           <p>Your local website checks remain free and work without AI.</p>
         </div>
       ) : result.status === "error" ? (
-        <>
+        <div className="am-card">
           <p>{result.error?.message ?? "The check could not finish. Try again."}</p>
           <MarketingButton onClick={retry}>Try again</MarketingButton>
-        </>
+        </div>
       ) : (
         <>
           {findings.length > 0 && (
@@ -728,15 +758,6 @@ export function MarketingResult({
               />
             )}
           </div>
-          {typeof output.readingEase === "number" && (
-            <p>
-              {output.readingEase >= 60
-                ? "Easy to read. Good for most audiences."
-                : output.readingEase >= 30
-                  ? "Somewhat complex. Try shorter sentences."
-                  : "Hard to read. Simplify words and sentences."}
-            </p>
-          )}
 
           {findings.length > 0 && (
             <>
@@ -771,46 +792,62 @@ export function MarketingResult({
             </details>
           )}
           {result.tool === "ai.visibility.check" && (
-            <VisibilityResult output={{ ...output, brand: record(result.input).brand }} fix={fix} />
+            <VisibilityResult
+              input={result.input}
+              output={{ ...output, brand: record(result.input).brand }}
+              fix={fix}
+            />
           )}
           {!findings.length && result.tool !== "ai.visibility.check" && (
-            <dl>
-              {Object.entries(output)
-                .filter(
-                  ([key]) => !["score", "readingEase", "grade", "words", "note"].includes(key),
-                )
-                .map(([key, value]) => (
-                  <div className="am-finding" key={key}>
-                    <dt>{humanLabel(key)}</dt>
-                    <dd>
-                      <ResultValue value={value} />
-                    </dd>
-                  </div>
-                ))}
-            </dl>
-          )}
-          {result.tool === "serp.fetch" && (
-            <p>
-              AI Overview:{" "}
-              {record(output.aiOverview).present == null
-                ? "Could not check"
-                : record(output.aiOverview).present
-                  ? "Present"
-                  : "Not present"}
-            </p>
-          )}
-          {typeof output.note === "string" && <p className="am-hint">{output.note}</p>}
-          {result.tool === "serp.fetch" && output.status !== "checked" && (
-            <a
-              href={
-                "https://www.google.com/search?" +
-                new URLSearchParams({ q: String(record(result.input).query ?? "") })
-              }
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open this search →
-            </a>
+            <section className="am-card am-result-detail">
+              <SectionHead title={resultTitle(result)} subtitle="Results from this check" />
+              {typeof output.readingEase === "number" && (
+                <p>
+                  {output.readingEase >= 60
+                    ? "Easy to read. Good for most audiences."
+                    : output.readingEase >= 30
+                      ? "Somewhat complex. Try shorter sentences."
+                      : "Hard to read. Simplify words and sentences."}
+                </p>
+              )}
+              <dl>
+                {Object.entries(output)
+                  .filter(
+                    ([key]) => !["score", "readingEase", "grade", "words", "note"].includes(key),
+                  )
+                  .map(([key, value]) => (
+                    <div className="am-detail-row" key={key}>
+                      <dt>{humanLabel(key)}</dt>
+                      <dd>
+                        <ResultValue value={value} />
+                      </dd>
+                    </div>
+                  ))}
+              </dl>
+              {result.tool === "serp.fetch" && (
+                <p>
+                  AI Overview:{" "}
+                  {record(output.aiOverview).present == null
+                    ? "Could not check"
+                    : record(output.aiOverview).present
+                      ? "Present"
+                      : "Not present"}
+                </p>
+              )}
+              {typeof output.note === "string" && <p className="am-hint">{output.note}</p>}
+              {result.tool === "serp.fetch" && output.status !== "checked" && (
+                <a
+                  href={
+                    "https://www.google.com/search?" +
+                    new URLSearchParams({ q: String(record(result.input).query ?? "") })
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open this search →
+                </a>
+              )}
+            </section>
           )}
           <MarketingToolbar>
             <MarketingButton

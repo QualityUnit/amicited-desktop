@@ -87,6 +87,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const mode = useWorkspaceMode();
   const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
+  const hash = useLocation({ select: (location) => location.hash });
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
@@ -96,6 +97,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           mode={mode}
           taskView={taskTarget !== null}
           path={path}
+          hash={hash}
           navigate={(path) => void navigate({ to: path })}
         >
           {path === "/marketing-settings" ? (

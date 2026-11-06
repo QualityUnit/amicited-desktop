@@ -79,3 +79,9 @@ real local tool again, and then verifies Edit inputs retains that revised copy.
 The same-width parity set retains Home, Tools, visibility fixture, audit, offer,
 Tasks, connection and collapsed sidebar views. All visibility fixtures remain
 explicitly labelled and never invoke paid generation.
+
+The r9 journey distinguishes Run again (immediate same-input run) from Edit inputs,
+checks Tools disclosure persistence, and adds labelled `07c-writing-fixture` and
+`07d-keywords-fixture` captures at 1344 and 1440. Readability is also captured at
+1344; Home and audit gain dark 1344 counterparts. Each connection capture waits
+for its Connect button after switching theme to exclude transient splash screens.

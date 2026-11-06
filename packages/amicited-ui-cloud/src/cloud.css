@@ -2,15 +2,15 @@
   border: 1px solid var(--ai-line);
   border-radius: 12px;
   padding: 20px;
-  margin-top: 20px;
+  margin: 0 0 20px;
   background: var(--ai-surf);
   box-shadow: none;
 }
 .am-cloud-stack > * + * {
-  margin-top: 20px;
+  margin: 0 0 20px;
 }
 .am-cloud-stack h3 {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
 }
 .am-cloud-actions {

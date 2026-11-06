@@ -1,3 +1,4 @@
+import { packs, activeToolPack } from "./packs.js";
 import { useState, type ReactNode } from "react";
 import {
   MarketingButton,
@@ -17,6 +18,7 @@ const destinations = [
 export function MarketingShell({
   children,
   path,
+  hash = "",
   navigate,
   taskView = false,
   mode = "marketer",
@@ -24,6 +26,7 @@ export function MarketingShell({
 }: {
   children: ReactNode;
   path: string;
+  hash?: string;
   navigate: (path: string) => void;
   taskView?: boolean;
   mode?: "marketer" | "developer";
@@ -39,6 +42,14 @@ export function MarketingShell({
       return false;
     }
   });
+  const [toolsOpen, setToolsOpen] = useState(() => {
+    try {
+      return localStorage.getItem("amicited.tools-open") !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const activePack = activeToolPack(path, hash);
   const brand = readBrand();
   if (mode === "developer") return children;
   return (
@@ -71,6 +82,7 @@ export function MarketingShell({
               </div>
               <a
                 className="am-domain"
+                aria-label={`Edit website ${brand?.website ?? "settings"}`}
                 href="/settings/general#website"
                 onClick={(event) => {
                   event.preventDefault();
@@ -84,7 +96,7 @@ export function MarketingShell({
                   </strong>
                   <small>Your website</small>
                 </span>
-                <MarketingIcon name="chevron" />
+                <MarketingIcon name="edit" />
               </a>
               <nav aria-label="Main navigation">
                 {destinations.map(([label, href]) => (
@@ -99,43 +111,50 @@ export function MarketingShell({
                     data-tooltip={collapsed ? label : undefined}
                     aria-label={label}
                     aria-current={
-                      path === href || (href === "/tools" && path.startsWith("/tools/"))
-                        ? "page"
-                        : undefined
+                      path === href && !(href === "/tools" && activePack) ? "page" : undefined
                     }
                   >
                     <MarketingIcon name={label} />
                     <span>{label}</span>
                   </a>
                 ))}
-                <div className="am-nav-group">
+                <button
+                  type="button"
+                  className="am-nav-group"
+                  aria-expanded={toolsOpen}
+                  aria-controls="am-tools-group"
+                  onClick={() => {
+                    const next = !toolsOpen;
+                    setToolsOpen(next);
+                    try {
+                      localStorage.setItem("amicited.tools-open", String(next));
+                    } catch {
+                      /* Disclosure works without storage. */
+                    }
+                  }}
+                >
                   <span>Tools</span>
-                  <MarketingIcon name="chevron" />
+                  <MarketingIcon name={toolsOpen ? "down" : "right"} />
+                </button>
+                <div id="am-tools-group" hidden={!toolsOpen}>
+                  {packs.map(([pack, label]) => (
+                    <a
+                      key={pack}
+                      className="am-nav-row"
+                      href={"/tools#" + pack}
+                      data-tooltip={collapsed ? label : undefined}
+                      aria-label={label}
+                      aria-current={activePack === pack ? "page" : undefined}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        navigate("/tools#" + pack);
+                      }}
+                    >
+                      <MarketingIcon name={pack} />
+                      <span>{label}</span>
+                    </a>
+                  ))}
                 </div>
-                {(
-                  [
-                    ["seo", "Site audit"],
-                    ["ai-visibility", "AI visibility"],
-                    ["content", "Content"],
-                    ["serp", "SERP & keywords"],
-                  ] as const
-                ).map(([pack, label]) => (
-                  <a
-                    key={pack}
-                    className="am-nav-row"
-                    href={"/tools#" + pack}
-                    data-tooltip={collapsed ? label : undefined}
-                    aria-label={label}
-                    aria-current={path === "/tools#" + pack ? "page" : undefined}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate("/tools#" + pack);
-                    }}
-                  >
-                    <MarketingIcon name={pack} />
-                    <span>{label}</span>
-                  </a>
-                ))}
               </nav>
               <div className="am-rail-footer">
                 <div>

@@ -245,3 +245,10 @@ Last verified: 2026-11-06. The existing web extension points changed in this wav
 `src/amicited-cloud.browser.test.tsx` proves editing and a second tool run.
 `scripts/amicited/journey-screenshots.ts` adds the revised-input run capture.
 No server, provider, transport or upstream UI primitive changed.
+
+## Wave 11 parity corrections
+
+- `apps/web/src/marketing.tsx`: passes router hash separately to resolve the active portable tool pack.
+- `apps/web/src/rpc/amicitedCloud.tsx`: removes the nested Home promotion divider wrapper.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: covers direct reruns, remembered Tools disclosure and visibility handoff context; updates the dark palette expectation.
+- `scripts/amicited/journey-screenshots.ts`: captures writing/keyword fixtures and dark 1344 Home/audit, checks disclosure persistence, and waits for connection-page readiness.

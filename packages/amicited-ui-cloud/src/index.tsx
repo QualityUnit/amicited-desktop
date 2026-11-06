@@ -114,7 +114,6 @@ export function AmicitedConnectPanel({
   const pending = busy || connection.state === "connecting";
   return (
     <section aria-label="AmICited connection" className="am-cloud-stack">
-      <h3>Your account</h3>
       <p>Your local tools always work without an account.</p>
       {connection.state === "connected" ? (
         <>
