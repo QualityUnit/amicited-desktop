@@ -36,7 +36,7 @@ bounded runner. Tool modules live in `@amicited/tools`; `MarketingTools` in its
 `amicited.tools.run` are authenticated WebSocket RPC methods. Local tools need
 no cloud account. Results are returned to the caller; durable history is deferred.
 
-MCP registration is deferred to Wave 1: extend `apps/server/src/mcp/McpHttpServer.ts`
+Wave 1A registers MCP tools through `apps/server/src/mcp/McpHttpServer.ts`
 and the toolkit/access definitions beside it. Upstream’s MCP toolkits attach
 per-tool authorization metadata; registration must include those scopes and use
 the same MarketingTools service. Do not bypass this with a second unauthenticated
@@ -74,3 +74,30 @@ use the existing authenticated project commands. The latest tool result is retai
 for the current browser session; durable result history is still deferred.
 `ResultFooterSlot` in `@amicited/ui-marketing` intentionally renders nothing for the
 later cloud connection wave. Local tool results never require a cloud account.
+Wave 1A adds these fenced marketing integration seams:
+
+- `apps/server/src/mcp/McpHttpServer.ts`: registers the authenticated marketing discovery/run toolkit with the same service as UI RPC.
+- `apps/server/src/mcp/toolkits/marketing/{tools,handlers}.ts`: thin marketing discovery and execution adapters; execution requires environment write access because it can consume the user's AI subscription.
+- `apps/server/src/marketing/MarketingToolsLive.ts`: bridges the portable library to the selected provider instance's existing one-shot runner, resolving connection state on each invocation.
+- `apps/server/src/ws.ts`: supplies the provider-aware marketing service to existing marketing RPC handlers.
+- `packages/provider-core/src/server/textGeneration.ts`: optional marketing text capability, leaving unsupported adapters explicit.
+- `packages/provider-core/src/server/textGenerationOperations.ts`: exposes full marketing answers through the existing structured one-shot runner (no title truncation, no tools).
+- `packages/provider-core/src/server/orchestrationInstructions.ts`: short shared marketing tool catalogue, delivered wherever existing orchestration instructions are injected.
+- `packages/provider-opencode/src/server/textGeneration.ts`: admits marketing generation in existing typed error context.
+- `apps/server/src/provider/AgentContextBudget.test.ts` and `agentContextBudget.json`: register the provider dependency and account for the catalogue and two MCP meta-tools.
+- `evals/mcp-tool-use/run.ts`: imports the real marketing toolkit into the existing eval tool set.
+- `scripts/amicited/journey-screenshots.ts`: captures website audit and disconnected AI visibility results in the isolated journey.
+
+The generic marketing result renderer now expands nested results instead of showing
+`[object Object]`. Its form omits blank optional values and decodes comma-separated
+array inputs so the existing tool cards can submit optional source URLs and competitors.
+Wave 1B supplies the marketer layout and result presentation.
+
+Provider-backed tools use the configured text-generation model, with its exact
+provider/model identity; they do not silently select another assistant. The shared
+runner supports Claude, Codex, OpenCode and Antigravity; drivers without this
+capability return `needs_provider`. SERP uses plain fetch to avoid taking over a
+user's browser tab; blocked or changed Google layouts are explicit results. Site
+checks are basic heuristics, not full standards validators. Sitemap indexes count
+child sitemap entries rather than claiming a count of all pages. Visibility has no
+live search and ranks only the supplied brand/competitors by first occurrence.

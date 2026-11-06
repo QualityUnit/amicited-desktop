@@ -23,6 +23,27 @@ async function availablePort() {
   await new Promise<void>((done) => socket.close(() => done()));
   return address.port;
 }
+// Disable installed assistants in this temporary home so captures cannot spend provider usage.
+await NodeFSP.mkdir(NodePath.join(home, "userdata"), { recursive: true });
+await NodeFSP.writeFile(
+  NodePath.join(home, "userdata", "settings.json"),
+  JSON.stringify({
+    providerInstances: Object.fromEntries(
+      [
+        "codex",
+        "claudeAgent",
+        "cursor",
+        "grok",
+        "opencode",
+        "antigravity",
+        "kiro",
+        "muse",
+        "pi",
+        "fx",
+      ].map((driver) => [driver, { driver, enabled: false }]),
+    ),
+  }),
+);
 const serverPort = await availablePort();
 const webPort = await availablePort();
 const env: NodeJS.ProcessEnv = {
@@ -120,6 +141,24 @@ try {
   await page.goto(url + "/tools/seo.ssl.check");
   await page.getByRole("textbox", { name: "domain" }).fill("example.com");
   await capture("06-tool-form");
+  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
+  await capture("06-tool-result");
+  await page.goto(url + "/tools/seo.site.audit");
+  await page.getByRole("textbox", { name: "url", exact: true }).fill("https://example.com");
+  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
+  await capture("05-site-audit");
+  await page.goto(url + "/tools/ai.visibility.check");
+  await page.getByRole("textbox", { name: "brand", exact: true }).fill("Acme");
+  await page.getByRole("textbox", { name: "website", exact: true }).fill("https://example.com");
+  await page.getByRole("textbox", { name: "category", exact: true }).fill("garden tools");
+  await page.getByRole("button", { name: "Run check" }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
+  await capture("05b-ai-visibility");
   await page.goto(url + "/new");
   await page.getByRole("heading", { name: "New task", exact: true }).waitFor();
   await capture("07-new-task");
@@ -127,6 +166,7 @@ try {
     .getByRole("textbox", { name: "What do you want to get done?" })
     .fill("Draft a short marketing plan");
   await page.getByRole("button", { name: "Start a task", exact: true }).click();
+
   await page.waitForURL(/\/draft\//);
 
   await page.goto(url + "/settings/general");

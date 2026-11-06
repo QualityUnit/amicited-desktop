@@ -258,14 +258,21 @@ export function ToolForm({
           setBusy(true);
           setError("");
           const input = Object.fromEntries(
-            Object.entries(properties).map(([key, schema]) => [
-              key,
-              schema.type === "number" || schema.type === "integer"
-                ? Number(values[key])
-                : schema.type === "boolean"
-                  ? values[key] === "true"
-                  : (values[key] ?? ""),
-            ]),
+            Object.entries(properties)
+              .filter(([key]) => required.includes(key) || Boolean(values[key]?.trim()))
+              .map(([key, schema]) => [
+                key,
+                schema.type === "array"
+                  ? (values[key] ?? "")
+                      .split(",")
+                      .map((value) => value.trim())
+                      .filter(Boolean)
+                  : schema.type === "number" || schema.type === "integer"
+                    ? Number(values[key])
+                    : schema.type === "boolean"
+                      ? values[key] === "true"
+                      : (values[key] ?? ""),
+              ]),
           );
           void run(input)
             .then((value) => {

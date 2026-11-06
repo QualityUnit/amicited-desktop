@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { MarketingToolkit } from "../../apps/server/src/mcp/toolkits/marketing/tools.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 /**
  * Replays small fake threads on a Claude or Codex model to check T3's MCP tool use. A trimmed
@@ -428,6 +429,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   EnvironmentToolkit,
   PreviewControlsToolkit,
   WorktreeToolkit,
+  MarketingToolkit,
   PullRequestsToolkit,
   PreviewToolkit,
   DeviceToolkit,
