@@ -16,7 +16,10 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { createLocalApi } from "../localApi";
-const CloudButton = (props: ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props} />;
+const CloudButton = (props: ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <MarketingButton {...props} />
+);
+import { MarketingButton } from "@amicited/ui-marketing";
 import { Input } from "../components/ui/input";
 const ui = { Button: CloudButton, Input };
 const openExternal = (url: string) => {
@@ -191,9 +194,9 @@ export function CloudTools() {
       <div className="am-quick">
         {["Daily AI visibility tracking", "Competitor citation gaps", "Multi-country tracking"].map(
           (name) => (
-            <button key={name} onClick={() => setSelected(name)}>
+            <MarketingButton key={name} onClick={() => setSelected(name)}>
               {name} →
-            </button>
+            </MarketingButton>
           ),
         )}
       </div>
@@ -242,17 +245,19 @@ export function CloudPage() {
       {connection?.state !== "connected" && (
         <>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-          <button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</button>
+          <MarketingButton onClick={() => openExternal(SIGNUP_URL)}>
+            Start 7-day free trial
+          </MarketingButton>
         </>
       )}
       <CloudHome />
       <CloudSettings />
-      <button
+      <MarketingButton
         className="am-text-button"
         onClick={() => createUpsellGate(localStorage, sessionStorage).dismiss()}
       >
         Permanently hide trial offers
-      </button>
+      </MarketingButton>
     </div>
   );
 }

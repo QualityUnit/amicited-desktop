@@ -1,3 +1,21 @@
+import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Textarea } from "./components/ui/textarea";
+import { MarketingUiContext, MarketingButton, MarketingTextarea } from "@amicited/ui-marketing";
+import type { ComponentProps } from "react";
+const KitButton = ({ className, type = "submit", ...props }: ComponentProps<"button">) => (
+  <Button
+    type={type}
+    variant={
+      className === "am-text-button" ? "link" : className === "am-primary" ? "default" : "outline"
+    }
+    {...props}
+  />
+);
+const KitInput = ({ size: _size, ...props }: ComponentProps<"input">) => (
+  <Input nativeInput {...props} />
+);
+const marketingUi = { Button: KitButton, Input: KitInput, Textarea };
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { isUsefulResult } from "@amicited/tools-core";
 import { usePrimarySettings } from "./hooks/useSettings";
@@ -68,40 +86,43 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("amicited-navigate", listener);
   }, [navigate]);
   return mode === "marketer" ? (
-    <ResultFooterContext value={renderCloudFooter}>
-      <MarketingShell
-        taskView={taskTarget !== null}
-        path={path}
-        navigate={(path) => void navigate({ to: path })}
-      >
-        {path === "/marketing-settings" ? (
-          <CloudPage />
-        ) : path === "/settings/general" ? (
-          <MarketingSettings />
-        ) : path.startsWith("/settings") ? (
-          <MarketingSettings />
-        ) : path === "/usage" ? (
-          <div className="am-page">
-            <h1>Your AI plan usage</h1>
-            <p>
-              These limits come from your AI subscriptions. Local website checks do not use your AI
-              allowance.
-            </p>
-            <section className="am-card">
-              <MarketingSubscriptions usageLink={false} />
-            </section>
-          </div>
-        ) : ["/pull-requests", "/source-control"].includes(path) ? (
-          <Home
-            startTask={async () => {
-              await navigate({ to: "/new" });
-            }}
-          />
-        ) : (
-          children
-        )}
-      </MarketingShell>
-    </ResultFooterContext>
+    <MarketingUiContext value={marketingUi}>
+      <ResultFooterContext value={renderCloudFooter}>
+        <MarketingShell
+          mode={mode}
+          taskView={taskTarget !== null}
+          path={path}
+          navigate={(path) => void navigate({ to: path })}
+        >
+          {path === "/marketing-settings" ? (
+            <CloudPage />
+          ) : path === "/settings/general" ? (
+            <MarketingSettings />
+          ) : path.startsWith("/settings") ? (
+            <MarketingSettings />
+          ) : path === "/usage" ? (
+            <div className="am-page">
+              <h1>Your AI plan usage</h1>
+              <p>
+                These limits come from your AI subscriptions. Local website checks do not use your
+                AI allowance.
+              </p>
+              <section className="am-card">
+                <MarketingSubscriptions usageLink={false} />
+              </section>
+            </div>
+          ) : ["/pull-requests", "/source-control"].includes(path) ? (
+            <Home
+              startTask={async () => {
+                await navigate({ to: "/new" });
+              }}
+            />
+          ) : (
+            children
+          )}
+        </MarketingShell>
+      </ResultFooterContext>
+    </MarketingUiContext>
   ) : (
     children
   );
@@ -206,28 +227,32 @@ export function MarketingFirstRun() {
   const run = useAtomCommand(runCommand);
   const navigate = useNavigate();
   return (
-    <ResultFooterContext value={renderCloudFooter}>
-      <FirstRun
-        fix={actions.startTask}
-        subscriptions={<MarketingSubscriptions />}
-        prepare={actions.prepare}
-        skip={() => {
-          localStorage.setItem("amicited.onboarded", "true");
-          void navigate({ to: "/home" });
-        }}
-        check={async (brand) => {
-          if (!environmentId) throw new Error("Not connected");
-          const response = await run({
-            environmentId,
-            input: { name: "seo.site.audit", input: { url: brand.website } },
-          });
-          if (response._tag !== "Success") throw new Error("Could not run check");
-          const result = response.value as unknown as ToolResult;
-          rememberResult(result);
-          return result;
-        }}
-      />
-    </ResultFooterContext>
+    <MarketingUiContext value={marketingUi}>
+      <ResultFooterContext value={renderCloudFooter}>
+        <div data-amicited-shell="" className="am-first-run-surface">
+          <FirstRun
+            fix={actions.startTask}
+            subscriptions={<MarketingSubscriptions />}
+            prepare={actions.prepare}
+            skip={() => {
+              localStorage.setItem("amicited.onboarded", "true");
+              void navigate({ to: "/home" });
+            }}
+            check={async (brand) => {
+              if (!environmentId) throw new Error("Not connected");
+              const response = await run({
+                environmentId,
+                input: { name: "seo.site.audit", input: { url: brand.website } },
+              });
+              if (response._tag !== "Success") throw new Error("Could not run check");
+              const result = response.value as unknown as ToolResult;
+              rememberResult(result);
+              return result;
+            }}
+          />
+        </div>
+      </ResultFooterContext>
+    </MarketingUiContext>
   );
 }
 function rememberResult(result: ToolResult) {
@@ -329,7 +354,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                 </small>
               </span>
               {ready ? (
-                <button
+                <MarketingButton
                   className="am-text-button"
                   onClick={() =>
                     void choose(driver!).catch(() =>
@@ -340,9 +365,9 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                   {settings.textGenerationModelSelection?.instanceId === provider?.instanceId
                     ? `${label} selected`
                     : `Use ${label}`}
-                </button>
+                </MarketingButton>
               ) : (
-                <button
+                <MarketingButton
                   onClick={() => {
                     setConnect(connect === label ? null : (label ?? null));
                     if (provider && !provider.enabled && environmentId) {
@@ -377,7 +402,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                   }}
                 >
                   Connect {label}
-                </button>
+                </MarketingButton>
               )}
             </div>
           );
@@ -432,7 +457,7 @@ export function MarketingNewTask() {
       >
         <label>
           What do you want to get done?
-          <textarea
+          <MarketingTextarea
             autoFocus
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -440,7 +465,7 @@ export function MarketingNewTask() {
             required
           />
         </label>
-        <button>Continue</button>
+        <MarketingButton>Continue</MarketingButton>
         <p>Next, review your request and press Send to start your assistant.</p>
         {error && <p role="alert">{error}</p>}
       </form>

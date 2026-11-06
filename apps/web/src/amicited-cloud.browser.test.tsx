@@ -1,3 +1,4 @@
+import { MarketingShell } from "@amicited/ui-marketing";
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { expect, it, vi } from "vite-plus/test";
@@ -62,4 +63,25 @@ it("validates a pasted key and clears it after connecting", async () => {
     expect(onChange).toHaveBeenCalledWith({ state: "connected", workspace: "Brand", scopes: [] }),
   );
   await expect.element(screen.getByLabelText("Workspace API key")).toHaveValue("");
+});
+
+it("scopes marketer tokens to the shell and removes them in developer mode", async () => {
+  await using screen = await render(
+    <MarketingShell path="/home" navigate={() => {}}>
+      <h1>Workspace</h1>
+    </MarketingShell>,
+  );
+  await expect.element(screen.getByRole("heading", { name: "Workspace" })).toBeVisible();
+  const shell = document.querySelector("[data-amicited-shell]");
+  expect(shell).not.toBeNull();
+  expect(getComputedStyle(shell!).getPropertyValue("--primary").trim()).toBe("#3b5cff");
+  document.documentElement.classList.add("dark");
+  expect(getComputedStyle(shell!).getPropertyValue("--ai-bg").trim()).toBe("#11151e");
+  document.documentElement.classList.remove("dark");
+  await screen.rerender(
+    <MarketingShell mode="developer" path="/home" navigate={() => {}}>
+      <h1>Developer workspace</h1>
+    </MarketingShell>,
+  );
+  expect(document.querySelector("[data-amicited-shell]")).toBeNull();
 });

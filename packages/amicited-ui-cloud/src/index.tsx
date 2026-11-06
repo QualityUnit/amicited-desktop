@@ -24,7 +24,7 @@ export function AmicitedUpsellCard({
   result,
   gate,
   connected = false,
-  ui: _ui,
+  ui: { Button },
   openExternal,
   onConnect,
 }: {
@@ -54,11 +54,13 @@ export function AmicitedUpsellCard({
       <p>{comparison.missing}</p>
       <p>{comparison.pricing}</p>
       <div className="am-cloud-actions">
-        <button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</button>
-        <button className="am-text-button" onClick={onConnect}>
+        <Button className="am-primary" onClick={() => openExternal(SIGNUP_URL)}>
+          Start 7-day free trial
+        </Button>
+        <Button className="am-text-button" onClick={onConnect}>
           I already have AmICited
-        </button>
-        <button
+        </Button>
+        <Button
           className="am-text-button"
           onClick={() => {
             gate.snooze(Date.now());
@@ -66,7 +68,7 @@ export function AmicitedUpsellCard({
           }}
         >
           Not now
-        </button>
+        </Button>
       </div>
     </aside>
   );
@@ -129,7 +131,11 @@ export function AmicitedConnectPanel({
               )}
             </div>
           )}
-          <Button disabled={pending} onClick={() => void run(actions.connectOAuth)}>
+          <Button
+            className="am-primary"
+            disabled={pending}
+            onClick={() => void run(actions.connectOAuth)}
+          >
             {pending ? "Connecting…" : "Connect with AmICited"}
           </Button>
           <details>
@@ -202,7 +208,7 @@ export function AmicitedConnectedBadge({
       <p>{domains.length ? domains.join(", ") : "No domains tracked yet"}</p>
       {headlines.map((item) => (
         <p key={item.label}>
-          {item.label}: {item.value}
+          {item.label}: <span className="am-number">{item.value}</span>
         </p>
       ))}
       <Button onClick={() => void open()}>Open in AmICited</Button>

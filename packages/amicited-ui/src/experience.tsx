@@ -1,3 +1,5 @@
+/* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
+import { MarketingButton, MarketingInput, KpiTile, SectionHead } from "./primitives.js";
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { ToolResult } from "@amicited/tools-core";
 export type Brand = { website: string; name: string };
@@ -21,8 +23,8 @@ export function AmICitedMark() {
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
       <svg aria-hidden="true" width="30" height="30" viewBox="0 0 32 32">
-        <rect width="32" height="32" rx="9" fill="#50d6bb" />
-        <path d="M8 24 16 7l8 17h-5l-3-7-3 7Z" fill="#102d32" />
+        <rect width="32" height="32" rx="9" fill="var(--ai-accent)" />
+        <path d="M8 24 16 7l8 17h-5l-3-7-3 7Z" fill="white" />
         <circle cx="24" cy="8" r="3" fill="white" />
       </svg>
       <strong>AmICited</strong>
@@ -50,19 +52,20 @@ export function FirstRun({
   const [result, setResult] = useState<ToolResult | null>(null);
   if (result)
     return (
-      <div className="am-page am-onboarding">
+      <div data-amicited-shell="" className="am-page am-onboarding">
         <AmICitedMark />
+        <h1>Your first useful result</h1>
         <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />
         <section className="am-card">
           <h2>Want AI to fix these?</h2>
           <p>Connect Claude or ChatGPT using your existing subscription.</p>
           {subscriptions}
         </section>
-        <button onClick={skip}>Go to Home →</button>
+        <MarketingButton onClick={skip}>Go to Home →</MarketingButton>
       </div>
     );
   return (
-    <div className="am-page am-onboarding">
+    <div data-amicited-shell="" className="am-page am-onboarding">
       <AmICitedMark />
       <p className="am-eyebrow">YOUR FIRST WIN STARTS HERE</p>
       <h1>What’s your website?</h1>
@@ -70,9 +73,9 @@ export function FirstRun({
       {brand && (
         <p className="am-card">
           <b>{brand.name}</b> · {brand.website}{" "}
-          <button className="am-text-button" onClick={() => setBrand(null)}>
+          <MarketingButton className="am-text-button" onClick={() => setBrand(null)}>
             Edit
-          </button>
+          </MarketingButton>
         </p>
       )}
       {!brand && (
@@ -99,7 +102,7 @@ export function FirstRun({
         >
           <label>
             Website URL
-            <input
+            <MarketingInput
               required
               placeholder="https://your-website.com"
               value={website}
@@ -108,22 +111,22 @@ export function FirstRun({
           </label>
           <label>
             Brand name <small>(optional)</small>
-            <input
+            <MarketingInput
               placeholder="We’ll use your domain"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <button disabled={busy}>
+          <MarketingButton className="am-primary" disabled={busy}>
             {busy ? "Checking your website…" : brand ? "Update website" : "Continue"}
-          </button>
+          </MarketingButton>
         </form>
       )}
       {error && <p role="alert">{error}</p>}
       <p>
-        <button className="am-text-button" onClick={skip}>
+        <MarketingButton className="am-text-button" onClick={skip}>
           Skip for now
-        </button>
+        </MarketingButton>
       </p>
       <small>Free local tools. No AmICited account needed.</small>
     </div>
@@ -198,7 +201,7 @@ function humanLabel(key: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 export function formatResultValue(value: unknown): string {
-  if (value === null || value === undefined) return "Not available";
+  if (value === null || value === undefined) return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)) {
     const date = new Date(value);
@@ -234,7 +237,11 @@ function ResultValue({ value }: { value: unknown }): ReactNode {
         ))}
       </dl>
     );
-  return formatResultValue(value);
+  return (
+    <span className={typeof value === "number" ? "am-number" : undefined}>
+      {formatResultValue(value)}
+    </span>
+  );
 }
 export function resultTitle(result: ToolResult) {
   const titles: Record<string, string> = {
@@ -295,32 +302,77 @@ function VisibilityResult({
   fix?: ((prompt: string) => Promise<void>) | undefined;
 }) {
   const summary = record(output.summary);
-  const scope = record(output.scope);
   const [error, setError] = useState("");
   return (
     <div>
-      <h2>
-        Mentioned in {String(summary.mentioned ?? 0)} of {String(summary.answered ?? 0)} answers
-      </h2>
-      <p>
-        1 assistant, {Array.isArray(scope.prompts) ? scope.prompts.length : 0} prompts, this
-        machine, just now
-      </p>
-      <p>
-        Share of voice:{" "}
-        {summary.shareOfVoice === null ? "Not available" : `${summary.shareOfVoice}%`} among your
-        brand and supplied competitors.
-      </p>
+      <SectionHead
+        title={`Mentioned in ${formatResultValue(summary.mentioned)} of ${formatResultValue(summary.answered)} answers`}
+      />
+      <div className="am-kpis">
+        <KpiTile
+          label="Brand mentions"
+          value={summary.mentioned == null ? null : String(summary.mentioned)}
+          hint="Across answered prompts"
+        />
+        <KpiTile
+          label="Share of voice"
+          value={summary.shareOfVoice == null ? null : `${summary.shareOfVoice}%`}
+          hint="Among supplied brands"
+        />
+        <KpiTile
+          label="Answers checked"
+          value={summary.answered == null ? null : String(summary.answered)}
+          hint="One assistant · this run"
+        />
+      </div>
       <p>{String(output.message ?? "")}</p>
-      {Array.isArray(summary.competitors) &&
-        summary.competitors.map((v) => {
-          const c = record(v);
-          return (
-            <p className="am-finding" key={String(c.brand)}>
-              <b>{String(c.brand)}</b> · mentioned in {String(c.answers)} answers
-            </p>
+      <section className="am-card">
+        <SectionHead
+          title="Top brands"
+          subtitle="Share of mentions among supplied brands in this check"
+        />
+        {(() => {
+          const competitors = Array.isArray(summary.competitors)
+            ? summary.competitors.map(record)
+            : [];
+          const own = typeof summary.mentioned === "number" ? summary.mentioned : null;
+          const total = competitors.reduce(
+            (n, c) => n + (typeof c.answers === "number" ? c.answers : 0),
+            own ?? 0,
           );
-        })}
+          return [
+            { brand: output.brand ?? readBrand()?.name ?? "Your brand", answers: own },
+            ...competitors,
+          ].map((c, i) => (
+            <div className="am-brand-row" key={String(c.brand)}>
+              <span
+                className="am-series-dot"
+                style={{
+                  background:
+                    i === 0
+                      ? "var(--ai-accent)"
+                      : [
+                          "#22c1c3",
+                          "#f7a93d",
+                          "#e85d75",
+                          "#9b6dff",
+                          "#10b981",
+                          "#f472b6",
+                          "#0ea5e9",
+                        ][(i - 1) % 7],
+                }}
+              />
+              <b>{String(c.brand)}</b>
+              {i === 0 && <span className="am-you">you</span>}
+              <span className="am-number">
+                {typeof c.answers === "number" && total > 0
+                  ? `${((c.answers / total) * 100).toFixed(1)}%`
+                  : "—"}
+              </span>
+            </div>
+          ));
+        })()}
+      </section>
       {Array.isArray(output.answers) &&
         output.answers.map((v) => {
           const a = record(v);
@@ -336,7 +388,9 @@ function VisibilityResult({
                     ? "Not mentioned"
                     : "Could not check"}
               </span>
-              <p>Position: {a.position === null ? "Not ranked" : String(a.position)}</p>
+              <p>
+                Position: <span className="am-number">{formatResultValue(a.position)}</span>
+              </p>
               <p>{String(a.excerpt ?? "No answer available").slice(0, 700)}</p>
               <p>
                 Cited domains:{" "}
@@ -353,7 +407,7 @@ function VisibilityResult({
                   : "None"}
               </p>
               {a.mentioned === false && fix && (
-                <button
+                <MarketingButton
                   onClick={() =>
                     void fix(
                       `Help my brand become a useful recommendation for: ${String(a.prompt)}. Suggest evidence and content improvements.`,
@@ -361,7 +415,7 @@ function VisibilityResult({
                   }
                 >
                   Fix this with AI
-                </button>
+                </MarketingButton>
               )}
             </article>
           );
@@ -424,17 +478,40 @@ export function MarketingResult({
       ) : result.status === "error" ? (
         <>
           <p>{result.error?.message ?? "The check could not finish. Try again."}</p>
-          <button onClick={retry}>Try again</button>
+          <MarketingButton onClick={retry}>Try again</MarketingButton>
         </>
       ) : (
         <>
-          {(typeof output.score === "number" || typeof output.grade === "string") && (
-            <strong className="am-score">
-              {typeof output.score === "number"
-                ? `${output.score}/100`
-                : `Grade ${String(output.grade)}`}
-            </strong>
-          )}
+          <div className="am-kpis">
+            {typeof output.score === "number" && (
+              <KpiTile
+                label="Audit score"
+                value={`${output.score}/100`}
+                hint="Basic website checks"
+              />
+            )}
+            {typeof output.readingEase === "number" && (
+              <KpiTile
+                label="Reading ease"
+                value={output.readingEase}
+                hint="Higher is easier to read"
+              />
+            )}
+            {typeof output.grade === "number" && (
+              <KpiTile label="Reading grade" value={output.grade} />
+            )}
+            {typeof record(output.details).daysLeft === "number" && (
+              <KpiTile label="SSL days left" value={String(record(output.details).daysLeft)} />
+            )}
+            {typeof output.words === "number" && <KpiTile label="Words" value={output.words} />}
+            {Array.isArray(output.organic) && output.status === "checked" && (
+              <KpiTile
+                label="Search results"
+                value={output.organic.length}
+                hint="From this machine"
+              />
+            )}
+          </div>
           {typeof output.readingEase === "number" && (
             <p>
               {output.readingEase >= 60
@@ -446,7 +523,7 @@ export function MarketingResult({
           )}
           {typeof output.coverage === "string" && <p>{output.coverage}</p>}
           {findings.length > 0 && (
-            <p>
+            <p className="am-number">
               {findings.filter((f) => f.status === "fail").length} to fix ·{" "}
               {findings.filter((f) => f.status === "warn").length} worth improving ·{" "}
               {findings.filter((f) => f.status === "pass").length} passing
@@ -454,7 +531,7 @@ export function MarketingResult({
           )}
           {Array.isArray(output.topFixes) && output.topFixes.length > 0 && (
             <section className="am-card">
-              <h2>Start here</h2>
+              <SectionHead title="Start here" />
               <ol>
                 {output.topFixes.map((v) => (
                   <li key={String(v)}>{String(v)}</li>
@@ -476,7 +553,9 @@ export function MarketingResult({
               })}
             </details>
           )}
-          {result.tool === "ai.visibility.check" && <VisibilityResult output={output} fix={fix} />}
+          {result.tool === "ai.visibility.check" && (
+            <VisibilityResult output={{ ...output, brand: record(result.input).brand }} fix={fix} />
+          )}
           {["fail", "warn", "unknown", "pass"].map((status) => {
             const group = findings.filter((f) => f.status === status);
             return group.length ? (
@@ -511,7 +590,7 @@ export function MarketingResult({
                       </p>
                     )}
                     {fix && status !== "pass" && (
-                      <button
+                      <MarketingButton
                         onClick={() =>
                           void fix(
                             `Help me fix this finding for ${JSON.stringify(result.input)}: ${f.title}\n${f.why}\n${f.fix}`,
@@ -519,7 +598,7 @@ export function MarketingResult({
                         }
                       >
                         Fix this with AI
-                      </button>
+                      </MarketingButton>
                     )}
                   </article>
                 ))}
@@ -539,7 +618,7 @@ export function MarketingResult({
             </dl>
           )}
           <div className="am-actions">
-            <button
+            <MarketingButton
               onClick={() =>
                 void navigator.clipboard
                   .writeText(resultMarkdown(result))
@@ -547,8 +626,8 @@ export function MarketingResult({
               }
             >
               Copy results
-            </button>
-            <button
+            </MarketingButton>
+            <MarketingButton
               onClick={() => {
                 const url = URL.createObjectURL(
                   new Blob([resultMarkdown(result)], { type: "text/markdown" }),
@@ -561,7 +640,7 @@ export function MarketingResult({
               }}
             >
               Export Markdown
-            </button>
+            </MarketingButton>
           </div>
         </>
       )}

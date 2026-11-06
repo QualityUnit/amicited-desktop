@@ -1,3 +1,4 @@
+import { MarketingButton, MarketingInput, MarketingTextarea, SectionHead } from "./primitives.js";
 import {
   initialFields,
   resolveField,
@@ -49,48 +50,23 @@ const destinations = [
   ["Settings", "/settings/general"],
   ["AmICited", "/marketing-settings"],
 ] as const;
-const style = {
-  nav: { width: 238, flexShrink: 0, padding: 28, background: "#102d32", color: "#edfafa" },
-  card: {
-    background: "var(--card, white)",
-    border: "1px solid var(--border, #dce5e7)",
-    borderRadius: 16,
-    padding: 28,
-    marginTop: 20,
-  },
-  button: {
-    border: 0,
-    borderRadius: 8,
-    padding: "12px 22px",
-    background: "#126c64",
-    color: "white",
-    cursor: "pointer",
-  },
-  input: {
-    display: "block",
-    width: "100%",
-    border: "1px solid #bdced1",
-    borderRadius: 8,
-    padding: 14,
-    margin: "10px 0 20px",
-    color: "var(--foreground, #182a3a)",
-    background: "var(--card, white)",
-  },
-} as const;
 export function MarketingShell({
   children,
   path,
   navigate,
   taskView = false,
+  mode = "marketer",
 }: {
   children: ReactNode;
   path: string;
   navigate: (path: string) => void;
   taskView?: boolean;
+  mode?: "marketer" | "developer";
 }) {
+  if (mode === "developer") return children;
   return (
-    <div className="am-shell">
-      <aside style={style.nav}>
+    <div data-amicited-shell="" className="am-shell">
+      <aside className="am-rail">
         <AmICitedMark />
         <p style={{ opacity: 0.7, fontSize: 13 }}>Your marketing workspace</p>
         <nav aria-label="Main navigation" style={{ marginTop: 48 }}>
@@ -102,15 +78,12 @@ export function MarketingShell({
                 event.preventDefault();
                 navigate(href);
               }}
-              style={{
-                display: "block",
-                color: "inherit",
-                padding: "14px 12px",
-                marginBottom: 8,
-                borderRadius: 8,
-                background: path === href ? "#245258" : "transparent",
-                textDecoration: "none",
-              }}
+              className="am-nav-row"
+              aria-current={
+                path === href || (href === "/tools" && path.startsWith("/tools/"))
+                  ? "page"
+                  : undefined
+              }
             >
               {label}
             </a>
@@ -154,10 +127,10 @@ export function Home({
   return (
     <>
       <p className="am-eyebrow">{readBrand()?.name ?? "YOUR WORKSPACE"}</p>
-      <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>What will you grow today?</h1>
+      <h1>What will you grow today?</h1>
       <p>Turn a marketing question into your next useful action.</p>
       <form
-        style={style.card}
+        className="am-card"
         onSubmit={(event) => {
           event.preventDefault();
           void startTask(prompt).catch(() =>
@@ -166,20 +139,20 @@ export function Home({
         }}
       >
         <label htmlFor="ask">Ask your AI assistant</label>
-        <textarea
+        <MarketingTextarea
           id="ask"
-          style={style.input}
+
           placeholder="What do you want to get done?"
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           required
         />
-        <button style={style.button}>Continue</button>
+        <MarketingButton className="am-primary">Continue</MarketingButton>
         <p>Next, review your request and press Send to start your assistant.</p>
         <p role="alert">{error}</p>
       </form>
       <section className="am-card">
-        <h2>Your next useful action</h2>
+        <SectionHead title="Your next useful action" />
         <div className="am-quick">
           {[
             ["Check my AI visibility", "/tools#ai-visibility"],
@@ -194,12 +167,12 @@ export function Home({
         </div>
       </section>
       <section className="am-card" id="ai-subscriptions">
-        <h2>Your AI subscriptions</h2>
+        <SectionHead title="Your AI subscriptions" />
         {subscriptions}
       </section>
       {cloud}
       <section className="am-card">
-        <h2>Recent results</h2>
+        <SectionHead title="Recent results" />
         {recent ?? <p>Your completed checks will appear here.</p>}
       </section>
     </>
@@ -208,12 +181,12 @@ export function Home({
 export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
   return (
     <>
-      <p>FREE · RUNS LOCALLY</p>
-      <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>Your marketing toolkit</h1>
+      <p className="am-eyebrow">FREE · RUNS LOCALLY</p>
+      <h1>Your marketing toolkit</h1>
       <p>Useful checks, clear results. No account needed.</p>
       {["seo", "ai-visibility", "content", "serp"].map((pack) => (
         <section key={pack} id={pack}>
-          <h2 style={{ fontSize: 20, fontWeight: 600, margin: "20px 0 12px" }}>
+          <h2 className="am-pack-title">
             {
               {
                 seo: "Site audit basics",
@@ -233,12 +206,9 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
             {tools
               .filter((tool) => tool.pack === pack)
               .map((tool) => (
-                <a
-                  style={{ ...style.card, color: "inherit", textDecoration: "none" }}
-                  key={tool.name}
-                  href={"/tools/" + tool.name}
-                >
-                  <h3 style={{ fontSize: 18, fontWeight: 600, margin: "12px 0" }}>{tool.title}</h3>
+                <a className="am-card am-tool-card" key={tool.name} href={"/tools/" + tool.name}>
+                  <span className="am-status am-status-neutral">Free local tool</span>
+                  <h3>{tool.title}</h3>
                   <p>{tool.description}</p>
                   <span>Open tool →</span>
                 </a>
@@ -289,10 +259,10 @@ export function ToolForm({
       >
         ← All tools
       </a>
-      <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>{tool.title}</h1>
+      <h1>{tool.title}</h1>
       <p>{tool.description}</p>
       <form
-        style={style.card}
+        className="am-card"
         onSubmit={(event) => {
           event.preventDefault();
           setBusy(true);
@@ -331,11 +301,11 @@ export function ToolForm({
               ) : ["text", "brief", "source", "instructions"].some((name) =>
                   key.toLowerCase().includes(name),
                 ) ? (
-                <textarea {...props} rows={6} />
+                <MarketingTextarea {...props} rows={6} />
               ) : (
-                <input
+                <MarketingInput
                   {...props}
-                  style={style.input}
+
                   type={["number", "integer"].includes(schema.type ?? "") ? "number" : "text"}
                   pattern={schema.pattern}
                   placeholder={
@@ -354,9 +324,9 @@ export function ToolForm({
             </label>
           );
         })}
-        <button style={style.button} disabled={busy || disabled}>
+        <MarketingButton className="am-primary" disabled={busy || disabled}>
           {busy ? "Checking…" : "Run check"}
-        </button>
+        </MarketingButton>
         <p role="alert">{error}</p>
       </form>
       {result && <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />}
@@ -393,13 +363,13 @@ export function MarketingSettings({
         >
           <label>
             Website URL
-            <input value={website} onChange={(e) => setWebsite(e.target.value)} required />
+            <MarketingInput value={website} onChange={(e) => setWebsite(e.target.value)} required />
           </label>
           <label>
             Brand name
-            <input value={name} onChange={(e) => setName(e.target.value)} />
+            <MarketingInput value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <button>Save</button>
+          <MarketingButton className="am-primary">Save</MarketingButton>
           <p role="status">{message}</p>
         </form>
       </section>
@@ -423,7 +393,7 @@ export function WorkspaceModeControl({
           setWorkspaceMode(checked ? "developer" : "marketer"),
         )
       ) : (
-        <input
+        <MarketingInput
           type="checkbox"
           role="switch"
           aria-label="Developer features"
@@ -440,3 +410,12 @@ export function WorkspaceModeControl({
     </label>
   );
 }
+
+export {
+  MarketingUiContext,
+  MarketingButton,
+  MarketingInput,
+  MarketingTextarea,
+  KpiTile,
+  SectionHead,
+} from "./primitives.js";

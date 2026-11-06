@@ -197,3 +197,14 @@ detour in session storage. No provider credentials are stored in the browser.
 
 - `apps/web/src/modelSelection.test.ts`: covers selection of Claude for marketing generation when the saved default is Codex.
 - `apps/web/src/amicited-cloud.browser.test.tsx`: supplies useful audit output to the existing successful-offer fixture.
+
+## Marketer design scope (Wave 4)
+
+- `apps/web/src/marketing.tsx`: supplies upstream Button, Input and Textarea through the portable UI context, only inside marketer mode and first run.
+- `apps/web/src/rpc/amicitedCloud.tsx`: uses the same injected Button for cloud controls.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: checks the actual marketer scope and developer-mode exclusion.
+- `scripts/amicited/journey-screenshots.ts`: waits for bundled fonts and captures first-run and successful visibility dark states.
+
+There is no upstream Card component in this checkout; marketer cards and section
+heads remain semantic containers. Existing Switch, task composer and provider
+connection primitives inherit the scoped tokens. No upstream UI-kit file changes.

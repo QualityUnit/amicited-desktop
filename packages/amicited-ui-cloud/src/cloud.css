@@ -1,14 +1,14 @@
 .am-cloud-card {
-  border: 1px solid var(--border, #dce5e7);
-  border-radius: 12px;
-  padding: 24px;
+  border: 1px solid var(--ai-line);
+  border-radius: 16px;
+  padding: 20px;
   margin-top: 24px;
 }
 .am-cloud-stack > * + * {
   margin-top: 16px;
 }
 .am-cloud-stack h3 {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
 }
 .am-cloud-actions {
@@ -22,4 +22,9 @@
 }
 .am-cloud-stack summary {
   cursor: pointer;
+}
+
+.am-cloud-card {
+  background: var(--ai-surf);
+  box-shadow: var(--ai-seam);
 }

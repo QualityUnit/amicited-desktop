@@ -46,5 +46,6 @@ setup step. `02b-provider-sign-in` opens direct Claude setup and
 uses a labelled successful visibility fixture. Neither invokes generation. `06c-fix-with-ai-task` follows the missing-brand action to its prefilled task.
 `08b-task-draft`, `08d-task-reply-replay` and `08c-tasks-list` capture the draft,
 a free Replay reply and two saved tasks. Quick mode also captures dark 1440
-for 03, 04 and 06. The connected cloud summary remains covered by the local MCP
+for 01, 03, 04, 06 and 06b. Step 06 now shows the successful visibility fixture;
+06a preserves the disconnected state. The connected cloud summary remains covered by the local MCP
 fixture tests rather than a production connection.

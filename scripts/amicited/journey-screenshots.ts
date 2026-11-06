@@ -117,7 +117,14 @@ try {
       if (
         process.env.AMICITED_JOURNEY_QUICK === "1" &&
         (width !== 1440 ||
-          (theme !== "light" && !["03-first-win", "04-home", "06-ai-visibility"].includes(name)))
+          (theme !== "light" &&
+            ![
+              "01-first-launch",
+              "03-first-win",
+              "04-home",
+              "06-ai-visibility",
+              "06b-visibility-result-fixture",
+            ].includes(name)))
       )
         continue;
       await page.setViewportSize({ width, height });
@@ -126,8 +133,12 @@ try {
         document.documentElement.classList.toggle("dark", theme === "dark");
         document.documentElement.style.colorScheme = theme;
       }, theme);
+      if (name === "01-first-launch")
+        await page.getByRole("heading", { name: "What’s your website?" }).waitFor();
+      await page.evaluate(() => document.fonts.ready);
       await page.screenshot({
         path: NodePath.join(out, name + "-" + theme + "-" + width + ".png"),
+        animations: "disabled",
       });
     }
   };
@@ -184,7 +195,7 @@ try {
   await page
     .getByRole("heading", { name: "Connect Claude or ChatGPT", exact: true })
     .scrollIntoViewIfNeeded();
-  await capture("06-ai-visibility");
+  await capture("06a-provider-needed");
   await page.evaluate(() =>
     sessionStorage.setItem(
       "amicited.last-result",
@@ -242,6 +253,10 @@ try {
   );
   await page.reload();
   await page.getByRole("heading", { name: "Mentioned in 1 of 2 answers" }).scrollIntoViewIfNeeded();
+  await page
+    .getByRole("region", { name: "Tool result" })
+    .evaluate((element) => element.scrollIntoView({ block: "start" }));
+  await capture("06-ai-visibility");
   await capture("06b-visibility-result-fixture");
   await page.getByRole("button", { name: "Fix this with AI", exact: true }).first().click();
   await page.waitForURL(/\/draft\//);
