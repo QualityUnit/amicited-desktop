@@ -9,11 +9,10 @@ proposal to store extension patches in `patches/`, which already holds pnpm patc
 - `packages/contracts/src/rpc.ts`: adds marketing methods to the authenticated WebSocket group, allowing existing clients to use their normal environment connection.
 - `apps/server/package.json`: dependencies on local marketing tools and their contracts.
 - `apps/server/src/observability/RpcInstrumentation.ts`: declares marketing RPC telemetry namespaces.
-- `apps/server/src/ws.ts`: thin list/run handlers call the MarketingTools Effect service.
+- `apps/server/src/ws.ts`: thin list/run handlers call the provider-aware MarketingTools Effect service.
 - `apps/server/src/auth/RpcAuthorization.ts`: requires orchestration read for listing and orchestration operate for running tools.
 - `apps/web/package.json`: dependencies on marketing UI and tool types.
 - `apps/web/src/branding.ts`: sources the marketer-facing product name from one package constant.
-- `apps/web/src/routes/__root.tsx`: selects the marketer shell, bypasses developer onboarding, and redirects local marketer launches to Home.
 - `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls, terminal drawer, and developer panel launchers.
 - `apps/web/src/routes/_chat.settings.general.tsx`: provides the reverse switch from developer to marketer mode.
 - `apps/web/src/routeTree.gen.ts`: generated route registration for the marketing mounts.
@@ -74,12 +73,14 @@ use the existing authenticated project commands. The latest tool result is retai
 for the current browser session; durable result history is still deferred.
 `ResultFooterSlot` in `@amicited/ui-marketing` intentionally renders nothing for the
 later cloud connection wave. Local tool results never require a cloud account.
+
+## Wave 1A tools and provider integration
+
 Wave 1A adds these fenced marketing integration seams:
 
 - `apps/server/src/mcp/McpHttpServer.ts`: registers the authenticated marketing discovery/run toolkit with the same service as UI RPC.
 - `apps/server/src/mcp/toolkits/marketing/{tools,handlers}.ts`: thin marketing discovery and execution adapters; execution requires environment write access because it can consume the user's AI subscription.
 - `apps/server/src/marketing/MarketingToolsLive.ts`: bridges the portable library to the selected provider instance's existing one-shot runner, resolving connection state on each invocation.
-- `apps/server/src/ws.ts`: supplies the provider-aware marketing service to existing marketing RPC handlers.
 - `packages/provider-core/src/server/textGeneration.ts`: optional marketing text capability, leaving unsupported adapters explicit.
 - `packages/provider-core/src/server/textGenerationOperations.ts`: exposes full marketing answers through the existing structured one-shot runner (no title truncation, no tools).
 - `packages/provider-core/src/server/orchestrationInstructions.ts`: short shared marketing tool catalogue, delivered wherever existing orchestration instructions are injected.

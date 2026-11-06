@@ -34,5 +34,32 @@ describe("marketer website and results", () => {
     expect(resultFindings(base).map((f) => f.status)).toEqual(["fail", "warn", "pass"]);
     expect(resultFindings(base)[0]).toMatchObject({ why: "Search clarity", fix: "Write a title" });
     expect(resultFindings({ ...base, status: "error", output: undefined })).toEqual([]);
+    expect(
+      resultFindings({
+        ...base,
+        output: {
+          score: 50,
+          groups: [
+            {
+              name: "Search preview",
+              result: {
+                findings: [
+                  {
+                    title: "Missing title",
+                    status: "fail",
+                    why: "Search clarity",
+                    fix: "Write a title",
+                  },
+                  { title: "Unavailable", status: "unknown", why: "No response", fix: "Try again" },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    ).toMatchObject([
+      { title: "Missing title", status: "fail", group: "Search preview" },
+      { title: "Unavailable", status: "unknown", group: "Search preview" },
+    ]);
   });
 });

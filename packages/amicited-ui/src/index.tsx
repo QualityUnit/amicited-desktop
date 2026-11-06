@@ -167,7 +167,7 @@ export function Home({
           ))}
         </div>
       </section>
-      <section className="am-card">
+      <section className="am-card" id="ai-subscriptions">
         <h2>Your AI subscriptions</h2>
         {subscriptions}
       </section>

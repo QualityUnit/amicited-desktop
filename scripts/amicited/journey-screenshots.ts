@@ -113,6 +113,8 @@ try {
       ["light", 1280, 800],
       ["dark", 1280, 800],
     ] as const) {
+      if (process.env.AMICITED_JOURNEY_QUICK === "1" && (theme !== "light" || width !== 1440))
+        continue;
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ colorScheme: theme });
       await page.evaluate((theme) => {
@@ -158,6 +160,7 @@ try {
   await page.getByRole("button", { name: "Run check" }).click();
   await page.getByRole("region", { name: "Tool result" }).waitFor();
   await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
+  await page.getByRole("heading", { name: "Connect Claude or ChatGPT", exact: true }).waitFor();
   await capture("05b-ai-visibility");
   await page.goto(url + "/new");
   await page.getByRole("heading", { name: "New task", exact: true }).waitFor();

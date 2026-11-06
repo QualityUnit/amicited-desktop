@@ -158,7 +158,6 @@ export { MarketingSettings };
 export function MarketingFirstRun() {
   const environmentId = usePrimaryEnvironmentId();
   const actions = useMarketingTask();
-  const list = useAtomCommand(listCommand);
   const run = useAtomCommand(runCommand);
   const navigate = useNavigate();
   return (
@@ -172,21 +171,9 @@ export function MarketingFirstRun() {
       }}
       check={async (brand) => {
         if (!environmentId) throw new Error("Not connected");
-        const registry = await list({ environmentId, input: undefined });
-        if (registry._tag !== "Success") throw new Error("Could not load tools");
-        const tools = registry.value as unknown as ToolCard[];
-        const name = tools.some((t) => t.name === "seo.site.audit")
-          ? "seo.site.audit"
-          : "seo.ssl.check";
         const response = await run({
           environmentId,
-          input: {
-            name,
-            input:
-              name === "seo.ssl.check"
-                ? { domain: new URL(brand.website).hostname }
-                : { url: brand.website },
-          },
+          input: { name: "seo.site.audit", input: { url: brand.website } },
         });
         if (response._tag !== "Success") throw new Error("Could not run check");
         const result = response.value as unknown as ToolResult;

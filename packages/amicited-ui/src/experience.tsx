@@ -160,17 +160,32 @@ export function resultFindings(result: ToolResult) {
     : Array.isArray(output.issues)
       ? output.issues
       : [];
-  return entries.map((item) => {
+  const grouped = Array.isArray(output.groups)
+    ? output.groups.flatMap((item) => {
+        const group = record(item);
+        const nested = record(group.result);
+        return Array.isArray(nested.findings)
+          ? nested.findings.map((finding) => ({
+              ...record(finding),
+              group: String(group.name ?? "Website"),
+            }))
+          : [];
+      })
+    : [];
+  return [...entries, ...grouped].map((item) => {
     const f = record(item);
     const status = String(f.status ?? f.severity ?? "warn");
     return {
       title: String(f.title ?? f.message ?? (typeof item === "string" ? item : "Finding")),
+      group: typeof f.group === "string" ? f.group : undefined,
       status:
-        status === "pass" || status === "success"
-          ? "pass"
-          : status === "fail" || status === "error" || status === "critical"
-            ? "fail"
-            : "warn",
+        status === "unknown"
+          ? "unknown"
+          : status === "pass" || status === "success"
+            ? "pass"
+            : status === "fail" || status === "error" || status === "critical"
+              ? "fail"
+              : "warn",
       why: String(
         f.whyItMatters ??
           f.why ??
@@ -182,6 +197,49 @@ export function resultFindings(result: ToolResult) {
       ),
     };
   });
+}
+function humanLabel(key: string) {
+  const text = key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+export function formatResultValue(value: unknown): string {
+  if (value === null || value === undefined) return "Not available";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime()))
+      return date.toLocaleDateString("en-GB", { dateStyle: "medium", timeZone: "UTC" });
+  }
+  return String(value);
+}
+function ResultValue({ value }: { value: unknown }): ReactNode {
+  if (Array.isArray(value))
+    return value.length ? (
+      <ul>
+        {value.map((item, index) => (
+          // oxlint-disable-next-line react/no-array-index-key -- Completed results are immutable and can contain duplicate entries.
+          <li key={index}>
+            <ResultValue value={item} />
+          </li>
+        ))}
+      </ul>
+    ) : (
+      "None"
+    );
+  if (value !== null && typeof value === "object")
+    return (
+      <dl>
+        {Object.entries(value).map(([key, item]) => (
+          <div className="am-finding" key={key}>
+            <dt>{humanLabel(key)}</dt>
+            <dd>
+              <ResultValue value={item} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  return formatResultValue(value);
 }
 export function resultMarkdown(result: ToolResult) {
   return `# Website check\n\n${result.status === "error" ? (result.error?.message ?? "Could not check") : JSON.stringify(result.output, null, 2)}`;
@@ -201,11 +259,28 @@ export function MarketingResult({
   const [error, setError] = useState("");
   const output = record(result.output);
   const findings = resultFindings(result);
+  const needsProvider = output.status === "needs_provider";
   return (
     <section className="am-card" aria-label="Tool result">
-      <p className="am-eyebrow">WEBSITE CHECK</p>
+      <p className="am-eyebrow">
+        {result.tool === "ai.visibility.check"
+          ? "AI VISIBILITY"
+          : result.tool.startsWith("seo.")
+            ? "WEBSITE CHECK"
+            : "TOOL RESULTS"}
+      </p>
       <h2>{result.status === "error" ? "Could not check your website" : "Your results"}</h2>
-      {result.status === "error" ? (
+      {needsProvider ? (
+        <div className="am-finding">
+          <h3>Connect Claude or ChatGPT</h3>
+          <p>
+            This check uses your existing AI subscription to see whether your assistant mentions
+            your brand. Connect an assistant, then return here to run the check.
+          </p>
+          <a href="/home#ai-subscriptions">Connect your AI assistant →</a>
+          <p>Your local website checks remain free and work without AI.</p>
+        </div>
+      ) : result.status === "error" ? (
         <>
           <p>{result.error?.message ?? "The check could not finish. Try again."}</p>
           <button onClick={retry}>Try again</button>
@@ -219,7 +294,8 @@ export function MarketingResult({
                 : `Grade ${String(output.grade)}`}
             </strong>
           )}
-          {["fail", "warn", "pass"].map((status) => {
+          {typeof output.coverage === "string" && <p>{output.coverage}</p>}
+          {["fail", "warn", "unknown", "pass"].map((status) => {
             const group = findings.filter((f) => f.status === status);
             return group.length ? (
               <div key={status}>
@@ -228,17 +304,23 @@ export function MarketingResult({
                     ? "Needs attention"
                     : status === "warn"
                       ? "Worth improving"
-                      : "Looking good"}
+                      : status === "unknown"
+                        ? "Could not check"
+                        : "Looking good"}
                 </h3>
                 {group.map((f) => (
-                  <article className="am-finding" key={`${f.title}:${f.fix}`}>
+                  <article className="am-finding" key={`${f.group ?? ""}:${f.title}:${f.fix}`}>
+                    {f.group && <p className="am-eyebrow">{f.group}</p>}
                     <h4>{f.title}</h4>
+                    <small>{humanLabel(f.status)}</small>
                     <p>
                       <b>Why it matters:</b> {f.why}
                     </p>
-                    <p>
-                      <b>How to fix it:</b> {f.fix}
-                    </p>
+                    {f.fix && (
+                      <p>
+                        <b>How to fix it:</b> {f.fix}
+                      </p>
+                    )}
                     {fix && status !== "pass" && (
                       <button
                         onClick={() =>
@@ -259,13 +341,9 @@ export function MarketingResult({
             <dl>
               {Object.entries(output).map(([key, value]) => (
                 <div className="am-finding" key={key}>
-                  <dt>{key.replace(/([A-Z])/g, " $1")}</dt>
+                  <dt>{humanLabel(key)}</dt>
                   <dd>
-                    {typeof value === "object" ? (
-                      <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(value, null, 2)}</pre>
-                    ) : (
-                      String(value)
-                    )}
+                    <ResultValue value={value} />
                   </dd>
                 </div>
               ))}

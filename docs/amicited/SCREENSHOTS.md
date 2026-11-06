@@ -21,6 +21,7 @@ and captures each step in light and dark at 1440×900 and 1280×800:
 9. `09-developer-mode`: upstream settings and developer navigation remain reachable.
 
 Files carry theme and viewport suffixes, for example `04-home-dark-1280.png`.
+Set `AMICITED_JOURNEY_QUICK=1` to capture only light at 1440×900.
 
 Chromium must be installed in Playwright’s normal cache. The harness depends on
 the existing scripts workspace’s playwright-core; it adds no browser dependency.
