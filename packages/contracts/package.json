@@ -25,6 +25,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@amicited/cloud-client": "workspace:*",
     "@amicited/tools-core": "workspace:*",
     "effect": "catalog:"
   },

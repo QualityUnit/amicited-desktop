@@ -1,0 +1,112 @@
+export interface WinResult {
+  tool: string;
+  status: string;
+  output?: unknown;
+}
+function record(value: unknown): Record<string, unknown> {
+  return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+}
+export function whatYouAreMissing(result: WinResult) {
+  if (result.status !== "success") return undefined;
+  let checked: string;
+  let missing: string;
+  if (result.tool === "ai.visibility.check") {
+    const scope = record(record(result.output).scope);
+    const assistants = Array.isArray(scope.assistants)
+      ? scope.assistants.filter((v): v is string => typeof v === "string")
+      : [];
+    const countries = Array.isArray(scope.countries)
+      ? scope.countries.filter((v): v is string => typeof v === "string")
+      : [];
+    const prompts = Array.isArray(scope.prompts)
+      ? scope.prompts.length
+      : typeof scope.prompts === "number"
+        ? scope.prompts
+        : undefined;
+    const runAt = typeof scope.runAt === "string" ? scope.runAt : undefined;
+    checked =
+      assistants.length && countries.length
+        ? `You checked ${assistants.length} assistant${assistants.length === 1 ? "" : "s"} (${assistants.join(", ")}) from ${countries.length} countr${countries.length === 1 ? "y" : "ies"}, once${prompts === undefined ? "" : `, across ${prompts} prompt${prompts === 1 ? "" : "s"}`}${runAt ? ` (${runAt})` : ""}.`
+        : "You completed a one-time visibility check. Its coverage is shown in your result.";
+    missing =
+      "With AmICited: ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Copilot and Claude, tracked daily, in the countries you choose, with competitors, citation sources and history.";
+  } else if (/audit/.test(result.tool)) {
+    checked = "You completed a one-time site audit.";
+    missing =
+      "With AmICited: uptime and AI crawler monitoring, llms.txt comparison and agent accessibility checks in the audits toolset.";
+  } else if (/^content\./.test(result.tool)) {
+    checked = "You completed a content task.";
+    missing =
+      "With AmICited: AI articles and citation-gap briefs to plan content around sources AI assistants cite.";
+  } else return undefined;
+  return { checked, missing, pricing: "7-day trial, then EUR 120/month Pro, cancel anytime" };
+}
+export interface UpsellPreferences {
+  snoozedUntil?: number;
+  dismissed?: boolean;
+}
+export function shouldOfferUpsell(
+  result: WinResult,
+  preferences: UpsellPreferences,
+  sessionShown: boolean,
+  now: number,
+  connected = false,
+) {
+  return (
+    !connected &&
+    !sessionShown &&
+    !preferences.dismissed &&
+    (preferences.snoozedUntil ?? 0) <= now &&
+    whatYouAreMissing(result) !== undefined
+  );
+}
+export function snoozeUpsell(now: number): UpsellPreferences {
+  return { snoozedUntil: now + 7 * 24 * 60 * 60 * 1000 };
+}
+export function dismissUpsell(): UpsellPreferences {
+  return { dismissed: true };
+}
+export interface PreferenceStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+export function createUpsellGate(storage: PreferenceStorage, session: PreferenceStorage) {
+  const key = "amicited.cloud.upsell";
+  const read = (): UpsellPreferences => {
+    try {
+      const raw = JSON.parse(storage.getItem(key) ?? "{}");
+      return {
+        dismissed: raw?.dismissed === true,
+        snoozedUntil: typeof raw?.snoozedUntil === "number" ? raw.snoozedUntil : 0,
+      };
+    } catch {
+      return {};
+    }
+  };
+  return {
+    claim(result: WinResult, now: number, connected = false) {
+      try {
+        if (!shouldOfferUpsell(result, read(), session.getItem(key) === "shown", now, connected))
+          return false;
+        session.setItem(key, "shown");
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    snooze(now: number) {
+      try {
+        storage.setItem(key, JSON.stringify(snoozeUpsell(now)));
+      } catch {
+        /* Storage may be disabled by the browser. */
+      }
+    },
+    dismiss() {
+      try {
+        storage.setItem(key, JSON.stringify(dismissUpsell()));
+      } catch {
+        /* The session still suppresses further offers. */
+      }
+    },
+  };
+}

@@ -1,3 +1,4 @@
+import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
 import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
 import * as Random from "effect/Random";
@@ -735,6 +736,8 @@ const layerRuntimeCoreDependencies = layerRuntimeCoreDependenciesBase.pipe(
 );
 
 const layerRuntimeDependencies = layerRuntimeCoreDependencies.pipe(
+  // AmICited cloud shared by RPC and the authenticated agent proxy.
+  Layer.provideMerge(AmicitedCloud.layer.pipe(Layer.provide(ExternalLauncher.layer))),
   Layer.provideMerge(layerUsage),
   Layer.provideMerge(layerBackground),
   Layer.provideMerge(layerResourceDiagnostics),

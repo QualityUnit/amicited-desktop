@@ -11,6 +11,11 @@ type WsRpcMethod = RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"];
 
 // Trace queries and dashboards depend on these labels, including deviations from method prefixes.
 const RPC_AGGREGATES = {
+  "amicited.cloud.status": "amicited",
+  "amicited.cloud.summary": "amicited",
+  "amicited.cloud.connectOAuth": "amicited",
+  "amicited.cloud.connectApiKey": "amicited",
+  "amicited.cloud.disconnect": "amicited",
   "amicited.tools.list": "amicited",
   "amicited.tools.run": "amicited",
   [ORCHESTRATION_V2_WS_METHODS.dispatchCommand]: "orchestrationV2",
@@ -232,6 +237,8 @@ const DEFAULT_RPC_SPAN_ATTRIBUTES = {
   "rpc.system": "effect-rpc",
 } as const;
 const RPC_METHODS_WITH_TRACING_DISABLED: ReadonlySet<string> = new Set([
+  "amicited.cloud.connectApiKey",
+  "amicited.cloud.connectOAuth",
   WS_METHODS.serverGetTraceDiagnostics,
   WS_METHODS.serverGetProcessDiagnostics,
   WS_METHODS.serverGetProcessResourceHistory,

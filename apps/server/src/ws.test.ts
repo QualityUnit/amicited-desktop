@@ -1,3 +1,5 @@
+import { CloudClient } from "@amicited/cloud-client";
+import { AmicitedCloud } from "./amicited/Cloud.ts";
 import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -786,6 +788,13 @@ it.effect.each([
       const directStopped = yield* Deferred.make<void>();
       const responses = yield* Queue.unbounded<ServerConfigStreamEvent>();
       const configRpcServices = Layer.mergeAll(
+        Layer.succeed(
+          AmicitedCloud,
+          new CloudClient({
+            secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+            openExternal: async () => {},
+          }),
+        ),
         layerUnusedConfigRpcServices,
         Layer.mock(ExternalLauncher.ExternalLauncher)({
           resolveAvailableEditors: () =>
@@ -1035,6 +1044,13 @@ it.effect("on-demand clients get provider config without workspace snapshots", (
     const pulled = yield* Queue.unbounded<void>();
     const responses = yield* Queue.unbounded<unknown>();
     const configRpcServices = Layer.mergeAll(
+      Layer.succeed(
+        AmicitedCloud,
+        new CloudClient({
+          secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+          openExternal: async () => {},
+        }),
+      ),
       layerUnusedConfigRpcServices,
       Layer.mock(ExternalLauncher.ExternalLauncher)({
         resolveAvailableEditors: () => Effect.succeed([]),
