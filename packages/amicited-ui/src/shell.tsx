@@ -51,7 +51,7 @@ export function MarketingShell({
           >
             <aside className="am-rail">
               <div className="am-logo-row">
-                {!collapsed && <AmICitedMark />}
+                <AmICitedMark />
                 <button
                   type="button"
                   aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -96,6 +96,7 @@ export function MarketingShell({
                       navigate(href);
                     }}
                     className="am-nav-row"
+                    data-tooltip={collapsed ? label : undefined}
                     aria-label={label}
                     aria-current={
                       path === href || (href === "/tools" && path.startsWith("/tools/"))
@@ -107,21 +108,52 @@ export function MarketingShell({
                     <span>{label}</span>
                   </a>
                 ))}
+                <div className="am-nav-group">
+                  <span>Tools</span>
+                  <MarketingIcon name="chevron" />
+                </div>
+                {(
+                  [
+                    ["seo", "Site audit"],
+                    ["ai-visibility", "AI visibility"],
+                    ["content", "Content"],
+                    ["serp", "SERP & keywords"],
+                  ] as const
+                ).map(([pack, label]) => (
+                  <a
+                    key={pack}
+                    className="am-nav-row"
+                    href={"/tools#" + pack}
+                    data-tooltip={collapsed ? label : undefined}
+                    aria-label={label}
+                    aria-current={path === "/tools#" + pack ? "page" : undefined}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigate("/tools#" + pack);
+                    }}
+                  >
+                    <MarketingIcon name={pack} />
+                    <span>{label}</span>
+                  </a>
+                ))}
               </nav>
               <div className="am-rail-footer">
                 <div>
                   <strong>Free</strong> <span>local tools</span>
                 </div>
                 {connectionStatus ?? (
-                  <a
-                    href="/marketing-settings"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate("/marketing-settings");
-                    }}
-                  >
-                    AmICited · Not connected · Connect →
-                  </a>
+                  <p>
+                    AmICited · Not connected{" "}
+                    <a
+                      href="/marketing-settings"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        navigate("/marketing-settings");
+                      }}
+                    >
+                      Connect →
+                    </a>
+                  </p>
                 )}
               </div>
             </aside>

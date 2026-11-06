@@ -253,3 +253,96 @@ it("ranks visibility brands by measured mentions and uses the same share precisi
     "Acme",
   ]);
 });
+
+it.each([false, true])(
+  "edits retained inputs and reruns after unavailable=$unavailable",
+  async (unavailable) => {
+    const { ToolForm } = await import("@amicited/ui-marketing");
+    sessionStorage.clear();
+    const run = vi.fn(async (input: unknown) => ({
+      id: "repeat",
+      tool: "content.readability",
+      input,
+      status: "success" as const,
+      startedAt: "2026-11-06",
+      durationMs: 1,
+      output:
+        unavailable && run.mock.calls.length === 1 ? { status: "needs_provider" } : { words: 12 },
+    }));
+    await using screen = await render(
+      <ToolForm
+        tool={{
+          keywords: [],
+          outputSchema: {},
+          cost: "free",
+          timeoutMs: 1000,
+          schedulable: false,
+          sideEffects: "none",
+          name: "content.readability",
+          title: "Readability check",
+          description: "Check your copy",
+          pack: "content",
+          inputSchema: {
+            type: "object",
+            properties: { text: { type: "string" } },
+            required: ["text"],
+          },
+        }}
+        run={run}
+      />,
+    );
+    await screen.getByRole("textbox", { name: "text", exact: true }).fill("First copy");
+    await screen.getByRole("button", { name: "Run check", exact: true }).click();
+    await screen.getByRole("button", { name: "Edit inputs", exact: true }).click();
+    await expect
+      .element(screen.getByRole("textbox", { name: "text", exact: true }))
+      .toHaveValue("First copy");
+    await screen.getByRole("textbox", { name: "text", exact: true }).fill("Revised copy");
+    await screen.getByRole("button", { name: "Run check", exact: true }).click();
+    await expect.element(screen.getByText("12", { exact: true })).toBeVisible();
+    expect(run.mock.calls.map(([input]) => input)).toEqual([
+      { text: "First copy" },
+      { text: "Revised copy" },
+    ]);
+    await screen.getByRole("button", { name: "Run again", exact: true }).click();
+    await expect
+      .element(screen.getByRole("textbox", { name: "text", exact: true }))
+      .toHaveValue("Revised copy");
+  },
+);
+
+it("hands the audit website and finding context to AI and labels all-pass results", async () => {
+  const { MarketingResult } = await import("@amicited/ui-marketing");
+  const fix = vi.fn(async () => {});
+  const result = {
+    id: "audit-context",
+    tool: "seo.site.audit",
+    input: { url: "https://example.com" },
+    status: "success" as const,
+    startedAt: "2026-11-06",
+    durationMs: 1,
+    output: {
+      findings: [
+        {
+          title: "Missing title",
+          status: "fail",
+          why: "Help readers find you",
+          fix: "Write a useful title",
+        },
+      ],
+    },
+  };
+  await using screen = await render(<MarketingResult result={result} fix={fix} />);
+  await screen.getByRole("button", { name: "Fix with AI →", exact: true }).first().click();
+  expect(fix).toHaveBeenCalledWith(
+    "Help me fix this on https://example.com: Missing title\nHelp readers find you\nWrite a useful title",
+  );
+  await screen.rerender(
+    <MarketingResult
+      result={{ ...result, output: { findings: [{ title: "Secure", status: "pass" }] } }}
+      fix={fix}
+    />,
+  );
+  await expect.element(screen.getByRole("heading", { name: "Checks passing" })).toBeVisible();
+  await expect.element(screen.getByText("0 unavailable")).not.toBeInTheDocument();
+});

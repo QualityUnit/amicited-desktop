@@ -1,13 +1,13 @@
 .am-cloud-card {
   border: 1px solid var(--ai-line);
-  border-radius: 4px;
+  border-radius: 12px;
   padding: 20px;
-  margin-top: 16px;
+  margin-top: 20px;
   background: var(--ai-surf);
-  box-shadow: var(--ai-seam);
+  box-shadow: none;
 }
 .am-cloud-stack > * + * {
-  margin-top: 16px;
+  margin-top: 20px;
 }
 .am-cloud-stack h3 {
   font-size: 15px;
@@ -30,7 +30,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   border: 1px solid var(--ai-line);
-  border-radius: 4px;
+  border-radius: 12px;
   background: var(--ai-surf);
 }
 .am-cloud-comparison > div {
@@ -47,4 +47,10 @@
 .am-cloud-actions > :last-child {
   color: var(--ai-ink-3);
   font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .am-cloud-card {
+    padding: 16px;
+  }
 }

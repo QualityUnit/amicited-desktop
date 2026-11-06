@@ -23,7 +23,7 @@ function Tasks() {
           >
             <h2>{thread.title || "New task"}</h2>
             <span
-              className={`am-status am-status-${thread.latestRun?.status === "completed" ? "pass" : thread.latestRun?.status === "failed" ? "fail" : thread.hasPendingApprovals || thread.hasPendingUserInput ? "warn" : thread.latestRun?.status === "running" ? "active" : "neutral"}`}
+              className={`am-status am-status-${thread.hasPendingApprovals || thread.hasPendingUserInput ? "warn" : thread.latestRun?.status === "completed" ? "pass" : thread.latestRun?.status === "failed" ? "fail" : thread.latestRun?.status === "running" ? "active" : "neutral"}`}
             >
               {marketingTaskStatus(
                 thread.latestRun?.status,

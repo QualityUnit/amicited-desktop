@@ -1,8 +1,8 @@
 # Marketer design
 
 Marketer mode follows the AmICited dialect in the read-only reference
-live cloud dashboard screenshots and flowhunt2 dashboard source. Live `metrics/ui.tsx` and shell code win over `flowhunt2/DESIGN.md` wherever they disagree. Its Signal Blue accent,
-neutral ground, hairlines and seam shadows apply only below
+live cloud dashboard screenshots and the read-only flowhunt2 **origin/main export at 44d4019d4c** (`scratchpad/flowhunt2-main/frontend/src`). Reference screenshots win, then this export, then its DESIGN.md. The local flowhunt2 working branch is stale and is not a design source. Its Signal Blue accent,
+neutral ground and hairlines apply only below
 `[data-amicited-shell]`. Developer mode retains the upstream theme.
 
 | AmICited token                         | T3 theme variable                                           |
@@ -28,5 +28,5 @@ containers (upstream has no Card primitive). Nav rows use an accent wash;
 visibility brand rows reserve the accent for “you” and start competitors at the
 second series color. Results show only measured figures, without invented trends.
 
-Cards and banners use 4px corners and 20px padding. Inputs use 8px corners,
+App cards follow `components/amicited/ui/cardFrame.ts`: 12px corners, a hairline, surface fill and no shadow, with 20px padding (16px on phones). Status strips follow `StatusNotification.tsx` and the reference: 8px corners, a plain surface and 14px horizontal / 12px vertical padding. Severity badges use `dashboard/status/severityStyles.ts` soft critical and warning colours. Inputs use 8px corners,
 navigation rows 9px, and mono status tags 2px. Content has fluid 24px gutters.

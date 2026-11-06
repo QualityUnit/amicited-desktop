@@ -28,9 +28,10 @@ export function whatYouAreMissing(result: WinResult) {
     missing =
       "With AmICited: ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Copilot and Claude, tracked daily, in the countries you choose, with competitors, citation sources and history.";
   } else if (/audit/.test(result.tool)) {
-    checked = "You completed a one-time site audit.";
+    checked =
+      "You completed a one-time site audit, including whether AI crawlers can read your site.";
     missing =
-      "This checked whether AI crawlers can read your site. AmICited shows whether ChatGPT, Perplexity, Gemini and Google AI Overviews actually cite you, every day, against your competitors.";
+      "AmICited shows whether ChatGPT, Perplexity, Gemini and Google AI Overviews actually cite you, every day, against your competitors.";
   } else if (/^content\./.test(result.tool)) {
     checked = "You completed a content task.";
     missing =

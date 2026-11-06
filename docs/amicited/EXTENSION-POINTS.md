@@ -235,3 +235,13 @@ Wave 9, 2026-11-06. Existing marketer extension files changed:
 Focused tests (27), six package typechecks, focused lint and staged hooks passed.
 The r7 journey produced 44 captures without an error capture. Upstream developer
 components remain intact; these changes stay within the existing marketer mounts.
+
+## Wave 10 verification
+
+Last verified: 2026-11-06. The existing web extension points changed in this wave:
+`src/marketing.tsx` renders recent results as measured dashboard rows;
+`src/rpc/amicitedCloud.tsx` groups connection controls in one card;
+`src/routes/_chat.tasks.tsx` gives pending input precedence in the status tone;
+`src/amicited-cloud.browser.test.tsx` proves editing and a second tool run.
+`scripts/amicited/journey-screenshots.ts` adds the revised-input run capture.
+No server, provider, transport or upstream UI primitive changed.

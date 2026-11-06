@@ -20,7 +20,6 @@ import {
   saveBrand,
   normalizeWebsite,
   MarketingResult,
-  marketingNavigate,
   MarketingLink,
 } from "./experience.js";
 export * from "./experience.js";
@@ -147,8 +146,8 @@ export function Home({
       </div>
       <section className="am-card">
         <SectionHead title="Recent results" />
-        {cloud}
         {recent ?? <p>Your completed checks will appear here.</p>}
+        {cloud}
       </section>
     </>
   );
@@ -159,7 +158,13 @@ const packs = [
   ["content", "Content tools"],
   ["serp", "SERP & keywords"],
 ] as const;
-export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
+export function ToolsGrid({
+  tools,
+  selectedPack,
+}: {
+  tools: readonly ToolCard[];
+  selectedPack?: string;
+}) {
   const [selected, setSelected] = useState(() => window.location.hash.slice(1) || "seo");
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep pack selection synchronized with incoming tool links and browser history.
   useEffect(() => {
@@ -167,6 +172,7 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
     window.addEventListener("hashchange", update);
     return () => window.removeEventListener("hashchange", update);
   }, []);
+  const activePack = selectedPack ?? selected;
   return (
     <>
       <nav className="am-pack-tabs" aria-label="Tool categories">
@@ -174,7 +180,7 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
           <a
             key={pack}
             href={"#" + pack}
-            aria-current={selected === pack ? "page" : undefined}
+            aria-current={activePack === pack ? "page" : undefined}
             onClick={() => setSelected(pack)}
           >
             <MarketingIcon name={pack} />
@@ -185,7 +191,7 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
       <p className="am-hint">Free local tools. Useful checks, clear results. No account needed.</p>
       <div className="am-tool-grid">
         {tools
-          .filter((tool) => tool.pack === selected)
+          .filter((tool) => tool.pack === activePack)
           .map((tool) => (
             <MarketingLink
               className="am-card am-tool-card"
@@ -237,17 +243,6 @@ export function ToolForm({
       <MarketingTitle>{tool.title}</MarketingTitle>
       {!result && (
         <>
-          <a
-            href="/tools"
-            onClick={(e) => {
-              e.preventDefault();
-              marketingNavigate("/tools");
-            }}
-          >
-            ← All tools
-          </a>
-          <h2>{tool.title}</h2>
-          <p>{tool.description}</p>
           <form
             className="am-card"
             onSubmit={(event) => {
@@ -269,6 +264,7 @@ export function ToolForm({
                 .finally(() => setBusy(false));
             }}
           >
+            <p>{tool.description}</p>
             {Object.entries(properties).map(([key, raw]) => {
               const schema = resolveField(raw);
               const label =
@@ -290,7 +286,7 @@ export function ToolForm({
                       <option value="true">Yes</option>
                       <option value="false">No</option>
                     </select>
-                  ) : ["text", "brief", "source", "instructions"].some((name) =>
+                  ) : ["text", "brief", "source", "instructions", "voice"].some((name) =>
                       key.toLowerCase().includes(name),
                     ) ? (
                     <MarketingTextarea {...props} rows={6} />
@@ -414,4 +410,6 @@ export {
   MarketingTextarea,
   KpiTile,
   SectionHead,
+  MarketingIcon,
+  toolIcon,
 } from "./primitives.js";

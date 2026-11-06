@@ -72,3 +72,10 @@ The r7 quick journey adds `03b-first-win-upsell`, `09-amicited-connect` and
 rail preference survives, then expands it before continuing. The audit shows the
 first three prioritized findings, followed by the offer and an All findings
 disclosure; visibility bars and legend share ranked series colours.
+
+The r8 journey adds `07b-second-run` at 1344×1016 and 1440×900. It opens
+Run again after a successful readability check, changes the source copy, runs the
+real local tool again, and then verifies Edit inputs retains that revised copy.
+The same-width parity set retains Home, Tools, visibility fixture, audit, offer,
+Tasks, connection and collapsed sidebar views. All visibility fixtures remain
+explicitly labelled and never invoke paid generation.

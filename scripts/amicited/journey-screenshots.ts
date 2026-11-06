@@ -146,6 +146,7 @@ try {
           "05-tools-grid",
           "06-ai-visibility",
           "08c-tasks-list",
+          "07b-second-run",
         ].includes(name)
       )
         continue;
@@ -215,6 +216,10 @@ try {
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("navigation", { name: "Tool categories" }).waitFor();
   await capture("05-tools-grid");
+  await page.getByRole("link", { name: "Content", exact: true }).click();
+  await page.getByRole("link", { name: "Readability check", exact: false }).waitFor();
+  await page.getByRole("link", { name: "Site audit", exact: true }).click();
+  await page.getByRole("link", { name: "Website health audit", exact: false }).waitFor();
   await page.getByRole("heading", { name: "Works better with AmICited" }).scrollIntoViewIfNeeded();
   await capture("05b-cloud-capabilities");
   await page.getByRole("button", { name: "Daily AI visibility tracking →" }).click();
@@ -326,6 +331,17 @@ try {
   await page.getByRole("region", { name: "Tool result" }).waitFor();
   await page.getByRole("region", { name: "Tool result" }).scrollIntoViewIfNeeded();
   await capture("07-content-result");
+  await page.getByRole("button", { name: "Run again", exact: true }).click();
+  const revisedCopy =
+    "Plant herbs in a sunny spot. Water them every morning. Pick fresh leaves for dinner.";
+  await page.getByRole("textbox", { name: "text", exact: true }).fill(revisedCopy);
+  await page.getByRole("button", { name: "Run check", exact: true }).click();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  await capture("07b-second-run");
+  await page.getByRole("button", { name: "Edit inputs", exact: true }).click();
+  if ((await page.getByRole("textbox", { name: "text", exact: true }).inputValue()) !== revisedCopy)
+    throw new Error("Second run lost the revised inputs");
+
   await page.goto(url + "/new");
   await page.getByRole("heading", { name: "New task", exact: true }).waitFor();
   await page.getByRole("heading", { name: "Your AI subscriptions", exact: true }).waitFor();

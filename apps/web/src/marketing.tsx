@@ -6,6 +6,8 @@ import {
   MarketingButton,
   MarketingTextarea,
   SectionHead,
+  MarketingIcon,
+  toolIcon,
 } from "@amicited/ui-marketing";
 import type { ComponentProps } from "react";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
@@ -150,11 +152,20 @@ export function MarketingHome() {
             params={{ toolName: recent.tool }}
             className="am-finding am-recent-result"
           >
-            {resultTitle(recent)} ·{" "}
-            {typeof recent.output === "object" && recent.output && "score" in recent.output
-              ? `${recent.output.score}/100`
-              : "View results"}{" "}
-            →
+            <MarketingIcon name={toolIcon(recent.tool)} />
+            <strong>{resultTitle(recent)}</strong>
+            <span className="am-number">
+              {typeof recent.output === "object" && recent.output && "score" in recent.output
+                ? `${recent.output.score}/100`
+                : "View results"}
+            </span>
+            <time dateTime={recent.startedAt}>
+              {new Date(recent.startedAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </time>
+            <MarketingIcon name="arrow" />
           </Link>
         ) : undefined
       }
@@ -163,6 +174,9 @@ export function MarketingHome() {
 }
 
 export function MarketingTools({ name }: { name?: string }) {
+  const selectedPack = useLocation({
+    select: (location) => location.hash.replace(/^#/, "") || "seo",
+  });
   const actions = useMarketingTask();
   const environmentId = usePrimaryEnvironmentId();
   const list = useAtomCommand(listCommand);
@@ -189,7 +203,7 @@ export function MarketingTools({ name }: { name?: string }) {
   if (!name)
     return (
       <>
-        <ToolsGrid tools={tools} />
+        <ToolsGrid tools={tools} selectedPack={selectedPack} />
         <CloudTools />
       </>
     );
@@ -199,7 +213,7 @@ export function MarketingTools({ name }: { name?: string }) {
       <>
         <h1>This tool is not available yet</h1>
         <p>Explore the tools available on this device.</p>
-        <ToolsGrid tools={tools} />
+        <ToolsGrid tools={tools} selectedPack={selectedPack} />
       </>
     );
   return (

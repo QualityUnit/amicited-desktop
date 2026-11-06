@@ -1,3 +1,4 @@
+import { Globe } from "lucide-react";
 import { useState } from "react";
 export type Brand = { website: string; name: string };
 export function readBrand(): Brand | null {
@@ -26,6 +27,8 @@ export function BrandFavicon({ website, name }: { website?: string | undefined; 
     <span className="am-favicon">
       {website && !failed ? (
         <img alt="" src={website + "/favicon.ico"} onError={() => setFailed(true)} />
+      ) : website ? (
+        <Globe size={16} aria-hidden="true" />
       ) : (
         name.slice(0, 1)
       )}

@@ -89,6 +89,7 @@ describe("marketer website and results", () => {
   it("distinguishes failed tasks and requests for input from idle tasks", () => {
     expect(marketingTaskStatus("failed", false)).toBe("Couldn't finish");
     expect(marketingTaskStatus("waiting", true)).toBe("Needs you");
+    expect(marketingTaskStatus("completed", true)).toBe("Needs you");
     expect(marketingTaskStatus("completed", false)).toBe("Done");
     expect(marketingTaskStatus("running", false)).toBe("Working");
     for (const status of ["interrupted", "cancelled"])

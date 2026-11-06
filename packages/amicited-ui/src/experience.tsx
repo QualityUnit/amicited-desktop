@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { AmICitedBot } from "./AmICitedBot.js";
 import { MarketingShell } from "./shell.js";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
@@ -55,7 +56,14 @@ export function FirstRun({
     return (
       <MarketingShell path="/tools/seo.site.audit" navigate={marketingNavigate}>
         <MarketingTitle>Website health audit</MarketingTitle>
-        <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />
+        <MarketingResult
+          result={result}
+          fix={fix}
+          retry={() => {
+            setResult(null);
+            setBrand(null);
+          }}
+        />
         <section className="am-card" id="ai-subscriptions">
           <h2>Want AI to fix these?</h2>
           <p>Connect Claude or ChatGPT using your existing subscription.</p>
@@ -269,6 +277,7 @@ function AnalysisBanner({
             Fix with AI →
           </MarketingButton>
         )}
+        <ChevronDown className="am-banner-chevron" size={16} aria-hidden="true" />
       </summary>
       <p>{detail ?? "One-time check using the scope shown above. No daily history is measured."}</p>
     </details>
@@ -449,8 +458,10 @@ function VisibilityResult({
             <SectionHead title="Mentions in this check" />
             {series.map((c) => (
               <div className="am-current-bar" key={String(c.brand)}>
-                <BrandFavicon name={c.brand} />
-                <span>{c.brand}</span>
+                <span className="am-bar-identity">
+                  <BrandFavicon name={c.brand} />
+                  <span>{c.brand}</span>
+                </span>
                 <div>
                   <span
                     style={{
@@ -483,59 +494,63 @@ function VisibilityResult({
           ))}
         </section>
       </div>
-      {Array.isArray(output.answers) &&
-        output.answers.map((v) => {
-          const a = record(v);
-          return (
-            <article className="am-card am-answer-row" key={String(a.prompt)}>
-              <div className="am-answer-head">
-                <h3>{String(a.prompt)}</h3>
-                <span
-                  className={`am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
-                >
-                  {a.mentioned === true
-                    ? "Mentioned"
-                    : a.mentioned === false
-                      ? "Not mentioned"
-                      : "Could not check"}
-                </span>
+      {Array.isArray(output.answers) && (
+        <section className="am-card am-answers">
+          <SectionHead title="Answers in this check" />
+          {output.answers.map((v) => {
+            const a = record(v);
+            return (
+              <article className="am-answer-row" key={String(a.prompt)}>
+                <div className="am-answer-head">
+                  <h3>{String(a.prompt)}</h3>
+                  <span
+                    className={`am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
+                  >
+                    {a.mentioned === true
+                      ? "Mentioned"
+                      : a.mentioned === false
+                        ? "Not mentioned"
+                        : "Could not check"}
+                  </span>
+                  <p>
+                    Position: <span className="am-number">{formatResultValue(a.position)}</span>
+                  </p>
+                </div>
+                <p>{String(a.excerpt ?? "No answer available").slice(0, 700)}</p>
                 <p>
-                  Position: <span className="am-number">{formatResultValue(a.position)}</span>
+                  Cited domains:{" "}
+                  {Array.isArray(a.citations) && a.citations.length
+                    ? a.citations
+                        .map((c) => {
+                          try {
+                            return new URL(String(c)).hostname;
+                          } catch {
+                            return String(c);
+                          }
+                        })
+                        .join(", ")
+                    : "None"}
                 </p>
-              </div>
-              <p>{String(a.excerpt ?? "No answer available").slice(0, 700)}</p>
-              <p>
-                Cited domains:{" "}
-                {Array.isArray(a.citations) && a.citations.length
-                  ? a.citations
-                      .map((c) => {
-                        try {
-                          return new URL(String(c)).hostname;
-                        } catch {
-                          return String(c);
-                        }
-                      })
-                      .join(", ")
-                  : "None"}
-              </p>
-              {a.mentioned === false && fix && (
-                <MarketingButton
-                  variant="link"
-                  aria-label="Fix this with AI"
-                  onClick={() =>
-                    void fix(
-                      `Help my brand become a useful recommendation for: ${String(a.prompt)
-                        .trim()
-                        .replace(/[.!?]+$/, "")}. Suggest evidence and content improvements.`,
-                    ).catch((error: Error) => setError(error.message))
-                  }
-                >
-                  Fix with AI →
-                </MarketingButton>
-              )}
-            </article>
-          );
-        })}
+                {a.mentioned === false && fix && (
+                  <MarketingButton
+                    variant="link"
+                    aria-label="Fix this with AI"
+                    onClick={() =>
+                      void fix(
+                        `Help my brand become a useful recommendation for: ${String(a.prompt)
+                          .trim()
+                          .replace(/[.!?]+$/, "")}. Suggest evidence and content improvements.`,
+                      ).catch((error: Error) => setError(error.message))
+                    }
+                  >
+                    Fix with AI →
+                  </MarketingButton>
+                )}
+              </article>
+            );
+          })}
+        </section>
+      )}
       {error && <p role="alert">{error}</p>}
     </div>
   );
@@ -560,7 +575,8 @@ export function MarketingResult({
   const needsProvider = output.status === "needs_provider";
   const ranked = rankedFindings(result);
   const findingRows = ranked.map((f, i) => (
-    <article className="am-finding-row" key={`${f.group}:${f.title}`}>
+    // oxlint-disable-next-line react/no-array-index-key -- Findings are immutable snapshots and can share a title within one group.
+    <article className="am-finding-row" key={`${f.group}:${f.title}:${i}`}>
       <span className={`am-status am-status-${f.status}`}>
         {i < 3 ? `${i + 1} · ` : ""}
         {
@@ -573,7 +589,7 @@ export function MarketingResult({
         }
       </span>
       <div>
-        <strong>{f.title}</strong> <span>{f.evidence ?? f.group}</span>
+        <strong>{f.title}</strong> {f.evidence && <span>{f.evidence}</span>}
         <details>
           <summary>Why / How</summary>
           <p>{f.why}</p>
@@ -597,6 +613,12 @@ export function MarketingResult({
 
   return (
     <section className="am-result" aria-label="Tool result">
+      {retry && (
+        <MarketingToolbar>
+          <MarketingButton onClick={retry}>Edit inputs</MarketingButton>
+          <MarketingButton onClick={retry}>Run again</MarketingButton>
+        </MarketingToolbar>
+      )}
       <MarketingScope>
         {Object.entries(record(result.input))
           .filter(
@@ -644,6 +666,22 @@ export function MarketingResult({
         </>
       ) : (
         <>
+          {findings.length > 0 && (
+            <AnalysisBanner
+              tone={resultTone(result)}
+              lead={ranked[0]?.title ?? "Check completed"}
+              detail={String(output.coverage ?? "Basic website checks completed.")}
+              counts={findings.length > 1 ? `+${findings.length - 1} more` : ""}
+              action={
+                fix
+                  ? () =>
+                      void fix(
+                        `Help me fix this on ${String(record(result.input).url ?? readBrand()?.website ?? "my website")}: ${ranked[0]?.title}\n${ranked[0]?.why}\n${ranked[0]?.fix}`,
+                      ).catch((e: Error) => setError(e.message))
+                  : undefined
+              }
+            />
+          )}
           <div className="am-kpis">
             {typeof output.score === "number" && (
               <KpiTile
@@ -702,24 +740,10 @@ export function MarketingResult({
 
           {findings.length > 0 && (
             <>
-              <AnalysisBanner
-                tone={resultTone(result)}
-                lead={ranked[0]?.title ?? "Check completed"}
-                detail={String(output.coverage ?? "Basic website checks completed.")}
-                counts={`${findings.filter((f) => f.status === "unknown").length} unavailable`}
-                action={
-                  fix
-                    ? () =>
-                        void fix(`Help me fix: ${rankedFindings(result)[0]?.title}`).catch(
-                          (e: Error) => setError(e.message),
-                        )
-                    : undefined
-                }
-              />
               <section className="am-card am-findings-list">
                 <SectionHead
-                  title="Start here"
-                  subtitle={String(output.coverage ?? "Basic website checks")}
+                  title={resultTone(result) === "good" ? "Checks passing" : "Start here"}
+                  subtitle={`${Math.min(3, findings.length)} of ${findings.length} findings, most important first`}
                 />
                 {findingRows.slice(0, 3)}
               </section>
@@ -733,12 +757,12 @@ export function MarketingResult({
             </>
           )}
           {Array.isArray(output.groups) && (
-            <details>
+            <details className="am-card am-findings-list">
               <summary>Measured evidence</summary>
               {output.groups.map((v) => {
                 const g = record(v);
                 return (
-                  <section key={String(g.name)}>
+                  <section className="am-evidence" key={String(g.name)}>
                     <h3>{String(g.name)}</h3>
                     <ResultValue value={record(g.result).details} />
                   </section>

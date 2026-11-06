@@ -120,7 +120,7 @@ function CloudSettings() {
   const canDisconnect = useAtomValue(disconnect.permissionAtom(environmentId));
   if (!connection || !environmentId) return <p>Reading AmICited connection…</p>;
   return (
-    <div className="am-card">
+    <div className="am-card am-cloud-settings">
       <fieldset disabled={connection.state === "connected" ? !canDisconnect : !canOAuth || !canKey}>
         <AmicitedConnectPanel
           connection={connection}
@@ -202,7 +202,9 @@ export function CloudHome({ offer = true }: { offer?: boolean }) {
     );
   return offer && promotionsAllowed(connection) ? (
     <div className="am-promotion-row">
-      <MarketingLink href="/marketing-settings">Track this daily with AmICited →</MarketingLink>
+      <div className="am-promotion-row">
+        <MarketingLink href="/marketing-settings">Track this daily with AmICited →</MarketingLink>
+      </div>
     </div>
   ) : null;
 }
@@ -290,26 +292,25 @@ export function CloudPage() {
   const [hideMessage, setHideMessage] = useState("");
   const { connection } = useCloud();
   return (
-    <div className="am-page">
-      <p>
-        See who cites you across ChatGPT, Perplexity, Gemini and Google AI Overviews. Track changes
-        every day against your competitors.
-      </p>
+    <section className="am-card am-cloud-page">
       <SectionHead
-        title="Connection status"
+        title="AmICited"
+        subtitle="See who cites you across AI assistants. Track changes every day against your competitors."
         actions={
-          <span className="am-status am-status-neutral">
-            {connection?.state === "connected" ? "Connected" : "Not connected"}
-          </span>
+          <div className="am-actions">
+            <span className="am-status am-status-neutral">
+              {connection?.state === "connected" ? "Connected" : "Not connected"}
+            </span>
+            {promotionsAllowed(connection) && (
+              <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
+                Start 7-day free trial
+              </MarketingButton>
+            )}
+          </div>
         }
       />
       {promotionsAllowed(connection) && (
-        <div className="am-cloud-page-actions">
-          <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-          <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
-            Start 7-day free trial
-          </MarketingButton>
-        </div>
+        <p className="am-hint">7-day trial, then EUR 120/month Pro, cancel anytime.</p>
       )}
       <CloudHome offer={false} />
       <CloudSettings />
@@ -329,7 +330,7 @@ export function CloudPage() {
         </MarketingButton>
         <p role="status">{hideMessage}</p>
       </footer>
-    </div>
+    </section>
   );
 }
 
