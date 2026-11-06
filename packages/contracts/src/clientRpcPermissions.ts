@@ -15,6 +15,9 @@ import { WS_METHODS } from "./rpc.ts";
 
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
+  "amicited.cloud.connectOAuth": AuthSettingsWriteScope,
+  "amicited.cloud.connectApiKey": AuthSettingsWriteScope,
+  "amicited.cloud.disconnect": AuthSettingsWriteScope,
   "amicited.tools.run": AuthOrchestrationOperateScope,
   [WS_METHODS.previewClose]: AuthPreviewOperateScope,
   // Stopping a server signals its processes, as closing a terminal does.

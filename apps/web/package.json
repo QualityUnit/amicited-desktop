@@ -12,7 +12,9 @@
     "test": "vp test run --passWithNoTests --project unit --project browser"
   },
   "dependencies": {
+    "@amicited/cloud-client": "workspace:*",
     "@amicited/tools-core": "workspace:*",
+    "@amicited/ui-cloud": "workspace:*",
     "@amicited/ui-marketing": "workspace:*",
     "@base-ui/react": "^1.9.0",
     "@betteroffice/docx": "0.4.3",

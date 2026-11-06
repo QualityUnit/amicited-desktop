@@ -1,3 +1,4 @@
+import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as MarketingTools from "@amicited/tools/service";
 import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -2005,10 +2006,18 @@ export const layerWsRpc = (
         return yield* mutateProjectWithClone(projectService, projectCloneTracker, mutation);
       });
 
+      const cloud = yield* AmicitedCloud.AmicitedCloud;
       const marketingTools = yield* MarketingTools.MarketingTools.pipe(
         Effect.provide(MarketingTools.layer),
       );
       const handlers = ServerWsRpcGroup.of({
+        // AmICited cloud: credentials stay inside the server.
+        "amicited.cloud.status": () => Effect.promise(() => cloud.status()),
+        "amicited.cloud.summary": () => Effect.promise(() => cloud.summary()),
+        "amicited.cloud.connectOAuth": () => Effect.promise(() => cloud.connectOAuth()),
+        "amicited.cloud.connectApiKey": ({ apiKey }) =>
+          Effect.promise(() => cloud.connectApiKey(apiKey)),
+        "amicited.cloud.disconnect": () => Effect.promise(() => cloud.disconnect()),
         "amicited.tools.list": () =>
           marketingTools.list.pipe(Effect.map((cards) => cards.map((card) => ({ ...card })))),
         "amicited.tools.run": ({ name, input }) =>

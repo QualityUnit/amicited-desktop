@@ -1,3 +1,5 @@
+import { CloudClient } from "@amicited/cloud-client";
+import { AmicitedCloud } from "../amicited/Cloud.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
@@ -109,6 +111,15 @@ const codexAdditionalContext = () =>
     .join("");
 
 const layerAdvertisedTools = McpHttpServer.layerTools.pipe(
+  Layer.provide(
+    Layer.succeed(
+      AmicitedCloud,
+      new CloudClient({
+        secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+        openExternal: async () => {},
+      }),
+    ),
+  ),
   Layer.provideMerge(McpHttpServer.layerInProcessMcpServer),
   Layer.provide(toolHandlerServices),
 );

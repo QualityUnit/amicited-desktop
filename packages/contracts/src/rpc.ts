@@ -1,3 +1,4 @@
+import { cloudRpcs } from "@amicited/cloud-client/rpc";
 import { marketingRpcs } from "@amicited/tools-core/rpc";
 import {
   OrchestrationV2SearchThreadError,
@@ -1996,6 +1997,8 @@ export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthori
 ) {}
 
 export const WsRpcGroup = RpcGroup.make(
+  // AmICited cloud extension.
+  ...cloudRpcs,
   ...marketingRpcs,
   WsGuestShareCreateRpc,
   WsServerProbeRpc,

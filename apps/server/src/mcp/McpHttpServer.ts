@@ -1,3 +1,4 @@
+import { CloudToolkit, layer as cloudHandlers } from "../amicited/CloudToolkit.ts";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -1194,6 +1195,8 @@ export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE,
 
 /** Every tool the T3 MCP server advertises. AgentContextBudget.test.ts measures this set. */
 export const layerTools = Layer.mergeAll(
+  // AmICited cloud uses the same authenticated transport as provider tools.
+  toolkitRegistration(CloudToolkit, cloudHandlers),
   layerPreviewToolkit,
   layerOrchestratorToolkit,
   layerThreadToolkit,

@@ -54,3 +54,79 @@ is offered after a first win in a later wave, using
 Bearer key). There is no permanent cloud free plan: the 7-day trial leads to
 Pro at EUR 120 including MCP. Signup:
 https://app.flowhunt.io/sign-in?app=amicited&plan=pro&interval=month .
+
+## Cloud connection (Wave 2)
+
+`@amicited/cloud-client` owns the native loopback OAuth/PKCE flow, SDK streamable
+HTTP client, workspace-key validation and refresh. The production endpoint is
+`https://api.flowhunt.io/mcp/amicited`; tests use a local fake server. Credentials
+use the existing `@napi-rs/keyring` dependency, partitioned by server state directory.
+The existing ServerSecretStore writes restricted plaintext files, so it is
+intentionally unsuitable for these tokens. Keyring failures never fall back to disk.
+Workspace identity and plan are not invented from domain names or token contents.
+Until the remote response supplies verified metadata, the connected workspace label
+is generic and plan is absent. Summary returns normalized domains, raw analytics
+and only numeric headline fields actually present; unknown metrics stay absent.
+
+Additional upstream extension points:
+
+- `packages/contracts/src/rpc.ts`: adds the five `amicited.cloud.*` methods from the new package.
+- `packages/contracts/src/clientRpcPermissions.ts`: requires settings write for connect and disconnect.
+- `packages/client-runtime/src/state/commandPermissions.test.ts`: covers destination grants for cloud connection changes.
+- `apps/server/src/auth/RpcAuthorization.ts`: requires orchestration read for status and summary.
+- `apps/server/src/observability/RpcInstrumentation.ts`: assigns cloud telemetry and suppresses credential-bearing connection traces.
+- `apps/server/src/ws.ts`: forwards cloud RPC to the shared cloud service.
+- `apps/server/src/server.ts`: supplies one cloud service to RPC and MCP.
+- `apps/server/src/mcp/McpHttpServer.ts`: registers the authenticated cloud proxy toolkit.
+- `apps/server/src/ws.test.ts`: supplies an inert cloud client to existing config-stream fixtures.
+- `apps/server/src/provider/AgentContextBudget.test.ts`: supplies an inert cloud client for advertised-tool measurement.
+- `apps/server/src/provider/agentContextBudget.json`: records the two additional proxy tools (908 bytes).
+- `apps/web/src/amicited-cloud.browser.test.tsx`: tests unmounted components with the real web UI kit.
+- Server, contracts and web package manifests plus `pnpm-lock.yaml`: add workspace dependencies only.
+
+RPC names: `amicited.cloud.status`, `amicited.cloud.connectOAuth`,
+`amicited.cloud.connectApiKey` (`{apiKey}`), `amicited.cloud.disconnect`,
+`amicited.cloud.summary`. Connection methods return the discriminated connection
+state, including plain-language errors. Summary returns connection, domains and,
+when available, analytics and headlines. OAuth opens the browser on the server's
+machine; remote users must complete sign-in there or use a workspace key. A second
+connection request sees `connecting`; disconnect cancels the pending callback.
+
+Agents use existing provider-injected local MCP access (Claude Code, Codex and
+other MCP-capable adapters): `amicited_cloud_read` accepts a read meta-tool name
+and arguments; `amicited_cloud_run` forwards to `run_tool` behind the inherited
+write/full-access checks. No cloud token is passed to providers. These proxies
+are advertised while disconnected so an agent can explain the Settings connection;
+they fail honestly until connected. The remote `read_tool` enforces read-only tool
+execution; writes go through the separate destructive proxy.
+
+### Pending mounts
+
+No marketer routes or Wave 1 packages are changed here. `@amicited/ui-cloud`
+exports these components; the mount adapter provides `ui={{Button, Input}}` from
+the existing web UI kit and a system-browser `openExternal(url)` callback:
+
+- Result renderer's `ResultFooterSlot`: `AmicitedUpsellCard` props are `result`
+  (`{tool,status,output?}`), `gate`, `ui`, `openExternal`, `onConnect`, optional
+  `connected`. Create one stable `createUpsellGate(localStorage, sessionStorage)`
+  from `@amicited/cloud-client/upsell`. Successful eligible results claim one
+  offer per session; Not now persists seven days, Dismiss persists indefinitely.
+  Mount below the free result. `onConnect` navigates to the connection settings.
+- Settings > General, AmICited connection slot: `AmicitedConnectPanel` props are
+  `connection`, `actions={connectOAuth,connectApiKey,disconnect}`, `onChange`,
+  `openExternal`, `ui`. Bind mutations through `createEnvironmentRpcCommand` and
+  its destination `permissionAtom`; the server independently enforces settings
+  write. Refresh status on entry and summary after connection changes.
+- Home: `AmicitedConnectedBadge` props are `connection`, `domains` (domain names),
+  optional `headlines` (`{label,value}[]`), `reportLink(): Promise<string>`,
+  `openExternal`, `ui`. It renders only when connected. The report-link action
+  uses `amicited.cloud.summary`'s optional `reportUrl`, obtained server-side from
+  `CloudClient.reportLink`. If absent, reject the action so the badge shows its
+  honest error state. No report URL is fabricated.
+
+Browser-safe imports use `@amicited/cloud-client/model` and `/upsell`; the root
+export contains Node networking and must stay on the server. No screenshot
+harness or live provider eval was run in this unmounted wave, as directed by the
+brief; component browser tests cover the UI and fake HTTP fixtures cover auth.
+The existing MCP tool-use eval runner passed a one-case dry run; no paid model
+was invoked.
