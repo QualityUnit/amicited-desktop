@@ -259,8 +259,17 @@ try {
   await capture("05-chat-list");
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-  await page.locator("[data-chat-provider-model-picker]").click();
-  await page.getByRole("option", { name: /Marketing audit/ }).click();
+  await page.evaluate(async () => {
+    const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+    const draftId = location.pathname.split("/").at(-1);
+    useComposerDraftStore
+      .getState()
+      .setModelSelection(
+        draftId,
+        { instanceId: "devReplay", model: "marketing" },
+        { replaceOptions: true, explicit: true },
+      );
+  });
   await page.getByRole("button", { name: "Manage assistant", exact: true }).waitFor();
   await capture("02b-empty-connected");
   for (const [path, name] of [
