@@ -3,6 +3,8 @@
   border-radius: 4px;
   padding: 20px;
   margin-top: 16px;
+  background: var(--ai-surf);
+  box-shadow: var(--ai-seam);
 }
 .am-cloud-stack > * + * {
   margin-top: 16px;
@@ -22,11 +24,6 @@
 }
 .am-cloud-stack summary {
   cursor: pointer;
-}
-
-.am-cloud-card {
-  background: var(--ai-surf);
-  box-shadow: var(--ai-seam);
 }
 
 .am-cloud-comparison {

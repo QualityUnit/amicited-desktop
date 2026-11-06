@@ -106,6 +106,7 @@ The regressions cover all-pass audit tone, connected and snoozed promotion gates
 ranked visibility shares and brand-voice input reaching the writer. The journey
 checks remembered sidebar collapse, task creation through free Replay and permanent
 offer dismissal on Home and Tools. Captures use temporary state and explicitly
-labelled visibility fixtures. Browser-panel verification reached first launch and
-used Skip; the complete integrated flow is exercised by the journey harness.
+labelled visibility fixtures. Browser-panel verification reached first launch, used Skip and verified
+collapse to a 60px rail, saved preference and expansion. The complete integrated
+flow is exercised by the journey harness.
 No production MCP connection, paid generation or native Electron run was exercised.
