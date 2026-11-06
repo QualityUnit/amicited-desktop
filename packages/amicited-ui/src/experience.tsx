@@ -1,3 +1,7 @@
+import { MarketingTooltip, MarketingMenu } from "./primitives.js";
+import * as Schema from "effect/Schema";
+import { answerSchema } from "@amicited/tools/visibility-schema";
+import { SIGNAL_ROW_CLASS, SIGNAL_LIST_CLASS } from "./cloud/signalRow.js";
 import { DashboardTrendsCard } from "./cloud/DashboardTrendsCard.js";
 import { DashboardTrendsTabs } from "./cloud/DashboardTrendsTabs.js";
 import { DashboardTrendsLegend } from "./cloud/DashboardTrendsLegend.js";
@@ -61,13 +65,21 @@ export function FirstRun({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<ToolResult | null>(null);
+  const [connectionRequested, setConnectionRequested] = useState(false);
   if (result)
     return (
       <MarketingShell path="/tools/seo.site.audit" navigate={marketingNavigate}>
         <MarketingTitle>Website health audit</MarketingTitle>
         <MarketingResult
           result={result}
-          fix={fix}
+          fix={async (prompt) => {
+            try {
+              await fix(prompt);
+            } catch (error) {
+              setConnectionRequested(true);
+              throw error;
+            }
+          }}
           rerun={async () => {
             if (brand) setResult(await check(brand));
           }}
@@ -76,11 +88,12 @@ export function FirstRun({
             setBrand(null);
           }}
         />
-        <Card className="am-card" id="ai-subscriptions">
-          <h2>Want AI to fix these?</h2>
-          <p>Connect Claude or ChatGPT using your existing subscription.</p>
-          {subscriptions}
-        </Card>
+        {connectionRequested && (
+          <Card className="am-card" id="ai-subscriptions">
+            <h2>Your AI assistant</h2>
+            {subscriptions}
+          </Card>
+        )}
         <MarketingButton onClick={skip}>Go to Home →</MarketingButton>
       </MarketingShell>
     );
@@ -504,85 +517,115 @@ function VisibilityResult({
           />
         }
       >
-        <SectionHead title={tab === "share" ? "Share in this check" : "Mentions in this check"} />
+        <SectionHead
+          title={
+            tab === "answers"
+              ? "Answers checked in this run"
+              : tab === "share"
+                ? "Share in this check"
+                : "Mentions in this check"
+          }
+        />
         <div className="flex flex-col gap-2.5">
-          {series.map((c) => (
-            <BarRow
-              key={c.brand}
-              compact
-              identity={
-                <>
-                  <BrandFavicon name={c.brand} />
-                  <span className="truncate text-[var(--ai-ink)]">{c.brand}</span>
-                </>
-              }
-              barValue={c.answers ?? 0}
-              barMax={typeof summary.answered === "number" ? summary.answered : 0}
-              barColor={c.color}
-            >
-              <BarRowValue className={ROW_COUNT_CLASS}>
-                {tab === "share" ? c.share : formatResultValue(c.answers)}
-              </BarRowValue>
-            </BarRow>
-          ))}
+          {tab === "answers" ? (
+            <p>
+              {formatResultValue(summary.answered)} answers checked. Inspect each answer and its
+              sources below.
+            </p>
+          ) : (
+            series.map((c) => (
+              <BarRow
+                key={c.brand}
+                compact
+                identity={
+                  <>
+                    <BrandFavicon name={c.brand} />
+                    <span className="truncate text-[var(--ai-ink)]">{c.brand}</span>
+                  </>
+                }
+                barValue={c.answers ?? 0}
+                barMax={typeof summary.answered === "number" ? summary.answered : 0}
+                barColor={c.color}
+              >
+                <BarRowValue className={ROW_COUNT_CLASS}>
+                  {tab === "share" ? c.share : formatResultValue(c.answers)}
+                </BarRowValue>
+              </BarRow>
+            ))
+          )}
         </div>
         <p className="text-xs text-ai-ink-3">{String(output.message ?? "")}</p>
       </DashboardTrendsCard>
       {Array.isArray(output.answers) && (
-        <Card className="am-card am-answers">
+        <Card className={`am-card am-answers ${SIGNAL_LIST_CLASS}`}>
           <SectionHead title="Answers in this check" />
           {output.answers.map((v) => {
-            const a = record(v);
-            return (
-              <article className="am-answer-row" key={String(a.prompt)}>
-                <div className="am-answer-head">
-                  <h3>{String(a.prompt)}</h3>
-                  <span
-                    className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
-                  >
-                    {a.mentioned === true
-                      ? "Mentioned"
-                      : a.mentioned === false
-                        ? "Not mentioned"
-                        : "Could not check"}
-                  </span>
-                  <p>
-                    Position: <span className="am-number">{formatResultValue(a.position)}</span>
-                  </p>
-                </div>
-                <p>{String(a.excerpt ?? "No answer available").slice(0, 700)}</p>
-                <p>
-                  Cited domains:{" "}
-                  {Array.isArray(a.citations) && a.citations.length
-                    ? a.citations
-                        .map((c) => {
-                          try {
-                            return new URL(String(c)).hostname;
-                          } catch {
-                            return String(c);
-                          }
-                        })
-                        .join(", ")
-                    : "None"}
+            const decoded = Schema.decodeUnknownOption(answerSchema)(v);
+            if (decoded._tag === "None")
+              return (
+                <p role="alert" key={JSON.stringify(v)}>
+                  Could not read this answer.
                 </p>
-                {a.mentioned === false && fix && (
-                  <MarketingButton
-                    variant="link"
-                    aria-label="Fix this with AI"
-                    onClick={() =>
-                      void fix(
-                        `Help my brand become a useful recommendation for: ${String(a.prompt)
-                          .trim()
-                          .replace(
-                            /[.!?]+$/,
-                            "",
-                          )}. Suggest evidence and content improvements.\nInputs: ${JSON.stringify(input)}\nPrompts and findings: ${JSON.stringify(output)}`,
-                      ).catch((error: Error) => setError(error.message))
-                    }
-                  >
-                    Fix with AI →
-                  </MarketingButton>
-                )}
+              );
+            const a = decoded.value;
+            return (
+              <article data-answer-row="" className={SIGNAL_ROW_CLASS} key={a.prompt}>
+                <span
+                  className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
+                >
+                  {a.mentioned === true
+                    ? "Mentioned"
+                    : a.mentioned === false
+                      ? "Not mentioned"
+                      : "Could not check"}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <strong className="shrink-0 max-w-[50%] truncate">{a.prompt}</strong>
+                    <span className="truncate text-[13px] text-ai-ink-2">
+                      {a.excerpt ?? "No answer available"}
+                    </span>
+                  </div>
+                  <details>
+                    <summary>Show full answer · Why / How</summary>
+                    <p className="whitespace-pre-wrap">{a.excerpt ?? "No answer available"}</p>
+                    <p>
+                      Cited domains:{" "}
+                      {a.citations.length
+                        ? a.citations
+                            .map((c) => {
+                              try {
+                                return new URL(c).hostname;
+                              } catch {
+                                return c;
+                              }
+                            })
+                            .join(", ")
+                        : "None"}
+                    </p>
+                  </details>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="am-number">Position {formatResultValue(a.position)}</span>
+                  {a.mentioned === false && fix && (
+                    <MarketingButton
+                      variant="link"
+                      aria-label="Fix this with AI"
+                      onClick={() =>
+                        void fix(
+                          `Help my brand become a useful recommendation for: ${String(a.prompt)
+                            .trim()
+                            .replace(
+                              /[.!?]+$/,
+                              "",
+                            )}. Suggest evidence and content improvements.\nInputs: ${JSON.stringify(input)}\nPrompts and findings: ${JSON.stringify(output)}`,
+                        ).catch((error: Error) => setError(error.message))
+                      }
+                    >
+                      Fix with AI →
+                    </MarketingButton>
+                  )}
+                </div>
               </article>
             );
           })}
@@ -696,7 +739,9 @@ export function MarketingResult({
                 )}
               />
               <span>{key === "url" ? "Website" : humanLabel(key)}</span>{" "}
-              {String(value).slice(0, 72)}
+              <MarketingTooltip label={String(value)} enabled>
+                <span className="truncate max-w-[40ch]">{String(value)}</span>
+              </MarketingTooltip>
             </span>
           ))}
         {typeof output.provider === "string" && (
@@ -805,27 +850,29 @@ export function MarketingResult({
                 />
                 {findingRows.slice(0, 3)}
               </Card>
-              {findingRows.length > 3 && (
-                <details className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card am-findings-list">
-                  <summary>More findings · {findingRows.length - 3}</summary>
-                  {findingRows.slice(3)}
-                </details>
-              )}
+              <Card className="am-card am-disclosures">
+                {findingRows.length > 3 && (
+                  <details className="am-disclosure">
+                    <summary>More findings · {findingRows.length - 3}</summary>
+                    {findingRows.slice(3)}
+                  </details>
+                )}
+                {Array.isArray(output.groups) && (
+                  <details className="am-disclosure">
+                    <summary>Measured evidence</summary>
+                    {output.groups.map((v) => {
+                      const g = record(v);
+                      return (
+                        <section className="am-evidence" key={String(g.name)}>
+                          <h3>{String(g.name)}</h3>
+                          <ResultValue value={record(g.result).details} />
+                        </section>
+                      );
+                    })}
+                  </details>
+                )}
+              </Card>
             </>
-          )}
-          {Array.isArray(output.groups) && (
-            <details className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card am-findings-list">
-              <summary>Measured evidence</summary>
-              {output.groups.map((v) => {
-                const g = record(v);
-                return (
-                  <section className="am-evidence" key={String(g.name)}>
-                    <h3>{String(g.name)}</h3>
-                    <ResultValue value={record(g.result).details} />
-                  </section>
-                );
-              })}
-            </details>
           )}
           {result.tool === "ai.visibility.check" && (
             <VisibilityResult
@@ -836,7 +883,15 @@ export function MarketingResult({
           )}
           {!findings.length && result.tool !== "ai.visibility.check" && (
             <Card className="am-card am-result-detail">
-              <SectionHead title={title ?? resultTitle(result)} />
+              <SectionHead
+                title={title ?? resultTitle(result)}
+                subtitle={
+                  Array.isArray(output.suggestions)
+                    ? `${output.suggestions.length} suggestions`
+                    : ""
+                }
+              />
+              {Array.isArray(output.suggestions) && <ResultValue value={output.suggestions} />}
               {typeof output.message === "string" && <p className="am-hint">{output.message}</p>}
               {typeof output.draft === "string" && (
                 <div className="am-report-prose">
@@ -871,6 +926,7 @@ export function MarketingResult({
                   .filter(
                     ([key]) =>
                       ![
+                        "suggestions",
                         "score",
                         "readingEase",
                         "grade",
@@ -930,36 +986,39 @@ export function MarketingResult({
           )}
           {findings.length > 0 && <ResultFooterSlot result={result} />}
           <MarketingToolbar>
-            <details className="am-export">
-              <summary>Export</summary>
-              <div>
-                <MarketingButton
-                  aria-label="Copy results"
-                  onClick={() =>
-                    void navigator.clipboard
-                      .writeText(resultMarkdown(result))
-                      .catch(() => setError("Could not copy. Try exporting instead."))
-                  }
-                >
-                  <MarketingIcon name="copy" /> Copy results
-                </MarketingButton>
-                <MarketingButton
-                  onClick={() => {
-                    const url = URL.createObjectURL(
-                      new Blob([resultMarkdown(result)], { type: "text/markdown" }),
-                    );
-                    const link = document.createElement("a");
-                    link.href = url;
-                    link.download = result.tool.replaceAll(".", "-") + ".md";
-                    link.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  <MarketingIcon name="download" />
-                  Download
-                </MarketingButton>
-              </div>
-            </details>
+            <MarketingMenu
+              label={
+                <>
+                  <MarketingIcon name="download" /> Export
+                </>
+              }
+            >
+              <MarketingButton
+                aria-label="Copy results"
+                onClick={() =>
+                  void navigator.clipboard
+                    .writeText(resultMarkdown(result))
+                    .catch(() => setError("Could not copy. Try exporting instead."))
+                }
+              >
+                <MarketingIcon name="copy" /> Copy results
+              </MarketingButton>
+              <MarketingButton
+                onClick={() => {
+                  const url = URL.createObjectURL(
+                    new Blob([resultMarkdown(result)], { type: "text/markdown" }),
+                  );
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = result.tool.replaceAll(".", "-") + ".md";
+                  link.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <MarketingIcon name="download" />
+                Download
+              </MarketingButton>
+            </MarketingMenu>
           </MarketingToolbar>
         </>
       )}

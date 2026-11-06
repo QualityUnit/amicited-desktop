@@ -265,7 +265,7 @@ The existing cloud and web adapters retain their behavior and free-tool gating.
 
 ## Wave 14 control variants
 
-- `apps/web/src/components/ui/button.tsx`: adds AmICited variants and size from the standalone `@amicited/ui-marketing/kit` class sets.
+- `apps/web/src/components/ui/button.tsx`: adds self-contained AmICited variants and size as literal class strings; no fork-package imports.
 - `apps/web/src/components/ui/input.tsx`: adds an AmICited size for the existing native-input adapter, retaining the kit field wrapper.
 - `apps/web/src/marketing.tsx`: injects the existing kit primitives/tooltips and command palette callback; keeps assistant-enable error handling compatible with React Compiler.
 - `apps/web/src/routes/_chat.tasks.tsx`: adds a compact list heading and opening affordance.
@@ -274,3 +274,10 @@ The existing cloud and web adapters retain their behavior and free-tool gating.
 These are marketer-only variants. The upstream variants, provider adapters,
 contracts and mobile UI retain their existing behavior. Marketer navigation and
 results share their web/desktop entry points, including local and remote RPC.
+
+Wave 15 keeps the Button extension self-contained: its additive AmICited sizes
+and variants contain literal classes, with no fork-package imports. Input also
+contains only its local additive size. The web marketing adapter supplies the
+T3 menu to result export and authenticates the tool registry for marketer search;
+its browser test covers sidebar, keyboard, tool, result and task navigation.
+The patches/ policy remains an owner decision; this round does not change it.

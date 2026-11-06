@@ -87,23 +87,27 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 14, 2026-11-06, Node 26.12.1:
+Wave 15 (round 13 evidence), 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
-pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter t3 run typecheck
+vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx packages/amicited-tools/src/library.test.ts
+pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter @amicited/tools --filter @amicited/cloud-client --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
 pnpm --dir scripts exec effect-tsgo tsrs --noEmit
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r12
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r12
-vp run check:changed 6e25fbfe6
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r13
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r13
+vp run check:changed 6718192b2
 ```
 
-Focused tests: 35 passed in five files. Marketing UI, cloud UI, server, web and
+Focused tests: 46 passed in six files. Marketing UI, cloud UI, server, web and
 scripts typechecks pass; existing Effect schema-brand suggestions are informational.
 The journey requires the independent cloud specimens described in SCREENSHOTS.md.
 It captures the complete 2× parity set and 1440 journey with labelled fixtures.
 No paid provider or production MCP connection is invoked.
+
+Search navigation and the concrete visibility/audit offers are included in the
+journey. Native visibility answers include excerpt, citations and all required
+schema fields; the harness fails if renderer decoding rejects them.
 
 The actual built Electron main mounts the marketer UI under an isolated OS home,
 T3 home and port offset. Inter, Geist, Geist Mono and Fraunces all load at 2×.
@@ -114,5 +118,6 @@ shell markers are nested. The normal desktop dev launcher is never used, and the
 owner's desktop process is untouched.
 
 A plain check:changed also includes earlier integration-branch changes and exposes
-pre-existing formatting in workflow skills/specification and upstream browser-test
-failures. The round is checked against its starting commit above; hooks still run.
+pre-existing formatting in workflow skills/specification and three upstream
+browser-test failures: the ChatView reserved-draft case and ChatHeader untouched
+rename cases for blur and Enter. The round is checked against its starting commit above; hooks still run.

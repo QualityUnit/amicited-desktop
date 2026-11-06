@@ -403,11 +403,27 @@ it("includes visibility inputs, prompts and findings in the AI handoff", async (
         input: { brand: "Acme", website: "https://example.com" },
         output: {
           summary: { answered: 1, mentioned: 0 },
-          answers: [{ prompt: "Best garden tools?", mentioned: false, excerpt: "Contoso only" }],
+          answers: [
+            {
+              prompt: "Best garden tools?",
+              mentioned: false,
+              excerpt: "Contoso only",
+              status: "answered",
+              position: null,
+              competitorsMentioned: ["Contoso"],
+              citations: [],
+            },
+          ],
         },
       }}
     />,
   );
+  await screen.getByRole("tab", { name: /Answers checked/ }).click();
+  await expect
+    .element(screen.getByRole("heading", { name: "Answers checked in this run" }))
+    .toBeVisible();
+  await screen.getByText("Show full answer · Why / How", { exact: true }).click();
+  await expect.element(screen.getByText("Contoso only", { exact: true }).last()).toBeVisible();
   await screen.getByRole("button", { name: "Fix with AI →", exact: true }).first().click();
   expect(fix.mock.calls[0]?.[0]).toContain("Acme");
   expect(fix.mock.calls[0]?.[0]).toContain("https://example.com");
@@ -437,4 +453,41 @@ it("labels collapsed navigation when focused", async () => {
   await screen.getByRole("link", { name: "Tasks", exact: true }).element().focus();
   await expect.element(page.getByRole("tooltip")).toHaveTextContent("Tasks");
   localStorage.removeItem("amicited.rail-collapsed");
+});
+
+it("opens marketer search from the sidebar and shortcut and follows a result", async () => {
+  const { MarketingSearchContext } = await import("@amicited/ui-marketing");
+  const navigate = vi.fn();
+  await using screen = await render(
+    <MarketingSearchContext
+      value={[
+        { title: "Website health audit", href: "/tools/seo.site.audit", kind: "Tool" },
+        {
+          title: "Recent visibility check",
+          href: "/tools/ai.visibility.check",
+          kind: "Recent result",
+        },
+        { title: "Write a launch brief", href: "/local/task", kind: "Task" },
+      ]}
+    >
+      <MarketingShell path="/home" navigate={navigate}>
+        <p>Home</p>
+      </MarketingShell>
+    </MarketingSearchContext>,
+  );
+  await screen.getByRole("button", { name: "Search", exact: true }).click();
+  await expect.element(screen.getByRole("dialog")).toBeVisible();
+  await screen.getByRole("link", { name: "Website health audit Tool" }).click();
+  expect(navigate).toHaveBeenCalledWith("/tools/seo.site.audit");
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+  await expect.element(screen.getByRole("dialog")).toBeVisible();
+  await screen.getByRole("searchbox").fill("launch");
+  await expect
+    .element(screen.getByRole("link", { name: "Website health audit Tool" }))
+    .not.toBeInTheDocument();
+  await screen.getByRole("link", { name: "Write a launch brief Task" }).click();
+  expect(navigate).toHaveBeenCalledWith("/local/task");
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+  await screen.getByRole("link", { name: "Recent visibility check Recent result" }).click();
+  expect(navigate).toHaveBeenCalledWith("/tools/ai.visibility.check");
 });

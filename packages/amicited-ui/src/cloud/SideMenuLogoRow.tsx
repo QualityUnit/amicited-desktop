@@ -1,9 +1,13 @@
+import { MarketingTooltip } from "../primitives.js";
 // Ported from flowhunt2 origin/main 44d4019d4c: frontend/src/components/side-menu/SideMenuLogoRow.tsx.
-"use client";
 
 import type { FC, ReactNode } from "react";
 import { X as TbX } from "lucide-react";
-const SideMenuTooltip = ({ children }: { label: string; children: ReactNode }) => children;
+const SideMenuTooltip = ({ children, label }: { label: string; children: ReactNode }) => (
+  <MarketingTooltip label={label} enabled>
+    {children}
+  </MarketingTooltip>
+);
 
 interface SideMenuLogoRowProps {
   logo: ReactNode;
@@ -30,13 +34,6 @@ const PanelCollapseIcon: FC<{ size: number }> = ({ size }) => (
   <svg width={size} height={size} {...svgBase}>
     <rect x="3" y="4" width="18" height="16" rx="2" />
     <path d="M9 4v16M16 9l-3 3 3 3" />
-  </svg>
-);
-
-const PanelExpandIcon: FC<{ size: number }> = ({ size }) => (
-  <svg width={size} height={size} {...svgBase}>
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <path d="M9 4v16M13 9l3 3-3 3" />
   </svg>
 );
 
@@ -84,9 +81,9 @@ const SideMenuLogoRow: FC<SideMenuLogoRowProps> = ({
           type="button"
           onClick={onToggle}
           aria-label={expandLabel}
-          className="flex size-[38px] items-center justify-center rounded-[10px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
+          className="[&_strong]:hidden [&_svg]:shrink-0 flex size-[38px] items-center justify-center rounded-[10px] text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-white"
         >
-          <PanelExpandIcon size={18} />
+          {logo}
         </button>
       </SideMenuTooltip>
     </div>

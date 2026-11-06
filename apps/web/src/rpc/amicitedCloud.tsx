@@ -202,7 +202,9 @@ export function CloudHome({ offer = true }: { offer?: boolean }) {
     );
   return offer && promotionsAllowed(connection) ? (
     <div className="am-promotion-row">
-      <MarketingLink href="/marketing-settings">Track this daily with AmICited →</MarketingLink>
+      <MarketingLink className="am-track-link" href="/marketing-settings">
+        Track this daily with AmICited →
+      </MarketingLink>
     </div>
   ) : null;
 }

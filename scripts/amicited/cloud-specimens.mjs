@@ -28,9 +28,19 @@ export async function cloudSpecimens(out) {
  import {Button} from '${source}/components/ui/Button.tsx';
  import {DashboardTrendsTabs} from '${metrics}/DashboardTrendsTabs.tsx';
  import {DashboardTrendsLegend} from '${metrics}/DashboardTrendsLegend.tsx';
+ import {StatusNotification} from '${source}/components/amicited/ui/StatusNotification.tsx';
+ import {SIGNAL_ROW_CLASS} from '${source}/components/amicited/ui/signalRow.ts';
+ import {TabStrip} from '${source}/components/ui/TabStrip.tsx';
+ import {Badge} from '${source}/components/ui/Badge.tsx';
  import {HeaderFilterItem} from '${source}/components/amicited/HeaderFilterItem.tsx';
  import {filterTrigger} from '${source}/components/ui/controlSurface.ts';
  const specimens=<ThemeProvider theme={customTheme}><div data-amicited-tokens="" style={{'--font-ai-sans':'Geist','--font-ai-mono':'"Geist Mono"','--font-ai-serif':'Fraunces',fontFamily:'Inter, sans-serif'}}>
+ <div data-specimen="banner"><StatusNotification tone="critical" ariaLabel="Attention" label="ATTENTION" open={false} onToggle={()=>{}} expandLabel="Show" collapseLabel="Hide" header="Check completed">Evidence</StatusNotification></div>
+ <div data-specimen="search"><SideNavRow title="Search" iconNode={<svg/>}/></div>
+ <div data-specimen="domain"><button className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border">example.com</button></div>
+ <div data-specimen="badge"><Badge tone="warn" size="sm">Improve</Badge></div>
+ <div data-specimen="finding" className="@container/signals"><div className={SIGNAL_ROW_CLASS}><span>Improve</span><span>Check your site</span><span>Fix</span></div></div>
+ <div data-specimen="strip"><TabStrip placement="content" tabs={[{key:'seo',title:'Site audit basics',pathname:'/tools'}]} activeKey="seo" ariaLabel="Tools" onTabChange={()=>{}} /></div>
  <div data-specimen="nav"><SideNavRow title="Tasks" iconNode={<svg/>}/></div>
  <div data-specimen="active"><SideNavRow title="Home" active iconNode={<svg/>}/></div>
  <div data-specimen="secondary"><Button>Edit inputs</Button></div>

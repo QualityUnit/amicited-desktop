@@ -53,3 +53,13 @@ use variable-height rows. Fraunces appears only on the welcome headline.
 `marketing.css` retains desktop-specific task, local report, preferences and
 upsell layout plus the T3 token bridge. Results expose only measured figures;
 free local tools and their complete results never depend on a cloud account.
+
+The visibility answers use the cloud `ui/signalRow.ts` grid and hairlines, with
+answer text and citations in a disclosure. Answers decode against the tool's
+shared browser-safe schema. Tools tabs use the `TabStrip` label geometry, while
+New task uses the cloud warning-tone Ask agent treatment with a working ⌘J.
+Export uses the injected T3 menu and button controls. Search is marketer-only:
+the authenticated tool registry, latest session result and saved tasks; its
+sidebar entry and ⌘K open the same modal in first-run and subsequent shells.
+The comparison table also measures the banner, search row, domain control,
+finding badge, signal row and tool tab. Differences are recorded, not hidden.

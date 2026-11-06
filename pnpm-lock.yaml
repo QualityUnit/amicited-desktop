@@ -1539,9 +1539,15 @@ importers:
 
   packages/amicited-ui:
     dependencies:
+      '@amicited/tools':
+        specifier: workspace:*
+        version: link:../amicited-tools
       '@amicited/tools-core':
         specifier: workspace:*
         version: link:../amicited-tools-core
+      effect:
+        specifier: 4.1.2
+        version: 4.1.2
       lucide-react:
         specifier: ^0.564.0
         version: 0.564.0(react@19.3.0)

@@ -181,21 +181,39 @@ try {
         output: {
           status: "checked",
           provider: "Claude",
+          model: "fixture",
+          scope: {
+            assistants: ["Claude"],
+            countries: [],
+            prompts: ["Best garden tools?", "Best value garden tools?"],
+            runAt: "2026-11-06T12:00:00Z",
+          },
           message:
             "Fixture: one assistant, no live search. Position is first appearance among supplied brands.",
-          summary: { mentioned: 1, answered: 2, competitors: [{ brand: "Contoso", answers: 2 }] },
+          summary: {
+            mentioned: 1,
+            answered: 2,
+            shareOfVoice: 33.3,
+            competitors: [{ brand: "Contoso", answers: 2 }],
+          },
           answers: [
             {
               prompt: "Best garden tools?",
               mentioned: true,
               position: 2,
-              answer: "Contoso and Acme",
+              status: "answered",
+              excerpt: "Contoso and Acme",
+              competitorsMentioned: ["Contoso"],
+              citations: ["https://contoso.example/"],
             },
             {
               prompt: "Best value garden tools?",
               mentioned: false,
               position: null,
-              answer: "Contoso",
+              status: "answered",
+              excerpt: "Contoso",
+              competitorsMentioned: ["Contoso"],
+              citations: [],
             },
           ],
         },
@@ -204,6 +222,11 @@ try {
     location.hash = "/tools/ai.visibility.check";
   });
   await page.getByRole("tablist", { name: "This visibility check" }).waitFor();
+  await page.getByText("Contoso and Acme", { exact: true }).first().waitFor();
+  if (await page.getByText("No answer available", { exact: true }).count())
+    throw new Error("Visibility fixture lost its excerpt");
+  if (await page.getByText("Could not read this answer.", { exact: true }).count())
+    throw new Error("Visibility fixture failed answer schema decoding");
   await capture("visibility");
   await cdp.detach();
   const report = JSON.parse(NodeFS.readFileSync(NodePath.join(out, "electron-fonts.json"), "utf8"));

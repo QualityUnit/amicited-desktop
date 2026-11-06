@@ -1,3 +1,4 @@
+import { answerSchema } from "./schema.ts";
 import * as Schema from "effect/Schema";
 import { define, urlSchema } from "../common.ts";
 import type { Generation } from "../content/tools.ts";
@@ -20,15 +21,6 @@ export const visibilityInput = Schema.Struct({
   competitors: Schema.optional(
     Schema.Array(Schema.String).annotate({ title: "Competitors (comma-separated)" }),
   ),
-});
-const answerSchema = Schema.Struct({
-  prompt: Schema.String,
-  status: Schema.Literals(["answered", "could_not_check"]),
-  excerpt: Schema.NullOr(Schema.String),
-  mentioned: Schema.NullOr(Schema.Boolean),
-  position: Schema.NullOr(Schema.Number),
-  competitorsMentioned: Schema.Array(Schema.String),
-  citations: Schema.Array(Schema.String),
 });
 const output = Schema.Struct({
   status: Schema.Literals(["checked", "partial", "needs_provider", "could_not_check"]),

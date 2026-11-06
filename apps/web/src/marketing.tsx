@@ -1,5 +1,5 @@
+import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
-import { openCommandPalette } from "./commandPaletteBus";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -30,7 +30,7 @@ import {
 import { ResultFooterContext } from "@amicited/ui-marketing";
 import { newProjectId } from "./lib/utils";
 import { projectEnvironment } from "./state/projects";
-import { useProjects } from "./state/entities";
+import { useThreadShells, useProjects } from "./state/entities";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 import type { ServerProvider } from "@t3tools/contracts";
@@ -44,6 +44,8 @@ import {
   ToolForm,
   MarketingSettings as MarketingSettingsView,
   MarketingShell,
+  MarketingSearchContext,
+  type SearchItem,
   useWorkspaceMode,
   resultTitle,
 } from "@amicited/ui-marketing";
@@ -51,7 +53,14 @@ import type { ToolCard, ToolResult } from "@amicited/tools-core";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
+import {
+  Children,
+  isValidElement,
+  useEffect,
+  useEffectEvent,
+  useState,
+  type ReactNode,
+} from "react";
 import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
 import {
@@ -71,13 +80,15 @@ export const KitButton = ({
     type={type}
     size="amicited"
     variant={
-      variant === "default"
-        ? "amicited-primary"
-        : variant === "row"
-          ? "amicited-row"
-          : variant === "link"
-            ? "amicited-link"
-            : "amicited-secondary"
+      variant === "agent"
+        ? "amicited-agent"
+        : variant === "default"
+          ? "amicited-primary"
+          : variant === "row"
+            ? "amicited-row"
+            : variant === "link"
+              ? "amicited-link"
+              : "amicited-secondary"
     }
     data-am-variant={variant}
     {...props}
@@ -103,7 +114,27 @@ export function KitTooltip({ children, label }: { children: ReactNode; label: st
     </Tooltip>
   );
 }
-const marketingUi = { Button: KitButton, Input: KitInput, Textarea, Tooltip: KitTooltip };
+function KitMenu({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <Menu>
+      <MenuTrigger render={<Button size="amicited" variant="amicited-secondary" />}>
+        {label}
+      </MenuTrigger>
+      <MenuPopup align="end">
+        {Children.map(children, (child) =>
+          isValidElement(child) ? <MenuItem render={child} /> : child,
+        )}
+      </MenuPopup>
+    </Menu>
+  );
+}
+const marketingUi = {
+  Menu: KitMenu,
+  Button: KitButton,
+  Input: KitInput,
+  Textarea,
+  Tooltip: KitTooltip,
+};
 
 const renderCloudFooter = (result: ToolResult) => <CloudFooter result={result} />;
 
@@ -115,6 +146,60 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tools.run",
   label: "marketing:run",
 });
+function readRecent() {
+  try {
+    return JSON.parse(
+      sessionStorage.getItem("amicited.last-result") ?? "null",
+    ) as ToolResult | null;
+  } catch {
+    return null;
+  }
+}
+
+function MarketingSearchData({ children }: { children: ReactNode }) {
+  const environmentId = usePrimaryEnvironmentId();
+  const list = useAtomCommand(listCommand);
+  const load = useEffectEvent(list);
+  const threads = useThreadShells();
+  const [tools, setTools] = useState<readonly ToolCard[]>([]);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Search reads the authenticated tool registry for this environment.
+  useEffect(() => {
+    if (!environmentId) return;
+    let active = true;
+    void load({ environmentId, input: undefined }).then((result) => {
+      if (active && result._tag === "Success") setTools(result.value as unknown as ToolCard[]);
+    });
+    return () => {
+      active = false;
+    };
+  }, [environmentId]);
+  const [recent, setRecent] = useState(readRecent);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Refresh the browser-session result when a tool completes.
+  useEffect(() => {
+    const update = () => setRecent(readRecent());
+    window.addEventListener("amicited-result", update);
+    return () => window.removeEventListener("amicited-result", update);
+  }, []);
+  const items: SearchItem[] = tools.map((tool) => ({
+    title: tool.title,
+    href: "/tools/" + tool.name,
+    kind: "Tool",
+  }));
+  if (recent && isUsefulResult(recent))
+    items.unshift({
+      title: resultTitle(recent),
+      href: "/tools/" + recent.tool,
+      kind: "Recent result",
+    });
+  items.push(
+    ...threads.map((thread) => ({
+      title: thread.title || "New task",
+      href: `/${thread.environmentId}/${thread.id}`,
+      kind: "Task" as const,
+    })),
+  );
+  return <MarketingSearchContext value={items}>{children}</MarketingSearchContext>;
+}
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
@@ -124,40 +209,41 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <ResultFooterContext value={renderCloudFooter}>
-        <MarketingShell
-          openSearch={() => openCommandPalette()}
-          connectionStatus={<CloudStatusLine />}
-          mode={mode}
-          taskView={taskTarget !== null}
-          path={path}
-          hash={hash}
-          navigate={(path) => void navigate({ to: path })}
-        >
-          {path === "/marketing-settings" ? (
-            <CloudPage />
-          ) : path === "/settings/general" ? (
-            <MarketingSettings />
-          ) : path.startsWith("/settings") ? (
-            <MarketingSettings />
-          ) : path === "/usage" ? (
-            <div className="am-page">
-              <h1>Your AI plan usage</h1>
-              <p>
-                These limits come from your AI subscriptions. Local website checks do not use your
-                AI allowance.
-              </p>
-              <section className="am-card">
-                <MarketingSubscriptions usageLink={false} />
-              </section>
-            </div>
-          ) : ["/pull-requests", "/source-control"].includes(path) ? (
-            <MarketingHome />
-          ) : (
-            children
-          )}
-        </MarketingShell>
-      </ResultFooterContext>
+      <MarketingSearchData>
+        <ResultFooterContext value={renderCloudFooter}>
+          <MarketingShell
+            connectionStatus={<CloudStatusLine />}
+            mode={mode}
+            taskView={taskTarget !== null}
+            path={path}
+            hash={hash}
+            navigate={(path) => void navigate({ to: path })}
+          >
+            {path === "/marketing-settings" ? (
+              <CloudPage />
+            ) : path === "/settings/general" ? (
+              <MarketingSettings />
+            ) : path.startsWith("/settings") ? (
+              <MarketingSettings />
+            ) : path === "/usage" ? (
+              <div className="am-page">
+                <h1>Your AI plan usage</h1>
+                <p>
+                  These limits come from your AI subscriptions. Local website checks do not use your
+                  AI allowance.
+                </p>
+                <section className="am-card">
+                  <MarketingSubscriptions usageLink={false} />
+                </section>
+              </div>
+            ) : ["/pull-requests", "/source-control"].includes(path) ? (
+              <MarketingHome />
+            ) : (
+              children
+            )}
+          </MarketingShell>
+        </ResultFooterContext>
+      </MarketingSearchData>
     </MarketingUiContext>
   ) : (
     children
@@ -291,31 +377,33 @@ export function MarketingFirstRun() {
   const navigate = useNavigate();
   return (
     <MarketingUiContext value={marketingUi}>
-      <ResultFooterContext value={renderCloudFooter}>
-        <div data-amicited-shell="" className="am-first-run-surface">
-          <FirstRun
-            ready={environment?.connection.phase === "connected"}
-            fix={actions.startTask}
-            subscriptions={<MarketingSubscriptions />}
-            prepare={actions.prepare}
-            skip={() => {
-              localStorage.setItem("amicited.onboarded", "true");
-              void navigate({ to: "/home" });
-            }}
-            check={async (brand) => {
-              if (!environmentId) throw new Error("Not connected");
-              const response = await run({
-                environmentId,
-                input: { name: "seo.site.audit", input: { url: brand.website } },
-              });
-              if (response._tag !== "Success") throw new Error("Could not run check");
-              const result = response.value as unknown as ToolResult;
-              rememberResult(result);
-              return result;
-            }}
-          />
-        </div>
-      </ResultFooterContext>
+      <MarketingSearchData>
+        <ResultFooterContext value={renderCloudFooter}>
+          <div data-amicited-shell="" className="am-first-run-surface">
+            <FirstRun
+              ready={environment?.connection.phase === "connected"}
+              fix={actions.startTask}
+              subscriptions={<MarketingSubscriptions />}
+              prepare={actions.prepare}
+              skip={() => {
+                localStorage.setItem("amicited.onboarded", "true");
+                void navigate({ to: "/home" });
+              }}
+              check={async (brand) => {
+                if (!environmentId) throw new Error("Not connected");
+                const response = await run({
+                  environmentId,
+                  input: { name: "seo.site.audit", input: { url: brand.website } },
+                });
+                if (response._tag !== "Success") throw new Error("Could not run check");
+                const result = response.value as unknown as ToolResult;
+                rememberResult(result);
+                return result;
+              }}
+            />
+          </div>
+        </ResultFooterContext>
+      </MarketingSearchData>
     </MarketingUiContext>
   );
 }
@@ -323,6 +411,7 @@ function rememberResult(result: ToolResult) {
   if (!isUsefulResult(result)) return;
   try {
     sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
+    window.dispatchEvent(new Event("amicited-result"));
   } catch {
     /* Results remain visible when storage is blocked. */
   }
@@ -548,11 +637,13 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                 below, or keep using the free website checks.
               </p>
             )}
-            <p>
-              1. Install the assistant if needed. 2. Sign in with your existing subscription in the
-              window below. 3. When Ready appears, select your assistant above. Your login stays on
-              this device.
-            </p>
+            <p>Connect with your existing subscription.</p>
+            <ol className="list-decimal pl-5">
+              <li>Install the assistant if needed.</li>
+              <li>Sign in with your existing subscription in the window below.</li>
+              <li>When Ready appears, select your assistant above.</li>
+            </ol>
+            <p>Your login stays on this machine.</p>
 
             {environmentId && (
               <ConnectedAgentsStep

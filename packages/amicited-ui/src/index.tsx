@@ -110,14 +110,12 @@ export function Home({
               : undefined
           }
         >
-          <MarketingIcon name="send" />
+          {assistantName && <MarketingIcon name="send" />}
           {assistantName ? "Send task" : "Connect an assistant"}
         </MarketingButton>
-        {!assistantsLoading && !visibleError && (
+        {!assistantsLoading && !visibleError && assistantName && (
           <p>
-            {assistantName
-              ? `${assistantName} will start working on this`
-              : "Connect an assistant first"}
+            {assistantName ? `${assistantName} will start working on this` : "Connect an assistant"}
           </p>
         )}
         <p role="alert" className={visibleError ? "am-status am-status-warn" : undefined}>
@@ -187,6 +185,7 @@ export function ToolsGrid({
           <a
             key={pack}
             href={"#" + pack}
+            className="text-body relative flex items-center gap-1.5 px-2 py-2.5 font-medium whitespace-nowrap"
             aria-current={activePack === pack ? "page" : undefined}
             onClick={() => setSelected(pack)}
           >
@@ -436,3 +435,5 @@ export {
   MarketingIcon,
   toolIcon,
 } from "./primitives.js";
+
+export { MarketingSearchContext, type SearchItem } from "./search.js";

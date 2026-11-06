@@ -3,6 +3,7 @@ export interface WinResult {
   tool: string;
   status: string;
   output?: unknown;
+  input?: unknown;
 }
 function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -25,11 +26,17 @@ export function whatYouAreMissing(result: WinResult) {
     checked = assistants.length
       ? `You checked ${assistants.length} assistant${assistants.length === 1 ? "" : "s"} (${assistants.join(", ")}), ${prompts === undefined ? "prompt count not reported" : `${prompts} prompt${prompts === 1 ? "" : "s"}`}, from this machine, now${runAt ? ` (${runAt})` : ""}. This was a one-time check; country was not verified.`
       : "You completed a one-time visibility check. Its coverage is shown in your result.";
+    const summary = record(record(result.output).summary);
+    if (typeof summary.mentioned === "number" && typeof summary.answered === "number") {
+      checked += ` ${String(record(result.input).brand ?? "Your brand")} was named in ${summary.mentioned} of ${summary.answered} answers.`;
+    }
     missing =
       "With AmICited: ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Copilot and Claude, tracked daily, in the countries you choose, with competitors, citation sources and history.";
   } else if (/audit/.test(result.tool)) {
     checked =
       "You completed a one-time site audit, including whether AI crawlers can read your site.";
+    const score = record(result.output).score;
+    if (typeof score === "number") checked += ` Your audit score was ${score}/100.`;
     missing =
       "AmICited shows whether ChatGPT, Perplexity, Gemini and Google AI Overviews actually cite you, every day, against your competitors.";
   } else if (/^content\./.test(result.tool)) {

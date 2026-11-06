@@ -1,10 +1,3 @@
-import {
-  MARKETING_CONTROL,
-  MARKETING_PRIMARY,
-  MARKETING_SECONDARY,
-  MARKETING_LINK,
-  MARKETING_ROW,
-} from "@amicited/ui-marketing/kit";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -21,7 +14,8 @@ const buttonVariants = cva(
     },
     variants: {
       size: {
-        amicited: MARKETING_CONTROL,
+        amicited:
+          "relative flex items-center justify-center rounded-lg text-center font-medium focus:ring-0 focus:outline-hidden data-[testid=flowbite-dropdown-target]:pr-4 h-8 gap-1.5 rounded-lg px-3 text-[13px] sm:text-[13px] font-medium shadow-none inset-shadow-none before:shadow-none",
         compact:
           "h-7 gap-1 rounded-md px-[calc(--spacing(2)-1px)] text-xs before:rounded-[calc(var(--radius-md)-1px)] [&_svg:not([class*='size-'])]:size-3.5",
         default: "h-9 px-[calc(--spacing(3)-1px)] sm:h-8",
@@ -47,10 +41,16 @@ const buttonVariants = cva(
         xs: "h-7 gap-1 px-[calc(--spacing(2)-1px)] text-sm sm:h-6 sm:text-xs [&_svg:not([class*='size-'])]:size-4 sm:[&_svg:not([class*='size-'])]:size-3.5",
       },
       variant: {
-        "amicited-primary": MARKETING_PRIMARY,
-        "amicited-secondary": MARKETING_SECONDARY,
-        "amicited-link": MARKETING_LINK,
-        "amicited-row": MARKETING_ROW,
+        "amicited-agent":
+          "border-ai-warn/40 bg-ai-warn/15 text-ai-warn-ink not-aria-disabled:not-disabled:hover:bg-ai-warn/25 not-aria-disabled:not-disabled:active:bg-ai-warn/35 focus-visible:ring-ai-warn-ink",
+        "amicited-primary":
+          "border-[var(--ai-accent)] bg-[var(--ai-accent)] text-[var(--ai-on-accent)] hover:bg-[color-mix(in_srgb,var(--ai-accent)_90%,black)]",
+        "amicited-secondary":
+          "border-[var(--ai-surf-3)] bg-[var(--ai-surf)] text-[var(--ai-ink)] hover:bg-[var(--ai-bg)]",
+        "amicited-link":
+          "rounded px-0 border-transparent bg-transparent text-[var(--ai-accent)] hover:underline",
+        "amicited-row":
+          "border-[var(--ai-surf-3)] bg-[var(--ai-surf)] text-[var(--ai-ink)] hover:bg-[var(--ai-bg)] h-auto min-h-16 justify-between whitespace-normal px-4 py-3 text-left",
         default:
           "not-disabled:inset-shadow-[0_1px_--theme(--color-white/16%)] border-primary bg-primary text-primary-foreground shadow-primary/24 shadow-xs [:active,[data-pressed]]:inset-shadow-[0_1px_--theme(--color-black/8%)] [:disabled,:active,[data-pressed]]:shadow-none [:hover,[data-pressed]]:bg-primary/90",
         destructive:

@@ -48,9 +48,10 @@ import {
   type ReactNode,
 } from "react";
 export type MarketingButtonProps = ComponentProps<"button"> & {
-  variant?: "default" | "outline" | "secondary" | "link" | "row";
+  variant?: "agent" | "default" | "outline" | "secondary" | "link" | "row";
 };
 type Primitives = {
+  Menu?: ComponentType<{ label: ReactNode; children: ReactNode }>;
   Tooltip?: ComponentType<{ children: ReactNode; label: string }>;
   Button: ComponentType<MarketingButtonProps>;
   Input: ComponentType<ComponentProps<"input">>;
@@ -134,7 +135,8 @@ const icons = {
   content: FileText,
   text: FileText,
   topic: FileText,
-  serp: Search,
+  serp: ListFilter,
+  search: Search,
   copy: Copy,
   download: Download,
   send: Send,
@@ -166,8 +168,57 @@ export function toolIcon(name: string): MarketingIconName {
   throw new Error(`Missing marketing icon: ${name}`);
 }
 export function MarketingIcon({ name }: { name: MarketingIconName }) {
+  const paths: Partial<Record<MarketingIconName, ReactNode>> = {
+    search: (
+      <>
+        <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+        <path d="M21 21l-6 -6" />
+      </>
+    ),
+    serp: (
+      <>
+        <path d="M11 6h9M11 12h9M12 18h8M4 6h1M4 12h1" />
+        <circle cx="5" cy="18" r="2" />
+        <path d="M6.5 19.5L8 21" />
+      </>
+    ),
+    "ai-visibility": (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 12l6.5 -6.5" />
+      </>
+    ),
+    sparkles: (
+      <>
+        <path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2M3 12a6 6 0 0 1 6 6a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6M16 5a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2M7 11l5 5l5 -5M12 4v12" />
+      </>
+    ),
+  };
+  if (paths[name])
+    return (
+      <svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {paths[name]}
+      </svg>
+    );
   const Icon = icons[name];
-  return <Icon aria-hidden="true" size={18} strokeWidth={2} />;
+  return <Icon aria-hidden="true" size={18} strokeWidth={1.5} />;
 }
 export const MarketingScopeContext = createContext<HTMLElement | null>(null);
 export function MarketingScope({ children }: { children: ReactNode }) {
@@ -199,4 +250,16 @@ export function MarketingTooltip({
 }) {
   const { Tooltip } = useContext(MarketingUiContext);
   return Tooltip && enabled ? <Tooltip label={label}>{children}</Tooltip> : children;
+}
+
+export function MarketingMenu({ label, children }: { label: ReactNode; children: ReactNode }) {
+  const { Menu } = useContext(MarketingUiContext);
+  return Menu ? (
+    <Menu label={label}>{children}</Menu>
+  ) : (
+    <details>
+      <summary>{label}</summary>
+      {children}
+    </details>
+  );
 }

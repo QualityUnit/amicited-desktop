@@ -143,7 +143,13 @@ try {
       if (
         width === 1344 &&
         theme === "dark" &&
-        !["04-home", "03-first-win", "03b-first-win-upsell", "06-ai-visibility"].includes(name)
+        ![
+          "04-home",
+          "03-first-win",
+          "03b-first-win-upsell",
+          "06-ai-visibility",
+          "05-tools-grid",
+        ].includes(name)
       )
         continue;
       if (
@@ -249,6 +255,17 @@ try {
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
 
   await capture("04-home");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await page.getByRole("dialog").waitFor();
+  await capture("04e-search-open");
+  await page
+    .getByRole("dialog")
+    .getByRole("link", { name: "Website health audit", exact: false })
+    .last()
+    .click();
+  await page.waitForURL(/tools\/seo.site.audit/);
+  await page.getByRole("link", { name: "Home", exact: true }).click();
+
   await page.getByRole("button", { name: "Collapse sidebar" }).click();
   await capture("04d-sidebar-collapsed");
   await page.reload();
@@ -371,6 +388,7 @@ try {
               status: "answered",
               mentioned: true,
               position: 2,
+              competitorsMentioned: ["Contoso"],
               excerpt: "Contoso and Acme offer sturdy tools for small gardens.",
               citations: ["https://example.com/tools"],
             },
@@ -379,6 +397,7 @@ try {
               status: "answered",
               mentioned: false,
               position: null,
+              competitorsMentioned: ["Contoso"],
               excerpt: "Contoso offers a useful starter set.",
               citations: [],
             },
@@ -387,6 +406,7 @@ try {
       }),
     ),
   );
+  await page.evaluate(() => sessionStorage.removeItem("amicited.cloud.upsell"));
   await page.reload();
   await page.getByText("Mentioned in 1 of 2 answers", { exact: true }).scrollIntoViewIfNeeded();
   await page
@@ -395,6 +415,9 @@ try {
   await page.getByRole("heading", { name: "Top brands", exact: true }).waitFor();
   await capture("06-ai-visibility");
   await capture("06b-visibility-result-fixture");
+  await page.getByRole("complementary", { name: "More with AmICited" }).scrollIntoViewIfNeeded();
+  await capture("06d-visibility-upsell");
+
   await page.getByRole("button", { name: "Fix this with AI", exact: true }).first().click();
   await page.waitForURL(/\/draft\//);
   await page

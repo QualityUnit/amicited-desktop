@@ -1,3 +1,4 @@
+import { MarketingSearch } from "./search.js";
 import { SideMenuShell } from "./cloud/SideMenuShell.js";
 import { PageBreadcrumbs } from "./cloud/PageBreadcrumbs.js";
 import { SideNavRow } from "./cloud/SideNavRow.js";
@@ -10,6 +11,7 @@ import {
   MarketingToolbarContext,
   MarketingScopeContext,
   MarketingTitleContext,
+  MarketingTooltip,
 } from "./primitives.js";
 import { AmICitedMark, BrandFavicon, readBrand } from "./brand.js";
 const destinations = [
@@ -27,7 +29,6 @@ export function MarketingShell({
   taskView = false,
   mode = "marketer",
   connectionStatus,
-  openSearch,
 }: {
   children: ReactNode;
   path: string;
@@ -36,7 +37,6 @@ export function MarketingShell({
   taskView?: boolean;
   mode?: "marketer" | "developer";
   connectionStatus?: ReactNode;
-  openSearch?: () => void;
 }) {
   const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
   const [scope, setScope] = useState<HTMLDivElement | null>(null);
@@ -84,41 +84,29 @@ export function MarketingShell({
                       localStorage.setItem("amicited.rail-collapsed", String(next));
                     }}
                   />
-                  {openSearch && (
+                  <MarketingSearch navigate={navigate} />
+                  <MarketingTooltip label="Edit website" enabled={collapsed}>
                     <a
-                      href="#search"
-                      className="am-search-row"
-                      aria-label="Search"
+                      className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border am-domain"
+                      aria-label={`Edit website ${brand?.website ?? "settings"}`}
+                      href="/settings/general#website"
                       onClick={(event) => {
                         event.preventDefault();
-                        openSearch();
+                        navigate("/settings/general#website");
                       }}
                     >
-                      <MarketingIcon name="serp" />
-                      <span>Search</span>
-                      <kbd>⌘K</kbd>
+                      <BrandFavicon name={brand?.name ?? "Website"} website={brand?.website} />
+                      <span className="min-w-0 flex-1">
+                        <strong className="block truncate text-[13px] leading-tight font-semibold">
+                          {brand?.website.replace(/^https?:\/\//, "") ?? "Choose a website"}
+                        </strong>
+                        <small className="text-ai-ink-3 hidden truncate text-[11px] font-normal lg:block">
+                          Active domain
+                        </small>
+                      </span>
+                      <MarketingIcon name="edit" />
                     </a>
-                  )}
-                  <a
-                    className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border am-domain"
-                    aria-label={`Edit website ${brand?.website ?? "settings"}`}
-                    href="/settings/general#website"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate("/settings/general#website");
-                    }}
-                  >
-                    <BrandFavicon name={brand?.name ?? "Website"} website={brand?.website} />
-                    <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-[13px] leading-tight font-semibold">
-                        {brand?.website.replace(/^https?:\/\//, "") ?? "Choose a website"}
-                      </strong>
-                      <small className="text-ai-ink-3 hidden truncate text-[11px] font-normal lg:block">
-                        Active domain
-                      </small>
-                    </span>
-                    <MarketingIcon name="chevron" />
-                  </a>
+                  </MarketingTooltip>
                 </>
               }
               footer={
@@ -264,14 +252,15 @@ export function MarketingShell({
                 </div>
                 <div className="am-topbar-actions">
                   <div ref={setToolbar} />
-                  {!path.startsWith("/tools/") && (
+                  {path !== "/new" && (
                     <MarketingButton
-                      variant="outline"
+                      variant="agent"
                       data-ask-agent=""
                       onClick={() => navigate("/new")}
                     >
                       <MarketingIcon name="sparkles" />
                       New task
+                      <kbd>⌘J</kbd>
                     </MarketingButton>
                   )}
                 </div>

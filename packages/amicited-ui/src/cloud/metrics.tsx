@@ -69,7 +69,7 @@ interface KpiCellProps {
 }
 
 export const KpiCell: FC<KpiCellProps> = ({ label, value, sub, className }) => (
-  <div className={twMerge("min-w-0 bg-[var(--ai-surf)] px-4 py-3", className)}>
+  <div className={twMerge("min-w-0 bg-[var(--ai-surf)] px-4 py-3 sm:px-5 sm:py-4", className)}>
     <span className="block truncate text-[13px] leading-5 text-[var(--ai-ink-2)]">{label}</span>
     <span className="mt-0.5 flex flex-wrap items-baseline gap-x-2">
       <span className="font-[family-name:var(--font-ai-mono)] text-[28px] leading-9 font-medium tracking-[-0.02em] text-[var(--ai-ink)] tabular-nums">

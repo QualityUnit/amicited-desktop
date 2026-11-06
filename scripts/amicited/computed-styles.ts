@@ -6,6 +6,48 @@ import type { Page, Locator } from "playwright-core";
 const metrics = "components/amicited/dashboard/metrics/";
 const samples = [
   [
+    "status banner",
+    '.am-result [aria-label="ATTENTION"]',
+    '[data-specimen="banner"] > section',
+    "components/amicited/ui/StatusNotification.tsx",
+    "StatusNotification",
+  ],
+  [
+    "search row",
+    ".am-search-row",
+    '[data-specimen="search"] :is(a,button)',
+    "components/side-menu/SideNavRow.tsx",
+    "SideNavRow",
+  ],
+  [
+    "domain control",
+    ".am-domain",
+    '[data-specimen="domain"] button',
+    "components/amicited/AmICitedDomainSwitcher.tsx",
+    "AmICitedDomainSwitcher",
+  ],
+  [
+    "finding badge",
+    ".am-finding-row .am-status",
+    '[data-specimen="badge"] > span',
+    "components/ui/Badge.tsx",
+    "Badge",
+  ],
+  [
+    "finding row",
+    ".am-finding-row",
+    '[data-specimen="finding"] > div',
+    "components/amicited/ui/signalRow.ts",
+    "SIGNAL_ROW_CLASS",
+  ],
+  [
+    "tool tab",
+    ".am-pack-tabs a",
+    '[data-specimen="strip"] button',
+    "components/ui/TabStrip.tsx",
+    "TabStrip",
+  ],
+  [
     "sidebar nav row",
     'aside a[aria-label="Tasks"]',
     '[data-specimen="nav"] :is(a,button)',

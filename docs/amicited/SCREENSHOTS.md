@@ -114,3 +114,9 @@ pattern-killing desktop dev launcher. It overrides the temporary process's OS ho
 because DesktopUserData resolves the macOS profile independently of the Chromium
 user-data switch. CDP uses localhost and selects the application page explicitly;
 DevTools is also a page. First-run shell markers can be nested.
+
+Wave 15 adds `04e-search-open` and `06d-visibility-upsell`, and follows a search
+result into the actual audit route. Tool-grid dark parity also runs at 1344.
+Native answer fixtures include every schema field; the harness checks the rendered
+excerpt and rejects missing-answer or schema-error states. Both harnesses keep
+using isolated state and their own processes and ports.
