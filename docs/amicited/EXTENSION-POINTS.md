@@ -252,3 +252,13 @@ No server, provider, transport or upstream UI primitive changed.
 - `apps/web/src/rpc/amicitedCloud.tsx`: removes the nested Home promotion divider wrapper.
 - `apps/web/src/amicited-cloud.browser.test.tsx`: covers direct reruns, remembered Tools disclosure and visibility handoff context; updates the dark palette expectation.
 - `scripts/amicited/journey-screenshots.ts`: captures writing/keyword fixtures and dark 1344 Home/audit, checks disclosure persistence, and waits for connection-page readiness.
+
+## Cloud component port (Wave 13)
+
+- `apps/web/src/amicited-cloud.browser.test.tsx`: loads the real Tailwind stylesheet for shell/token assertions.
+- `apps/web/src/index.css`: imports the scoped cloud token stylesheet and registers the marketing component/evidence sources with Tailwind.
+- `packages/amicited-ui/package.json` and `pnpm-lock.yaml`: use the existing workspace version of tailwind-merge for the ported class expressions.
+- `scripts/amicited/journey-screenshots.ts`: captures at deviceScaleFactor 2 and calls the font/computed-style evidence writer.
+
+All component and typography changes remain in `@amicited/ui-marketing`.
+The existing cloud and web adapters retain their behavior and free-tool gating.

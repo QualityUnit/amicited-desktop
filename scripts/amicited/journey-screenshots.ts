@@ -9,6 +9,7 @@ import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { chromium } from "playwright-core";
+import { checkFonts, captureComputedStyles, writeComputedStyles } from "./computed-styles.ts";
 
 const out = NodePath.resolve(process.argv[2] ?? ".amicited-shots/wave0");
 await NodeFSP.mkdir(out, { recursive: true });
@@ -104,7 +105,10 @@ let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 try {
   const { url, pairing } = await ready;
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 2,
+  });
   page.setDefaultTimeout(90_000);
   await page.goto(pairing.replace(new URL(pairing).origin, url));
   await page.getByRole("heading", { name: "What’s your website?" }).waitFor();
@@ -174,6 +178,47 @@ try {
           .getByRole("button", { name: "Connect with AmICited", exact: true })
           .waitFor({ state: "visible" });
       await page.evaluate(() => document.fonts.ready);
+      await NodeFSP.writeFile(
+        NodePath.join(out, "browser-fonts.json"),
+        JSON.stringify(await checkFonts(page), null, 2),
+      );
+      if (theme === "light") {
+        await captureComputedStyles(page, out, name);
+        await writeComputedStyles(out);
+      }
+      if (name === "04-home" && width === 1344 && theme === "light")
+        await NodeFSP.writeFile(
+          NodePath.join(out, "layout.json"),
+          JSON.stringify(
+            await page.evaluate(() =>
+              Object.fromEntries(
+                [
+                  "[data-amicited-shell]",
+                  "aside",
+                  ".am-workspace",
+                  ".am-topbar",
+                  ".am-main",
+                  "[data-ask-agent]",
+                ].map((selector) => {
+                  const el = document.querySelector(selector)!;
+                  const rect = el.getBoundingClientRect();
+                  return [
+                    selector,
+                    {
+                      left: rect.left,
+                      right: rect.right,
+                      width: rect.width,
+                      scrollWidth: el.scrollWidth,
+                      fontSize: getComputedStyle(el).fontSize,
+                    },
+                  ];
+                }),
+              ),
+            ),
+            null,
+            2,
+          ),
+        );
       await page.mouse.move(0, 0);
       await page.screenshot({
         path: NodePath.join(out, name + "-" + theme + "-" + width + ".png"),

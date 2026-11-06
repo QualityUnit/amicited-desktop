@@ -1,5 +1,9 @@
-import { ChevronDown } from "lucide-react";
-import { AmICitedBot } from "./AmICitedBot.js";
+import { Card } from "./cloud/Card.js";
+import { headingClass, eyebrowClass, ledeClass } from "./cloud/onboardingStyles.js";
+import { BarRow, BarRowValue, ROW_COUNT_CLASS } from "./cloud/BarRow.js";
+import { StatusNotification } from "./cloud/StatusNotification.js";
+import { AgentBannerHeader } from "./cloud/AgentBannerHeader.js";
+import { KpiStrip } from "./cloud/metrics.js";
 import { MarketingShell } from "./shell.js";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
 import {
@@ -67,22 +71,29 @@ export function FirstRun({
             setBrand(null);
           }}
         />
-        <section className="am-card" id="ai-subscriptions">
+        <Card className="am-card" id="ai-subscriptions">
           <h2>Want AI to fix these?</h2>
           <p>Connect Claude or ChatGPT using your existing subscription.</p>
           {subscriptions}
-        </section>
+        </Card>
         <MarketingButton onClick={skip}>Go to Home →</MarketingButton>
       </MarketingShell>
     );
   return (
-    <div data-amicited-shell="" className="am-page am-onboarding">
+    <div
+      data-amicited-shell=""
+      data-amicited-tokens=""
+      data-amicited-font=""
+      className="am-page am-onboarding text-body"
+    >
       <AmICitedMark />
-      <p className="am-eyebrow">Your first win starts here</p>
-      <h1>What’s your website?</h1>
-      <p>Find out what’s helping your visibility, and what to improve next.</p>
+      <p className={eyebrowClass}>Your first win starts here</p>
+      <h1 className={headingClass}>What’s your website?</h1>
+      <p className={ledeClass}>
+        Find out what’s helping your visibility, and what to improve next.
+      </p>
       {brand && (
-        <p className="am-card">
+        <p className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card">
           <b>{brand.name}</b> · {brand.website}{" "}
           <MarketingButton variant="link" onClick={() => setBrand(null)}>
             Edit
@@ -91,7 +102,7 @@ export function FirstRun({
       )}
       {!brand && (
         <form
-          className="am-card"
+          className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card"
           onSubmit={async (event) => {
             event.preventDefault();
             setBusy(true);
@@ -242,51 +253,40 @@ function AnalysisBanner({
   detail?: string;
   action?: (() => void) | undefined;
 }) {
-  if (tone === "good")
-    return (
-      <div className="am-analysis am-analysis--good">
-        <AmICitedBot mood="happy" variant="outlined" size={24} />
-        <span className="am-analysis-eyebrow">ALL CLEAR</span>
-        <span className="am-analysis-lead">{lead}</span>
-        {counts && <span className="am-analysis-count">{counts}</span>}
-      </div>
-    );
+  const [open, setOpen] = useState(false);
+  const label = {
+    good: "ALL CLEAR",
+    critical: "ATTENTION",
+    warning: "WORTH IMPROVING",
+    unavailable: "COULD NOT CHECK",
+  }[tone];
   return (
-    <details className={`am-analysis am-analysis--${tone}`}>
-      <summary>
-        <AmICitedBot
-          mood={tone === "critical" ? "concerned" : tone === "warning" ? "watch" : "busy"}
-          size={28}
-        />
-        <span className="am-analysis-eyebrow">
-          {
-            {
-              good: "ALL CLEAR",
-              critical: "ATTENTION",
-              warning: "WORTH IMPROVING",
-              unavailable: "COULD NOT CHECK",
-            }[tone]
+    <StatusNotification
+      tone={tone === "unavailable" ? "warning" : tone}
+      ariaLabel={label}
+      label={label}
+      open={open}
+      onToggle={() => setOpen(!open)}
+      expandLabel="Show details"
+      collapseLabel="Hide details"
+      header={
+        <AgentBannerHeader
+          title={lead}
+          more={counts}
+          action={
+            action ? (
+              <MarketingButton variant="link" onClick={action}>
+                Fix with AI →
+              </MarketingButton>
+            ) : undefined
           }
-        </span>
-        <span className="am-analysis-lead">{lead}</span>
-        {counts && <span className="am-analysis-count">{counts}</span>}
-        {action && (
-          <MarketingButton
-            variant="link"
-            onClick={(event) => {
-              event.preventDefault();
-              action();
-            }}
-          >
-            Fix with AI →
-          </MarketingButton>
-        )}
-        <span className="am-banner-chevron">
-          <ChevronDown size={14} aria-hidden="true" />
-        </span>
-      </summary>
-      <p>{detail ?? "One-time check using the scope shown above. No daily history is measured."}</p>
-    </details>
+        />
+      }
+    >
+      <p className="px-3.5 py-3 text-sm text-ai-ink-2">
+        {detail ?? "One-time check using the scope shown above. No daily history is measured."}
+      </p>
+    </StatusNotification>
   );
 }
 function humanLabel(key: string) {
@@ -448,7 +448,7 @@ function VisibilityResult({
       />
       <div className="am-visibility-report">
         <div className="am-run-overview">
-          <div className="am-kpis">
+          <KpiStrip className="mb-5">
             <KpiTile
               label="Brand mentions"
               value={summary.mentioned == null ? null : String(summary.mentioned)}
@@ -464,30 +464,27 @@ function VisibilityResult({
               value={summary.answered == null ? null : String(summary.answered)}
               hint="One assistant · this run"
             />
-          </div>
+          </KpiStrip>
           <div className="am-current-bars">
             <SectionHead title="Mentions in this check" />
             {series.map((c) => (
-              <div className="am-current-bar" key={String(c.brand)}>
-                <span className="am-bar-identity">
-                  <BrandFavicon name={c.brand} />
-                  <span>{c.brand}</span>
-                </span>
-                <div>
-                  <span
-                    style={{
-                      background: c.color,
-                      width:
-                        typeof c.answers === "number" &&
-                        typeof summary.answered === "number" &&
-                        summary.answered > 0
-                          ? `${Math.min(100, (c.answers / summary.answered) * 100)}%`
-                          : "0%",
-                    }}
-                  />
-                </div>
-                <span className="am-number">{formatResultValue(c.answers)}</span>
-              </div>
+              <BarRow
+                key={c.brand}
+                compact
+                identity={
+                  <>
+                    <BrandFavicon name={c.brand} />
+                    <span className="truncate text-[var(--ai-ink)]">{c.brand}</span>
+                  </>
+                }
+                barValue={c.answers ?? 0}
+                barMax={typeof summary.answered === "number" ? summary.answered : 0}
+                barColor={c.color}
+              >
+                <BarRowValue className={ROW_COUNT_CLASS}>
+                  {formatResultValue(c.answers)}
+                </BarRowValue>
+              </BarRow>
             ))}
           </div>
           <p className="am-run-scope">{String(output.message ?? "")}</p>
@@ -498,15 +495,19 @@ function VisibilityResult({
             <div className="am-brand-row" key={c.brand}>
               <span className="am-series-dot" style={{ background: c.color }} />
               <BrandFavicon name={c.brand} website={c.you ? readBrand()?.website : undefined} />
-              <span className="am-brand-name">{c.brand}</span>
-              {c.you && <span className="am-you">you</span>}
+              <span className="am-brand-name text-sm leading-[normal]">{c.brand}</span>
+              {c.you && (
+                <span className="inline-flex shrink-0 items-center justify-center gap-1.5 font-medium whitespace-nowrap rounded-full h-4.5 px-2 text-caption bg-ui-accent/14 amicited:bg-ui-accent/14 text-ui-accent amicited:text-ui-accent">
+                  you
+                </span>
+              )}
               <span className="am-number">{c.share}</span>
             </div>
           ))}
         </section>
       </div>
       {Array.isArray(output.answers) && (
-        <section className="am-card am-answers">
+        <Card className="am-card am-answers">
           <SectionHead title="Answers in this check" />
           {output.answers.map((v) => {
             const a = record(v);
@@ -515,7 +516,7 @@ function VisibilityResult({
                 <div className="am-answer-head">
                   <h3>{String(a.prompt)}</h3>
                   <span
-                    className={`am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
+                    className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
                   >
                     {a.mentioned === true
                       ? "Mentioned"
@@ -563,7 +564,7 @@ function VisibilityResult({
               </article>
             );
           })}
-        </section>
+        </Card>
       )}
       {error && <p role="alert">{error}</p>}
     </div>
@@ -596,7 +597,9 @@ export function MarketingResult({
   const findingRows = ranked.map((f, i) => (
     // oxlint-disable-next-line react/no-array-index-key -- Findings are immutable snapshots and can share a title within one group.
     <article className="am-finding-row" key={`${f.group}:${f.title}:${i}`}>
-      <span className={`am-status am-status-${f.status}`}>
+      <span
+        className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-medium am-status am-status-${f.status}`}
+      >
         {i < 3 ? `${i + 1} · ` : ""}
         {
           {
@@ -681,7 +684,7 @@ export function MarketingResult({
         )}
       </MarketingScope>
       {needsProvider ? (
-        <div className="am-card">
+        <div className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card">
           <h3>Connect Claude or ChatGPT</h3>
           <p>
             {result.tool.startsWith("content.")
@@ -700,7 +703,7 @@ export function MarketingResult({
           <p>Your local website checks remain free and work without AI.</p>
         </div>
       ) : result.status === "error" ? (
-        <div className="am-card">
+        <div className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card">
           <p>{result.error?.message ?? "The check could not finish. Try again."}</p>
           <MarketingButton onClick={retry}>Try again</MarketingButton>
         </div>
@@ -722,7 +725,7 @@ export function MarketingResult({
               }
             />
           )}
-          <div className="am-kpis">
+          <KpiStrip className="mb-5">
             {typeof output.score === "number" && (
               <KpiTile
                 label="Audit score"
@@ -767,20 +770,20 @@ export function MarketingResult({
                 hint="From this machine"
               />
             )}
-          </div>
+          </KpiStrip>
 
           {findings.length > 0 && (
             <>
-              <section className="am-card am-findings-list">
+              <Card className="am-card am-findings-list">
                 <SectionHead
                   title={resultTone(result) === "good" ? "Checks passing" : "Start here"}
                   subtitle={`${Math.min(3, findings.length)} of ${findings.length} findings, most important first`}
                 />
                 {findingRows.slice(0, 3)}
-              </section>
+              </Card>
               <ResultFooterSlot result={result} />
               {findingRows.length > 3 && (
-                <details className="am-card am-findings-list">
+                <details className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card am-findings-list">
                   <summary>All findings · {findingRows.length}</summary>
                   {findingRows.slice(3)}
                 </details>
@@ -788,7 +791,7 @@ export function MarketingResult({
             </>
           )}
           {Array.isArray(output.groups) && (
-            <details className="am-card am-findings-list">
+            <details className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card am-findings-list">
               <summary>Measured evidence</summary>
               {output.groups.map((v) => {
                 const g = record(v);
@@ -809,7 +812,7 @@ export function MarketingResult({
             />
           )}
           {!findings.length && result.tool !== "ai.visibility.check" && (
-            <section className="am-card am-result-detail">
+            <Card className="am-card am-result-detail">
               <SectionHead title={title ?? resultTitle(result)} />
               {typeof output.message === "string" && <p className="am-hint">{output.message}</p>}
               {typeof output.draft === "string" && (
@@ -900,7 +903,7 @@ export function MarketingResult({
                   Open this search →
                 </a>
               )}
-            </section>
+            </Card>
           )}
           <MarketingToolbar>
             <MarketingButton

@@ -1,3 +1,5 @@
+import "./index.css";
+import { page } from "vite-plus/test/browser";
 import { MarketingShell } from "@amicited/ui-marketing";
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
@@ -351,6 +353,8 @@ it("hands the audit website and finding context to AI and labels all-pass result
 });
 
 it("keeps the Tools disclosure across mounts and marks the hash-selected pack", async () => {
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  await page.viewport(1344, 1016);
   const { MarketingShell } = await import("@amicited/ui-marketing");
   localStorage.removeItem("amicited.tools-open");
   localStorage.removeItem("amicited.rail-collapsed");
@@ -384,6 +388,7 @@ it("keeps the Tools disclosure across mounts and marks the hash-selected pack", 
       .element(screen.getByRole("link", { name: "Content tools", exact: true }))
       .toBeVisible();
   } finally {
+    await page.viewport(viewport.width, viewport.height);
     localStorage.removeItem("amicited.rail-collapsed");
     localStorage.removeItem("amicited.tools-open");
   }

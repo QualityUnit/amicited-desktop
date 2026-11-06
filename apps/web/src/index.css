@@ -1,6 +1,11 @@
 /* Clerk injects its component styles into the clerk layer (clerkAppearance.cssLayerName). */
 @layer theme, base, clerk, components, utilities;
 @import "tailwindcss";
+@import "../../../packages/amicited-ui/src/cloud/amicitedTokens.css";
+@import "../../../packages/amicited-ui/src/cloud/sharedTokens.css";
+/* AmICited cloud component extension: tokens stay on its layout root. */
+@source "../../../packages/amicited-ui/src";
+@source "../../../scripts/amicited/computed-styles.ts";
 
 @custom-variant dark (&:is(.dark, .dark *));
 @custom-variant light (&:not(.dark, .dark *));

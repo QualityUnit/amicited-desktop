@@ -1,3 +1,14 @@
+import { controlSurface, CONTROL_AREA } from "./cloud/controlSurface.js";
+import {
+  BUTTON_BASE,
+  CONTROL_MD,
+  KITPRIMARY,
+  KITSECONDARY,
+  KITGHOST,
+} from "./cloud/buttonStyles.js";
+import { KpiCell } from "./cloud/metrics.js";
+import { CloudSectionHead } from "./cloud/SectionHead.js";
+import { HEADER_BUTTON_BASE, HEADER_BUTTON_INACTIVE } from "./cloud/headerButtonStyles.js";
 import { createPortal } from "react-dom";
 import {
   LayoutDashboard,
@@ -57,17 +68,30 @@ export const MarketingUiContext = createContext<Primitives>({
   Input: (props) => <input {...props} />,
   Textarea: (props) => <textarea {...props} />,
 });
-export function MarketingButton(props: MarketingButtonProps) {
-  const { Button } = useContext(MarketingUiContext);
-  return <Button {...props} />;
+export function MarketingButton({
+  variant = "outline",
+  className = "",
+  ...props
+}: MarketingButtonProps) {
+  const header = "data-ask-agent" in props;
+  return (
+    <button
+      {...props}
+      data-slot="button"
+      className={`${header ? `${HEADER_BUTTON_BASE} ${HEADER_BUTTON_INACTIVE}` : `${BUTTON_BASE} ${CONTROL_MD} ${variant === "default" ? KITPRIMARY : variant === "link" ? KITGHOST : KITSECONDARY}`} ${className}`}
+    />
+  );
 }
 export function MarketingInput(props: ComponentProps<"input">) {
-  const { Input } = useContext(MarketingUiContext);
-  return <Input {...props} />;
+  return <input {...props} className={`${controlSurface()} my-2 ${props.className ?? ""}`} />;
 }
 export function MarketingTextarea(props: ComponentProps<"textarea">) {
-  const { Textarea } = useContext(MarketingUiContext);
-  return <Textarea {...props} />;
+  return (
+    <textarea
+      {...props}
+      className={`${controlSurface()} ${CONTROL_AREA} my-2 min-h-20 ${props.className ?? ""}`}
+    />
+  );
 }
 export function KpiTile({
   label,
@@ -78,15 +102,7 @@ export function KpiTile({
   value: ReactNode;
   hint?: string;
 }) {
-  return (
-    <div className="am-kpi">
-      <div className="am-label">{label}</div>
-      <div className="am-kpi-value">
-        <span className="am-figure">{value ?? "—"}</span>
-        {hint && <span className="am-hint">{hint}</span>}
-      </div>
-    </div>
-  );
+  return <KpiCell label={label} value={value ?? "—"} sub={hint} />;
 }
 export function SectionHead({
   title,
@@ -97,15 +113,7 @@ export function SectionHead({
   subtitle?: string;
   actions?: ReactNode;
 }) {
-  return (
-    <div className="am-section-head">
-      <div>
-        <h2>{title}</h2>
-        {subtitle && <p>{subtitle}</p>}
-      </div>
-      {actions}
-    </div>
-  );
+  return <CloudSectionHead title={title} titleAs="h2" sub={subtitle ?? ""} action={actions} />;
 }
 
 const icons = {

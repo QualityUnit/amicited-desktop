@@ -1,3 +1,5 @@
+import { Card } from "./cloud/Card.js";
+import { AmICitedFreeToolCard } from "./cloud/AmICitedFreeToolCard.js";
 import { packs } from "./packs.js";
 import {
   MarketingButton,
@@ -74,7 +76,7 @@ export function Home({
   return (
     <>
       <form
-        className="am-card"
+        className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card"
         onSubmit={(event) => {
           event.preventDefault();
           if (assistantsLoading) return;
@@ -113,7 +115,7 @@ export function Home({
         </p>
       </form>
       <div className="am-home-grid">
-        <section className="am-card">
+        <Card className="am-card">
           <SectionHead title="Your next useful action" />
           <div className="am-quick">
             {[
@@ -139,17 +141,17 @@ export function Home({
               </MarketingLink>
             ))}
           </div>
-        </section>
-        <section className="am-card" id="ai-subscriptions">
+        </Card>
+        <Card className="am-card" id="ai-subscriptions">
           <SectionHead title="Your AI subscriptions" />
           {subscriptions}
-        </section>
+        </Card>
       </div>
-      <section className="am-card">
+      <Card className="am-card">
         <SectionHead title="Recent results" />
         {recent ?? <p>Your completed checks will appear here.</p>}
         {cloud}
-      </section>
+      </Card>
     </>
   );
 }
@@ -188,18 +190,20 @@ export function ToolsGrid({
         {tools
           .filter((tool) => tool.pack === activePack)
           .map((tool) => (
-            <MarketingLink
-              className="am-card am-tool-card"
+            <AmICitedFreeToolCard
               key={tool.name}
-              href={"/tools/" + tool.name}
-            >
-              <div className="am-tool-head">
-                <MarketingIcon name={toolIcon(tool.name)} />
-                <h3>{tool.title}</h3>
-                <span>Open →</span>
-              </div>
-              <p>{tool.description}</p>
-            </MarketingLink>
+              tool={{
+                slug: tool.name,
+                icon: <MarketingIcon name={toolIcon(tool.name)} />,
+                title: tool.title,
+                description: tool.description,
+                category: tool.pack,
+                i18nKey: tool.name,
+              }}
+              onOpen={(slug) => {
+                window.location.href = "/tools/" + slug;
+              }}
+            />
           ))}
       </div>
     </>
@@ -239,7 +243,7 @@ export function ToolForm({
       {!result && (
         <>
           <form
-            className="am-card"
+            className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card"
             onSubmit={(event) => {
               event.preventDefault();
               setBusy(true);
@@ -346,7 +350,7 @@ export function MarketingSettings({
   const [message, setMessage] = useState("");
   return (
     <div className="am-page">
-      <section className="am-card" id="website">
+      <Card className="am-card" id="website">
         <h2>Your website / brand</h2>
         <form
           onSubmit={(e) => {
@@ -371,11 +375,11 @@ export function MarketingSettings({
           <MarketingButton variant="default">Save</MarketingButton>
           <p role="status">{message}</p>
         </form>
-      </section>
+      </Card>
 
-      <section className="am-card">
+      <Card className="am-card">
         <WorkspaceModeControl control={modeControl} />
-      </section>
+      </Card>
     </div>
   );
 }

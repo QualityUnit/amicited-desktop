@@ -85,3 +85,10 @@ checks Tools disclosure persistence, and adds labelled `07c-writing-fixture` and
 `07d-keywords-fixture` captures at 1344 and 1440. Readability is also captured at
 1344; Home and audit gain dark 1344 counterparts. Each connection capture waits
 for its Connect button after switching theme to exclude transient splash screens.
+
+Wave 13 sets deviceScaleFactor 2 for every capture, including the 1344×1016
+parity set. The harness asserts loaded Inter, Geist, Geist Mono and Fraunces
+faces, writes browser-fonts.json and computed-styles.json, and saves typography
+crops under crops/. The computed-style writer also generates the committed
+parity table in docs/amicited/parity/computed-styles.md. Native Electron results
+are recorded separately; a browser font check does not prove native loading.

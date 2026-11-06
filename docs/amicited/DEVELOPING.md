@@ -87,24 +87,27 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 12, 2026-11-06, Node 26.12.1, from the repository root:
+Wave 13, 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
+vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
 pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter t3 run typecheck
-(cd apps/web && pnpm exec effect-tsgo tsrs --noEmit)
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r10
+pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
+pnpm --dir scripts exec effect-tsgo tsrs --noEmit
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r11
+vp run check:changed 5f0010ae4
 ```
 
-Focused tests: 32 passed across 4 files. The extended disclosure case fails with
-the previous visibility condition and passes with tool icons preserved on collapse.
-Typechecks pass for marketing UI, cloud UI, server and web (4 packages); existing
-Effect schema-brand suggestions are informational.
+Focused tests: 34 passed in five files. Marketing UI, cloud UI, server, web and
+scripts typechecks pass; existing Effect schema-brand suggestions are informational.
+The journey captures the 2× parity set and regular 1440 views with labelled fixtures,
+loaded font assertions and generated computed-style evidence. No paid provider or
+production MCP connection is used.
 
-The journey produces 54 captures: 41 light and 13 dark, including the 1344×1016
-parity set, readability, schema-conforming writing/keyword fixtures, and dark Home,
-audit and trial offer. No journey-error.png. Captures move the pointer away and
-use temporary state, labelled fixtures and a marketer-named Replay task. Report
-prose, numbered suggestions, dark button text and shared spacing were compared
-with the supplied cloud references. No production MCP connection, paid generation
-or native Electron run was exercised.
+Native verification attempted the actual built desktop main under a temporary
+OS-home shim, a fresh T3 home and port offset 188. The normal dev:desktop launcher
+was avoided because its pattern kill would terminate the owner's app from this
+checkout. The native window opened at t3code-dev://app/ but never exposed marketer
+markup; its debugging endpoint then stopped responding. Native font checks and
+window capture remain unverified. The launch/error record is in the ignored
+r11/electron-fonts.json; no live T3 state was used.

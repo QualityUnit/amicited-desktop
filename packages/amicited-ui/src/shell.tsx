@@ -1,3 +1,7 @@
+import { SideMenuShell } from "./cloud/SideMenuShell.js";
+import { PageBreadcrumbs } from "./cloud/PageBreadcrumbs.js";
+import { SideNavRow } from "./cloud/SideNavRow.js";
+import SideMenuLogoRow from "./cloud/SideMenuLogoRow.js";
 import { packs, activeToolPack } from "./packs.js";
 import { useState, type ReactNode } from "react";
 import {
@@ -58,175 +62,187 @@ export function MarketingShell({
         <MarketingTitleContext value={title}>
           <div
             data-amicited-shell=""
+            data-amicited-tokens=""
             className={collapsed ? "am-shell am-shell-collapsed" : "am-shell"}
           >
-            <aside className="am-rail">
-              <div className="am-logo-row">
-                <AmICitedMark />
-                <button
-                  type="button"
-                  aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                  aria-expanded={!collapsed}
-                  onClick={() => {
-                    const next = !collapsed;
-                    setCollapsed(next);
-                    try {
+            <SideMenuShell
+              collapsed={collapsed}
+              header={
+                <>
+                  {" "}
+                  <SideMenuLogoRow
+                    logo={<AmICitedMark />}
+                    collapseLabel="Collapse sidebar"
+                    expandLabel="Expand sidebar"
+                    closeLabel="Close sidebar"
+                    onCloseMobile={() => {}}
+                    onToggle={() => {
+                      const next = !collapsed;
+                      setCollapsed(next);
                       localStorage.setItem("amicited.rail-collapsed", String(next));
-                    } catch {
-                      /* Keep the rail usable without storage. */
-                    }
-                  }}
-                >
-                  <MarketingIcon name={collapsed ? "expand" : "collapse"} />
-                </button>
-              </div>
-              <a
-                className="am-domain"
-                aria-label={`Edit website ${brand?.website ?? "settings"}`}
-                href="/settings/general#website"
-                onClick={(event) => {
-                  event.preventDefault();
-                  navigate("/settings/general#website");
-                }}
-              >
-                <BrandFavicon name={brand?.name ?? "Website"} website={brand?.website} />
-                <span>
-                  <strong>
-                    {brand?.website.replace(/^https?:\/\//, "") ?? "Choose a website"}
-                  </strong>
-                  <small>Your website</small>
-                </span>
-                <MarketingIcon name="edit" />
-              </a>
-              <nav aria-label="Main navigation">
-                {destinations.map(([label, href]) => (
-                  <a
-                    key={href}
-                    href={href}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      navigate(href);
                     }}
-                    className="am-nav-row"
-                    data-tooltip={collapsed ? label : undefined}
-                    aria-label={label}
-                    aria-current={
-                      path === href && !(href === "/tools" && activePack) ? "page" : undefined
-                    }
-                  >
-                    <MarketingIcon name={label} />
-                    <span>{label}</span>
-                  </a>
-                ))}
-                <button
-                  type="button"
-                  className="am-nav-group"
-                  aria-hidden={collapsed}
-                  tabIndex={collapsed ? -1 : undefined}
-                  aria-expanded={toolsOpen}
-                  aria-controls="am-tools-group"
-                  onClick={() => {
-                    const next = !toolsOpen;
-                    setToolsOpen(next);
-                    try {
-                      localStorage.setItem("amicited.tools-open", String(next));
-                    } catch {
-                      /* Disclosure works without storage. */
-                    }
-                  }}
-                >
-                  <span>Tool packs</span>
-                  <MarketingIcon name={toolsOpen ? "down" : "right"} />
-                </button>
-                <div id="am-tools-group" hidden={!collapsed && !toolsOpen}>
-                  {packs.map(([pack, label]) => (
-                    <a
-                      key={pack}
-                      className="am-nav-row"
-                      href={"/tools#" + pack}
-                      data-tooltip={collapsed ? label : undefined}
-                      aria-label={label}
-                      aria-current={activePack === pack ? "page" : undefined}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        navigate("/tools#" + pack);
-                      }}
-                    >
-                      <MarketingIcon name={pack} />
-                      <span>{label}</span>
-                    </a>
-                  ))}
-                </div>
-              </nav>
-              <div className="am-rail-footer">
-                <div>
-                  <strong>Free</strong> <span>local tools</span>
-                </div>
-                {connectionStatus ?? (
-                  <p>
-                    AmICited · Not connected{" "}
-                    <a
-                      href="/marketing-settings"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        navigate("/marketing-settings");
-                      }}
-                    >
-                      Connect →
-                    </a>
-                  </p>
-                )}
-              </div>
-            </aside>
-            <div className="am-workspace">
-              <header className="am-topbar">
-                <nav aria-label="Breadcrumb">
+                  />
                   <a
-                    href="/home"
+                    className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border am-domain"
+                    aria-label={`Edit website ${brand?.website ?? "settings"}`}
+                    href="/settings/general#website"
                     onClick={(event) => {
                       event.preventDefault();
-                      navigate("/home");
+                      navigate("/settings/general#website");
                     }}
                   >
                     <BrandFavicon name={brand?.name ?? "Website"} website={brand?.website} />
-                    {brand?.website.replace(/^https?:\/\//, "") ?? "Your workspace"}
+                    <span>
+                      <strong className="block truncate text-[13px] leading-tight font-semibold">
+                        {brand?.website.replace(/^https?:\/\//, "") ?? "Choose a website"}
+                      </strong>
+                      <small className="text-ai-ink-3 hidden truncate text-[11px] font-normal lg:block">
+                        Your website
+                      </small>
+                    </span>
+                    <MarketingIcon name="edit" />
                   </a>
-                  <span>/</span>
-                  {path.startsWith("/tools/") && (
-                    <>
+                </>
+              }
+              footer={
+                <div className="am-rail-footer">
+                  <div>
+                    <strong>Free</strong> <span>local tools</span>
+                  </div>
+                  {connectionStatus ?? (
+                    <p>
+                      AmICited · Not connected{" "}
                       <a
-                        href="/tools"
+                        href="/marketing-settings"
                         onClick={(event) => {
                           event.preventDefault();
-                          navigate("/tools");
+                          navigate("/marketing-settings");
                         }}
                       >
-                        Tools
+                        Connect →
                       </a>
-                      <span>/</span>
-                    </>
+                    </p>
                   )}
-                  <strong ref={setTitle}>
-                    <span className="am-default-title">
-                      {taskView
-                        ? "Task"
-                        : path.startsWith("/tools/")
-                          ? path
-                              .split("/")
-                              .at(-1)
-                              ?.split(".")
-                              .slice(1)
-                              .join(" ")
-                              .replace(/\b\w/g, (c) => c.toUpperCase())
-                          : (destinations.find(([, href]) => path === href)?.[0] ??
-                            (path === "/new"
-                              ? "New task"
-                              : path === "/usage"
-                                ? "AI plan usage"
-                                : "Settings"))}
-                    </span>
-                  </strong>
-                </nav>
+                </div>
+              }
+            >
+              {destinations.map(([label, href]) => (
+                <SideNavRow
+                  title={label}
+                  iconNode={<MarketingIcon name={label} />}
+                  active={path === href && !(href === "/tools" && activePack)}
+                  key={href}
+                  href={href}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate(href);
+                  }}
+                  className="am-nav-row"
+                  data-tooltip={collapsed ? label : undefined}
+                  aria-label={label}
+                  aria-current={
+                    path === href && !(href === "/tools" && activePack) ? "page" : undefined
+                  }
+                ></SideNavRow>
+              ))}
+              <button
+                type="button"
+                className="px-2.5 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 lg:group-data-[collapsed=true]/side:hidden flex w-full items-center justify-between overflow-hidden rounded-md hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-200 am-nav-group"
+                aria-hidden={collapsed}
+                tabIndex={collapsed ? -1 : undefined}
+                aria-expanded={toolsOpen}
+                aria-controls="am-tools-group"
+                onClick={() => {
+                  const next = !toolsOpen;
+                  setToolsOpen(next);
+                  try {
+                    localStorage.setItem("amicited.tools-open", String(next));
+                  } catch {
+                    /* Disclosure works without storage. */
+                  }
+                }}
+              >
+                <span>Tool packs</span>
+                <MarketingIcon name={toolsOpen ? "down" : "right"} />
+              </button>
+              <div id="am-tools-group" hidden={!collapsed && !toolsOpen}>
+                {packs.map(([pack, label]) => (
+                  <SideNavRow
+                    title={label}
+                    iconNode={<MarketingIcon name={pack} />}
+                    active={activePack === pack}
+                    key={pack}
+                    className="am-nav-row"
+                    href={"/tools#" + pack}
+                    data-tooltip={collapsed ? label : undefined}
+                    aria-label={label}
+                    aria-current={activePack === pack ? "page" : undefined}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigate("/tools#" + pack);
+                    }}
+                  ></SideNavRow>
+                ))}
+              </div>
+            </SideMenuShell>
+            <div className="am-workspace">
+              <header className="am-topbar">
+                <div
+                  onClick={(event) => {
+                    const link = (event.target as HTMLElement).closest("a");
+                    if (link) {
+                      event.preventDefault();
+                      navigate(link.getAttribute("href")!);
+                    }
+                  }}
+                >
+                  <PageBreadcrumbs
+                    currentAsHeading={path !== "/new"}
+                    items={[
+                      {
+                        label: (
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <BrandFavicon
+                              name={brand?.name ?? "Website"}
+                              website={brand?.website}
+                            />
+                            <span className="max-w-[24ch] truncate">
+                              {brand?.website.replace(/^https?:\/\//, "") ?? "Your workspace"}
+                            </span>
+                          </span>
+                        ),
+                        href: "/home",
+                        truncate: true,
+                      },
+                      ...(path.startsWith("/tools/") ? [{ label: "Tools", href: "/tools" }] : []),
+                      {
+                        label: (
+                          <span ref={setTitle}>
+                            {" "}
+                            <span className="am-default-title">
+                              {taskView
+                                ? "Task"
+                                : path.startsWith("/tools/")
+                                  ? path
+                                      .split("/")
+                                      .at(-1)
+                                      ?.split(".")
+                                      .slice(1)
+                                      .join(" ")
+                                      .replace(/\b\w/g, (c) => c.toUpperCase())
+                                  : (destinations.find(([, href]) => path === href)?.[0] ??
+                                    (path === "/new"
+                                      ? "New task"
+                                      : path === "/usage"
+                                        ? "AI plan usage"
+                                        : "Settings"))}
+                            </span>
+                          </span>
+                        ),
+                      },
+                    ]}
+                  />
+                </div>
                 <div className="am-topbar-actions">
                   <div ref={setToolbar} />
                   <MarketingButton
@@ -241,7 +257,8 @@ export function MarketingShell({
               </header>
               <div className="am-filter-band" ref={setScope} />
               <main
-                className={taskView ? "am-main am-task" : "am-main"}
+                data-amicited-font=""
+                className={taskView ? "am-main am-task text-body" : "am-main text-body"}
                 onClick={(event) => {
                   if (event.defaultPrevented) return;
                   const link = (event.target as HTMLElement).closest("a");
