@@ -1,5 +1,5 @@
-import { useWorkspaceMode } from "@amicited/ui-marketing";
-import { MarketingTranscriptCard } from "../../marketingChat";
+import { marketingSignInError, useWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingSignInRecovery, MarketingTranscriptCard } from "../../marketingChat";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogDetails, WorkLogRow } from "./WorkLog";
 import {
@@ -210,6 +210,8 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
       : undefined;
   if (pendingApproval) return <TimelinePendingApprovalRow approval={pendingApproval} />;
   if (failureItem?.type === "error" && failureItem.status === "failed") {
+    if (workspaceMode === "marketer" && marketingSignInError(failureItem.failure.message))
+      return <MarketingSignInRecovery threadRef={ctx.threadRef} />;
     const warning = failureItem.failure.class === "usage_limit";
     const resetAt = failureItem.failure.resetAt;
     // The reset time is the viewer's local time; naming the zone keeps it

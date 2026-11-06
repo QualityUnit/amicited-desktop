@@ -1,3 +1,7 @@
+/* oxlint-disable shadcn/no-unknown-classes -- Marketing card styles are owned by the fork package. */
+import { marketingApprovalInput } from "../../marketingContext";
+import { useThreadVisibleTurnItems } from "../../state/entities";
+import { MarketingButton } from "@amicited/ui-marketing";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   FULL_ACCESS_OVERRIDE_QUESTION,
@@ -37,11 +41,66 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
 }: {
   approval: PendingApproval;
 }) {
-  const { respondingRequestIds, canOperateThread, onRespondToApproval } = use(TimelineRowCtx);
+  const { respondingRequestIds, canOperateThread, onRespondToApproval, threadRef } =
+    use(TimelineRowCtx);
+  const items = useThreadVisibleTurnItems(threadRef);
+  const requestIndex = items.findIndex(
+    (p) => p.item.type === "approval_request" && p.item.requestId === approval.requestId,
+  );
+  const tool = items
+    .slice(0, requestIndex < 0 ? items.length : requestIndex)
+    .findLast((p) => p.item.type === "dynamic_tool" && p.item.status !== "completed");
+  const marketingTool =
+    tool?.item.type === "dynamic_tool" && tool.item.toolName?.endsWith("marketing_tools_run")
+      ? tool.item
+      : null;
   const marketer = useWorkspaceMode() === "marketer";
-  const marketingApproval = marketer && /marketing_tools_run/.test(approval.detail ?? "");
+  const marketingInput = marketingApprovalInput(marketingTool?.toolName, marketingTool?.input);
+  const marketingApproval = marketer && marketingInput !== null;
   const presentation = APPROVAL_PRESENTATION[approval.requestKind];
   const canRespond = approval.responseCapability === "live";
+  if (marketingApproval) {
+    const raw = marketingInput;
+    const title = raw?.name === "seo.site.audit" ? "website health audit" : "marketing check";
+    let site = raw?.input?.url ?? "your website";
+    try {
+      site = new URL(site).hostname;
+    } catch {
+      /* Keep the supplied target. */
+    }
+    return (
+      <article className="am-tool-card" aria-label="Marketing approval">
+        <header>
+          <strong>
+            {title === "website health audit" ? "Website health audit" : "Marketing check"}
+          </strong>
+          <small className="am-status-pill">Needs your OK</small>
+        </header>
+        <p>
+          Run a {title} on {site}? It's free and runs on your computer.
+        </p>
+        <div className="am-actions">
+          <MarketingButton
+            variant="default"
+            disabled={
+              !canOperateThread || !canRespond || respondingRequestIds.includes(approval.requestId)
+            }
+            onClick={() => void onRespondToApproval?.(approval.requestId, "accept")}
+          >
+            Allow
+          </MarketingButton>
+          <MarketingButton
+            disabled={
+              !canOperateThread || !canRespond || respondingRequestIds.includes(approval.requestId)
+            }
+            onClick={() => void onRespondToApproval?.(approval.requestId, "decline")}
+          >
+            Don't allow
+          </MarketingButton>
+        </div>
+      </article>
+    );
+  }
   return (
     <WorkLogRow
       role="group"
@@ -64,18 +123,10 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
           data-approval-detail="complete"
           tabIndex={0}
         >
-          {marketingApproval
-            ? "Let your assistant run this marketing check?"
-            : approval.detail || presentation.label}
+          {approval.detail || presentation.label}
         </code>
       }
     >
-      {marketingApproval && (
-        <details>
-          <summary>Check details</summary>
-          <pre>{approval.detail}</pre>
-        </details>
-      )}
       <div className="ms-7.5 flex min-w-0 flex-col gap-1 pb-1 text-xs">
         {approval.appName ? (
           <span className="text-muted-foreground wrap-anywhere">{approval.appName}</span>

@@ -122,7 +122,7 @@ export function ToolForm({
 }: {
   tool: ToolCard;
   fullResult?: boolean;
-  fix?: (prompt: string) => Promise<void>;
+  fix?: (prompt: string, result: ToolResult) => Promise<void>;
   onResult?: (result: ToolResult) => void;
   disabled?: boolean;
   run: (input: unknown) => Promise<ToolResult>;
@@ -145,7 +145,7 @@ export function ToolForm({
   const required = (tool.inputSchema.required ?? []) as string[];
   return (
     <>
-      <MarketingTitle>{tool.title}</MarketingTitle>
+      {!result && <MarketingTitle>{tool.title}</MarketingTitle>}
       {!result && (
         <>
           <form
@@ -235,7 +235,7 @@ export function ToolForm({
             <MarketingButton
               variant="default"
               onClick={() =>
-                void fix(resultQuestion(result)).catch((e: Error) => setError(e.message))
+                void fix(resultQuestion(result), result).catch((e: Error) => setError(e.message))
               }
             >
               Ask AI about this
@@ -358,8 +358,12 @@ export {
 } from "./primitives.js";
 
 export {
+  marketingSignInError,
+  marketingErrorText,
   marketingStarters,
   marketingToolResult,
   MarketingCallState,
   CompactMarketingResult,
 } from "./chat.js";
+
+export { MarketingHeader } from "./shell.js";

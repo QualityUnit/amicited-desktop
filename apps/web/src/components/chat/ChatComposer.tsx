@@ -2141,32 +2141,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     }
   };
   const submitComposerStable = useStableCallback(submitComposer);
-  const [marketingStarterRequested, setMarketingStarterRequested] = useState(0);
-  const marketingStarterSent = useRef(0);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- The separate draft hero requests submission after the updated store prompt renders.
-  useEffect(() => {
-    const request = () => setMarketingStarterRequested((request) => request + 1);
-    window.addEventListener("amicited-starter-send", request);
-    return () => window.removeEventListener("amicited-starter-send", request);
-  }, []);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Submit the externally requested starter once the composer receives its prompt.
-  useEffect(() => {
-    if (
-      marketingStarterRequested > marketingStarterSent.current &&
-      prompt.trim() &&
-      !noProviderAvailable &&
-      !isSendDisabled
-    ) {
-      marketingStarterSent.current = marketingStarterRequested;
-      submitComposerStable();
-    }
-  }, [
-    marketingStarterRequested,
-    prompt,
-    noProviderAvailable,
-    isSendDisabled,
-    submitComposerStable,
-  ]);
   const [marketingPendingSend, setMarketingPendingSend] = useState<ModelSelection | null>(null);
   const marketingSentSelection = useRef<ModelSelection | null>(null);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A subscription connection hands the preserved prompt back to the mounted composer after model selection commits.
@@ -3256,8 +3230,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       {workspaceMode === "marketer" ? (
         <MarketingComposerContext
           selectedInstanceId={selectedInstanceId}
+          onConnected={setMarketingPendingSend}
           onSelected={(selection) => {
-            setMarketingPendingSend(selection);
             onProviderModelSelect(selection.instanceId, selection.model);
           }}
         />
@@ -3490,7 +3464,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       isComposerApprovalState
                         ? activePendingApproval?.supportsFeedback
                           ? "Send feedback to decline this request"
-                          : "Send a message to decline and redirect the agent"
+                          : workspaceMode === "marketer"
+                            ? "Or tell Claude what to do instead"
+                            : "Send a message to decline and redirect the agent"
                         : activePendingProgress
                           ? isChoiceOnlyPendingQuestion
                             ? "Choose an option above"

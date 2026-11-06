@@ -417,7 +417,8 @@ export function DraftHeroHeadline({
               onClick={() => {
                 if (draftId) {
                   useComposerDraftStore.getState().setPrompt(draftId, prompt);
-                  if (readBrand()) window.dispatchEvent(new Event("amicited-starter-send"));
+                  if (readBrand() && activeProjectRef)
+                    void openProjectDraft(activeProjectRef, { prompt, sendImmediately: true });
                 }
               }}
             >

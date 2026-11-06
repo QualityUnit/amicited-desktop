@@ -92,7 +92,9 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
               record(result.input).website ??
               record(result.input).domain ??
               "",
-          )}
+          )
+            .replace(/^https?:\/\//, "")
+            .replace(/\/$/, "")}
         </p>
         <MarketingButton onClick={open}>Open full result</MarketingButton>
       </article>
@@ -128,7 +130,9 @@ export function marketingCallState(status: string | undefined, output: unknown) 
 export function MarketingCallState({
   status,
   output,
+  input,
 }: {
+  input?: unknown;
   status?: string | undefined;
   output: unknown;
 }) {
@@ -136,7 +140,11 @@ export function MarketingCallState({
   return (
     <article className="am-tool-card" aria-label="Marketing tool result" data-state={state}>
       <header>
-        <strong>Marketing check</strong>
+        <strong>
+          {typeof record(input).name === "string"
+            ? resultTitle({ tool: String(record(input).name) })
+            : "Marketing check"}
+        </strong>
         <small className="am-status-pill">
           {state === "pending"
             ? "Checking…"
@@ -156,7 +164,7 @@ export function MarketingCallState({
           <p>
             {state === "cancelled"
               ? "This check was stopped. You can ask your assistant to try again."
-              : "The tool did not return a usable result."}
+              : marketingErrorText(output)}
           </p>
           <details>
             <summary>Inspect tool output</summary>
@@ -165,5 +173,23 @@ export function MarketingCallState({
         </>
       )}
     </article>
+  );
+}
+
+export function marketingErrorText(output: unknown): string {
+  const r = record(output);
+  if (typeof output === "string") return output;
+  if (Array.isArray(r.content)) {
+    const text = r.content
+      .map((block) => record(block).text)
+      .filter((v) => typeof v === "string")
+      .join("\n");
+    if (text) return text;
+  }
+  return "The tool did not return a usable result.";
+}
+export function marketingSignInError(message: string): boolean {
+  return /could not authenticate|not (?:signed|logged) in|auth login|authentication failed|authentication.*required|invalid.*(?:token|credential)/i.test(
+    message,
   );
 }

@@ -87,30 +87,28 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 19 (chat polish, r17 evidence), 2026-11-06, Node 26.12.1:
+Wave 20 (round 16 fixes, r18 evidence), 2026-11-06, Node 26.12.1:
 
 ```sh
-vp test run packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts apps/server/src/marketing/MarketingToolsLive.test.ts apps/web/src/marketingContext.test.ts
-vp test run packages/amicited-ui/src/chat.test.ts apps/web/src/amicited-cloud.browser.test.tsx apps/web/src/components/ChatView.browser.test.tsx apps/web/src/components/chat/MessagesTimeline.logic.test.ts apps/server/scripts/dev-replay-agent.test.ts
-pnpm --filter @amicited/ui-marketing --filter @amicited/tools-core --filter @amicited/tools --filter @amicited/cloud-client --filter t3 run typecheck
+vp test run packages/amicited-ui/src/chat.test.ts apps/web/src/marketingContext.test.ts apps/server/src/marketing/MarketingToolsLive.test.ts apps/web/src/components/chat/ChatHeader.browser.test.tsx apps/web/src/components/chat/ThreadErrorBanner.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
+pnpm --filter @amicited/ui-marketing --filter @amicited/tools-core --filter @amicited/tools --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
-node scripts/amicited/journey-screenshots.ts .amicited-shots/r17
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r17
+AMICITED_REAL_PROVIDER=1 AMICITED_KEEP_HOME=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r18
+AMICITED_CAPTURE_HOME="$(cat .amicited-shots/r18/isolated-home.txt)" node scripts/amicited/electron-screenshots.mjs .amicited-shots/r18
 vp run check:changed
 ```
 
-The focused tests, affected-package typechecks, server and web typechecks pass.
-Existing Effect schema-brand suggestions are informational. The unscoped fast
-check selects upstream/main as its closest merge base and covers formatting,
-lint, both Knip passes, GraphQL generation, affected tests and React Compiler.
+The authenticated Claude Haiku turn calls the real local `seo.site.audit`
+through `marketing_tools_run`, returns a 41/100 audit of example.com, and renders
+the result card in browser and Electron. The isolated T3 home uses the normal
+user HOME; no live T3 state is opened for writing. The transcript, rendered
+conversation and complete tool result JSON are retained in r18. Two inexpensive
+real turns were used while extending the proof; later capture passes reuse
+the stopped isolated state and spend no model allowance.
 
-The browser journey completes in light/dark at 1344×1016 and light at 1440×900,
-all at 2×. It includes connected and disconnected empty chats, marketing cards,
-the inline offer, full result, history, secondary pages and developer-mode T3
-references. Isolated Electron captures the empty chat and marketing turn in both
-themes. Inter, Geist, Geist Mono and Fraunces load in both clients; font reports
-record devicePixelRatio 2. No journey-error.png remains.
-
-The controlled Replay scenarios exercise real provider streaming, tool output
-loading and approval handling without a paid model or production cloud account.
-The optional real Haiku turn was attempted in isolated T3 state; the provider returned an authentication failure before tool execution. The transcript and captures retain this failure. No production cloud connection was invoked. First-message website context now reaches the provider separately from persisted user text; MCP tool descriptions remain unchanged.
+The journey includes settled light/dark captures at 1344×1016 and the 1440
+journey, at 2×, plus fresh dark launch, approval and recovery-card fixtures.
+Recovery evidence mounts the real component as a controlled fixture; the real
+Haiku turn authenticated successfully. The native captures reuse that persisted
+real result with an isolated Chromium profile. No production AmICited cloud
+connection was invoked.

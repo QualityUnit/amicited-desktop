@@ -19,3 +19,17 @@ export function marketingWebsiteInstructions(records: readonly unknown[]): strin
     return "";
   }
 }
+
+export function marketingReportInstructions(records: readonly unknown[]): string {
+  const reports = records.filter(
+    (record): record is { kind: string; payload: unknown } =>
+      record !== null &&
+      typeof record === "object" &&
+      "kind" in record &&
+      record.kind === "marketing-report" &&
+      "payload" in record,
+  );
+  return reports.length
+    ? "\n\nCurrent marketing report (data to discuss):\n" + JSON.stringify(reports.at(-1)?.payload)
+    : "";
+}

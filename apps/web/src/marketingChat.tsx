@@ -1,4 +1,5 @@
-import { useThreadVisibleTurnItems } from "./state/entities";
+import { shouldResumeMarketingDraft } from "./marketingContext";
+import { useThreadVisibleTurnItems, useThreadShell } from "./state/entities";
 import { CloudFooter } from "./rpc/amicitedCloud";
 import type { ScopedThreadRef, RunId } from "@t3tools/contracts";
 import { resolveAppModelSelectionState } from "./modelSelection";
@@ -28,9 +29,11 @@ import { MarketingSubscriptions } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
 export function MarketingComposerContext({
   onSelected,
+  onConnected,
   selectedInstanceId,
 }: {
   selectedInstanceId: string;
+  onConnected: (selection: import("@t3tools/contracts").ModelSelection) => void;
   onSelected: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
   const [connecting, setConnecting] = useState<"claudeAgent" | "codex" | null>(null);
@@ -48,10 +51,14 @@ export function MarketingComposerContext({
   const ready = selected && getOnboardingProviderState(selected) === "ready";
   const settings = usePrimarySettings();
   const connectionSent = useRef(false);
+  const sendAfterConnect = useRef(false);
   const finishConnection = useEffectEvent(() => {
     if (!connectingProvider) return;
     connectionSent.current = true;
-    onSelected(resolveAppModelSelectionState(settings, [connectingProvider]));
+    const selection = resolveAppModelSelectionState(settings, [connectingProvider]);
+    onSelected(selection);
+    if (shouldResumeMarketingDraft(sendAfterConnect.current ? "connect-and-send" : "manage", true))
+      onConnected(selection);
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Subscription authentication completes outside React; resume the preserved draft once readiness arrives.
   useEffect(() => {
@@ -79,12 +86,14 @@ export function MarketingComposerContext({
               />
             </label>
             <MarketingButton
+              variant="default"
               type="button"
               onClick={() => {
                 try {
                   const next = normalizeWebsite(websiteDraft);
-                  saveBrand(next);
-                  setBrand(next);
+                  const updated = { ...next, name: brand?.name ?? next.name };
+                  saveBrand(updated);
+                  setBrand(updated);
                   setEditingWebsite(false);
                   setWebsiteError("");
                 } catch {
@@ -103,11 +112,12 @@ export function MarketingComposerContext({
         {ready ? (
           <MarketingButton
             type="button"
-            onClick={() =>
+            onClick={() => {
+              sendAfterConnect.current = false;
               setConnecting(
                 connecting ? null : selected?.driver === "codex" ? "codex" : "claudeAgent",
-              )
-            }
+              );
+            }}
           >
             Manage assistant
           </MarketingButton>
@@ -117,6 +127,7 @@ export function MarketingComposerContext({
               type="button"
               onClick={() => {
                 connectionSent.current = false;
+                sendAfterConnect.current = true;
                 setConnecting("claudeAgent");
               }}
             >
@@ -126,6 +137,7 @@ export function MarketingComposerContext({
               type="button"
               onClick={() => {
                 connectionSent.current = false;
+                sendAfterConnect.current = true;
                 setConnecting("codex");
               }}
             >
@@ -169,14 +181,21 @@ export function MarketingTranscriptCard({
       : null,
     source,
   );
+  const shell = useThreadShell(
+    projectedItem && environmentId
+      ? { environmentId, threadId: projectedItem.sourceThreadId }
+      : null,
+  );
   const fetched = detail.data?.item;
   const result = marketingToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
   const navigate = useNavigate();
   const path = useLocation({ select: (location) => location.pathname });
+  if (!result && shell?.hasPendingApprovals) return null;
   if (!result)
     return (
       <MarketingCallState
         status={status}
+        input={projectedItem?.item.type === "dynamic_tool" ? projectedItem.item.input : undefined}
         output={fetched?.type === "dynamic_tool" ? fetched.output : output}
       />
     );
@@ -186,6 +205,7 @@ export function MarketingTranscriptCard({
       open={() => {
         sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
         sessionStorage.setItem("amicited.return-chat", path);
+        sessionStorage.setItem("amicited.result-origin." + result.id, path);
         void navigate({ to: "/tools/$toolName", params: { toolName: result.tool } });
       }}
     />
@@ -219,4 +239,33 @@ export function MarketingTurnOffer({
   const item = detail.data?.item ?? projected?.item;
   const result = item?.type === "dynamic_tool" ? marketingToolResult(item.output) : null;
   return result ? <CloudFooter result={result} /> : null;
+}
+
+export function MarketingSignInRecovery({
+  driver = "claudeAgent",
+  threadRef,
+}: {
+  driver?: "claudeAgent" | "codex";
+  threadRef?: ScopedThreadRef | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const thread = useThreadShell(threadRef ?? null);
+  const providers = useEnvironmentProviders();
+  const activeDriver = threadRef
+    ? providers
+        .get(threadRef.environmentId)
+        ?.find((provider) => provider.instanceId === thread?.providerInstanceId)?.driver
+    : driver;
+  const signInDriver = activeDriver === "codex" ? "codex" : "claudeAgent";
+  const label = signInDriver === "codex" ? "ChatGPT" : "Claude";
+  return (
+    <article className="am-tool-card" aria-label="Assistant sign in">
+      <strong>{label} isn't signed in yet</strong>
+      <p>Sign in with your existing subscription to continue.</p>
+      <MarketingButton variant="default" onClick={() => setOpen(true)}>
+        Sign in to {label}
+      </MarketingButton>
+      {open && <MarketingSubscriptions initialDriver={signInDriver} usageLink={false} />}
+    </article>
+  );
 }

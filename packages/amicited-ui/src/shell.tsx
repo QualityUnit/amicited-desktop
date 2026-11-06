@@ -7,7 +7,7 @@ import {
   Settings,
   ArrowLeft,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type ComponentProps } from "react";
 import { AmICitedMark } from "./brand.js";
 import { MarketingButton } from "./primitives.js";
 export function MarketingShell({
@@ -55,7 +55,13 @@ export function MarketingShell({
         </MarketingButton>
         <nav aria-label="Chat history" className="am-chat-history">
           {!collapsed && <small>Recent chats</small>}
-          {!collapsed && history}
+          {collapsed ? (
+            <MarketingButton aria-label="Chat history" onClick={() => setCollapsed(false)}>
+              Chats
+            </MarketingButton>
+          ) : (
+            history
+          )}
         </nav>
         <nav aria-label="Workspace">
           {(
@@ -86,14 +92,16 @@ export function MarketingShell({
           path.startsWith(prefix),
         ) ? (
           <>
-            <header className="am-page-header">
+            <MarketingHeader className="am-page-header">
               Your workspace /{" "}
               {path.startsWith("/tools")
-                ? "Tools"
+                ? sessionStorage.getItem("amicited.return-chat")
+                  ? "Chat"
+                  : "Tools"
                 : path === "/marketing-settings"
                   ? "AmICited"
                   : "Settings"}
-            </header>
+            </MarketingHeader>
             <div className="am-secondary-page">
               <MarketingButton
                 onClick={() => navigate(sessionStorage.getItem("amicited.return-chat") ?? "/home")}
@@ -101,15 +109,17 @@ export function MarketingShell({
                 <ArrowLeft size={14} />
                 Back to chat
               </MarketingButton>
-              <h1>
-                {path === "/tools"
-                  ? "Tools"
-                  : path === "/marketing-settings"
-                    ? "AmICited"
-                    : path.startsWith("/settings")
-                      ? "Settings"
-                      : "Tool result"}
-              </h1>
+              {path === "/tools" || path.startsWith("/settings") ? (
+                <h1>
+                  {path === "/tools"
+                    ? "Tools"
+                    : path === "/marketing-settings"
+                      ? "AmICited"
+                      : path.startsWith("/settings")
+                        ? "Settings"
+                        : "Tool result"}
+                </h1>
+              ) : null}
               {children}
             </div>
           </>
@@ -119,4 +129,8 @@ export function MarketingShell({
       </main>
     </div>
   );
+}
+
+export function MarketingHeader({ className = "", ...props }: ComponentProps<"div">) {
+  return <div {...props} className={`am-header-content ${className}`} />;
 }

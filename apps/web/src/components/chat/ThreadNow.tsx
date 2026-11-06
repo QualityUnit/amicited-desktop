@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { RefreshCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -68,6 +69,8 @@ function ThreadNowLine({
 }
 
 function ThreadSyncLine({ phase }: { readonly phase: ThreadSyncPhase }) {
+  const marketer = useWorkspaceMode() === "marketer";
+  if (marketer) return null;
   return (
     <div className={lineClassName} role="status" data-composer-sync-status={phase}>
       <RefreshCwIcon aria-hidden />

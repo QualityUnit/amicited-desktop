@@ -318,10 +318,21 @@ the offer compares friendly assistant names against the measured scope.
 - `apps/web/src/components/sidebar/SidebarThreadRow.tsx`: marketer rows omit Git and worktree metadata.
 - `apps/web/src/components/chat/TimelineAssistantRows.tsx`: renders the compact offer after a completed assistant response for its marketing run.
 - `apps/web/src/components/chat/TimelinePendingApprovalRow.tsx`: plain-language marketing approval with inspectable original details.
-- `apps/server/src/orchestration-v2/ProviderTurnStartService.ts`: projects the first message’s separate website context into provider instructions, preserving stored user text.
+- `apps/server/src/orchestration-v2/ProviderTurnStartService.ts`: projects each message’s current website and report context into provider instructions, preserving stored user text.
 - `apps/web/src/marketingContext{,.test}.ts`: typed adapter for first-message website context and focused projection coverage.
 - `apps/server/scripts/dev-replay-agent.ts`: exposes controlled marketing failure and approval evidence scenarios.
 
 The existing composer, model-picker and work-log seams use reactive workspace mode.
 Agent marketing calls provide the calling thread’s model selection to the shared
 service; standalone RPC calls continue to use the explicit environment default.
+
+## Wave 20 review fixes
+
+- `apps/web/src/components/chat/ThreadNow.tsx`: suppresses message-sync chrome in marketer mode.
+- `apps/web/src/components/chat/ThreadErrorBanner.tsx`: suppresses the duplicate sign-in banner when the transcript offers recovery.
+- `apps/web/src/components/chat/TimelinePendingApprovalRow.tsx`: renders named marketing requests as tool cards with explicit permission buttons.
+- `apps/web/src/components/chat/DraftHeroHeadline.tsx`: sends starters through the existing new-draft action.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: asserts the failure reason is visible before opening raw details.
+- `apps/server/src/marketing/MarketingToolsLive.test.ts`: verifies website and report context projection, including rejected URL schemes.
+
+Existing chat-header, composer, timeline and provider-turn seams now share the marketer header, distinguish assistant management from sending, and forward the current report and website separately from the user's text. The isolated native capture harness can reuse a stopped journey home to render the authenticated audit without spending another turn.

@@ -538,3 +538,94 @@
   --color-message-action: var(--ai-accent);
   --color-message-action-foreground: white;
 }
+
+/* The web kit paints both the wrapper and its native control. */
+[data-amicited-shell] [data-slot="input-control"],
+[data-amicited-shell] [data-slot="input"],
+[data-amicited-shell] input,
+[data-amicited-shell] textarea {
+  background: var(--ai-surf);
+  color: var(--ai-ink);
+  transition: none;
+}
+.am-tool-card {
+  width: 100%;
+  max-width: 640px;
+  margin: 12px 0;
+}
+.am-inline-result .am-tool-card {
+  margin: 0;
+}
+.am-tool-card .am-hint {
+  margin-bottom: 14px;
+}
+.am-website-popover {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  bottom: auto;
+  top: 100%;
+}
+.am-website-popover label,
+.am-website-popover p {
+  flex-basis: 100%;
+}
+.am-website-popover input {
+  outline: none;
+}
+
+.am-cloud-page {
+  padding: 24px;
+}
+.am-cloud-page .am-preferences-footer {
+  padding-top: 20px;
+}
+.am-cloud-page .am-status {
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--ai-surf-2);
+}
+.am-chat-collapsed nav[aria-label="Workspace"] a {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.am-flat-history section > small {
+  display: block;
+  padding: 16px 4px 8px;
+  color: var(--ai-ink-3);
+}
+.am-flat-history section > button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px;
+  text-align: left;
+  cursor: pointer;
+}
+.am-flat-history section > button > span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.am-flat-history .am-status-pill {
+  flex: none;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.am-secondary-page .am-cloud-page {
+  padding: 24px;
+}
+
+.am-header-content {
+  font-size: 15px;
+  color: var(--ai-ink);
+}
+.am-page-header.am-header-content {
+  height: 52px;
+  border: 0;
+  padding: 15px 20px;
+}

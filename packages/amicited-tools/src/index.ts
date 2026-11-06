@@ -27,4 +27,4 @@ export function createMarketingTools(provider?: Generation) {
   return registry;
 }
 
-export { marketingWebsiteInstructions } from "@amicited/tools-core";
+export { marketingReportInstructions, marketingWebsiteInstructions } from "@amicited/tools-core";

@@ -12,7 +12,9 @@ import { chromium } from "playwright-core";
 
 const out = NodePath.resolve(process.argv[2] ?? ".amicited-shots/wave0");
 await NodeFSP.mkdir(out, { recursive: true });
-const home = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-journey-"));
+const home =
+  process.env.AMICITED_CAPTURE_HOME ??
+  (await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-journey-")));
 async function availablePort() {
   const socket = NodeNet.createServer();
   await new Promise<void>((done, reject) => {
@@ -113,6 +115,9 @@ try {
   page.on("console", (m) => {
     if (m.type() === "error") console.error("BROWSER CONSOLE", m.text());
   });
+  await page.addStyleTag({
+    content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
+  });
   await page.goto(pairing.replace(new URL(pairing).origin, url));
   const capture = async (name: string) => {
     for (const [theme, width, height] of [
@@ -125,6 +130,10 @@ try {
         (theme) => document.documentElement.classList.toggle("dark", theme === "dark"),
         theme,
       );
+      await page.addStyleTag({
+        content:
+          "*, *::before, *::after { transition: none !important; animation: none !important; }",
+      });
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
     }
@@ -296,17 +305,19 @@ try {
       "marketing-failed",
     ),
   );
-  await page.getByText("The tool did not return a usable result.", { exact: true }).waitFor();
+  await page
+    .getByText("Could not check: the website did not respond. Try again later.", { exact: true })
+    .waitFor();
   await capture("09-failed-tool");
   await page.evaluate(() =>
     (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
       "marketing-approval",
     ),
   );
-  await page.getByText("Waiting for approval", { exact: true }).first().waitFor();
+  await page.getByText("Needs your OK", { exact: true }).first().waitFor();
   await capture("10-pending-approval");
   await page
-    .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
+    .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
     .last()
     .click();
   await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
@@ -359,7 +370,7 @@ try {
       "--wait",
       "--json",
       process.cwd(),
-      "Use marketing_tools_run to run content.readability on this exact text: Our product helps small teams plan useful content. Then tell me the reading level in one sentence. Do not edit any files or call cloud tools.",
+      "Use marketing_tools_run to run seo.site.audit with the url https://example.com. Summarize the real audit in one sentence. Do not edit any files or call cloud tools.",
     ]);
     await NodeFSP.writeFile(NodePath.join(out, "real-provider-transcript.txt"), turn.output);
     const match = /"threadId"\s*:\s*"([^"]+)"/.exec(turn.output);
@@ -370,9 +381,58 @@ try {
       });
       await page.goto(`${url}/${environment}/${match[1]}`);
       await page.getByTestId("composer-editor").waitFor();
+      await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
+      const transcript = await page.locator("body").innerText();
+      await NodeFSP.appendFile(
+        NodePath.join(out, "real-provider-transcript.txt"),
+        "\nRendered transcript:\n" + transcript,
+      );
+      await page.getByRole("button", { name: "Open full result" }).click();
+      const result = await page.evaluate(() => sessionStorage.getItem("amicited.last-result"));
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-tool-result.json"),
+        result ?? "null",
+      );
+      await page.goto(`${url}/${environment}/${match[1]}`);
+      await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
       await capture("11-real-haiku-turn");
     }
   }
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+  await page.getByTestId("composer-editor").waitFor();
+  await page.evaluate(async (root) => {
+    const React = await import(String("/node_modules/.vite/deps/react.js"));
+    const client = await import(String("/node_modules/.vite/deps/react-dom_client.js"));
+    const createRoot = client.createRoot ?? client.default.createRoot;
+    const { MarketingSignInRecovery } = await import(String("/src/marketingChat.tsx"));
+    const { Button } = await import(String("/src/components/ui/button.tsx"));
+    const { Input } = await import(String("/src/components/ui/input.tsx"));
+    const { MarketingUiContext } = await import(
+      String("/@fs/") + root + "/packages/amicited-ui/src/index.tsx"
+    );
+    const host = document.createElement("div");
+    host.id = "recovery-proof";
+    document.querySelector("main main")?.prepend(host);
+    createRoot(host).render(
+      (React.createElement ?? React.default.createElement)(
+        MarketingUiContext,
+        { value: { Button, Input } },
+        (React.createElement ?? React.default.createElement)(MarketingSignInRecovery),
+      ),
+    );
+  }, process.cwd());
+  await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
+  await capture("12-sign-in-recovery");
+  await page.reload();
+  await page.evaluate(() => localStorage.setItem("t3code:theme", "dark"));
+  await page.reload();
+  await page.getByTestId("composer-editor").waitFor();
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.addStyleTag({ content: "* { transition: none !important; }" });
+  await page.setViewportSize({ width: 1344, height: 1016 });
+  await page.getByRole("button", { name: "example.com", exact: true }).click();
+  await page.getByRole("dialog", { name: "Website" }).waitFor();
+  await page.screenshot({ path: NodePath.join(out, "13-fresh-dark-1344.png") });
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.goto(url + "/");
   await page.getByTestId("composer-editor").waitFor();
@@ -383,7 +443,7 @@ try {
     ),
   );
   await page
-    .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
+    .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
     .last()
     .click();
   await page.getByText("I added", { exact: false }).first().waitFor();
@@ -414,5 +474,7 @@ try {
     else web.once("exit", () => done());
   });
   await NodeFSP.writeFile(NodePath.join(out, "dev-stack.log"), logs);
-  await NodeFSP.rm(home, { recursive: true, force: true });
+  if (process.env.AMICITED_KEEP_HOME === "1")
+    await NodeFSP.writeFile(NodePath.join(out, "isolated-home.txt"), home);
+  else await NodeFSP.rm(home, { recursive: true, force: true });
 }

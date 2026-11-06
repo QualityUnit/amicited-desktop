@@ -22,7 +22,7 @@ const webPort = await port(),
   debugPort = await port();
 const env = {
   ...process.env,
-  T3CODE_HOME: NodePath.join(home, "state"),
+  T3CODE_HOME: process.env.AMICITED_CAPTURE_HOME ?? NodePath.join(home, "state"),
   T3CODE_PORT_OFFSET: "217",
   T3CODE_PORT: String(serverPort),
   PORT: String(webPort),
@@ -164,6 +164,9 @@ try {
         (theme) => document.documentElement.classList.toggle("dark", theme === "dark"),
         theme,
       );
+      await page.addStyleTag({
+        content: "* { transition: none !important; animation: none !important; }",
+      });
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
     }
@@ -175,6 +178,14 @@ try {
   await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
   await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
   await capture("tool-card-turn");
+  if (process.env.AMICITED_CAPTURE_HOME) {
+    await page
+      .getByRole("button", { name: /^Use marketing_tools_run/ })
+      .first()
+      .click();
+    await page.getByRole("article", { name: "Marketing tool result" }).waitFor();
+    await capture("real-haiku-turn");
+  }
   await cdp.detach();
   const report = JSON.parse(NodeFS.readFileSync(NodePath.join(out, "electron-fonts.json"), "utf8"));
   report.verified = Object.values(report.fonts).every(Boolean);

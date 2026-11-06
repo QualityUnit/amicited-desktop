@@ -130,7 +130,7 @@ export function AmicitedConnectPanel({
             </div>
           )}
           <Button
-            variant="outline"
+            variant="default"
             disabled={pending}
             onClick={() => void run(actions.connectOAuth)}
           >

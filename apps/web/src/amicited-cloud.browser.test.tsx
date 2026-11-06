@@ -297,8 +297,13 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
       </MarketingShell>,
     );
     await expect.element(screen.getByText("Could not check", { exact: true })).toBeVisible();
+    await expect
+      .element(screen.getByText("Permission refused", { exact: true }).first())
+      .toBeVisible();
     await screen.getByText("Inspect tool output").click();
-    await expect.element(screen.getByText("Permission refused", { exact: true })).toBeVisible();
+    await expect
+      .element(screen.getByText("Permission refused", { exact: true }).last())
+      .toBeVisible();
     const card = document.querySelector<HTMLAnchorElement>(".am-tool-grid > a")!;
     expect(getComputedStyle(card).backgroundColor).toBe("rgb(31, 41, 55)");
     expect(getComputedStyle(card).color).not.toBe(getComputedStyle(card).backgroundColor);

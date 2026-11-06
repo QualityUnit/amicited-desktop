@@ -1,5 +1,5 @@
 import { marketingReturnThread } from "./marketingContext";
-import { useThreadShells } from "./state/entities";
+import { useThreadVisibleTurnItems, useThreadShells } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -16,8 +16,7 @@ import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
 import { CloudPage } from "./rpc/amicitedCloud";
-import ThreadSidebar from "./components/Sidebar";
-import { SidebarProvider } from "./components/ui/sidebar";
+
 import { useComposerDraftStore } from "./composerDraftStore";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
@@ -129,7 +128,7 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
-  const [routeReveal] = useState(() => ({ observedKey: null, pendingKey: null }));
+
   const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
   const hash = useLocation({ select: (location) => location.hash });
@@ -137,13 +136,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
       <MarketingShell
-        history={
-          <SidebarProvider>
-            <div className="am-upstream-history">
-              <ThreadSidebar routeReveal={routeReveal} />
-            </div>
-          </SidebarProvider>
-        }
+        history={<MarketingHistory />}
         mode={mode}
         taskView={taskTarget !== null}
         path={path}
@@ -199,8 +192,7 @@ export function MarketingTools({ name }: { name?: string }) {
     select: (location) => location.hash.replace(/^#/, "") || "seo",
   });
   const navigate = useNavigate();
-  const returnChat = sessionStorage.getItem("amicited.return-chat");
-  const origin = marketingReturnThread(returnChat, useThreadShells());
+  const threads = useThreadShells();
   const actions = useMarketingTask();
   const environmentId = usePrimaryEnvironmentId();
   const list = useAtomCommand(listCommand);
@@ -242,8 +234,10 @@ export function MarketingTools({ name }: { name?: string }) {
   return (
     <>
       <ToolForm
-        fix={async (prompt) => {
-          if (returnChat && origin) {
+        fix={async (prompt, report) => {
+          const resultPath = sessionStorage.getItem("amicited.result-origin." + report.id);
+          const origin = marketingReturnThread(resultPath, threads);
+          if (resultPath && origin) {
             const environment = origin.environmentId;
             const thread = origin.id;
             {
@@ -254,11 +248,19 @@ export function MarketingTools({ name }: { name?: string }) {
                 },
                 prompt,
               );
-              await navigate({ to: returnChat });
+              sessionStorage.setItem(
+                "amicited.report-context." + resultPath,
+                JSON.stringify(report),
+              );
+              await navigate({ to: resultPath });
               return;
             }
           }
           await actions.startTask(prompt);
+          sessionStorage.setItem(
+            "amicited.report-context." + window.location.pathname,
+            JSON.stringify(report),
+          );
         }}
         fullResult={Boolean(sessionStorage.getItem("amicited.return-chat"))}
         onResult={rememberResult}
@@ -517,4 +519,76 @@ export function MarketingSubscriptions({
 }
 export function MarketingNewTask() {
   return <MarketingHome />;
+}
+
+function MarketingHistory() {
+  const threads = useThreadShells().filter((thread) => !thread.archivedAt);
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const sorted = threads.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  const [today] = useState(() => new Date().toDateString());
+  return (
+    <div className="am-flat-history">
+      <Input
+        aria-label="Search chats"
+        placeholder="Search chats"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      {!threads.length && <p>No chats yet</p>}
+      {["Today", "Earlier"].map((group) => {
+        const rows = sorted.filter(
+          (thread) =>
+            (new Date(Date.parse(thread.updatedAt)).toDateString() === today
+              ? "Today"
+              : "Earlier") === group && thread.title.toLowerCase().includes(search.toLowerCase()),
+        );
+        return rows.length ? (
+          <section key={group}>
+            <small>{group}</small>
+            {rows.map((thread) => (
+              <button
+                type="button"
+                key={thread.environmentId + thread.id}
+                onClick={() =>
+                  void navigate({
+                    to: "/$environmentId/$threadId",
+                    params: { environmentId: thread.environmentId, threadId: thread.id },
+                  })
+                }
+              >
+                <span>{thread.title === "New thread" ? "New chat" : thread.title}</span>
+                <MarketingHistoryStatus thread={thread} />
+              </button>
+            ))}
+          </section>
+        ) : null;
+      })}
+    </div>
+  );
+}
+
+function MarketingHistoryStatus({
+  thread,
+}: {
+  thread: ReturnType<typeof useThreadShells>[number];
+}) {
+  const items = useThreadVisibleTurnItems({
+    environmentId: thread.environmentId,
+    threadId: thread.id,
+  });
+  const failed =
+    thread.latestRun?.status === "failed" ||
+    items.some((p) => p.item.runId === thread.latestRun?.runId && p.item.status === "failed");
+  return (
+    <small className="am-status-pill">
+      {thread.hasPendingApprovals
+        ? "Needs OK"
+        : failed
+          ? "Failed"
+          : thread.source.activityRunStatus
+            ? "Working"
+            : "Done"}
+    </small>
+  );
 }

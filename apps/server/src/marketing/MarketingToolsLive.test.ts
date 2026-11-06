@@ -62,3 +62,26 @@ it.effect(
     );
   },
 );
+
+it("only appends valid marketer website context and current report data", async () => {
+  const { marketingWebsiteInstructions, marketingReportInstructions } =
+    await import("@amicited/tools");
+  for (const records of [
+    [],
+    [{ kind: "other", payload: { website: "https://example.com" } }],
+    [{ kind: "marketing-website", payload: { website: "file:///etc/hosts" } }],
+    [{ kind: "marketing-website", payload: { website: "broken" } }],
+  ])
+    expect(marketingWebsiteInstructions(records)).toBe("");
+  expect(
+    marketingWebsiteInstructions([
+      { kind: "marketing-website", payload: { website: "https://example.com/path" } },
+    ]),
+  ).toContain("https://example.com");
+  expect(marketingReportInstructions([{ kind: "other", payload: { score: 41 } }])).toBe("");
+  expect(
+    marketingReportInstructions([
+      { kind: "marketing-report", payload: { report: { id: "new", score: 12 } } },
+    ]),
+  ).toContain('"score":12');
+});

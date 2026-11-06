@@ -45,3 +45,15 @@ it("ends undecodable or plain MCP failures instead of leaving a pending card", (
   expect(marketingCallState("cancelled", undefined)).toBe("cancelled");
   expect(marketingCallState("inProgress", undefined)).toBe("pending");
 });
+
+it("maps sign-in failures and preserves the MCP failure reason", async () => {
+  const { marketingSignInError, marketingErrorText } = await import("./chat.js");
+  expect(marketingSignInError("Claude could not authenticate. Run claude auth login")).toBe(true);
+  expect(marketingSignInError("The website did not respond")).toBe(false);
+  expect(
+    marketingErrorText({
+      isError: true,
+      content: [{ type: "text", text: "The website did not respond" }],
+    }),
+  ).toBe("The website did not respond");
+});

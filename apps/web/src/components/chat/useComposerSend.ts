@@ -1,4 +1,4 @@
-import { withMarketingWebsite } from "../../marketingContext";
+import { withMarketingWebsite, withMarketingReport } from "../../marketingContext";
 import { readBrand, readWorkspaceMode } from "@amicited/ui-marketing";
 import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
 import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
@@ -919,10 +919,17 @@ export function useComposerSend(input: ComposerSendInput) {
           attachmentId: attachmentIds[index] ?? attachment.id,
         })),
       });
-    const outgoingMessageContext = withMarketingWebsite(
-      buildOutgoingMessageContext(composerAttachmentsSnapshot.map((attachment) => attachment.id)),
-      readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
-      isLocalDraftThread,
+    const outgoingMessageContext = withMarketingReport(
+      withMarketingWebsite(
+        buildOutgoingMessageContext(composerAttachmentsSnapshot.map((attachment) => attachment.id)),
+        readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
+        isLocalDraftThread,
+      ),
+      readWorkspaceMode() === "marketer"
+        ? JSON.parse(
+            sessionStorage.getItem("amicited.report-context." + window.location.pathname) ?? "null",
+          )
+        : null,
     );
     const messageIdForSend = newMessageId();
     const messageCreatedAt = new Date().toISOString();

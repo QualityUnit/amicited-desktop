@@ -3,8 +3,8 @@
 With Node 26.12.1 and the workspace dependencies installed:
 
 ```sh
-node scripts/amicited/journey-screenshots.ts .amicited-shots/r17
-node scripts/amicited/electron-screenshots.mjs .amicited-shots/r17
+node scripts/amicited/journey-screenshots.ts .amicited-shots/r18
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r18
 ```
 
 The browser harness owns temporary state and independently allocated ports,
@@ -25,8 +25,19 @@ Private stack logs can contain pairing URLs and must not be published. All
 captures are ignored by Git. Dashboard parity specimens are retired.
 
 Set `AMICITED_REAL_PROVIDER=1` on the browser harness to additionally enable the
-logged-in Claude provider in its isolated T3 home, run one Haiku readability
-check, and save `real-provider-transcript.txt` plus a capture. This deliberately
+logged-in Claude provider in its isolated T3 home, run one Haiku website
+audit, and save `real-provider-transcript.txt`, the real result JSON and captures. This deliberately
 uses subscription allowance. Default runs remain free. Additional scenarios
 cover terminal failures, pending approvals, the website popover, collapsed
 navigation and returning a result question to its originating chat.
+
+Wave 20 verifies the real Haiku → marketing_tools_run → seo.site.audit path
+against example.com using the normal user HOME and isolated T3 state. The
+captured audit returned 41/100. Recovery-card captures are component fixtures,
+not a claim that this authenticated turn failed. Capture styles disable
+transitions before every theme capture.
+
+To reuse a stopped journey home for native evidence, run the journey with
+`AMICITED_KEEP_HOME=1`, then set `AMICITED_CAPTURE_HOME` to the path in the
+private `isolated-home.txt` for the Electron harness. This renders the same
+persisted real audit. Do not run both servers against that home together.

@@ -137,7 +137,7 @@ function ResultValue({ value }: { value: unknown }): ReactNode {
     </span>
   );
 }
-export function resultTitle(result: ToolResult) {
+export function resultTitle(result: Pick<ToolResult, "tool">) {
   const titles: Record<string, string> = {
     "seo.site.audit": "Website health audit",
     "ai.visibility.check": "AI visibility check",
@@ -207,7 +207,7 @@ export function MarketingResult({
   result: ToolResult;
   retry?: () => void;
   rerun?: () => Promise<void>;
-  fix?: ((prompt: string) => Promise<void>) | undefined;
+  fix?: ((prompt: string, result: ToolResult) => Promise<void>) | undefined;
 }) {
   const [error, setError] = useState("");
   const findings = rankedFindings(result);
@@ -216,6 +216,10 @@ export function MarketingResult({
   return (
     <section className="am-page" aria-label="Tool result">
       <h1>{title ?? resultTitle(result)}</h1>
+      <p className="am-hint">
+        {String(record(result.input).url ?? record(result.input).website ?? "")} ·{" "}
+        {new Date(result.startedAt).toLocaleString()}
+      </p>
       <article className="am-tool-card">
         <p>
           {useful
@@ -266,7 +270,7 @@ export function MarketingResult({
             <MarketingButton
               variant="default"
               onClick={() =>
-                void fix(resultQuestion(result)).catch((e: Error) => setError(e.message))
+                void fix(resultQuestion(result), result).catch((e: Error) => setError(e.message))
               }
             >
               Ask AI about this

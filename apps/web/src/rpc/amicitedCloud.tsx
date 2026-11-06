@@ -111,7 +111,7 @@ function CloudSettings() {
   const canDisconnect = useAtomValue(disconnect.permissionAtom(environmentId));
   if (!connection || !environmentId) return <p>Reading AmICited connection…</p>;
   return (
-    <div className="am-card am-cloud-settings">
+    <div className="am-cloud-settings">
       <fieldset disabled={connection.state === "connected" ? !canDisconnect : !canOAuth || !canKey}>
         <AmicitedConnectPanel
           connection={connection}

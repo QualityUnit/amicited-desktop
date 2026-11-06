@@ -188,4 +188,4 @@ export function friendlyAssistant(value: string) {
         : value;
 }
 
-export { marketingWebsiteInstructions } from "./websiteContext.ts";
+export { marketingReportInstructions, marketingWebsiteInstructions } from "./websiteContext.ts";

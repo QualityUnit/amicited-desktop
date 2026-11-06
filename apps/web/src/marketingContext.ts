@@ -3,9 +3,9 @@ import { ComposerContextId, type OrchestrationMessageContext } from "@t3tools/co
 export function withMarketingWebsite(
   context: OrchestrationMessageContext | undefined,
   website: string | undefined,
-  firstMessage: boolean,
+  _firstMessage: boolean,
 ): OrchestrationMessageContext | undefined {
-  if (!firstMessage || !website) return context;
+  if (!website) return context;
   return {
     version: 1,
     records: [
@@ -35,4 +35,33 @@ export function marketingReturnThread(
     threads.find((thread) => thread.environmentId === environmentId && thread.id === threadId) ??
     null
   );
+}
+
+export function withMarketingReport(
+  context: OrchestrationMessageContext | undefined,
+  report: unknown,
+): OrchestrationMessageContext | undefined {
+  if (!report) return context;
+  return {
+    version: 1,
+    records: [
+      ...(context?.records ?? []),
+      {
+        version: 1,
+        kind: "marketing-report",
+        contextId: ComposerContextId.make("marketing-report"),
+        label: "Current marketing report",
+        payload: { report },
+      },
+    ],
+  };
+}
+
+export function shouldResumeMarketingDraft(intent: "manage" | "connect-and-send", ready: boolean) {
+  return intent === "connect-and-send" && ready;
+}
+export function marketingApprovalInput(toolName: string | null | undefined, input: unknown) {
+  if (!toolName?.endsWith("marketing_tools_run") || input === null || typeof input !== "object")
+    return null;
+  return input as { name?: string; input?: { url?: string } };
 }

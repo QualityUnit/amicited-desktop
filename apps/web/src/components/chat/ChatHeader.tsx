@@ -1,4 +1,4 @@
-import { useWorkspaceMode } from "@amicited/ui-marketing";
+import { MarketingHeader, useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   AuthOrchestrationOperateScope,
   type EnvironmentId,
@@ -287,8 +287,9 @@ export const ChatHeader = memo(function ChatHeader({
       setRenaming(null);
     }
   };
+  const Header = marketer ? MarketingHeader : "div";
   return (
-    <div
+    <Header
       ref={breadcrumbContainerRef}
       className={cn(
         "flex min-w-0 flex-1 items-center gap-2 sm:gap-3",
@@ -300,7 +301,7 @@ export const ChatHeader = memo(function ChatHeader({
         ariaLabel={marketer ? "Task breadcrumb" : "Thread breadcrumb"}
         className="flex-1 overflow-clip [overflow-clip-margin:2px]"
       >
-        {activeProject ? (
+        {activeProject && !marketer ? (
           <>
             <WorkspaceBreadcrumbItem className="shrink">
               <Tooltip>
@@ -441,6 +442,6 @@ export const ChatHeader = memo(function ChatHeader({
         </WorkspaceBreadcrumbItem>
       </WorkspaceBreadcrumb>
       {isServerThread ? <GuestShareIndicator threadRef={activeThreadRef} /> : null}
-    </div>
+    </Header>
   );
 });
