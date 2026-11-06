@@ -148,23 +148,17 @@ it("keeps Home Ask until an assistant is ready, then sends the same prompt", asy
   const { Home } = await import("@amicited/ui-marketing");
   const startTask = vi.fn(async () => {});
   await using screen = await render(<Home startTask={startTask} assistantsLoading />);
-  await expect.element(screen.getByRole("button", { name: "Send task" })).toBeDisabled();
+  await expect.element(screen.getByRole("button", { name: "Connect an assistant" })).toBeDisabled();
   await expect
     .element(screen.getByText("Connect an assistant first", { exact: true }))
     .not.toBeInTheDocument();
   await screen.rerender(<Home startTask={startTask} />);
   await screen.getByLabelText("Ask your AI assistant").fill("Plan my campaign");
-  await screen.getByRole("button", { name: "Send task" }).click();
-  await expect
-    .element(screen.getByRole("alert"))
-    .toHaveTextContent("Connect Claude or ChatGPT to send this task");
+  await screen.getByRole("button", { name: "Connect an assistant" }).click();
   await expect
     .element(screen.getByLabelText("Ask your AI assistant"))
     .toHaveValue("Plan my campaign");
   expect(startTask).not.toHaveBeenCalled();
-  await expect
-    .element(screen.getByText("Connect an assistant first", { exact: true }))
-    .not.toBeInTheDocument();
   await screen.rerender(<Home startTask={startTask} assistantName="Claude" />);
   await expect
     .element(screen.getByRole("alert"))
@@ -250,10 +244,11 @@ it("ranks visibility brands by measured mentions and uses the same share precisi
   const shares = screen.getByText("33.3%", { exact: true });
   await expect.element(shares.first()).toBeVisible();
   await expect.element(shares.last()).toBeVisible();
-  expect([...document.querySelectorAll(".am-brand-name")].map((row) => row.textContent)).toEqual([
-    "Contoso",
-    "Acme",
-  ]);
+  expect(
+    [...document.querySelectorAll('[role="listitem"] > div > span.min-w-0')].map(
+      (row) => row.textContent,
+    ),
+  ).toEqual(["Contoso", "Acme"]);
 });
 
 it.each([false, true])(
@@ -418,4 +413,28 @@ it("includes visibility inputs, prompts and findings in the AI handoff", async (
   expect(fix.mock.calls[0]?.[0]).toContain("https://example.com");
   expect(fix.mock.calls[0]?.[0]).toContain("Best garden tools?");
   expect(fix.mock.calls[0]?.[0]).toContain("Contoso only");
+});
+
+it("labels collapsed navigation when focused", async () => {
+  const { KitTooltip, KitButton } = await import("./marketing");
+  const { MarketingUiContext } = await import("@amicited/ui-marketing");
+  const { Textarea } = await import("./components/ui/textarea");
+  localStorage.setItem("amicited.rail-collapsed", "true");
+  await using screen = await render(
+    <MarketingUiContext
+      value={{
+        Button: KitButton,
+        Input: ({ size: _size, ...props }) => <Input nativeInput {...props} />,
+        Textarea,
+        Tooltip: KitTooltip,
+      }}
+    >
+      <MarketingShell path="/home" navigate={() => {}}>
+        <p>Workspace</p>
+      </MarketingShell>
+    </MarketingUiContext>,
+  );
+  await screen.getByRole("link", { name: "Tasks", exact: true }).element().focus();
+  await expect.element(page.getByRole("tooltip")).toHaveTextContent("Tasks");
+  localStorage.removeItem("amicited.rail-collapsed");
 });

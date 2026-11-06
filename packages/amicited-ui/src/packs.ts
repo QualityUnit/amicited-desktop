@@ -2,7 +2,7 @@ export const packs = [
   ["seo", "Site audit basics"],
   ["ai-visibility", "AI visibility"],
   ["content", "Content tools"],
-  ["serp", "SERP & keywords"],
+  ["serp", "Search & keywords"],
 ] as const;
 export function activeToolPack(path: string, hash = "") {
   if (path === "/tools")

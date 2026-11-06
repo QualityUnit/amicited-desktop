@@ -1,14 +1,6 @@
 import { controlSurface, CONTROL_AREA } from "./cloud/controlSurface.js";
-import {
-  BUTTON_BASE,
-  CONTROL_MD,
-  KITPRIMARY,
-  KITSECONDARY,
-  KITGHOST,
-} from "./cloud/buttonStyles.js";
 import { KpiCell } from "./cloud/metrics.js";
 import { CloudSectionHead } from "./cloud/SectionHead.js";
-import { HEADER_BUTTON_BASE, HEADER_BUTTON_INACTIVE } from "./cloud/headerButtonStyles.js";
 import { createPortal } from "react-dom";
 import {
   LayoutDashboard,
@@ -56,9 +48,10 @@ import {
   type ReactNode,
 } from "react";
 export type MarketingButtonProps = ComponentProps<"button"> & {
-  variant?: "default" | "outline" | "secondary" | "link";
+  variant?: "default" | "outline" | "secondary" | "link" | "row";
 };
 type Primitives = {
+  Tooltip?: ComponentType<{ children: ReactNode; label: string }>;
   Button: ComponentType<MarketingButtonProps>;
   Input: ComponentType<ComponentProps<"input">>;
   Textarea: ComponentType<ComponentProps<"textarea">>;
@@ -73,21 +66,26 @@ export function MarketingButton({
   className = "",
   ...props
 }: MarketingButtonProps) {
+  const { Button } = useContext(MarketingUiContext);
   const header = "data-ask-agent" in props;
   return (
-    <button
+    <Button
+      type="submit"
+      variant={variant}
       {...props}
-      data-slot="button"
-      className={`${header ? `${HEADER_BUTTON_BASE} ${HEADER_BUTTON_INACTIVE}` : `${BUTTON_BASE} ${CONTROL_MD} ${variant === "default" ? KITPRIMARY : variant === "link" ? KITGHOST : KITSECONDARY}`} ${className}`}
+      data-marketing-button={header ? "header" : variant}
+      className={className}
     />
   );
 }
 export function MarketingInput(props: ComponentProps<"input">) {
-  return <input {...props} className={`${controlSurface()} my-2 ${props.className ?? ""}`} />;
+  const { Input } = useContext(MarketingUiContext);
+  return <Input {...props} className={`${controlSurface()} my-2 ${props.className ?? ""}`} />;
 }
 export function MarketingTextarea(props: ComponentProps<"textarea">) {
+  const { Textarea } = useContext(MarketingUiContext);
   return (
-    <textarea
+    <Textarea
       {...props}
       className={`${controlSurface()} ${CONTROL_AREA} my-2 min-h-20 ${props.className ?? ""}`}
     />
@@ -113,7 +111,9 @@ export function SectionHead({
   subtitle?: string;
   actions?: ReactNode;
 }) {
-  return <CloudSectionHead title={title} titleAs="h2" sub={subtitle ?? ""} action={actions} />;
+  return (
+    <CloudSectionHead dense title={title} titleAs="h2" sub={subtitle ?? ""} action={actions} />
+  );
 }
 
 const icons = {
@@ -132,6 +132,8 @@ const icons = {
   plus: Plus,
   "ai-visibility": Radar,
   content: FileText,
+  text: FileText,
+  topic: FileText,
   serp: Search,
   copy: Copy,
   download: Download,
@@ -184,4 +186,17 @@ export function MarketingToolbar({ children }: { children: ReactNode }) {
   const target = useContext(MarketingToolbarContext);
   const actions = <div className="am-actions">{children}</div>;
   return target ? createPortal(actions, target) : actions;
+}
+
+export function MarketingTooltip({
+  children,
+  label,
+  enabled = true,
+}: {
+  children: ReactNode;
+  label: string;
+  enabled?: boolean;
+}) {
+  const { Tooltip } = useContext(MarketingUiContext);
+  return Tooltip && enabled ? <Tooltip label={label}>{children}</Tooltip> : children;
 }

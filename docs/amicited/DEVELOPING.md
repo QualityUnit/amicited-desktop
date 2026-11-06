@@ -87,27 +87,32 @@ and the repository dependencies rather than a different global Knip installation
 
 ## Last verified
 
-Wave 13, 2026-11-06, Node 26.12.1:
+Wave 14, 2026-11-06, Node 26.12.1:
 
 ```sh
 vp test run packages/amicited-ui/src/experience.test.ts packages/amicited-ui/src/fields.test.ts packages/amicited-cloud/src/upsell.test.ts packages/amicited-ui-cloud/src/index.test.tsx apps/web/src/amicited-cloud.browser.test.tsx
 pnpm --filter @amicited/ui-marketing --filter @amicited/ui-cloud --filter t3 run typecheck
 pnpm --dir apps/web exec effect-tsgo tsrs --noEmit
 pnpm --dir scripts exec effect-tsgo tsrs --noEmit
-AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r11
-vp run check:changed 5f0010ae4
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r12
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r12
+vp run check:changed 6e25fbfe6
 ```
 
-Focused tests: 34 passed in five files. Marketing UI, cloud UI, server, web and
+Focused tests: 35 passed in five files. Marketing UI, cloud UI, server, web and
 scripts typechecks pass; existing Effect schema-brand suggestions are informational.
-The journey captures the 2× parity set and regular 1440 views with labelled fixtures,
-loaded font assertions and generated computed-style evidence. No paid provider or
-production MCP connection is used.
+The journey requires the independent cloud specimens described in SCREENSHOTS.md.
+It captures the complete 2× parity set and 1440 journey with labelled fixtures.
+No paid provider or production MCP connection is invoked.
 
-Native verification attempted the actual built desktop main under a temporary
-OS-home shim, a fresh T3 home and port offset 188. The normal dev:desktop launcher
-was avoided because its pattern kill would terminate the owner's app from this
-checkout. The native window opened at t3code-dev://app/ but never exposed marketer
-markup; its debugging endpoint then stopped responding. Native font checks and
-window capture remain unverified. The launch/error record is in the ignored
-r11/electron-fonts.json; no live T3 state was used.
+The actual built Electron main mounts the marketer UI under an isolated OS home,
+T3 home and port offset. Inter, Geist, Geist Mono and Fraunces all load at 2×.
+Home, the real audit and visibility fixtures are captured in both themes.
+The previous native evidence failure was in target selection/CDP setup, rather
+than font loading: localhost reaches CDP, DevTools must be excluded, and first-run
+shell markers are nested. The normal desktop dev launcher is never used, and the
+owner's desktop process is untouched.
+
+A plain check:changed also includes earlier integration-branch changes and exposes
+pre-existing formatting in workflow skills/specification and upstream browser-test
+failures. The round is checked against its starting commit above; hooks still run.

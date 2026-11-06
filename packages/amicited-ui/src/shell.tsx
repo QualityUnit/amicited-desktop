@@ -27,6 +27,7 @@ export function MarketingShell({
   taskView = false,
   mode = "marketer",
   connectionStatus,
+  openSearch,
 }: {
   children: ReactNode;
   path: string;
@@ -35,6 +36,7 @@ export function MarketingShell({
   taskView?: boolean;
   mode?: "marketer" | "developer";
   connectionStatus?: ReactNode;
+  openSearch?: () => void;
 }) {
   const [toolbar, setToolbar] = useState<HTMLDivElement | null>(null);
   const [scope, setScope] = useState<HTMLDivElement | null>(null);
@@ -82,6 +84,21 @@ export function MarketingShell({
                       localStorage.setItem("amicited.rail-collapsed", String(next));
                     }}
                   />
+                  {openSearch && (
+                    <a
+                      href="#search"
+                      className="am-search-row"
+                      aria-label="Search"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        openSearch();
+                      }}
+                    >
+                      <MarketingIcon name="serp" />
+                      <span>Search</span>
+                      <kbd>⌘K</kbd>
+                    </a>
+                  )}
                   <a
                     className="workspaceDropDown group/item text-ai-ink hover:bg-ai-bg max-lg:border-ai-surf-3 max-lg:bg-ai-surf-hover lg:border-ai-surf-2 flex w-full cursor-pointer items-center gap-2 rounded-[10px] p-1.5 text-left transition-colors focus:outline-hidden max-lg:mb-6 max-lg:border lg:mb-4 lg:border am-domain"
                     aria-label={`Edit website ${brand?.website ?? "settings"}`}
@@ -92,15 +109,15 @@ export function MarketingShell({
                     }}
                   >
                     <BrandFavicon name={brand?.name ?? "Website"} website={brand?.website} />
-                    <span>
+                    <span className="min-w-0 flex-1">
                       <strong className="block truncate text-[13px] leading-tight font-semibold">
                         {brand?.website.replace(/^https?:\/\//, "") ?? "Choose a website"}
                       </strong>
                       <small className="text-ai-ink-3 hidden truncate text-[11px] font-normal lg:block">
-                        Your website
+                        Active domain
                       </small>
                     </span>
-                    <MarketingIcon name="edit" />
+                    <MarketingIcon name="chevron" />
                   </a>
                 </>
               }
@@ -128,6 +145,7 @@ export function MarketingShell({
             >
               {destinations.map(([label, href]) => (
                 <SideNavRow
+                  tooltip={collapsed}
                   title={label}
                   iconNode={<MarketingIcon name={label} />}
                   active={path === href && !(href === "/tools" && activePack)}
@@ -168,6 +186,7 @@ export function MarketingShell({
               <div id="am-tools-group" hidden={!collapsed && !toolsOpen}>
                 {packs.map(([pack, label]) => (
                   <SideNavRow
+                    tooltip={collapsed}
                     title={label}
                     iconNode={<MarketingIcon name={pack} />}
                     active={activePack === pack}
@@ -245,14 +264,16 @@ export function MarketingShell({
                 </div>
                 <div className="am-topbar-actions">
                   <div ref={setToolbar} />
-                  <MarketingButton
-                    variant="outline"
-                    data-ask-agent=""
-                    onClick={() => navigate("/new")}
-                  >
-                    <MarketingIcon name="sparkles" />
-                    New task
-                  </MarketingButton>
+                  {!path.startsWith("/tools/") && (
+                    <MarketingButton
+                      variant="outline"
+                      data-ask-agent=""
+                      onClick={() => navigate("/new")}
+                    >
+                      <MarketingIcon name="sparkles" />
+                      New task
+                    </MarketingButton>
+                  )}
                 </div>
               </header>
               <div className="am-filter-band" ref={setScope} />

@@ -1,3 +1,4 @@
+import { MarketingTooltip } from "../primitives.js";
 // Ported from flowhunt2 origin/main 44d4019d4c: frontend/src/components/side-menu/SideNavRow.tsx.
 import type { ReactNode, ComponentProps } from "react";
 import { twMerge } from "tailwind-merge";
@@ -37,21 +38,29 @@ export function SideNavRow({
   title,
   iconNode,
   active,
+  tooltip = false,
   ...props
-}: ComponentProps<"a"> & { title: string; iconNode: ReactNode; active?: boolean }) {
+}: ComponentProps<"a"> & {
+  title: string;
+  iconNode: ReactNode;
+  active?: boolean;
+  tooltip?: boolean;
+}) {
   return (
-    <a
-      {...props}
-      aria-label={title}
-      aria-current={active ? "page" : undefined}
-      className={getSideNavRowClass({ active })}
-    >
-      <span className={getSideNavIconClass({ active })}>{iconNode}</span>
-      <span className="flex min-w-0 flex-1 flex-col lg:group-data-[collapsed=true]/side:hidden">
-        <span className="relative flex w-full items-center">
-          <span className="min-w-0 truncate">{title}</span>
+    <MarketingTooltip label={title} enabled={tooltip}>
+      <a
+        {...props}
+        aria-label={title}
+        aria-current={active ? "page" : undefined}
+        className={getSideNavRowClass({ active })}
+      >
+        <span className={getSideNavIconClass({ active })}>{iconNode}</span>
+        <span className="flex min-w-0 flex-1 flex-col lg:group-data-[collapsed=true]/side:hidden">
+          <span className="relative flex w-full items-center">
+            <span className="min-w-0 truncate">{title}</span>
+          </span>
         </span>
-      </span>
-    </a>
+      </a>
+    </MarketingTooltip>
   );
 }

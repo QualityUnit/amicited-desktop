@@ -99,9 +99,19 @@ export function Home({
           onChange={(event) => setPrompt(event.target.value)}
           required
         />
-        <MarketingButton variant="default" disabled={assistantsLoading}>
+        <MarketingButton
+          variant="default"
+          disabled={assistantsLoading}
+          type={assistantName ? "submit" : "button"}
+          onClick={
+            !assistantName
+              ? () =>
+                  document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" })
+              : undefined
+          }
+        >
           <MarketingIcon name="send" />
-          Send task
+          {assistantName ? "Send task" : "Connect an assistant"}
         </MarketingButton>
         {!assistantsLoading && !visibleError && (
           <p>
@@ -116,7 +126,7 @@ export function Home({
       </form>
       <div className="am-home-grid">
         <Card className="am-card">
-          <SectionHead title="Your next useful action" />
+          <SectionHead title="Quick actions" />
           <div className="am-quick">
             {[
               ["Check my AI visibility", "/tools#ai-visibility"],
@@ -186,25 +196,27 @@ export function ToolsGrid({
         ))}
       </nav>
       <p className="am-hint">Free local tools. Useful checks, clear results. No account needed.</p>
-      <div className="am-tool-grid">
-        {tools
-          .filter((tool) => tool.pack === activePack)
-          .map((tool) => (
-            <AmICitedFreeToolCard
-              key={tool.name}
-              tool={{
-                slug: tool.name,
-                icon: <MarketingIcon name={toolIcon(tool.name)} />,
-                title: tool.title,
-                description: tool.description,
-                category: tool.pack,
-                i18nKey: tool.name,
-              }}
-              onOpen={(slug) => {
-                window.location.href = "/tools/" + slug;
-              }}
-            />
-          ))}
+      <div className="am-tool-frame overflow-hidden rounded-xl border border-ai-line bg-ai-surf">
+        <div className="am-tool-grid -mr-px -mb-px grid md:grid-cols-2 2xl:grid-cols-3 [&>*]:border-r [&>*]:border-b [&>*]:border-[var(--ai-line)]">
+          {tools
+            .filter((tool) => tool.pack === activePack)
+            .map((tool) => (
+              <AmICitedFreeToolCard
+                key={tool.name}
+                tool={{
+                  slug: tool.name,
+                  icon: <MarketingIcon name={toolIcon(tool.name)} />,
+                  title: tool.title,
+                  description: tool.description,
+                  category: tool.pack,
+                  i18nKey: tool.name,
+                }}
+                onOpen={(slug) => {
+                  window.location.href = "/tools/" + slug;
+                }}
+              />
+            ))}
+        </div>
       </div>
     </>
   );

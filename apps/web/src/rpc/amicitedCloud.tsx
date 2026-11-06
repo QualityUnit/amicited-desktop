@@ -234,7 +234,13 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
       <div className="am-quick">
         {["Daily AI visibility tracking", "Competitor citation gaps", "Multi-country tracking"].map(
           (name) => (
-            <MarketingButton key={name} aria-label={name + " →"} onClick={() => setSelected(name)}>
+            <MarketingButton
+              variant="row"
+              className="am-promo-row"
+              key={name}
+              aria-label={name + " →"}
+              onClick={() => setSelected(name)}
+            >
               <span>
                 {name}
                 <small className="am-promo-description">

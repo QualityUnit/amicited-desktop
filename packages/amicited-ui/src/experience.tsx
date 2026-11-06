@@ -1,3 +1,8 @@
+import { DashboardTrendsCard } from "./cloud/DashboardTrendsCard.js";
+import { DashboardTrendsTabs } from "./cloud/DashboardTrendsTabs.js";
+import { DashboardTrendsLegend } from "./cloud/DashboardTrendsLegend.js";
+import { useRef } from "react";
+import type { TrendsTab } from "./cloud/TrendsSupport.js";
 import { Card } from "./cloud/Card.js";
 import { headingClass, eyebrowClass, ledeClass } from "./cloud/onboardingStyles.js";
 import { BarRow, BarRowValue, ROW_COUNT_CLASS } from "./cloud/BarRow.js";
@@ -87,7 +92,7 @@ export function FirstRun({
       className="am-page am-onboarding text-body"
     >
       <AmICitedMark />
-      <p className={eyebrowClass}>Your first win starts here</p>
+      <p className={eyebrowClass}>Check your website</p>
       <h1 className={headingClass}>What’s your website?</h1>
       <p className={ledeClass}>
         Find out what’s helping your visibility, and what to improve next.
@@ -426,6 +431,12 @@ function VisibilityResult({
     }))
     .sort((a, b) => (b.answers ?? 0) - (a.answers ?? 0));
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<TrendsTab>("mentions");
+  const tabRefs = useRef<Record<TrendsTab, HTMLButtonElement | null>>({
+    mentions: null,
+    share: null,
+    answers: null,
+  });
   return (
     <div>
       <AnalysisBanner
@@ -446,66 +457,77 @@ function VisibilityResult({
             : undefined
         }
       />
-      <div className="am-visibility-report">
-        <div className="am-run-overview">
-          <KpiStrip className="mb-5">
-            <KpiTile
-              label="Brand mentions"
-              value={summary.mentioned == null ? null : String(summary.mentioned)}
-              hint="Across answered prompts"
-            />
-            <KpiTile
-              label="Share of voice"
-              value={share == null ? null : `${Number(share).toFixed(1)}%`}
-              hint="Of supplied brands"
-            />
-            <KpiTile
-              label="Answers checked"
-              value={summary.answered == null ? null : String(summary.answered)}
-              hint="One assistant · this run"
-            />
-          </KpiStrip>
-          <div className="am-current-bars">
-            <SectionHead title="Mentions in this check" />
-            {series.map((c) => (
-              <BarRow
-                key={c.brand}
-                compact
-                identity={
-                  <>
-                    <BrandFavicon name={c.brand} />
-                    <span className="truncate text-[var(--ai-ink)]">{c.brand}</span>
-                  </>
-                }
-                barValue={c.answers ?? 0}
-                barMax={typeof summary.answered === "number" ? summary.answered : 0}
-                barColor={c.color}
-              >
-                <BarRowValue className={ROW_COUNT_CLASS}>
-                  {formatResultValue(c.answers)}
-                </BarRowValue>
-              </BarRow>
-            ))}
-          </div>
-          <p className="am-run-scope">{String(output.message ?? "")}</p>
-        </div>
-        <section className="am-brand-legend">
-          <SectionHead title="Brand comparison" actions={<span className="am-hint">Share</span>} />
+      <DashboardTrendsCard
+        tab={tab}
+        tabs={
+          <DashboardTrendsTabs
+            className="@xl/kpi:grid-cols-3"
+            tabs={[
+              { id: "mentions", label: "Brand mentions" },
+              { id: "share", label: "Share of voice" },
+              { id: "answers", label: "Answers checked" },
+            ]}
+            tab={tab}
+            onSelect={setTab}
+            tabRefs={tabRefs}
+            ariaLabel="This visibility check"
+            headlines={{
+              mentions: {
+                value: formatResultValue(summary.mentioned),
+                caption: "Across answered prompts",
+              },
+              share: {
+                value: share == null ? "—" : `${Number(share).toFixed(1)}%`,
+                caption: "Of supplied brands",
+              },
+              answers: {
+                value: formatResultValue(summary.answered),
+                caption: "One assistant · this run",
+              },
+            }}
+          />
+        }
+        legend={
+          <DashboardTrendsLegend
+            layout="dashboard"
+            title="Top brands"
+            valueLabel="Share"
+            items={series.map((c) => ({
+              key: c.brand,
+              label: c.brand,
+              domain: "",
+              icon: <BrandFavicon name={c.brand} />,
+              color: c.color ?? "var(--ai-accent)",
+              value: c.share,
+              you: c.you,
+            }))}
+          />
+        }
+      >
+        <SectionHead title={tab === "share" ? "Share in this check" : "Mentions in this check"} />
+        <div className="flex flex-col gap-2.5">
           {series.map((c) => (
-            <div className="am-brand-row" key={c.brand}>
-              <span className="am-series-dot" style={{ background: c.color }} />
-              <BrandFavicon name={c.brand} website={c.you ? readBrand()?.website : undefined} />
-              <span className="am-brand-name text-sm leading-[normal]">{c.brand}</span>
-              {c.you && (
-                <span className="inline-flex shrink-0 items-center justify-center gap-1.5 font-medium whitespace-nowrap rounded-full h-4.5 px-2 text-caption bg-ui-accent/14 amicited:bg-ui-accent/14 text-ui-accent amicited:text-ui-accent">
-                  you
-                </span>
-              )}
-              <span className="am-number">{c.share}</span>
-            </div>
+            <BarRow
+              key={c.brand}
+              compact
+              identity={
+                <>
+                  <BrandFavicon name={c.brand} />
+                  <span className="truncate text-[var(--ai-ink)]">{c.brand}</span>
+                </>
+              }
+              barValue={c.answers ?? 0}
+              barMax={typeof summary.answered === "number" ? summary.answered : 0}
+              barColor={c.color}
+            >
+              <BarRowValue className={ROW_COUNT_CLASS}>
+                {tab === "share" ? c.share : formatResultValue(c.answers)}
+              </BarRowValue>
+            </BarRow>
           ))}
-        </section>
-      </div>
+        </div>
+        <p className="text-xs text-ai-ink-3">{String(output.message ?? "")}</p>
+      </DashboardTrendsCard>
       {Array.isArray(output.answers) && (
         <Card className="am-card am-answers">
           <SectionHead title="Answers in this check" />
@@ -662,8 +684,9 @@ export function MarketingResult({
         {Object.entries(record(result.input))
           .filter(
             ([key, value]) =>
-              ["url", "website", "brand", "market", "category", "query"].includes(key) &&
-              typeof value === "string",
+              ["url", "website", "brand", "market", "category", "query", "topic", "text"].includes(
+                key,
+              ) && typeof value === "string",
           )
           .map(([key, value]) => (
             <span key={key}>
@@ -672,7 +695,8 @@ export function MarketingResult({
                   key === "url" ? "website" : key === "query" ? "serp.autocomplete" : key,
                 )}
               />
-              <span>{key === "url" ? "Website" : humanLabel(key)}</span> {String(value)}
+              <span>{key === "url" ? "Website" : humanLabel(key)}</span>{" "}
+              {String(value).slice(0, 72)}
             </span>
           ))}
         {typeof output.provider === "string" && (
@@ -781,10 +805,9 @@ export function MarketingResult({
                 />
                 {findingRows.slice(0, 3)}
               </Card>
-              <ResultFooterSlot result={result} />
               {findingRows.length > 3 && (
                 <details className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card am-findings-list">
-                  <summary>All findings · {findingRows.length}</summary>
+                  <summary>More findings · {findingRows.length - 3}</summary>
                   {findingRows.slice(3)}
                 </details>
               )}
@@ -905,32 +928,38 @@ export function MarketingResult({
               )}
             </Card>
           )}
+          {findings.length > 0 && <ResultFooterSlot result={result} />}
           <MarketingToolbar>
-            <MarketingButton
-              aria-label="Copy results"
-              onClick={() =>
-                void navigator.clipboard
-                  .writeText(resultMarkdown(result))
-                  .catch(() => setError("Could not copy. Try exporting instead."))
-              }
-            >
-              <MarketingIcon name="copy" />
-            </MarketingButton>
-            <MarketingButton
-              onClick={() => {
-                const url = URL.createObjectURL(
-                  new Blob([resultMarkdown(result)], { type: "text/markdown" }),
-                );
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = result.tool.replaceAll(".", "-") + ".md";
-                link.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              <MarketingIcon name="download" />
-              Download
-            </MarketingButton>
+            <details className="am-export">
+              <summary>Export</summary>
+              <div>
+                <MarketingButton
+                  aria-label="Copy results"
+                  onClick={() =>
+                    void navigator.clipboard
+                      .writeText(resultMarkdown(result))
+                      .catch(() => setError("Could not copy. Try exporting instead."))
+                  }
+                >
+                  <MarketingIcon name="copy" /> Copy results
+                </MarketingButton>
+                <MarketingButton
+                  onClick={() => {
+                    const url = URL.createObjectURL(
+                      new Blob([resultMarkdown(result)], { type: "text/markdown" }),
+                    );
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = result.tool.replaceAll(".", "-") + ".md";
+                    link.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <MarketingIcon name="download" />
+                  Download
+                </MarketingButton>
+              </div>
+            </details>
           </MarketingToolbar>
         </>
       )}

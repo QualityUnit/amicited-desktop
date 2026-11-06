@@ -1,3 +1,5 @@
+import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
+import { openCommandPalette } from "./commandPaletteBus";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Textarea } from "./components/ui/textarea";
@@ -60,17 +62,48 @@ import {
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 
-const KitButton = ({
+export const KitButton = ({
   variant = "outline",
   type = "submit",
   ...props
 }: ComponentProps<typeof MarketingButton>) => (
-  <Button type={type} variant={variant} data-am-variant={variant} {...props} />
+  <Button
+    type={type}
+    size="amicited"
+    variant={
+      variant === "default"
+        ? "amicited-primary"
+        : variant === "row"
+          ? "amicited-row"
+          : variant === "link"
+            ? "amicited-link"
+            : "amicited-secondary"
+    }
+    data-am-variant={variant}
+    {...props}
+  />
 );
 const KitInput = ({ size: _size, ...props }: ComponentProps<"input">) => (
-  <Input nativeInput {...props} />
+  <Input nativeInput size="amicited" {...props} />
 );
-const marketingUi = { Button: KitButton, Input: KitInput, Textarea };
+export function KitTooltip({ children, label }: { children: ReactNode; label: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        render={children as React.ReactElement}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      />
+      <TooltipPopup role="tooltip" side="right">
+        {label}
+      </TooltipPopup>
+    </Tooltip>
+  );
+}
+const marketingUi = { Button: KitButton, Input: KitInput, Textarea, Tooltip: KitTooltip };
 
 const renderCloudFooter = (result: ToolResult) => <CloudFooter result={result} />;
 
@@ -93,6 +126,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
     <MarketingUiContext value={marketingUi}>
       <ResultFooterContext value={renderCloudFooter}>
         <MarketingShell
+          openSearch={() => openCommandPalette()}
           connectionStatus={<CloudStatusLine />}
           mode={mode}
           taskView={taskTarget !== null}
@@ -403,7 +437,7 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
     if (!provider || !environmentId) return;
     setEnabling(true);
     setSelectionError("");
-    try {
+    await (async () => {
       if (!provider.enabled) {
         const instance = settings.providerInstances[provider.instanceId];
         if (!instance) throw new Error("Assistant unavailable");
@@ -431,11 +465,8 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
       }
       const refreshed = await refreshProviders({ environmentId, input: {} });
       if (refreshed._tag !== "Success") throw new Error("Could not refresh assistant");
-    } catch {
-      setSelectionError("Could not connect this assistant. Please try again.");
-    } finally {
-      setEnabling(false);
-    }
+    })().catch(() => setSelectionError("Could not connect this assistant. Please try again."));
+    setEnabling(false);
   };
   const choose = async (driver: string) => {
     const candidates = providers?.filter((p) => p.driver === driver) ?? [];

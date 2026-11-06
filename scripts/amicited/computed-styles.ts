@@ -2,131 +2,142 @@
 // @effect-diagnostics nodeBuiltinImport:off - Standalone evidence writer owns files.
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
-import type { Page } from "playwright-core";
-
+import type { Page, Locator } from "playwright-core";
+const metrics = "components/amicited/dashboard/metrics/";
 const samples = [
   [
     "sidebar nav row",
     'aside a[aria-label="Tasks"]',
-    "group/item relative flex w-full shrink-0 items-center gap-3 rounded-[9px] px-2.5 py-[9px] text-left text-sm text-gray-900 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:text-white",
-    "Inter",
+    '[data-specimen="nav"] :is(a,button)',
+    "components/side-menu/SideNavRow.tsx",
+    "SideNavRow",
   ],
   [
     "active nav row",
     'aside a[aria-current="page"]',
-    "group/item relative flex w-full shrink-0 items-center gap-3 rounded-[9px] px-2.5 py-[9px] text-left text-sm bg-primary-50 text-primary-700 hover:bg-primary-50 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/30 font-semibold",
-    "Inter",
+    '[data-specimen="active"] :is(a,button)',
+    "components/side-menu/SideNavRow.tsx",
+    "SideNavRow",
   ],
   [
-    "group label",
-    ".am-nav-group",
-    "px-2.5 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 flex w-full items-center justify-between overflow-hidden rounded-md",
-    "Inter",
+    "card title",
+    ".am-card h2",
+    '[data-specimen="head"] h2',
+    metrics + "ui.tsx",
+    "DashboardSectionHead",
   ],
-  [
-    "domain name",
-    ".am-domain strong",
-    "block truncate text-[13px] leading-tight font-semibold",
-    "Inter",
-  ],
-  [
-    "domain caption",
-    ".am-domain small",
-    "text-ai-ink-3 hidden truncate text-[11px] font-normal lg:block",
-    "Inter",
-  ],
-  [
-    "breadcrumb crumb",
-    '[aria-label="Breadcrumb"] a',
-    "hover:text-primary-700 dark:hover:text-primary-200 flex items-center gap-1.5 text-gray-400 transition-colors dark:text-gray-400 min-w-0",
-    "Inter",
-  ],
-  [
-    "breadcrumb leaf",
-    '[aria-label="Breadcrumb"] h1',
-    "flex items-center gap-1.5 font-medium text-gray-900 dark:text-white min-w-0",
-    "Inter",
-  ],
-  [
-    "header button",
-    "[data-ask-agent]",
-    "inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium text-gray-900 dark:text-white",
-    "Inter",
-  ],
-  ["card title", ".am-card h2", "text-base font-semibold text-[var(--ai-ink)]", "Geist"],
   [
     "card subtitle",
     ".am-card h2 + div",
-    "mt-0.5 text-[13px] break-words text-[var(--ai-ink-3)]",
-    "Geist",
-  ],
-  ["body text", ".am-card p:not([role])", "text-body text-ai-ink-2", "Geist"],
-  [
-    "KPI label",
-    "[data-kpi-strip] > div > span:first-child",
-    "block truncate text-xs font-medium text-[var(--ai-ink-3)]",
-    "Geist",
+    '[data-specimen="head"] h2 + div',
+    metrics + "ui.tsx",
+    "DashboardSectionHead",
   ],
   [
-    "KPI figure",
-    "[data-kpi-strip] > div > span:nth-child(2) > span:first-child",
-    "font-[family-name:var(--font-ai-mono)] text-2xl font-semibold text-[var(--ai-ink)] tabular-nums",
-    "Geist Mono",
+    "body text",
+    ".am-card p:not([role])",
+    '[data-specimen="body"] p',
+    "components/ui/Text.tsx",
+    "Text",
   ],
   [
-    "KPI caption",
-    "[data-kpi-strip] > div > span:nth-child(2) > span:nth-child(2)",
-    "truncate text-xs font-medium text-[var(--ai-ink-3)]",
-    "Geist",
+    "primary button",
+    '[data-marketing-button="default"]',
+    '[data-specimen="primary"] button',
+    "components/ui/Button.tsx",
+    "Button",
   ],
   [
-    "status badge",
-    ".am-status-pass",
-    "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-ai-good-soft text-ai-good-ink",
-    "Geist",
+    "secondary button",
+    '[data-marketing-button="outline"]',
+    '[data-specimen="secondary"] button',
+    "components/ui/Button.tsx",
+    "Button",
   ],
   [
-    "banner eyebrow",
-    '[data-kit="status-notification"] span.uppercase',
-    "font-[family-name:var(--font-ai-mono)] text-xs leading-4 font-medium tracking-[0.08em] whitespace-nowrap uppercase text-ai-warn-ink",
-    "Geist Mono",
-  ],
-  [
-    "banner title",
-    '[data-kit="agent-banner-header"] > span:first-child',
-    "text-ai-ink order-2 min-w-0 flex-none basis-full text-sm @3xl/strip:order-none @3xl/strip:flex-1 @3xl/strip:truncate",
-    "Geist",
-  ],
-  [
-    "list row text",
-    ".am-brand-name",
-    "truncate text-[var(--ai-ink)] text-sm leading-[normal]",
-    "Geist",
+    "accent link",
+    '[data-marketing-button="link"]',
+    '[data-specimen="link"] button',
+    "components/ui/Button.tsx",
+    "Button",
   ],
   [
     "input",
     'input:not([type="checkbox"])',
-    "block w-full border border-gray-200 amicited:border-ai-surf-2 bg-white amicited:bg-ai-surf text-[13px] font-normal text-gray-900 amicited:text-ai-ink shadow-none outline-hidden h-8 rounded-lg px-2.5 py-0",
-    "Geist",
+    '[data-specimen="input"] input',
+    "components/ui/TextInput.tsx",
+    "TextInput",
   ],
   [
-    "primary button",
-    "main button.bg-primary-700, .am-onboarding button.bg-primary-700",
-    "relative flex items-center justify-center rounded-lg text-center font-medium h-8 gap-1.5 px-3 text-[13px] whitespace-nowrap border-primary-700 bg-primary-700 border text-(--color-primary-700-contrast)",
-    "Geist",
+    "KPI label",
+    "[data-kpi-strip] > div > span:first-child",
+    '[data-specimen="trends"] [role="tab"] > span:first-child',
+    metrics + "DashboardTrendsTabs.tsx",
+    "DashboardTrendsTabs",
   ],
   [
-    "you badge",
-    '.am-brand-row [class*="rounded-full"][class*="text-caption"]',
-    "inline-flex shrink-0 items-center justify-center gap-1.5 font-medium whitespace-nowrap rounded-full h-4.5 px-2 text-caption bg-ui-accent/14 amicited:bg-ui-accent/14 text-ui-accent amicited:text-ui-accent",
-    "Geist",
+    "KPI figure",
+    "[data-kpi-strip] > div > span:nth-child(2) > span:first-child",
+    '[data-specimen="trends"] [role="tab"] span[style]',
+    metrics + "DashboardTrendsTabs.tsx",
+    "DashboardTrendsTabs",
+  ],
+  [
+    "trends tab",
+    '[role="tab"]',
+    '[data-specimen="trends"] [role="tab"]',
+    metrics + "DashboardTrendsTabs.tsx",
+    "DashboardTrendsTabs",
+  ],
+  [
+    "trends label",
+    '[role="tab"] > span:first-child',
+    '[data-specimen="trends"] [role="tab"] > span:first-child',
+    metrics + "DashboardTrendsTabs.tsx",
+    "DashboardTrendsTabs",
+  ],
+  [
+    "trends figure",
+    '[role="tab"] span[style]',
+    '[data-specimen="trends"] [role="tab"] span[style]',
+    metrics + "DashboardTrendsTabs.tsx",
+    "DashboardTrendsTabs",
+  ],
+  [
+    "legend heading",
+    ".am-result aside h2",
+    '[data-specimen="legend"] h2',
+    metrics + "DashboardTrendsLegend.tsx",
+    "DashboardTrendsLegend",
+  ],
+  [
+    "legend row",
+    '.am-result [role="listitem"] > div',
+    '[data-specimen="legend"] [role="listitem"] > div',
+    metrics + "DashboardTrendsLegend.tsx",
+    "DashboardTrendsLegend",
+  ],
+  [
+    "legend value",
+    '.am-result [role="listitem"] > div > span:last-child',
+    '[data-specimen="legend"] [role="listitem"] > div > span:last-child',
+    metrics + "DashboardTrendsLegend.tsx",
+    "DashboardTrendsLegend",
+  ],
+  [
+    "filter chip",
+    ".am-scope-filters > span",
+    '[data-specimen="filter"] button',
+    "components/ui/controlSurface.ts",
+    "filterTrigger",
   ],
 ] as const;
 type Style = Record<string, string>;
 type Row = {
   name: string;
+  theme: string;
   stage: string;
-  classes: string;
+  source: string;
   actual: Style;
   cloud: Style;
   differences: string[];
@@ -134,6 +145,7 @@ type Row = {
   reason: string;
 };
 const rows = new Map<string, Row>();
+let reference: Page | undefined;
 export async function checkFonts(page: Page) {
   return page.evaluate(async () => {
     const result: Record<string, boolean> = {};
@@ -141,132 +153,100 @@ export async function checkFonts(page: Page) {
       const loaded = await document.fonts.load(`14px "${family}"`);
       result[family] = loaded.length > 0 && document.fonts.check(`14px "${family}"`);
     }
-    if (Object.values(result).some((loaded) => !loaded))
+    if (Object.values(result).some((value) => !value))
       throw new Error("Font failed to load: " + JSON.stringify(result));
     return result;
   });
 }
+async function read(target: Locator) {
+  return target.evaluate((el) => {
+    const c = getComputedStyle(el);
+    const props = [
+      "fontFamily",
+      "fontSize",
+      "fontWeight",
+      "lineHeight",
+      "letterSpacing",
+      "color",
+      "backgroundColor",
+      "padding",
+      "height",
+      "borderRadius",
+    ] as const;
+    return Object.fromEntries(props.map((key) => [key, c[key]]));
+  });
+}
 export async function captureComputedStyles(page: Page, out: string, stage: string) {
+  if (!reference) {
+    reference = await page.context().browser()!.newPage({ deviceScaleFactor: 2 });
+    await reference.setViewportSize({ width: 1022, height: 1800 });
+    await reference.emulateMedia({ reducedMotion: "reduce" });
+    await reference.setContent(
+      await NodeFSP.readFile(NodePath.join(out, "cloud-specimens.html"), "utf8"),
+    );
+    await checkFonts(reference);
+  }
+  const theme = await page.evaluate(() =>
+    document.documentElement.classList.contains("dark") ? "dark" : "light",
+  );
+  await reference.evaluate((theme) => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.setAttribute("data-theme", theme);
+  }, theme);
   await NodeFSP.mkdir(NodePath.join(out, "crops"), { recursive: true });
-  for (const [name, selector, classes, family] of samples) {
-    if (rows.has(name)) continue;
+  for (const [name, selector, cloudSelector, file, component] of samples) {
+    const key = theme + ":" + name;
+    if (rows.has(key)) continue;
     const target = page.locator(selector).first();
     if (!(await target.isVisible())) continue;
-    const result = await target.evaluate(
-      (el, { classes, family, name }: { classes: string; family: string; name: string }) => {
-        const props = [
-          "fontFamily",
-          "fontSize",
-          "fontWeight",
-          "lineHeight",
-          "letterSpacing",
-          "color",
-          "padding",
-          "height",
-          "borderRadius",
-        ] as const;
-        const read = (node: Element) => {
-          const c = getComputedStyle(node);
-          return Object.fromEntries(props.map((key) => [key, c[key]]));
-        };
-        const actual = read(el);
-        if (name === "banner eyebrow") {
-          classes = classes.replace(
-            "text-ai-warn-ink",
-            getComputedStyle(el).color === "rgb(155, 44, 34)"
-              ? "text-ai-bad-ink"
-              : getComputedStyle(el).color === "rgb(10, 107, 58)"
-                ? "text-ai-good-ink"
-                : "text-ai-warn-ink",
-          );
-        }
-        const root = document.createElement("div");
-        root.setAttribute("data-amicited-tokens", "");
-        root.style.cssText =
-          'position:fixed;left:-10000px;top:0;visibility:hidden;--font-ai-sans:Geist;--font-ai-mono:"Geist Mono";--font-ai-serif:Fraunces;font-size:16px;line-height:1.5;color:var(--ai-ink);';
-        const reference = el.cloneNode(true) as HTMLElement;
-        reference.className = classes;
-        reference.style.display = getComputedStyle(el).display;
-        root.style.fontFamily =
-          family === "Geist"
-            ? "Geist, ui-sans-serif, system-ui, sans-serif"
-            : family === "Geist Mono"
-              ? '"Geist Mono"'
-              : "Inter, sans-serif";
-        root.style.setProperty("--amicited-gray-900", "#111928");
-        root.style.setProperty("--color-primary-700-contrast", "#ffffff");
-        // Breadcrumbs inherit the cloud trail's 13px / 32px line box.
-        if (name.startsWith("breadcrumb")) {
-          root.style.fontSize = "13px";
-          root.style.lineHeight = "32px";
-        }
-        // Components inherit the cloud body text role from their page.
-        else if (family !== "Inter") {
-          root.style.fontSize = "13px";
-          root.style.lineHeight = "20px";
-        }
-        if (getComputedStyle(el).display !== "inline")
-          reference.style.width = `${el.getBoundingClientRect().width}px`;
-        root.append(reference);
-        document.body.append(root);
-        const cloud = read(reference);
-        root.remove();
-        return { actual, cloud };
-      },
-      { classes, family, name },
+    const specimen = reference.locator(cloudSelector).first();
+    if (!(await specimen.isVisible())) throw new Error("Cloud component missing: " + name);
+    const actual = await read(target),
+      cloud = await read(specimen);
+    const differences = Object.keys(actual).filter((key) => actual[key] !== cloud[key]);
+    const sourceText = await NodeFSP.readFile(
+      NodePath.join(process.env.AMICITED_CLOUD_SOURCE!, file),
+      "utf8",
     );
-    const differences = Object.keys(result.actual).filter(
-      (key) => result.actual[key] !== result.cloud[key],
-    );
+    const declaration = new RegExp(`(?:const|function) ${component}\\b`).exec(sourceText);
+    const line = sourceText.slice(0, declaration?.index ?? 0).split("\n").length;
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("DOM.enable");
     await cdp.send("CSS.enable");
+    await target.evaluate((el, key) => el.setAttribute("data-parity-font", key), key);
     const { root } = await cdp.send("DOM.getDocument");
-    const marked = await target.evaluate((el, name) => {
-      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-      let text;
-      while ((text = walker.nextNode())) {
-        const parent = text.parentElement;
-        if (text.textContent?.trim() && parent && parent.getBoundingClientRect().width > 0) {
-          parent.setAttribute("data-parity-font", name);
-          return true;
-        }
-      }
-      return false;
-    }, name);
     const { nodeId } = await cdp.send("DOM.querySelector", {
       nodeId: root.nodeId,
-      selector: marked ? `[data-parity-font="${name}"]` : selector,
+      selector: `[data-parity-font="${key}"]`,
     });
     const { fonts } = await cdp.send("CSS.getPlatformFontsForNode", { nodeId });
-    const usedFaces = fonts.map(
-      (font) => `${font.familyName} (${font.isCustomFont ? "loaded web font" : "system font"})`,
-    );
-    if (!usedFaces.length)
-      usedFaces.push("Native control: CDP exposes no text glyphs; see loaded face assertion");
     await cdp.detach();
-    rows.set(name, {
+    rows.set(key, {
       name,
+      theme,
       stage,
-      classes,
-      ...result,
+      source: `${file}:${line}`,
+      actual,
+      cloud,
       differences,
-      usedFaces,
+      usedFaces: fonts.map((f) => `${f.familyName} (${f.isCustomFont ? "loaded" : "system"})`),
       reason: differences.length
-        ? "Local content/container differs from the isolated cloud class specimen; see differing properties."
+        ? "Independent component measurements; see the property-specific exceptions below."
         : "",
     });
     await target.screenshot({
-      path: NodePath.join(out, "crops", name.replaceAll(" ", "-") + ".png"),
+      path: NodePath.join(out, "crops", `${theme}-${name.replaceAll(" ", "-")}.png`),
       animations: "disabled",
     });
   }
 }
 export async function writeComputedStyles(out: string) {
-  const missing = samples.filter(([name]) => !rows.has(name)).map(([name]) => name);
+  const missing = ["light", "dark"].flatMap((theme) =>
+    samples.filter(([name]) => !rows.has(theme + ":" + name)).map(([name]) => theme + ":" + name),
+  );
   const result = {
     reference:
-      "flowhunt2 origin/main 44d4019d4c; isolated class specimens rendered with the ported token CSS, not a live cloud session",
+      "flowhunt2 origin/main 44d4019d4c, actual source components bundled independently with Flowbite and the cloud token stylesheets; no desktop elements or styles are copied",
     rows: [...rows.values()],
     missing,
   };
@@ -274,17 +254,15 @@ export async function writeComputedStyles(out: string) {
     NodePath.join(out, "computed-styles.json"),
     JSON.stringify(result, null, 2),
   );
-  const fields = "family; size; weight; line-height; tracking; color; padding; height; radius";
   const compact = (style: Style) => Object.values(style).join("; ");
   const md =
-    `# Computed style parity\n\nGenerated by scripts/amicited/computed-styles.ts during the 2× Chromium journey. Reference: ${result.reference}. Heights depend on the specimen's text and available width. Font checks additionally require a loaded FontFace, so a missing face cannot pass via fallback.\n\nValues: ${fields}.\n\n| Element | Used face (CDP) | Desktop | Cloud class specimen | Difference / reason |\n| --- | --- | --- | --- | --- |\n` +
+    `# Computed style parity\n\n${result.reference}. Generated at 2×. Each source cell names the component declaration, under the exported frontend/src. Cloud specimens have the token root, Inter chrome and Geist content roots, and independently compiled tailwindShared/uiTokens/amicitedTokens stylesheets.\n\nThe fixture adapters replace routing, translation, disabled-reason and card-maximize services; tooltips render their children. These adapters do not supply classes, fonts or dimensions to the measured nodes. Flowbite uses the real cloud customTheme. Filter chips render HeaderFilterItem with the source filterTrigger function; the desktop scope is a noninteractive snapshot.\n\nValues: family; size; weight; line height; tracking; color; background; padding; height; radius.\n\n| Element / theme | Cloud source | Used face (CDP) | Desktop | Cloud | Differences |\n|---|---|---|---|---|---|\n` +
     result.rows
       .map(
         (row) =>
-          `| ${row.name} | ${row.usedFaces.join(", ")} | ${compact(row.actual)} | ${compact(row.cloud)} | ${row.differences.length ? row.differences.join(", ") + ": " + row.reason : "Match"} |`,
+          `| ${row.name} / ${row.theme} | ${row.source} | ${row.usedFaces.join(", ")} | ${compact(row.actual)} | ${compact(row.cloud)} | ${row.differences.join(", ") || "Match"} |`,
       )
       .join("\n") +
-    `\n\nMissing specimens: ${missing.join(", ") || "none"}.\n`;
-  await NodeFSP.mkdir("docs/amicited/parity", { recursive: true });
+    `\n\nMissing: ${missing.join(", ") || "none"}.\n\nExceptions: local KPI strips are static summaries, while the cloud comparison uses trends tabs (no invented period deltas). Tab widths and heights can differ with the number of metrics and the real local captions. The legend fixture has one plain series; desktop series carry favicon tiles and the owner badge. The T3 input has a 30px inner element inside a 32px bordered field wrapper; cloud TextInput draws the border on its 32px input. Dashboard specimens include the actual ink/container classes from AmICitedDashboardPage.tsx:212. Primary and secondary controls retain T3 accessibility and focus behavior. Scope chips are text snapshots rather than live country/provider dropdowns. No unequal row is reported as a match.\n`;
   await NodeFSP.writeFile("docs/amicited/parity/computed-styles.md", md);
 }

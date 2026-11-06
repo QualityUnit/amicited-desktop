@@ -143,7 +143,7 @@ try {
       if (
         width === 1344 &&
         theme === "dark" &&
-        !["04-home", "03-first-win", "03b-first-win-upsell"].includes(name)
+        !["04-home", "03-first-win", "03b-first-win-upsell", "06-ai-visibility"].includes(name)
       )
         continue;
       if (
@@ -182,10 +182,8 @@ try {
         NodePath.join(out, "browser-fonts.json"),
         JSON.stringify(await checkFonts(page), null, 2),
       );
-      if (theme === "light") {
-        await captureComputedStyles(page, out, name);
-        await writeComputedStyles(out);
-      }
+      await captureComputedStyles(page, out, name);
+      await writeComputedStyles(out);
       if (name === "04-home" && width === 1344 && theme === "light")
         await NodeFSP.writeFile(
           NodePath.join(out, "layout.json"),
@@ -244,6 +242,9 @@ try {
   await capture("03-first-win");
   await page.getByRole("complementary", { name: "More with AmICited" }).scrollIntoViewIfNeeded();
   await capture("03b-first-win-upsell");
+  await page
+    .getByRole("complementary", { name: "More with AmICited" })
+    .screenshot({ path: NodePath.join(out, "upsell-only-2x.png") });
   await page.getByRole("button", { name: "Go to Home →" }).first().click();
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
 
@@ -257,10 +258,12 @@ try {
   await page
     .getByRole("textbox", { name: "Ask your AI assistant" })
     .fill("Help me plan a campaign");
-  await page.getByRole("button", { name: "Send task", exact: true }).click();
-  await page.getByText("Connect Claude or ChatGPT to send this task", { exact: true }).waitFor();
-  if (await page.getByText("Connect an assistant first", { exact: true }).count())
-    throw new Error("Blocked send repeats its connection helper");
+  await page.getByRole("button", { name: "Connect an assistant", exact: true }).click();
+  if (
+    (await page.getByRole("textbox", { name: "Ask your AI assistant" }).inputValue()) !==
+    "Help me plan a campaign"
+  )
+    throw new Error("Connection action lost prompt");
   await capture("04c-no-assistant");
   await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
   await page.getByRole("heading", { name: "Connect Claude", exact: true }).scrollIntoViewIfNeeded();
@@ -389,7 +392,7 @@ try {
   await page
     .getByRole("region", { name: "Tool result" })
     .evaluate((element) => element.scrollIntoView({ block: "start" }));
-  await page.getByRole("heading", { name: "Brand comparison", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Top brands", exact: true }).waitFor();
   await capture("06-ai-visibility");
   await capture("06b-visibility-result-fixture");
   await page.getByRole("button", { name: "Fix this with AI", exact: true }).first().click();

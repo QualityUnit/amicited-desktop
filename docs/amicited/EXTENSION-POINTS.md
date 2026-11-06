@@ -262,3 +262,15 @@ No server, provider, transport or upstream UI primitive changed.
 
 All component and typography changes remain in `@amicited/ui-marketing`.
 The existing cloud and web adapters retain their behavior and free-tool gating.
+
+## Wave 14 control variants
+
+- `apps/web/src/components/ui/button.tsx`: adds AmICited variants and size from the standalone `@amicited/ui-marketing/kit` class sets.
+- `apps/web/src/components/ui/input.tsx`: adds an AmICited size for the existing native-input adapter, retaining the kit field wrapper.
+- `apps/web/src/marketing.tsx`: injects the existing kit primitives/tooltips and command palette callback; keeps assistant-enable error handling compatible with React Compiler.
+- `apps/web/src/routes/_chat.tasks.tsx`: adds a compact list heading and opening affordance.
+- `apps/web/src/rpc/amicitedCloud.tsx`: selects the dedicated variable-height promotional row layout.
+
+These are marketer-only variants. The upstream variants, provider adapters,
+contracts and mobile UI retain their existing behavior. Marketer navigation and
+results share their web/desktop entry points, including local and remote RPC.

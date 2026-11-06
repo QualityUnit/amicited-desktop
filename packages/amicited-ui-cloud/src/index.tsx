@@ -52,16 +52,13 @@ export function AmicitedUpsellCard({
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-stack">
       <h3>Keep building on this result</h3>
-      <div className="am-cloud-comparison">
-        <div>
-          <h4>This check</h4>
-          <p>{comparison.checked}</p>
-        </div>
-        <div>
-          <h4>Daily tracking</h4>
-          <p>{comparison.missing}</p>
-        </div>
+      <div className="am-cloud-gap-row">
+        <span>Competitor citations you’re missing</span>
+        <span className="text-ai-ink-3">Not measured in this check</span>
       </div>
+      <p className="text-ai-ink-3 text-[13px]">
+        Track this gap daily across assistants with AmICited.
+      </p>
       <p>{comparison.pricing}</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>

@@ -9,6 +9,7 @@ function Tasks() {
   return (
     <>
       <section className="am-card am-task-list">
+        <h1 className="text-sm font-semibold">Recent tasks</h1>
         {!threads.length && (
           <p>
             No tasks yet. <Link to="/new">New task →</Link>
@@ -38,6 +39,7 @@ function Tasks() {
                     "day",
                   )}
             </time>
+            <span aria-hidden="true">→</span>
           </Link>
         ))}
       </section>

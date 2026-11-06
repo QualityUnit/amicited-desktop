@@ -92,3 +92,25 @@ faces, writes browser-fonts.json and computed-styles.json, and saves typography
 crops under crops/. The computed-style writer also generates the committed
 parity table in docs/amicited/parity/computed-styles.md. Native Electron results
 are recorded separately; a browser font check does not prove native loading.
+
+Wave 14 replaces class clones with actual cloud-source specimens. Before running
+the journey, set `AMICITED_CLOUD_SOURCE` to the exported flowhunt2 frontend/src
+and `AMICITED_CLOUD_DEPS` to an isolated npm prefix containing `esbuild`,
+`flowbite-react`, `@floating-ui/react`, `react-icons`, `react`, `react-dom`,
+`tailwind-merge`, `d3-array`, `d3-scale`, `clsx` and `lodash`. These are evidence
+build dependencies, not application dependencies. Build the independent document:
+
+```sh
+node --input-type=module -e 'import {cloudSpecimens} from "./scripts/amicited/cloud-specimens.mjs"; await cloudSpecimens(process.cwd()+"/.amicited-shots/r12")'
+AMICITED_JOURNEY_QUICK=1 node scripts/amicited/journey-screenshots.ts .amicited-shots/r12
+node scripts/amicited/electron-screenshots.mjs .amicited-shots/r12
+```
+
+The journey additionally crops the upsell on its own and captures dark visibility
+at 1344. Electron captures Home, the real website audit and labelled visibility
+fixtures in both themes at 2×, with loaded-face assertions in electron-fonts.json.
+The native harness uses the existing built main and runtime directly, never the
+pattern-killing desktop dev launcher. It overrides the temporary process's OS home
+because DesktopUserData resolves the macOS profile independently of the Chromium
+user-data switch. CDP uses localhost and selects the application page explicitly;
+DevTools is also a page. First-run shell markers can be nested.

@@ -19,8 +19,7 @@ do not recreate their typography in `marketing.css`.
 | styles/amicitedTokens.css, styles/tailwindShared.css palette                       | amicitedTokens.css, sharedTokens.css                                |
 
 Navigation and data hooks become desktop props; translations become plain strings.
-Tool cards retain desktop link semantics. Flowbite controls have small native
-equivalents using the source classes. Cloud-only account menus, sub-app rail,
+Tool cards retain desktop link semantics. Controls use the injected T3 Button, Input and Textarea; AmICited variants own their cloud geometry and token colors. Cloud-only account menus, sub-app rail,
 card maximizing and historical chart controls are omitted; local checks have no
 historical data. Domain text and group-label classes come from
 AmICitedDomainSwitcher.tsx and SideNavGroup.tsx respectively. The desktop header
@@ -36,10 +35,20 @@ to preserve the developer palette; the remaining shared palette literals are
 unchanged. Developer mode mounts no marketer shell.
 
 The computed-style evidence in [parity/computed-styles.md](parity/computed-styles.md)
-compares rendered desktop elements with isolated specimens of the cloud classes
-using the ported token stylesheet. It is not a live-cloud comparison. Chromium
-CDP records the face used, and font checks require loaded FontFace objects.
-The journey captures 2× pixels at 1344×1016 and the regular 1440 viewport.
+uses an independent document compiled from the exported cloud components and
+cloud stylesheets. The fixture replaces routing/translation and inactive service
+hooks, uses the real Flowbite custom theme, and never clones desktop DOM.
+Each row names its source declaration, measures light and dark, and records
+unequal properties. Typography crops and journeys are captured at 2×.
+Electron verification runs the built main with its own OS home, T3 home and
+ports; CDP selects the application target, excluding DevTools. No native font
+result is inferred from Chromium.
+
+The trends card, tabs and legend preserve the cloud structure and keyboard
+roles. Local checks supply measured snapshots instead of historical series or
+period deltas. Static KPI summaries derive columns from populated children and
+suppress empty strips. Tools use one enclosing hairline grid; cloud explainers
+use variable-height rows. Fraunces appears only on the welcome headline.
 
 `marketing.css` retains desktop-specific task, local report, preferences and
 upsell layout plus the T3 token bridge. Results expose only measured figures;

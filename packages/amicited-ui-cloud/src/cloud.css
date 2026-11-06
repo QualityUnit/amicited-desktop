@@ -1,7 +1,7 @@
 .am-cloud-card {
   border: 1px solid var(--ai-line);
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px;
   margin: 0 0 20px;
   background: var(--ai-surf);
   box-shadow: none;
@@ -53,4 +53,14 @@
   .am-cloud-card {
     padding: 16px;
   }
+}
+
+.am-cloud-gap-row {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+  border-block: 1px solid var(--ai-line);
+  font-size: 13px;
 }
