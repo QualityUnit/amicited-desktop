@@ -104,7 +104,20 @@ describe("site tools", () => {
       }
       const audit = await tools.audit.run({ url }, ctx());
       expect(audit.score).toBe(code === 503 ? null : 33);
+      expect(audit.coverage).toContain("unavailable checks are excluded");
     }
+    const complete = await siteTools(fakeFetch({ [url]: fixture("site.html") }), {
+      ...sslCheck,
+      run: async () => ({
+        validTo: "2027-01-01",
+        daysLeft: 60,
+        issuer: "Fixture",
+        chainOk: true,
+        grade: "A",
+        issues: [],
+      }),
+    }).audit.run({ url }, ctx());
+    expect(complete.coverage).toBe("6/6 checks returned a score.");
   });
 });
 describe("SERP tools", () => {

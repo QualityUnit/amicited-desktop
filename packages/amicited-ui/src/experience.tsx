@@ -17,7 +17,11 @@ export function normalizeWebsite(value: string): Brand {
   const url = new URL(value.includes("://") ? value : `https://${value}`);
   if (!["https:", "http:"].includes(url.protocol) || !url.hostname.includes("."))
     throw new Error("Enter a website like example.com.");
-  return { website: url.origin, name: url.hostname.replace(/^www\./, "") };
+  const name = url.hostname
+    .replace(/^www\./, "")
+    .split(".")[0]!
+    .replace(/-/g, " ");
+  return { website: url.origin, name: name.charAt(0).toUpperCase() + name.slice(1) };
 }
 export function AmICitedMark() {
   return (
@@ -56,9 +60,12 @@ export function FirstRun({
     return (
       <div data-amicited-shell="" className="am-page am-onboarding">
         <AmICitedMark />
-        <h1>Your first useful result</h1>
+        <div className="am-result-heading">
+          <h1>Your first useful result</h1>
+          <MarketingButton onClick={skip}>Go to Home →</MarketingButton>
+        </div>
         <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />
-        <section className="am-card">
+        <section className="am-card" id="ai-subscriptions">
           <h2>Want AI to fix these?</h2>
           <p>Connect Claude or ChatGPT using your existing subscription.</p>
           {subscriptions}
@@ -415,7 +422,7 @@ function VisibilityResult({
                       `Help my brand become a useful recommendation for: ${String(a.prompt)
                         .trim()
                         .replace(/[.!?]+$/, "")}. Suggest evidence and content improvements.`,
-                    ).catch(() => setError("Could not open your task. Try again."))
+                    ).catch((error: Error) => setError(error.message))
                   }
                 >
                   Fix this with AI
@@ -465,8 +472,9 @@ export function MarketingResult({
         <div className="am-finding">
           <h3>Connect Claude or ChatGPT</h3>
           <p>
-            This check uses your existing AI subscription to see whether your assistant mentions
-            your brand. Connect an assistant, then return here to run the check.
+            {result.tool.startsWith("content.")
+              ? "This content action uses your existing AI subscription to write or repurpose your draft. Connect an assistant, then return here to generate it."
+              : "This check uses your existing AI subscription to see whether your assistant mentions your brand. Connect an assistant, then return here to run the check."}
           </p>
           <a
             href="/home#ai-subscriptions"
@@ -598,7 +606,7 @@ export function MarketingResult({
                         onClick={() =>
                           void fix(
                             `Help me fix this on ${String(record(result.input).url ?? readBrand()?.website ?? "my website")}: ${f.title}\n${f.why}\n${f.fix}`,
-                          ).catch(() => setError("Could not start a task. Please try again."))
+                          ).catch((error: Error) => setError(error.message))
                         }
                       >
                         Fix this with AI
@@ -706,4 +714,12 @@ export function MarketingLink({ href, onClick, ...props }: ComponentProps<"a">) 
       }}
     />
   );
+}
+
+export function marketingTaskStatus(status: string | undefined, needsInput: boolean) {
+  if (status === "failed") return "Couldn't finish";
+  if (needsInput) return "Needs you";
+  if (status === "completed") return "Done";
+  if (status === "running") return "Working";
+  return "Ready";
 }

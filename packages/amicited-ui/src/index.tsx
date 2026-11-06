@@ -114,11 +114,13 @@ export function MarketingShell({
 }
 export function Home({
   startTask,
+  assistantName,
   subscriptions,
   recent,
   cloud,
 }: {
   startTask: (prompt: string) => Promise<void>;
+  assistantName?: string | undefined;
   subscriptions?: ReactNode;
   recent?: ReactNode;
   cloud?: ReactNode;
@@ -134,9 +136,13 @@ export function Home({
         className="am-card"
         onSubmit={(event) => {
           event.preventDefault();
-          void startTask(prompt).catch(() =>
-            setError("Could not start a task. Check your machine connection."),
-          );
+          if (!assistantName) {
+            setError("Connect Claude or ChatGPT to send this task");
+            document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
+            return;
+          }
+          setError("");
+          void startTask(prompt).catch((error: Error) => setError(error.message));
         }}
       >
         <label htmlFor="ask">Ask your AI assistant</label>
@@ -149,8 +155,14 @@ export function Home({
           required
         />
         <MarketingButton variant="default">Send task</MarketingButton>
-        <p>Your selected assistant will start working on this request.</p>
-        <p role="alert">{error}</p>
+        <p>
+          {assistantName
+            ? `${assistantName} will start working on this`
+            : "Connect an assistant first"}
+        </p>
+        <p role="alert">
+          {assistantName && error === "Connect Claude or ChatGPT to send this task" ? "" : error}
+        </p>
       </form>
       <section className="am-card">
         <SectionHead title="Your next useful action" />
@@ -272,7 +284,11 @@ export function ToolForm({
           event.preventDefault();
           setBusy(true);
           setError("");
-          sessionStorage.setItem("amicited.inputs." + tool.name, JSON.stringify(values));
+          try {
+            sessionStorage.setItem("amicited.inputs." + tool.name, JSON.stringify(values));
+          } catch {
+            /* Inputs remain in the form if storage is blocked. */
+          }
           const input = serializeFields(properties, required, values);
           void run(input)
             .then((value) => {
@@ -332,7 +348,7 @@ export function ToolForm({
         <MarketingButton variant="default" disabled={busy || disabled}>
           {busy
             ? "Working…"
-            : tool.name.startsWith("content.") && tool.name !== "content.readability"
+            : ["content.write", "content.repurpose"].includes(tool.name)
               ? "Generate draft"
               : "Run check"}
         </MarketingButton>

@@ -1,5 +1,6 @@
-import { Switch } from "../components/ui/switch";
 import { WorkspaceModeControl } from "@amicited/ui-marketing";
+import { Switch } from "../components/ui/switch";
+
 import { createFileRoute } from "@tanstack/react-router";
 
 import { GeneralSettingsPanel } from "../components/settings/SettingsPanels";
@@ -10,8 +11,9 @@ const renderModeSwitch = (checked: boolean, onCheckedChange: (checked: boolean) 
 function SettingsGeneralRoute() {
   return (
     <>
-      <WorkspaceModeControl control={renderModeSwitch} />
-      <GeneralSettingsPanel />
+      <GeneralSettingsPanel
+        workspaceModeControl={<WorkspaceModeControl control={renderModeSwitch} />}
+      />
     </>
   );
 }

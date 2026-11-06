@@ -65,7 +65,10 @@ it("persists seven-day snooze and dismissal and admits at most one win per sessi
   const nextSession = createUpsellGate(persistent, store());
   expect(nextSession.claim(win, 6 * 86400000)).toBe(false);
   expect(nextSession.claim(win, 7 * 86400000)).toBe(true);
-  nextSession.dismiss();
+  expect(nextSession.hidden()).toBe(false);
+  expect(nextSession.dismiss()).toBe(true);
+  expect(createUpsellGate(persistent, store()).hidden()).toBe(true);
+  expect(createUpsellGate(unavailable, unavailable).dismiss()).toBe(false);
   expect(createUpsellGate(persistent, store()).claim(win, 99 * 86400000)).toBe(false);
   expect(shouldOfferUpsell(win, snoozeUpsell(0), false, 7 * 86400000)).toBe(true);
 });

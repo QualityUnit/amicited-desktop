@@ -81,6 +81,9 @@ export function createUpsellGate(storage: PreferenceStorage, session: Preference
     }
   };
   return {
+    hidden() {
+      return read().dismissed === true;
+    },
     claim(result: WinResult, now: number, connected = false) {
       try {
         if (!shouldOfferUpsell(result, read(), session.getItem(key) === "shown", now, connected))
@@ -101,8 +104,9 @@ export function createUpsellGate(storage: PreferenceStorage, session: Preference
     dismiss() {
       try {
         storage.setItem(key, JSON.stringify(dismissUpsell()));
+        return true;
       } catch {
-        /* The session still suppresses further offers. */
+        return false;
       }
     },
   };

@@ -53,3 +53,9 @@ fixture tests rather than a production connection.
 The r3 journey also captures `04b-subscriptions` in both themes, asserts Claude in
 the review draft, and sends the New task form through Replay without a second
 composer submission. Quick mode includes dark 02, its connection states, and 09.
+
+The r4 journey adds `04c-no-assistant`: Home Ask preserves its prompt and shows
+an inline connection message. Connection captures scroll the setup card into view;
+ready selection collapses it to the In use chip. After the connection captures,
+the harness verifies that permanently hiding trial offers confirms the saved choice
+and suppresses Home's promotion. Quick mode retains the r3 theme coverage.

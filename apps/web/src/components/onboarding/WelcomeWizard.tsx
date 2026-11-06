@@ -716,10 +716,14 @@ export function ConnectedAgentsStep({
   environmentId,
   machineLabel,
   marketingDriver,
+  marketingEnabling = false,
+  onMarketingRetry,
 }: {
   readonly environmentId: EnvironmentId;
   readonly machineLabel: string;
   readonly marketingDriver?: string;
+  readonly marketingEnabling?: boolean;
+  readonly onMarketingRetry?: () => void;
 }) {
   const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
@@ -830,6 +834,8 @@ export function ConnectedAgentsStep({
             <AgentCard
               key={driver}
               marketingDriver={marketingDriver}
+              marketingEnabling={marketingEnabling}
+              onMarketingRetry={onMarketingRetry}
               driver={driver}
               provider={provider}
               terminalOpen={terminalSession?.driver === driver}
@@ -983,6 +989,8 @@ function OnboardingCodexSetup({
 }
 
 function AgentCard({
+  marketingEnabling,
+  onMarketingRetry,
   marketingDriver,
   driver,
   provider,
@@ -991,6 +999,8 @@ function AgentCard({
   onOpenTerminal,
 }: {
   readonly marketingDriver?: string | undefined;
+  readonly marketingEnabling?: boolean | undefined;
+  readonly onMarketingRetry?: (() => void) | undefined;
   readonly driver: OnboardingAgentDriver;
   readonly provider: ServerProvider | undefined;
   readonly terminalOpen: boolean;
@@ -1013,7 +1023,7 @@ function AgentCard({
       <div className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-foreground">{displayName}</span>
         <p className="mt-0.5 text-xs leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
-          {marketingDriver && !provider?.enabled
+          {marketingDriver && marketingEnabling
             ? `Turning on ${marketingDriver === "claudeAgent" ? "Claude" : "ChatGPT"}…`
             : providerState === "ready"
               ? marketingDriver
@@ -1026,7 +1036,19 @@ function AgentCard({
         </p>
       </div>
       <div className="shrink-0">
-        {providerState === "ready" ? (
+        {marketingDriver &&
+          provider?.enabled &&
+          providerState !== "ready" &&
+          !marketingEnabling && (
+            <Button size="xs" variant="ghost" onClick={onMarketingRetry}>
+              Try again
+            </Button>
+          )}
+        {marketingDriver && !provider?.enabled ? (
+          <Button size="xs" variant="ghost" disabled={marketingEnabling} onClick={onMarketingRetry}>
+            Try again
+          </Button>
+        ) : providerState === "ready" ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-foreground">
             <CheckIcon className="size-3.5" />
             Ready

@@ -200,7 +200,9 @@ export function CloudHome({ offer = true }: { offer?: boolean }) {
         }}
       />
     );
-  return offer && localStorage.getItem("amicited.first-win") === "true" ? (
+  return offer &&
+    !createUpsellGate(localStorage, sessionStorage).hidden() &&
+    localStorage.getItem("amicited.first-win") === "true" ? (
     <section className="am-card">
       <MarketingLink href="/marketing-settings">Track this daily with AmICited →</MarketingLink>
       <p>Keep your visibility history across assistants, countries and competitors.</p>
@@ -259,6 +261,7 @@ export function CloudTools() {
 }
 
 export function CloudPage() {
+  const [hideMessage, setHideMessage] = useState("");
   const { connection } = useCloud();
   return (
     <div className="am-page">
@@ -279,10 +282,18 @@ export function CloudPage() {
       <CloudSettings />
       <MarketingButton
         variant="link"
-        onClick={() => createUpsellGate(localStorage, sessionStorage).dismiss()}
+        onClick={() => {
+          const saved = createUpsellGate(localStorage, sessionStorage).dismiss();
+          setHideMessage(
+            saved
+              ? "Trial offers are permanently hidden."
+              : "Could not save your choice. Please try again.",
+          );
+        }}
       >
         Permanently hide trial offers
       </MarketingButton>
+      <p role="status">{hideMessage}</p>
     </div>
   );
 }

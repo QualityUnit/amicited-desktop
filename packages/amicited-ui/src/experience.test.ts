@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vite-plus/test";
-import { normalizeWebsite, resultFindings, resultMarkdown } from "./experience.js";
+import {
+  normalizeWebsite,
+  resultFindings,
+  resultMarkdown,
+  marketingTaskStatus,
+} from "./experience.js";
 import type { ToolResult } from "@amicited/tools-core";
 describe("marketer website and results", () => {
   it("normalizes domains and rejects non-web addresses", () => {
     expect(normalizeWebsite("www.example.com/page")).toEqual({
       website: "https://www.example.com",
-      name: "example.com",
+      name: "Example",
     });
     expect(() => normalizeWebsite("file://local.txt")).toThrow();
     expect(() => normalizeWebsite("not a website")).toThrow();
@@ -65,4 +70,13 @@ describe("marketer website and results", () => {
       { title: "Unavailable", status: "unknown", group: "Search preview" },
     ]);
   });
+});
+
+it("distinguishes failed tasks and requests for input from idle tasks", () => {
+  expect(marketingTaskStatus("failed", false)).toBe("Couldn't finish");
+  expect(marketingTaskStatus("waiting", true)).toBe("Needs you");
+  expect(marketingTaskStatus("completed", false)).toBe("Done");
+  expect(marketingTaskStatus("running", false)).toBe("Working");
+  for (const status of [undefined, "interrupted", "queued", "cancelled"])
+    expect(marketingTaskStatus(status, false)).toBe("Ready");
 });

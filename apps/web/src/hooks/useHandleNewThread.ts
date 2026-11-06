@@ -121,7 +121,11 @@ export function createNewThreadHandler(router: AnyRouter) {
           explicit: true,
         });
       setPrompt(draftId, options.prompt);
-      if (options.sendImmediately) sessionStorage.setItem("amicited.send." + draftId, "true");
+      try {
+        if (options.sendImmediately) sessionStorage.setItem("amicited.send." + draftId, "true");
+      } catch {
+        /* The draft remains available for manual sending when storage is blocked. */
+      }
     };
     const requestingRouteHref = router.state.location.href;
     const routeChangedSinceRequest = () => router.state.location.href !== requestingRouteHref;

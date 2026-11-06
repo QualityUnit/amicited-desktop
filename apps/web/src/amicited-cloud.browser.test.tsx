@@ -141,3 +141,27 @@ it("opens AmICited from the first-win offer on welcome", async () => {
     expect(screen.router?.state.location.pathname).toBe("/marketing-settings"),
   );
 });
+
+it("keeps Home Ask until an assistant is ready, then sends the same prompt", async () => {
+  const { Home } = await import("@amicited/ui-marketing");
+  const startTask = vi.fn(async () => {});
+  await using screen = await render(<Home startTask={startTask} />);
+  await screen.getByLabelText("Ask your AI assistant").fill("Plan my campaign");
+  await screen.getByRole("button", { name: "Send task" }).click();
+  await expect
+    .element(screen.getByRole("alert"))
+    .toHaveTextContent("Connect Claude or ChatGPT to send this task");
+  await expect
+    .element(screen.getByLabelText("Ask your AI assistant"))
+    .toHaveValue("Plan my campaign");
+  expect(startTask).not.toHaveBeenCalled();
+  await screen.rerender(<Home startTask={startTask} assistantName="Claude" />);
+  await expect
+    .element(screen.getByRole("alert"))
+    .not.toHaveTextContent("Connect Claude or ChatGPT to send this task");
+  await expect
+    .element(screen.getByText("Claude will start working on this", { exact: true }))
+    .toBeVisible();
+  await screen.getByRole("button", { name: "Send task" }).click();
+  expect(startTask).toHaveBeenCalledWith("Plan my campaign");
+});

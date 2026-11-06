@@ -219,3 +219,5 @@ connection primitives inherit the scoped tokens. No upstream UI-kit file changes
 - `apps/web/src/marketingNavigation.tsx`: routes standalone marketing UI events through TanStack Router.
 - `apps/web/src/routes/__root.tsx`: mounts the navigation bridge for both onboarding and the marketer shell.
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: marketer-only connection progress and readiness copy, suppressing developer setup details.
+
+- `apps/web/src/components/settings/SettingsPanels.tsx`: accepts the marketer/developer switch inside the existing General settings content column.

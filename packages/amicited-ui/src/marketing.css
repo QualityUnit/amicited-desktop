@@ -361,6 +361,8 @@ body:has(.am-onboarding) {
   margin: 0;
   width: min(540px, 100vw);
   height: 100dvh;
+  max-height: 100dvh;
+  inset-block: 0;
   overflow: auto;
   z-index: 50;
   box-shadow: 0 12px 40px rgba(17, 25, 40, 0.18);
@@ -437,4 +439,20 @@ body:has(.am-onboarding) {
 [data-amicited-shell] p.am-hint {
   color: var(--ai-ink-3);
   font-size: 12px;
+}
+
+.am-finding > :first-child,
+[data-amicited-shell] details > .am-finding:first-of-type,
+[data-amicited-shell] details > .am-finding > :first-child {
+  margin-top: 0 !important;
+}
+.am-result-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+[data-amicited-shell] [aria-label="Task breadcrumb"] h2 {
+  margin: 0;
 }

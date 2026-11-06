@@ -165,18 +165,30 @@ try {
   await capture("03-first-win");
   await page.getByRole("complementary", { name: "More with AmICited" }).scrollIntoViewIfNeeded();
   await capture("03b-first-win-upsell");
-  await page.getByRole("button", { name: "Go to Home →" }).click();
+  await page.getByRole("button", { name: "Go to Home →" }).first().click();
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
 
   await capture("04-home");
   await page.locator("#ai-subscriptions").scrollIntoViewIfNeeded();
   await capture("04b-subscriptions");
+  await page
+    .getByRole("textbox", { name: "Ask your AI assistant" })
+    .fill("Help me plan a campaign");
+  await page.getByRole("button", { name: "Send task", exact: true }).click();
+  await page.getByText("Connect Claude or ChatGPT to send this task", { exact: true }).waitFor();
+  await capture("04c-no-assistant");
   await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
   await page.getByRole("heading", { name: "Connect Claude", exact: true }).scrollIntoViewIfNeeded();
+  await page.getByText("Sign in to your assistant", { exact: true }).scrollIntoViewIfNeeded();
   await capture("02b-provider-sign-in");
-  await page.getByText("Ready", { exact: true }).first().waitFor();
-  await page.getByRole("button", { name: /^(Use Claude|Claude selected)$/ }).click();
-  await page.getByRole("button", { name: "Claude selected", exact: true }).waitFor();
+  await page
+    .getByText(/^(Use Claude|In use)$/)
+    .first()
+    .waitFor();
+  const useClaude = page.getByRole("button", { name: "Use Claude", exact: true });
+  if (await useClaude.count()) await useClaude.click();
+  await page.getByText("In use", { exact: true }).waitFor();
+  await page.locator("#ai-subscriptions").scrollIntoViewIfNeeded();
   await capture("02c-provider-ready");
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("heading", { name: "Your marketing toolkit" }).waitFor();
@@ -357,6 +369,12 @@ try {
   await page.getByText("Use an API key instead", { exact: true }).click();
   await page.getByRole("textbox", { name: "Workspace API key" }).waitFor();
   await capture("10-api-key-disclosure");
+  await page.getByRole("button", { name: "Permanently hide trial offers", exact: true }).click();
+  await page.getByText("Trial offers are permanently hidden.", { exact: true }).waitFor();
+  await page.goto(url + "/home");
+  await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
+  if (await page.getByRole("link", { name: "Track this daily with AmICited →" }).count())
+    throw new Error("Home promoted a permanently hidden trial");
   await page.goto(url + "/settings/general");
   await page.getByRole("heading", { name: "Your website / brand" }).waitFor();
   await capture("11-settings-general");

@@ -782,7 +782,9 @@ export function LegacyFeaturesSection() {
   );
 }
 
-export function GeneralSettingsPanel() {
+export function GeneralSettingsPanel({
+  workspaceModeControl,
+}: { workspaceModeControl?: React.ReactNode } = {}) {
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const lastEnabledProjectGroupingMode = useRef<SidebarProjectGroupingMode>(
@@ -791,6 +793,7 @@ export function GeneralSettingsPanel() {
 
   return (
     <SettingsPageContainer>
+      {workspaceModeControl}
       <SettingsSection id="notifications" title="Notifications">
         <NotificationSettings />
         <SettingsRow

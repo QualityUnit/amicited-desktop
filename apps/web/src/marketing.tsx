@@ -24,6 +24,7 @@ import { projectEnvironment } from "./state/projects";
 import { useProjects } from "./state/entities";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
+import type { ServerProvider } from "@t3tools/contracts";
 import type { Brand } from "@amicited/ui-marketing";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -107,11 +108,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
               </section>
             </div>
           ) : ["/pull-requests", "/source-control"].includes(path) ? (
-            <Home
-              startTask={async () => {
-                await navigate({ to: "/new" });
-              }}
-            />
+            <MarketingHome />
           ) : (
             children
           )}
@@ -135,6 +132,7 @@ export function MarketingHome() {
   });
   return (
     <Home
+      assistantName={actions.assistantName}
       startTask={(prompt) => actions.startTask(prompt, true)}
       subscriptions={<MarketingSubscriptions />}
       cloud={<CloudHome />}
@@ -194,19 +192,27 @@ export function MarketingTools({ name }: { name?: string }) {
       </>
     );
   return (
-    <ToolForm
-      fix={actions.startTask}
-      onResult={rememberResult}
-      key={name}
-      tool={tool}
-      disabled={!canRun}
-      run={async (input) => {
-        if (!environmentId) throw new Error("No machine");
-        const result = await run({ environmentId, input: { name, input } });
-        if (result._tag !== "Success") throw new Error("Tool failed");
-        return result.value as unknown as ToolResult;
-      }}
-    />
+    <>
+      <ToolForm
+        fix={actions.startTask}
+        onResult={rememberResult}
+        key={name}
+        tool={tool}
+        disabled={!canRun}
+        run={async (input) => {
+          if (!environmentId) throw new Error("No machine");
+          const result = await run({ environmentId, input: { name, input } });
+          if (result._tag !== "Success") throw new Error("Tool failed");
+          return result.value as unknown as ToolResult;
+        }}
+      />
+      {actions.taskError && (
+        <section className="am-card" id="ai-subscriptions">
+          <p role="alert">{actions.taskError}</p>
+          <MarketingSubscriptions />
+        </section>
+      )}
+    </>
   );
 }
 const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void) => (
@@ -254,7 +260,11 @@ export function MarketingFirstRun() {
 }
 function rememberResult(result: ToolResult) {
   if (!isUsefulResult(result)) return;
-  sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
+  try {
+    sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
+  } catch {
+    /* Results remain visible when storage is blocked. */
+  }
   localStorage.setItem("amicited.first-win", "true");
 }
 function useMarketingTask() {
@@ -262,6 +272,31 @@ function useMarketingTask() {
   const scratch = useScratchProject();
   const newThread = useNewThreadHandler();
   const settings = usePrimarySettings();
+  const allProviders = useEnvironmentProviders();
+  const providers = environmentId ? (allProviders.get(environmentId) ?? []) : [];
+  const readyProviders = providers.filter(
+    (provider) =>
+      getOnboardingProviderState(provider) === "ready" &&
+      (provider.driver === "claudeAgent" ||
+        provider.driver === "codex" ||
+        provider.instanceId === settings.textGenerationModelSelection?.instanceId),
+  );
+  const assistant =
+    readyProviders.find(
+      (provider) => provider.instanceId === settings.textGenerationModelSelection?.instanceId,
+    ) ?? readyProviders[0];
+  const assistantName = assistant
+    ? assistant.driver === "claudeAgent"
+      ? "Claude"
+      : assistant.driver === "codex"
+        ? "ChatGPT"
+        : assistant.displayName
+    : undefined;
+  const [taskError, setTaskError] = useState("");
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Bring the connection card mounted by a blocked task into view.
+  useEffect(() => {
+    if (taskError) document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
+  }, [taskError]);
   const create = useAtomCommand(projectEnvironment.create);
   const environment = usePrimaryEnvironment();
   const projects = useProjects();
@@ -288,15 +323,26 @@ function useMarketingTask() {
     return scopeProjectRef(environmentId, projectId);
   };
   return {
+    assistantName,
+    taskError,
     prepare: async (brand: Brand) => {
       await prepare(brand);
     },
     startTask: async (prompt: string, sendImmediately = false) => {
+      if (!assistant) {
+        setTaskError("Connect Claude or ChatGPT to send this task");
+        document.getElementById("ai-subscriptions")?.scrollIntoView({ block: "center" });
+        throw new Error("Connect Claude or ChatGPT to send this task");
+      }
+      setTaskError("");
       const open = async (project: Parameters<typeof newThread>[0]) => {
         const draft = await newThread(project, {
           prompt,
           sendImmediately,
-          modelSelection: settings.textGenerationModelSelection ?? undefined,
+          modelSelection:
+            settings.textGenerationModelSelection?.instanceId === assistant.instanceId
+              ? settings.textGenerationModelSelection
+              : resolveAppModelSelectionState(settings, [assistant]),
         });
         if (!draft) throw new Error("Could not open your task");
       };
@@ -322,6 +368,45 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
   const mutateProvider = useAtomCommand(serverEnvironment.mutateProviderInstance);
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders);
   const [selectionError, setSelectionError] = useState("");
+  const [enabling, setEnabling] = useState(false);
+  const enable = async (provider: ServerProvider | undefined) => {
+    if (!provider || !environmentId) return;
+    setEnabling(true);
+    setSelectionError("");
+    try {
+      if (!provider.enabled) {
+        const instance = settings.providerInstances[provider.instanceId];
+        if (!instance) throw new Error("Assistant unavailable");
+        const result = await mutateProvider({
+          environmentId,
+          input: {
+            providerInstanceMutation: {
+              operation: "upsert",
+              instanceId: provider.instanceId,
+              instance: {
+                ...instance,
+                enabled: true,
+                config: {
+                  ...(typeof instance.config === "object" && instance.config !== null
+                    ? instance.config
+                    : {}),
+                  enabled: true,
+                },
+              },
+            },
+            patch: {},
+          },
+        });
+        if (result._tag !== "Success") throw new Error("Could not enable assistant");
+      }
+      const refreshed = await refreshProviders({ environmentId, input: {} });
+      if (refreshed._tag !== "Success") throw new Error("Could not refresh assistant");
+    } catch {
+      setSelectionError("Could not connect this assistant. Please try again.");
+    } finally {
+      setEnabling(false);
+    }
+  };
   const choose = async (driver: string) => {
     const candidates = providers?.filter((p) => p.driver === driver) ?? [];
     const selection = resolveAppModelSelectionState(settings, candidates);
@@ -357,7 +442,10 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                       : "Not available yet"}
                 </small>
               </span>
-              {ready ? (
+              {ready &&
+              settings.textGenerationModelSelection?.instanceId === provider?.instanceId ? (
+                <span className="am-status am-status-pass">In use</span>
+              ) : ready ? (
                 <MarketingButton
                   variant="link"
                   onClick={() =>
@@ -373,36 +461,8 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
               ) : (
                 <MarketingButton
                   onClick={() => {
-                    setConnect(connect === label ? null : (label ?? null));
-                    if (provider && !provider.enabled && environmentId) {
-                      const instance = settings.providerInstances[provider.instanceId];
-                      if (instance)
-                        void mutateProvider({
-                          environmentId,
-                          input: {
-                            providerInstanceMutation: {
-                              operation: "upsert",
-                              instanceId: provider.instanceId,
-                              instance: {
-                                ...instance,
-                                enabled: true,
-                                config: {
-                                  ...(typeof instance.config === "object" &&
-                                  instance.config !== null
-                                    ? instance.config
-                                    : {}),
-                                  enabled: true,
-                                },
-                              },
-                            },
-                            patch: {},
-                          },
-                        }).then((result) => {
-                          if (result._tag !== "Success")
-                            setSelectionError("Could not enable this assistant. Please try again.");
-                          else void refreshProviders({ environmentId, input: {} });
-                        });
-                    }
+                    setConnect(label ?? null);
+                    void enable(provider);
                   }}
                 >
                   Connect {label}
@@ -412,30 +472,44 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
           );
         })}
       </div>
-      {connect && (
-        <section className="am-card">
-          <h2>Connect {connect}</h2>
-          {connect === "Gemini" && !providers?.some((p) => p.driver === "gemini") && (
+      {connect &&
+        !providers?.some(
+          (p) =>
+            p.driver === (connect === "Claude" ? "claudeAgent" : "codex") &&
+            getOnboardingProviderState(p) === "ready" &&
+            settings.textGenerationModelSelection?.instanceId === p.instanceId,
+        ) && (
+          <section className="am-card">
+            <h2>Connect {connect}</h2>
+            {connect === "Gemini" && !providers?.some((p) => p.driver === "gemini") && (
+              <p>
+                Gemini is not available in this installation yet. You can connect Claude or ChatGPT
+                below, or keep using the free website checks.
+              </p>
+            )}
             <p>
-              Gemini is not available in this installation yet. You can connect Claude or ChatGPT
-              below, or keep using the free website checks.
+              1. Install the assistant if needed. 2. Sign in with your existing subscription in the
+              window below. 3. When Ready appears, select your assistant above. Your login stays on
+              this device.
             </p>
-          )}
-          <p>
-            1. Install the assistant if needed. 2. Sign in with your existing subscription in the
-            window below. 3. When Ready appears, select your assistant above. Your login stays on
-            this device.
-          </p>
 
-          {environmentId && (
-            <ConnectedAgentsStep
-              environmentId={environmentId}
-              machineLabel="Sign in to your assistant"
-              marketingDriver={connect === "Claude" ? "claudeAgent" : "codex"}
-            />
-          )}
-        </section>
-      )}
+            {environmentId && (
+              <ConnectedAgentsStep
+                environmentId={environmentId}
+                machineLabel="Sign in to your assistant"
+                marketingDriver={connect === "Claude" ? "claudeAgent" : "codex"}
+                marketingEnabling={enabling}
+                onMarketingRetry={() =>
+                  void enable(
+                    providers?.find(
+                      (p) => p.driver === (connect === "Claude" ? "claudeAgent" : "codex"),
+                    ),
+                  )
+                }
+              />
+            )}
+          </section>
+        )}
       {selectionError && <p role="alert">{selectionError}</p>}
       <p>Gemini · Coming soon</p>
       {usageLink && <Link to="/usage">View AI plan usage →</Link>}
@@ -455,9 +529,7 @@ export function MarketingNewTask() {
         className="am-card"
         onSubmit={(e) => {
           e.preventDefault();
-          void actions
-            .startTask(prompt, true)
-            .catch(() => setError("Could not start a task. Please try again."));
+          void actions.startTask(prompt, true).catch((error: Error) => setError(error.message));
         }}
       >
         <label>
@@ -471,10 +543,19 @@ export function MarketingNewTask() {
           />
         </label>
         <MarketingButton variant="default">Send task</MarketingButton>
-        <p>Your selected assistant will start working on this request.</p>
-        {error && <p role="alert">{error}</p>}
+        <p>
+          {actions.assistantName
+            ? `${actions.assistantName} will start working on this`
+            : "Connect an assistant first"}
+        </p>
+        {error &&
+          !(actions.assistantName && error === "Connect Claude or ChatGPT to send this task") && (
+            <p role="alert">{error}</p>
+          )}
       </form>
-      <MarketingSubscriptions />
+      <section className="am-card" id="ai-subscriptions">
+        <MarketingSubscriptions />
+      </section>
     </div>
   );
 }

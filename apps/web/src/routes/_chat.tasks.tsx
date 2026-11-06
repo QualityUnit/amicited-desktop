@@ -1,3 +1,4 @@
+import { marketingTaskStatus } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing styles belong to @amicited/ui-marketing. */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
@@ -21,16 +22,15 @@ function Tasks() {
             <p>Open task →</p>
           </Link>
           <small>
-            {thread.latestRun?.status === "completed"
-              ? "Done"
-              : thread.latestRun?.status === "running"
-                ? "Working"
-                : "Needs you"}{" "}
+            {marketingTaskStatus(
+              thread.latestRun?.status,
+              thread.hasPendingApprovals || thread.hasPendingUserInput,
+            )}{" "}
             ·{" "}
-            {new Date(thread.createdAt).toDateString() === new Date(now).toDateString()
+            {new Date(thread.updatedAt).toDateString() === new Date(now).toDateString()
               ? "Today"
               : new Intl.RelativeTimeFormat("en", { numeric: "auto" }).format(
-                  -Math.max(1, Math.round((now - Date.parse(thread.createdAt)) / 86400000)),
+                  -Math.max(1, Math.round((now - Date.parse(thread.updatedAt)) / 86400000)),
                   "day",
                 )}
           </small>

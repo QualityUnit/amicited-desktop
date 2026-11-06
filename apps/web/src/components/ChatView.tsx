@@ -3002,8 +3002,12 @@ export default function ChatView(props: ChatViewProps) {
     )
       return;
     const key = "amicited.send." + draftId;
-    if (sessionStorage.getItem(key) !== "true" || !promptRef.current.trim()) return;
-    sessionStorage.removeItem(key);
+    try {
+      if (sessionStorage.getItem(key) !== "true" || !promptRef.current.trim()) return;
+      sessionStorage.removeItem(key);
+    } catch {
+      return;
+    }
     queueMicrotask(() => void onComposerSendStable());
   }, [
     developerMode,
