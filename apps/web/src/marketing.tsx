@@ -1,5 +1,18 @@
+import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
+import { isUsefulResult } from "@amicited/tools-core";
+import { usePrimarySettings } from "./hooks/useSettings";
+import { serverEnvironment } from "./state/server";
+import { resolveAppModelSelectionState } from "./modelSelection";
+import { Switch } from "./components/ui/switch";
+import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
-import { CloudFooter, CloudHome, CloudSettings, CloudTools } from "./rpc/amicitedCloud";
+import {
+  CloudFooter,
+  CloudHome,
+  CloudTools,
+  CloudPage,
+  CloudStatusLine,
+} from "./rpc/amicitedCloud";
 import { ResultFooterContext } from "@amicited/ui-marketing";
 import { newProjectId } from "./lib/utils";
 import { projectEnvironment } from "./state/projects";
@@ -11,14 +24,13 @@ import { useAtomValue } from "@effect/atom-react";
 import {
   FirstRun,
   readBrand,
-  MarketingResult,
   Home,
   ToolsGrid,
   ToolForm,
   MarketingSettings as MarketingSettingsView,
   MarketingShell,
   useWorkspaceMode,
-  setWorkspaceMode,
+  resultTitle,
 } from "@amicited/ui-marketing";
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
@@ -44,12 +56,27 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
+  const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
   const navigate = useNavigate();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Router bridge for the standalone marketing UI package.
+  useEffect(() => {
+    const listener = (event: Event) => {
+      void navigate({ to: (event as CustomEvent<string>).detail });
+    };
+    window.addEventListener("amicited-navigate", listener);
+    return () => window.removeEventListener("amicited-navigate", listener);
+  }, [navigate]);
   return mode === "marketer" ? (
     <ResultFooterContext value={renderCloudFooter}>
-      <MarketingShell path={path} navigate={(path) => void navigate({ to: path })}>
-        {path === "/settings/general" || path === "/marketing-settings" ? (
+      <MarketingShell
+        taskView={taskTarget !== null}
+        path={path}
+        navigate={(path) => void navigate({ to: path })}
+      >
+        {path === "/marketing-settings" ? (
+          <CloudPage />
+        ) : path === "/settings/general" ? (
           <MarketingSettings />
         ) : path.startsWith("/settings") ? (
           <MarketingSettings />
@@ -76,17 +103,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
       </MarketingShell>
     </ResultFooterContext>
   ) : (
-    <>
-      <button
-        onClick={() => {
-          setWorkspaceMode("marketer");
-          void navigate({ to: "/home" });
-        }}
-      >
-        Switch to marketer mode
-      </button>
-      {children}
-    </>
+    children
   );
 }
 export function MarketingHome() {
@@ -105,7 +122,17 @@ export function MarketingHome() {
       startTask={actions.startTask}
       subscriptions={<MarketingSubscriptions />}
       cloud={<CloudHome />}
-      recent={recent ? <MarketingResult result={recent} fix={actions.startTask} /> : undefined}
+      recent={
+        recent && isUsefulResult(recent) ? (
+          <Link to="/tools/$toolName" params={{ toolName: recent.tool }} className="am-card">
+            {resultTitle(recent)} ·{" "}
+            {typeof recent.output === "object" && recent.output && "score" in recent.output
+              ? `${recent.output.score}/100`
+              : "View results"}{" "}
+            →
+          </Link>
+        ) : undefined
+      }
     />
   );
 }
@@ -166,8 +193,11 @@ export function MarketingTools({ name }: { name?: string }) {
     />
   );
 }
+const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void) => (
+  <Switch aria-label="Developer features" checked={checked} onCheckedChange={onChange} />
+);
 export function MarketingSettings() {
-  return <MarketingSettingsView connection={<CloudSettings />} />;
+  return <MarketingSettingsView connection={<CloudStatusLine />} modeControl={renderModeSwitch} />;
 }
 
 export function MarketingFirstRun() {
@@ -201,14 +231,9 @@ export function MarketingFirstRun() {
   );
 }
 function rememberResult(result: ToolResult) {
+  if (!isUsefulResult(result)) return;
   sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
-  const needsProvider =
-    typeof result.output === "object" &&
-    result.output !== null &&
-    "status" in result.output &&
-    result.output.status === "needs_provider";
-  if (result.status === "success" && !needsProvider)
-    localStorage.setItem("amicited.first-win", "true");
+  localStorage.setItem("amicited.first-win", "true");
 }
 function useMarketingTask() {
   const environmentId = usePrimaryEnvironmentId();
@@ -263,13 +288,27 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
   const all = useEnvironmentProviders();
   const providers = environmentId ? all.get(environmentId) : undefined;
   const [connect, setConnect] = useState<string | null>(null);
+  const settings = usePrimarySettings();
+  const update = useAtomCommand(serverEnvironment.updateSettings);
+  const mutateProvider = useAtomCommand(serverEnvironment.mutateProviderInstance);
+  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders);
+  const [selectionError, setSelectionError] = useState("");
+  const choose = async (driver: string) => {
+    const candidates = providers?.filter((p) => p.driver === driver) ?? [];
+    const selection = resolveAppModelSelectionState(settings, candidates);
+    if (!environmentId || !candidates.length) return;
+    const result = await update({
+      environmentId,
+      input: { patch: { textGenerationModelSelection: selection } },
+    });
+    if (result._tag !== "Success") throw new Error("Could not save assistant");
+  };
   return (
     <>
       <div>
         {[
           ["claudeAgent", "Claude"],
           ["codex", "ChatGPT"],
-          ["gemini", "Gemini"],
         ].map(([driver, label]) => {
           const provider = providers?.find((p) => p.driver === driver);
           const ready = getOnboardingProviderState(provider) === "ready";
@@ -289,8 +328,54 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
                       : "Not available yet"}
                 </small>
               </span>
-              {!ready && (
-                <button onClick={() => setConnect(connect === label ? null : (label ?? null))}>
+              {ready ? (
+                <button
+                  className="am-text-button"
+                  onClick={() =>
+                    void choose(driver!).catch(() =>
+                      setSelectionError("Could not save your assistant. Please try again."),
+                    )
+                  }
+                >
+                  {settings.textGenerationModelSelection?.instanceId === provider?.instanceId
+                    ? `${label} selected`
+                    : `Use ${label}`}
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setConnect(connect === label ? null : (label ?? null));
+                    if (provider && !provider.enabled && environmentId) {
+                      const instance = settings.providerInstances[provider.instanceId];
+                      if (instance)
+                        void mutateProvider({
+                          environmentId,
+                          input: {
+                            providerInstanceMutation: {
+                              operation: "upsert",
+                              instanceId: provider.instanceId,
+                              instance: {
+                                ...instance,
+                                enabled: true,
+                                config: {
+                                  ...(typeof instance.config === "object" &&
+                                  instance.config !== null
+                                    ? instance.config
+                                    : {}),
+                                  enabled: true,
+                                },
+                              },
+                            },
+                            patch: {},
+                          },
+                        }).then((result) => {
+                          if (result._tag !== "Success")
+                            setSelectionError("Could not enable this assistant. Please try again.");
+                          else void refreshProviders({ environmentId, input: {} });
+                        });
+                    }
+                  }}
+                >
                   Connect {label}
                 </button>
               )}
@@ -308,20 +393,21 @@ function MarketingSubscriptions({ usageLink = true }: { usageLink?: boolean }) {
             </p>
           )}
           <p>
-            Choose your subscription below and follow its sign-in instructions. Your login stays on
-            this device.
+            1. Install the assistant if needed. 2. Sign in with your existing subscription in the
+            window below. 3. When Ready appears, choose Use above. Your login stays on this device.
           </p>
-          <details>
-            <summary>Advanced setup and sign-in</summary>
-            {environmentId && (
-              <ConnectedAgentsStep
-                environmentId={environmentId}
-                machineLabel="Your AI subscriptions"
-              />
-            )}
-          </details>
+
+          {environmentId && (
+            <ConnectedAgentsStep
+              environmentId={environmentId}
+              machineLabel="Sign in to your assistant"
+              marketingDriver={connect === "Claude" ? "claudeAgent" : "codex"}
+            />
+          )}
         </section>
       )}
+      {selectionError && <p role="alert">{selectionError}</p>}
+      <p>Gemini · Coming soon</p>
       {usageLink && <a href="/usage">View AI plan usage →</a>}
     </>
   );
@@ -354,7 +440,8 @@ export function MarketingNewTask() {
             required
           />
         </label>
-        <button>Start a task</button>
+        <button>Continue</button>
+        <p>Next, review your request and press Send to start your assistant.</p>
         {error && <p role="alert">{error}</p>}
       </form>
       <MarketingSubscriptions />

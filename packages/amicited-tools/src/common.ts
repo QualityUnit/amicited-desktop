@@ -2,7 +2,9 @@ import * as Schema from "effect/Schema";
 import type { ToolDefinition } from "@amicited/tools-core";
 
 export const urlSchema = Schema.String.check(Schema.isPattern(/^https?:\/\//i));
-export const urlInput = Schema.Struct({ url: urlSchema });
+export const urlInput = Schema.Struct({
+  url: urlSchema.annotate({ title: "Page URL", description: "The page you want to check." }),
+});
 export const findingSchema = Schema.Struct({
   title: Schema.String,
   status: Schema.Literals(["pass", "warn", "fail", "unknown"]),

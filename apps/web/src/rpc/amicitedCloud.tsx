@@ -1,5 +1,6 @@
+import { marketingNavigate } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useState, type ButtonHTMLAttributes } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import {
@@ -9,19 +10,19 @@ import {
   type CloudHeadline,
 } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
-import { SIGNUP_URL, type Connection } from "@amicited/cloud-client/model";
+import { SIGNUP_URL, domainNames, type Connection } from "@amicited/cloud-client/model";
 import type { ToolResult } from "@amicited/tools-core";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { createLocalApi } from "../localApi";
-import { Button } from "../components/ui/button";
+const CloudButton = (props: ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props} />;
 import { Input } from "../components/ui/input";
-const ui = { Button, Input };
+const ui = { Button: CloudButton, Input };
 const openExternal = (url: string) => {
   void createLocalApi().shell.openExternal(url);
 };
-const connect = () => window.location.assign("/marketing-settings");
+const connect = () => marketingNavigate("/marketing-settings");
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
   label: "cloud:status",
@@ -84,7 +85,7 @@ export function CloudFooter({ result }: { result: ToolResult }) {
     />
   );
 }
-export function CloudSettings() {
+function CloudSettings() {
   const { environmentId, connection, setConnection } = useCloud();
   const doOAuth = useAtomCommand(oauth);
   const doKey = useAtomCommand(key);
@@ -123,9 +124,6 @@ export function CloudSettings() {
     </div>
   );
 }
-function domainsFrom(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
-}
 function headlinesFrom(value: unknown): CloudHeadline[] {
   return Array.isArray(value)
     ? value.filter(
@@ -153,7 +151,7 @@ export function CloudHome() {
     void readSummary({ environmentId, input: undefined }).then((r) => {
       if (active && r._tag === "Success")
         setData({
-          domains: domainsFrom(r.value.domains),
+          domains: domainNames(r.value.domains),
           headlines: headlinesFrom(r.value.headlines),
         });
     });
@@ -210,17 +208,66 @@ export function CloudTools() {
         >
           <h2>{selected}</h2>
           <p>
-            Track ChatGPT, Perplexity, Gemini, Google AI Overviews / AI Mode, Copilot and Claude
-            daily, with countries, competitors, citation sources and history.
+            {selected === "Competitor citation gaps"
+              ? "Find prompts where competitors get cited and your brand is missing, then turn those gaps into useful content briefs."
+              : selected === "Multi-country tracking"
+                ? "See how recommendations change across your target countries, without changing your own location."
+                : "Follow your citations across ChatGPT, Perplexity, Gemini and Google AI Overviews every day. Keep a history so you can see what improves."}
           </p>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-          <Button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</Button>{" "}
-          <Button onClick={connect}>I already have AmICited → Connect</Button>{" "}
-          <Button autoFocus onClick={() => setSelected(null)}>
+          <CloudButton onClick={() => openExternal(SIGNUP_URL)}>
+            Start 7-day free trial
+          </CloudButton>{" "}
+          <CloudButton className="am-text-button" onClick={connect}>
+            I already have AmICited
+          </CloudButton>{" "}
+          <CloudButton className="am-text-button" autoFocus onClick={() => setSelected(null)}>
             Close
-          </Button>
+          </CloudButton>
         </dialog>
       )}
     </section>
+  );
+}
+
+export function CloudPage() {
+  const { connection } = useCloud();
+  return (
+    <div className="am-page">
+      <h1>AmICited</h1>
+      <p>
+        See who cites you across ChatGPT, Perplexity, Gemini and Google AI Overviews. Track changes
+        every day against your competitors.
+      </p>
+      {connection?.state !== "connected" && (
+        <>
+          <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
+          <button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</button>
+        </>
+      )}
+      <CloudHome />
+      <CloudSettings />
+      <button
+        className="am-text-button"
+        onClick={() => createUpsellGate(localStorage, sessionStorage).dismiss()}
+      >
+        Permanently hide trial offers
+      </button>
+    </div>
+  );
+}
+
+export function CloudStatusLine() {
+  const { connection } = useCloud();
+  return (
+    <p>
+      AmICited:{" "}
+      {connection?.state === "connected"
+        ? `Connected to ${connection.workspace}`
+        : connection?.state === "error"
+          ? "Could not read connection"
+          : "Not connected"}
+      . <a href="/marketing-settings">Manage AmICited →</a>
+    </p>
   );
 }

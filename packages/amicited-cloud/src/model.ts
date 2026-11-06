@@ -8,3 +8,7 @@ export type Connection =
   | { state: "connecting" }
   | { state: "connected"; workspace: string; plan?: string; scopes: readonly string[] }
   | { state: "error"; kind: ErrorKind; message: string };
+
+export function domainNames(domains: readonly { id: string; name: string }[] | undefined) {
+  return domains?.map((domain) => domain.name) ?? [];
+}

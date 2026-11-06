@@ -143,3 +143,28 @@ export class ToolRegistry {
 }
 class InvalidInput extends Error {}
 class ToolTimeout extends Error {}
+
+export function isUsefulResult(result: { status: string; output?: unknown }) {
+  if (result.status !== "success" || !result.output || typeof result.output !== "object")
+    return false;
+  const output = result.output as Record<string, unknown>;
+  if (Object.keys(output).length === 0) return false;
+  if ("draft" in output && (typeof output.draft !== "string" || !output.draft.trim())) return false;
+  if (["needs_provider", "could_not_check", "could_not_generate"].includes(String(output.status)))
+    return false;
+  if (
+    output.summary &&
+    typeof output.summary === "object" &&
+    "answered" in output.summary &&
+    Number(output.summary.answered) === 0
+  )
+    return false;
+  if (
+    Array.isArray(output.groups) &&
+    !output.groups.some((g) => typeof g.result?.score === "number")
+  )
+    return false;
+  if ("score" in output && output.score === null) return false;
+  if ("words" in output && Number(output.words) === 0) return false;
+  return true;
+}

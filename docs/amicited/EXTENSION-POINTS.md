@@ -63,7 +63,7 @@ upstream settings and navigation remain available through Developer features.
 - `apps/web/src/routes/__root.tsx`: routes fresh local launches through website setup, returning launches to Home, and suppresses developer onboarding in marketer mode.
 - `apps/web/src/routes/_chat.index.tsx`: prevents draft creation on the marketer landing path.
 - `apps/web/src/routes/_chat.new.tsx`: empty links open a task composer and invalid links offer recovery.
-- `apps/web/src/components/onboarding/WelcomeWizard.tsx`: exports the existing provider connection step for optional advanced setup.
+- `apps/web/src/components/onboarding/WelcomeWizard.tsx`: exports a provider-filtered connection step for direct marketer sign-in.
 - `apps/web/src/components/chat/ChatComposer.tsx`: marketer composer prompt.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: friendly subscription label; the existing popup retains advanced model selection.
 - `apps/web/src/components/chat/useThreadLifecycle.tsx`: labels completed marketer tasks Done.
@@ -152,16 +152,16 @@ execution; writes go through the separate destructive proxy.
 ### Completed mounts
 
 `apps/web/src/rpc/amicitedCloud.tsx` mounts the cloud components through
-`apps/web/src/marketing.tsx`. The adapter provides `ui={{Button, Input}}` from
-the existing web UI kit and a system-browser `openExternal(url)` callback:
+`apps/web/src/marketing.tsx`. The adapter provides `ui={{Button, Input}}` using
+marketing buttons and the web Input, plus a system-browser `openExternal(url)` callback:
 
 - Result renderer's `ResultFooterSlot`: `AmicitedUpsellCard` props are `result`
   (`{tool,status,output?}`), `gate`, `ui`, `openExternal`, `onConnect`, optional
   `connected`. Create one stable `createUpsellGate(localStorage, sessionStorage)`
   from `@amicited/cloud-client/upsell`. Successful eligible results claim one
-  offer per session; Not now persists seven days, Dismiss persists indefinitely.
+  offer per session; Not now persists seven days, and the AmICited settings action hides offers indefinitely.
   Mount below the free result. `onConnect` navigates to the connection settings.
-- Settings > General, AmICited connection slot: `AmicitedConnectPanel` props are
+- AmICited page, connection slot: `AmicitedConnectPanel` props are
   `connection`, `actions={connectOAuth,connectApiKey,disconnect}`, `onChange`,
   `openExternal`, `ui`. Bind mutations through `createEnvironmentRpcCommand` and
   its destination `permissionAtom`; the server independently enforces settings
@@ -181,6 +181,19 @@ The existing MCP tool-use eval runner passed a one-case dry run; no paid model
 was invoked.
 
 The marketer settings navigation links AmICited to `/marketing-settings`; General
-shows the same connection panel first. Home shows the cloud summary when connected
+shows a connection status line and a link to the AmICited page. Home shows the cloud summary when connected
 and a quiet connection link after a persisted first win otherwise. Tools retain
 all free cards and append optional cloud explainers.
+
+## Launch branding
+
+- `apps/web/index.html`: AmICited boot title and splash label, with upstream attribution retained.
+- `apps/desktop/package.json`: packaged product name is AmICited Desktop.
+- `apps/desktop/src/app/DesktopEnvironment.ts`: AmICited window name with existing stage suffixes.
+
+The marketer assistant picker saves the existing environment text-generation setting;
+local tools resolve that selection per invocation. Tool inputs survive the connection
+detour in session storage. No provider credentials are stored in the browser.
+
+- `apps/web/src/modelSelection.test.ts`: covers selection of Claude for marketing generation when the saved default is Codex.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: supplies useful audit output to the existing successful-offer fixture.

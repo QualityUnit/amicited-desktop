@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { normalizeWebsite, resultFindings } from "./experience.js";
+import { normalizeWebsite, resultFindings, resultMarkdown } from "./experience.js";
 import type { ToolResult } from "@amicited/tools-core";
 describe("marketer website and results", () => {
   it("normalizes domains and rejects non-web addresses", () => {
@@ -31,6 +31,9 @@ describe("marketer website and results", () => {
         ],
       },
     };
+    expect(resultMarkdown(base)).toContain("# Website health audit");
+    expect(resultMarkdown(base)).toContain("Write a title");
+    expect(resultMarkdown(base)).not.toContain('"findings"');
     expect(resultFindings(base).map((f) => f.status)).toEqual(["fail", "warn", "pass"]);
     expect(resultFindings(base)[0]).toMatchObject({ why: "Search clarity", fix: "Write a title" });
     expect(resultFindings({ ...base, status: "error", output: undefined })).toEqual([]);

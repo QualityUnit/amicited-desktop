@@ -26,9 +26,18 @@ export const cloudRpcs = [
   Rpc.make("amicited.cloud.summary", {
     success: Schema.Struct({
       connection: CloudConnection,
-      domains: Schema.optionalKey(Schema.Unknown),
+      domains: Schema.optionalKey(
+        Schema.Array(Schema.Struct({ id: Schema.String, name: Schema.String })),
+      ),
       analytics: Schema.optionalKey(Schema.Unknown),
-      headlines: Schema.optionalKey(Schema.Unknown),
+      headlines: Schema.optionalKey(
+        Schema.Array(
+          Schema.Struct({
+            label: Schema.String,
+            value: Schema.Union([Schema.String, Schema.Number]),
+          }),
+        ),
+      ),
       reportUrl: Schema.optionalKey(Schema.String),
     }),
   }),

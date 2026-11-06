@@ -783,6 +783,27 @@ describe("instance-scoped model selection", () => {
     expect(state.selectedModel).toBe(kimiModel);
   });
 
+  it("chooses Claude for marketer generation even when the saved global selection is Codex", () => {
+    const claude = provider({
+      provider: ProviderDriverKind.make("claudeAgent"),
+      instanceId: "claudeAgent",
+      models: ["claude-haiku-4-5"],
+    });
+    const settings = {
+      ...settingsWithProviderInstances(),
+      textGenerationModelSelection: createModelSelection(
+        ProviderInstanceId.make("codex"),
+        "gpt-6-luna",
+      ),
+    };
+    const selected = resolveAppModelSelectionState(settings, [claude]);
+    expect(selected.instanceId).toBe(ProviderInstanceId.make("claudeAgent"));
+    expect(
+      resolveAppModelSelectionState({ ...settings, textGenerationModelSelection: selected }, [
+        claude,
+      ]),
+    ).toEqual(selected);
+  });
   it("self-heals a persisted selection pointing at a text-generation-incapable instance", () => {
     const providers = [
       provider({

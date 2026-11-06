@@ -123,7 +123,7 @@ export function inspectMeta(html: string) {
         "Set the lang attribute on the HTML element.",
       ),
       finding(
-        "Mobile layout",
+        "Viewport tag",
         Boolean(meta("viewport")),
         "Mobile visitors need a readable page.",
         "Add a viewport meta tag.",

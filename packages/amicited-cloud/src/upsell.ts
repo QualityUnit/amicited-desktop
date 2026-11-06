@@ -1,3 +1,4 @@
+import { isUsefulResult } from "@amicited/tools-core";
 export interface WinResult {
   tool: string;
   status: string;
@@ -7,8 +8,7 @@ function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
 }
 export function whatYouAreMissing(result: WinResult) {
-  if (result.status !== "success" || record(result.output).status === "needs_provider")
-    return undefined;
+  if (!isUsefulResult(result)) return undefined;
   let checked: string;
   let missing: string;
   if (result.tool === "ai.visibility.check") {
@@ -30,7 +30,7 @@ export function whatYouAreMissing(result: WinResult) {
   } else if (/audit/.test(result.tool)) {
     checked = "You completed a one-time site audit.";
     missing =
-      "With AmICited: uptime and AI crawler monitoring, llms.txt comparison and agent accessibility checks in the audits toolset.";
+      "This checked whether AI crawlers can read your site. AmICited shows whether ChatGPT, Perplexity, Gemini and Google AI Overviews actually cite you, every day, against your competitors.";
   } else if (/^content\./.test(result.tool)) {
     checked = "You completed a content task.";
     missing =

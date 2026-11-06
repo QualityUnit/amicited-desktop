@@ -24,7 +24,7 @@ export function AmicitedUpsellCard({
   result,
   gate,
   connected = false,
-  ui: { Button },
+  ui: _ui,
   openExternal,
   onConnect,
 }: {
@@ -54,25 +54,19 @@ export function AmicitedUpsellCard({
       <p>{comparison.missing}</p>
       <p>{comparison.pricing}</p>
       <div className="am-cloud-actions">
-        <Button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</Button>
-        <Button onClick={onConnect}>I already have AmICited → Connect</Button>
-        <Button
+        <button onClick={() => openExternal(SIGNUP_URL)}>Start 7-day free trial</button>
+        <button className="am-text-button" onClick={onConnect}>
+          I already have AmICited
+        </button>
+        <button
+          className="am-text-button"
           onClick={() => {
             gate.snooze(Date.now());
             setVisible(false);
           }}
         >
           Not now
-        </Button>
-        <Button
-          aria-label="Dismiss AmICited offer"
-          onClick={() => {
-            gate.dismiss();
-            setVisible(false);
-          }}
-        >
-          Dismiss
-        </Button>
+        </button>
       </div>
     </aside>
   );

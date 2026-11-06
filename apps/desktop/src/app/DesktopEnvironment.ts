@@ -85,7 +85,8 @@ export class DesktopEnvironment extends Context.Service<
   }
 >()("@t3tools/desktop/app/DesktopEnvironment") {}
 
-const APP_BASE_NAME = "T3 Code";
+// AmICited launch branding; upstream stage handling remains intact.
+const APP_BASE_NAME = "AmICited Desktop";
 
 function resolveDesktopAppStageLabel(input: {
   readonly isDevelopment: boolean;

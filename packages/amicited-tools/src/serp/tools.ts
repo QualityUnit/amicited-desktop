@@ -123,7 +123,7 @@ export function serpTools(fetcher: Fetcher = fetch) {
   const results = define(
     "serp.fetch",
     "Google search results",
-    "Read organic results, AI Overview presence and related buyer questions. Reports verification honestly.",
+    "Read organic results, AI Overview presence and related buyer questions.",
     input,
     serpOutput,
     async (value, { signal }) => {

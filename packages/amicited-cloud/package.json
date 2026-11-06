@@ -13,6 +13,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@amicited/tools-core": "workspace:*",
     "@modelcontextprotocol/sdk": "1.29.0",
     "effect": "catalog:"
   },

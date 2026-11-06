@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 // @effect-diagnostics nodeBuiltinImport:off - Standalone browser harness owns its Node processes and temporary files.
 // @effect-diagnostics globalTimers:off - Bounds startup readiness outside the Effect runtime.
 // @effect-diagnostics globalConsole:off - CLI prints the capture destination.
@@ -89,10 +90,10 @@ const ready = new Promise<{ url: string; pairing: string }>((resolveReady, rejec
       resolveReady({ url: "http://127.0.0.1:" + port, pairing });
     }
   };
-  runner.stdout.on("data", consume);
-  runner.stderr.on("data", consume);
-  web.stdout.on("data", consume);
-  web.stderr.on("data", consume);
+  runner.stdout!.on("data", consume);
+  runner.stderr!.on("data", consume);
+  web.stdout!.on("data", consume);
+  web.stderr!.on("data", consume);
   runner.once("exit", (code) => {
     clearTimeout(timeout);
     reject(new Error("Dev stack exited: " + code));
@@ -113,7 +114,11 @@ try {
       ["light", 1280, 800],
       ["dark", 1280, 800],
     ] as const) {
-      if (process.env.AMICITED_JOURNEY_QUICK === "1" && (theme !== "light" || width !== 1440))
+      if (
+        process.env.AMICITED_JOURNEY_QUICK === "1" &&
+        (width !== 1440 ||
+          (theme !== "light" && !["03-first-win", "04-home", "06-ai-visibility"].includes(name)))
+      )
         continue;
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ colorScheme: theme });
@@ -129,9 +134,8 @@ try {
   await capture("01-first-launch");
   await page.getByRole("textbox", { name: "Website URL" }).fill("https://example.com");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByRole("heading", { name: "Your AI subscriptions" }).waitFor();
+  await page.getByRole("region", { name: "Tool result" }).waitFor();
   await capture("02-website-and-ai");
-  await page.getByRole("button", { name: "Run my free website check" }).click();
   await page.getByRole("region", { name: "Tool result" }).waitFor();
   await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
   await capture("03-first-win");
@@ -139,10 +143,15 @@ try {
   await capture("03b-first-win-upsell");
   await page.getByRole("button", { name: "Go to Home →" }).click();
   await page.getByRole("heading", { name: "What will you grow today?" }).waitFor();
-  await page
-    .getByRole("link", { name: "Track this daily with AmICited →" })
-    .scrollIntoViewIfNeeded();
+
   await capture("04-home");
+  await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
+  await page.getByRole("heading", { name: "Connect Claude", exact: true }).scrollIntoViewIfNeeded();
+  await capture("02b-provider-sign-in");
+  await page.getByText("Ready", { exact: true }).first().waitFor();
+  await page.getByRole("button", { name: /^(Use Claude|Claude selected)$/ }).click();
+  await page.getByRole("button", { name: "Claude selected", exact: true }).waitFor();
+  await capture("02c-provider-ready");
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("heading", { name: "Your marketing toolkit" }).waitFor();
   await capture("05-tools-grid");
@@ -156,12 +165,91 @@ try {
   await page.getByRole("textbox", { name: "brand", exact: true }).fill("Acme");
   await page.getByRole("textbox", { name: "website", exact: true }).fill("https://example.com");
   await page.getByRole("textbox", { name: "category", exact: true }).fill("garden tools");
-  await page.getByRole("button", { name: "Run check" }).click();
-  await page.getByRole("region", { name: "Tool result" }).waitFor();
+  // Restore an honest disconnected fixture without invoking a paid generation provider.
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "amicited.last-result",
+      JSON.stringify({
+        id: "no-provider-fixture",
+        tool: "ai.visibility.check",
+        input: {},
+        startedAt: "2026-11-06",
+        durationMs: 0,
+        status: "success",
+        output: { status: "needs_provider" },
+      }),
+    ),
+  );
+  await page.reload();
   await page
     .getByRole("heading", { name: "Connect Claude or ChatGPT", exact: true })
     .scrollIntoViewIfNeeded();
   await capture("06-ai-visibility");
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "amicited.last-result",
+      JSON.stringify({
+        id: "visibility-fixture",
+        tool: "ai.visibility.check",
+        input: {
+          brand: "Acme",
+          website: "https://example.com",
+          category: "garden tools",
+          competitors: ["Contoso"],
+        },
+        startedAt: "2026-11-06T12:00:00Z",
+        durationMs: 1,
+        status: "success",
+        output: {
+          status: "checked",
+          message:
+            "Fixture: one assistant, no live search. Position is first appearance among supplied brands.",
+          provider: "Claude",
+          model: "fixture",
+          scope: {
+            assistants: ["Claude"],
+            prompts: ["Best garden tools?", "Best value garden tools?"],
+            countries: [],
+            runAt: "2026-11-06T12:00:00Z",
+          },
+          summary: {
+            mentioned: 1,
+            answered: 2,
+            shareOfVoice: 33,
+            competitors: [{ brand: "Contoso", answers: 2 }],
+          },
+          answers: [
+            {
+              prompt: "Best garden tools?",
+              status: "answered",
+              mentioned: true,
+              position: 2,
+              excerpt: "Contoso and Acme offer sturdy tools for small gardens.",
+              citations: ["https://example.com/tools"],
+            },
+            {
+              prompt: "Best value garden tools?",
+              status: "answered",
+              mentioned: false,
+              position: null,
+              excerpt: "Contoso offers a useful starter set.",
+              citations: [],
+            },
+          ],
+        },
+      }),
+    ),
+  );
+  await page.reload();
+  await page.getByRole("heading", { name: "Mentioned in 1 of 2 answers" }).scrollIntoViewIfNeeded();
+  await capture("06b-visibility-result-fixture");
+  await page.getByRole("button", { name: "Fix this with AI", exact: true }).first().click();
+  await page.waitForURL(/\/draft\//);
+  await page
+    .getByText("Help my brand become a useful recommendation for:", { exact: false })
+    .first()
+    .waitFor();
+  await capture("06c-fix-with-ai-task");
   await page.goto(url + "/tools/content.readability");
   await page
     .getByRole("textbox", { name: "text", exact: true })
@@ -178,9 +266,19 @@ try {
   await page
     .getByRole("textbox", { name: "What do you want to get done?" })
     .fill("Draft a short marketing plan");
-  await page.getByRole("button", { name: "Start a task", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
 
   await page.waitForURL(/\/draft\//);
+  await capture("08b-task-draft");
+  await page.evaluate("window.t3dev.replay('multi-turn')");
+  await page.getByText("first fixture turn complete", { exact: true }).first().waitFor();
+  await page.getByText("Done", { exact: true }).first().waitFor();
+  await capture("08d-task-reply-replay");
+  await page.evaluate("window.t3dev.replay('multi-turn')");
+  await page.getByText("first fixture turn complete", { exact: true }).first().waitFor();
+  await page.goto(url + "/tasks");
+  await page.getByRole("heading", { name: "Tasks", exact: true }).waitFor();
+  await capture("08c-tasks-list");
 
   await page.goto(url + "/marketing-settings");
   await page.getByRole("button", { name: "Connect with AmICited", exact: true }).waitFor();

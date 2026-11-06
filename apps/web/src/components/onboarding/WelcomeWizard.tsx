@@ -715,9 +715,11 @@ function AgentsStep({
 export function ConnectedAgentsStep({
   environmentId,
   machineLabel,
+  marketingDriver,
 }: {
   readonly environmentId: EnvironmentId;
   readonly machineLabel: string;
+  readonly marketingDriver?: string;
 }) {
   const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
@@ -746,15 +748,25 @@ export function ConnectedAgentsStep({
       "setupMode",
     ) !== true;
 
-  const primaryAgents = PRIMARY_AGENT_DRIVERS.filter((driver) =>
-    isManagedDriverAllowed(managedPolicy, ProviderDriverKind.make(driver)),
-  ).flatMap((driver) => {
-    const instances =
-      driver === "codex" ? providers?.filter((provider) => provider.driver === driver) : undefined;
-    return instances?.length
-      ? instances.map((provider) => ({ driver, provider, instanceId: provider.instanceId }))
-      : [{ driver, provider: byDriver.get(driver), instanceId: byDriver.get(driver)?.instanceId }];
-  });
+  const primaryAgents = PRIMARY_AGENT_DRIVERS.filter(
+    (driver) => !marketingDriver || driver === marketingDriver,
+  )
+    .filter((driver) => isManagedDriverAllowed(managedPolicy, ProviderDriverKind.make(driver)))
+    .flatMap((driver) => {
+      const instances =
+        driver === "codex"
+          ? providers?.filter((provider) => provider.driver === driver)
+          : undefined;
+      return instances?.length
+        ? instances.map((provider) => ({ driver, provider, instanceId: provider.instanceId }))
+        : [
+            {
+              driver,
+              provider: byDriver.get(driver),
+              instanceId: byDriver.get(driver)?.instanceId,
+            },
+          ];
+    });
   if (createdAccount) {
     const index = primaryAgents.findIndex(
       (agent) => agent.instanceId === createdAccount.instanceId,
@@ -998,7 +1010,7 @@ function AgentCard({
       <div className="min-w-0 flex-1">
         <span className="block text-sm font-medium text-foreground">{displayName}</span>
         <p className="mt-0.5 text-xs leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
-          {providerState === "ready" ? "Ready to code." : summary.headline}
+          {providerState === "ready" ? "Ready to help." : summary.headline}
           {providerState !== "ready" && summary.detail ? ` · ${summary.detail}` : ""}
         </p>
       </div>

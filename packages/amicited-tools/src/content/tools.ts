@@ -15,7 +15,12 @@ export interface Generation {
   readonly generate: (prompt: string, signal: AbortSignal) => Promise<string>;
 }
 export const sourceInput = Schema.Struct({
-  text: Schema.optional(Schema.String),
+  text: Schema.optional(
+    Schema.String.annotate({
+      title: "Source text",
+      description: "Paste your article, email or draft. You can use a URL instead.",
+    }),
+  ),
   url: Schema.optional(urlSchema),
 });
 export async function source(

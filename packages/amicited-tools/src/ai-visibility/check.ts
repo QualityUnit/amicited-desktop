@@ -2,11 +2,24 @@ import * as Schema from "effect/Schema";
 import { define, urlSchema } from "../common.ts";
 import type { Generation } from "../content/tools.ts";
 export const visibilityInput = Schema.Struct({
-  brand: Schema.String.check(Schema.isMinLength(1)),
-  website: urlSchema,
-  category: Schema.String.check(Schema.isMinLength(1)),
-  market: Schema.optional(Schema.String),
-  competitors: Schema.optional(Schema.Array(Schema.String)),
+  brand: Schema.String.check(Schema.isMinLength(1)).annotate({
+    title: "Brand name",
+    description: "The name buyers know you by.",
+  }),
+  website: urlSchema.annotate({ title: "Website URL" }),
+  category: Schema.String.check(Schema.isMinLength(1)).annotate({
+    title: "What do you sell?",
+    description: "For example, email marketing software for small teams.",
+  }),
+  market: Schema.optional(
+    Schema.String.annotate({
+      title: "Target market",
+      description: "Optional. For example, small businesses in the UK.",
+    }),
+  ),
+  competitors: Schema.optional(
+    Schema.Array(Schema.String).annotate({ title: "Competitors (comma-separated)" }),
+  ),
 });
 const answerSchema = Schema.Struct({
   prompt: Schema.String,

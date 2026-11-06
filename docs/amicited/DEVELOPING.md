@@ -79,3 +79,8 @@ that also fail on pure upstream `eb988f2ac`:
 - `src/usage/UsageService.test.ts` (2)
 - `src/vcs/GitVcsDriverCore.test.ts` (1)
 - `src/provider/Drivers/ClaudeSkills.test.ts` (1)
+
+The Wave 3 Knip check loads Metro successfully under Node 26.12.1 with the pinned
+workspace install (`vp i --offline`). Both passes of `vp run knip:check` pass;
+no Metro configuration or hook bypass is required. Run hooks with that Node version
+and the repository dependencies rather than a different global Knip installation.

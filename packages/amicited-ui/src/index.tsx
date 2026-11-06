@@ -1,3 +1,10 @@
+import {
+  initialFields,
+  resolveField,
+  serializeFields,
+  fieldLabels,
+  type FieldSchema,
+} from "./fields.js";
 import "./marketing.css";
 import {
   AmICitedMark,
@@ -5,6 +12,7 @@ import {
   saveBrand,
   normalizeWebsite,
   MarketingResult,
+  marketingNavigate,
 } from "./experience.js";
 export * from "./experience.js";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
@@ -73,10 +81,12 @@ export function MarketingShell({
   children,
   path,
   navigate,
+  taskView = false,
 }: {
   children: ReactNode;
   path: string;
   navigate: (path: string) => void;
+  taskView?: boolean;
 }) {
   return (
     <div className="am-shell">
@@ -112,7 +122,19 @@ export function MarketingShell({
           No account required.
         </p>
       </aside>
-      <main className="am-main">{children}</main>
+      <main
+        className={taskView ? "am-main am-task" : "am-main"}
+        onClick={(event) => {
+          if (event.defaultPrevented) return;
+          const link = (event.target as HTMLElement).closest("a");
+          if (link?.getAttribute("href")?.startsWith("/") && !event.metaKey && !event.ctrlKey) {
+            event.preventDefault();
+            navigate(link.getAttribute("href")!);
+          }
+        }}
+      >
+        {children}
+      </main>
     </div>
   );
 }
@@ -152,7 +174,8 @@ export function Home({
           onChange={(event) => setPrompt(event.target.value)}
           required
         />
-        <button style={style.button}>Start a task</button>
+        <button style={style.button}>Continue</button>
+        <p>Next, review your request and press Send to start your assistant.</p>
         <p role="alert">{error}</p>
       </form>
       <section className="am-card">
@@ -185,7 +208,7 @@ export function Home({
 export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
   return (
     <>
-      <p>FREE LOCAL TOOLS</p>
+      <p>FREE · RUNS LOCALLY</p>
       <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>Your marketing toolkit</h1>
       <p>Useful checks, clear results. No account needed.</p>
       {["seo", "ai-visibility", "content", "serp"].map((pack) => (
@@ -215,7 +238,6 @@ export function ToolsGrid({ tools }: { tools: readonly ToolCard[] }) {
                   key={tool.name}
                   href={"/tools/" + tool.name}
                 >
-                  <small>FREE · RUNS LOCALLY</small>
                   <h3 style={{ fontSize: 18, fontWeight: 600, margin: "12px 0" }}>{tool.title}</h3>
                   <p>{tool.description}</p>
                   <span>Open tool →</span>
@@ -241,18 +263,32 @@ export function ToolForm({
   disabled?: boolean;
   run: (input: unknown) => Promise<ToolResult>;
 }) {
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<ToolResult | null>(null);
+  const [values, setValues] = useState<Record<string, string>>(() => initialFields(tool));
+  const [result, setResult] = useState<ToolResult | null>(() => {
+    try {
+      const saved = JSON.parse(
+        sessionStorage.getItem("amicited.last-result") ?? "null",
+      ) as ToolResult | null;
+      return saved?.tool === tool.name ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const properties = (tool.inputSchema.properties ?? {}) as Record<
-    string,
-    { type?: string; title?: string; pattern?: string }
-  >;
+  const properties = (tool.inputSchema.properties ?? {}) as Record<string, FieldSchema>;
   const required = (tool.inputSchema.required ?? []) as string[];
   return (
     <>
-      <a href="/tools">← All tools</a>
+      <a
+        href="/tools"
+        onClick={(e) => {
+          e.preventDefault();
+          marketingNavigate("/tools");
+        }}
+      >
+        ← All tools
+      </a>
       <h1 style={{ fontSize: 32, fontWeight: 650, margin: "16px 0" }}>{tool.title}</h1>
       <p>{tool.description}</p>
       <form
@@ -261,23 +297,8 @@ export function ToolForm({
           event.preventDefault();
           setBusy(true);
           setError("");
-          const input = Object.fromEntries(
-            Object.entries(properties)
-              .filter(([key]) => required.includes(key) || Boolean(values[key]?.trim()))
-              .map(([key, schema]) => [
-                key,
-                schema.type === "array"
-                  ? (values[key] ?? "")
-                      .split(",")
-                      .map((value) => value.trim())
-                      .filter(Boolean)
-                  : schema.type === "number" || schema.type === "integer"
-                    ? Number(values[key])
-                    : schema.type === "boolean"
-                      ? values[key] === "true"
-                      : (values[key] ?? ""),
-              ]),
-          );
+          sessionStorage.setItem("amicited.inputs." + tool.name, JSON.stringify(values));
+          const input = serializeFields(properties, required, values);
           void run(input)
             .then((value) => {
               setResult(value);
@@ -287,21 +308,52 @@ export function ToolForm({
             .finally(() => setBusy(false));
         }}
       >
-        {Object.entries(properties).map(([key, schema]) => (
-          <label key={key}>
-            {schema.title ?? key}
-            <input
-              aria-label={key}
-              style={style.input}
-              type={schema.type === "number" || schema.type === "integer" ? "number" : "text"}
-              pattern={schema.pattern}
-              placeholder={key === "domain" ? "example.com" : ""}
-              required={required.includes(key)}
-              value={values[key] ?? ""}
-              onChange={(event) => setValues({ ...values, [key]: event.target.value })}
-            />
-          </label>
-        ))}
+        {Object.entries(properties).map(([key, raw]) => {
+          const schema = resolveField(raw);
+          const label = schema.title ?? fieldLabels[key] ?? key.replace(/([a-z])([A-Z])/g, "$1 $2");
+          const props = {
+            "aria-label": key,
+            required: required.includes(key),
+            value: values[key] ?? "",
+            onChange: (event: { target: { value: string } }) =>
+              setValues({ ...values, [key]: event.target.value }),
+          };
+          return (
+            <label key={key}>
+              {label}
+              {schema.description && <small>{schema.description}</small>}
+              {schema.type === "boolean" ? (
+                <select {...props}>
+                  <option value="">Use default</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              ) : ["text", "brief", "source", "instructions"].some((name) =>
+                  key.toLowerCase().includes(name),
+                ) ? (
+                <textarea {...props} rows={6} />
+              ) : (
+                <input
+                  {...props}
+                  style={style.input}
+                  type={["number", "integer"].includes(schema.type ?? "") ? "number" : "text"}
+                  pattern={schema.pattern}
+                  placeholder={
+                    schema.type === "array"
+                      ? "Example: Acme, Contoso"
+                      : key === "category"
+                        ? "Example: email marketing software"
+                        : key === "market"
+                          ? "Example: small businesses in the UK"
+                          : key === "domain"
+                            ? "example.com"
+                            : ""
+                  }
+                />
+              )}
+            </label>
+          );
+        })}
         <button style={style.button} disabled={busy || disabled}>
           {busy ? "Checking…" : "Run check"}
         </button>
@@ -311,7 +363,13 @@ export function ToolForm({
     </>
   );
 }
-export function MarketingSettings({ connection }: { connection?: ReactNode }) {
+export function MarketingSettings({
+  connection,
+  modeControl,
+}: {
+  connection?: ReactNode;
+  modeControl?: (checked: boolean, onChange: (checked: boolean) => void) => ReactNode;
+}) {
   const [website, setWebsite] = useState(readBrand()?.website ?? "");
   const [name, setName] = useState(readBrand()?.name ?? "");
   const [message, setMessage] = useState("");
@@ -347,26 +405,38 @@ export function MarketingSettings({ connection }: { connection?: ReactNode }) {
       </section>
 
       <section className="am-card">
-        <WorkspaceModeControl />
+        <WorkspaceModeControl control={modeControl} />
       </section>
     </div>
   );
 }
-export function WorkspaceModeControl() {
+export function WorkspaceModeControl({
+  control,
+}: {
+  control?: ((checked: boolean, onChange: (checked: boolean) => void) => ReactNode) | undefined;
+} = {}) {
   const mode = useWorkspaceMode();
   return (
     <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
-      <input
-        type="checkbox"
-        role="switch"
-        aria-label="Developer features"
-        checked={mode === "developer"}
-        onChange={(e) => {
-          setWorkspaceMode(e.target.checked ? "developer" : "marketer");
-          window.location.assign("/settings/general");
-        }}
-      />
-      Developer features
+      {control ? (
+        control(mode === "developer", (checked) =>
+          setWorkspaceMode(checked ? "developer" : "marketer"),
+        )
+      ) : (
+        <input
+          type="checkbox"
+          role="switch"
+          aria-label="Developer features"
+          checked={mode === "developer"}
+          onChange={(e) => {
+            setWorkspaceMode(e.target.checked ? "developer" : "marketer");
+          }}
+        />
+      )}
+      <span>
+        Developer features
+        <small style={{ display: "block" }}>Show coding tools and advanced settings.</small>
+      </span>
     </label>
   );
 }

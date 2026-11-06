@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-unknown-classes -- Marketing styles belong to @amicited/ui-marketing. */
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useThreadShells } from "../state/entities";
 function Tasks() {
@@ -8,14 +9,19 @@ function Tasks() {
       <p>Your AI work, in one place.</p>
       <Link to="/new">New task</Link>
       {threads.map((thread) => (
-        <p key={thread.id}>
+        <article className="am-card" key={thread.id}>
+          <p className="am-eyebrow">Task</p>
           <Link
             to="/$environmentId/$threadId"
             params={{ environmentId: thread.environmentId, threadId: thread.id }}
           >
-            {thread.title || "New task"}
+            <h2>{thread.title || "New task"}</h2>
+            <p>Open task →</p>
           </Link>
-        </p>
+          <small>
+            {thread.latestRun?.status ?? "Ready to continue"} · {thread.createdAt.slice(0, 10)}
+          </small>
+        </article>
       ))}
     </>
   );

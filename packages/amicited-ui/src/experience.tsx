@@ -53,6 +53,11 @@ export function FirstRun({
       <div className="am-page am-onboarding">
         <AmICitedMark />
         <MarketingResult result={result} fix={fix} retry={() => setResult(null)} />
+        <section className="am-card">
+          <h2>Want AI to fix these?</h2>
+          <p>Connect Claude or ChatGPT using your existing subscription.</p>
+          {subscriptions}
+        </section>
         <button onClick={skip}>Go to Home →</button>
       </div>
     );
@@ -83,6 +88,8 @@ export function FirstRun({
               await prepare(next);
               saveBrand(next);
               setBrand(next);
+              setResult(await check(next));
+              localStorage.setItem("amicited.onboarded", "true");
             } catch (e) {
               setError(e instanceof Error ? e.message : "Could not get ready. Please try again.");
             } finally {
@@ -108,35 +115,9 @@ export function FirstRun({
             />
           </label>
           <button disabled={busy}>
-            {busy ? "Getting ready…" : brand ? "Update website" : "Continue"}
+            {busy ? "Checking your website…" : brand ? "Update website" : "Continue"}
           </button>
         </form>
-      )}
-      {brand && (
-        <section className="am-card">
-          <h2>Your AI subscriptions</h2>
-          <p>
-            Use the AI plan you already pay for. Website checks also work without connecting AI.
-          </p>
-          {subscriptions}
-          <button
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                setResult(await check(brand));
-                localStorage.setItem("amicited.onboarded", "true");
-              } catch {
-                setError("Could not check your website. Please try again.");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {busy ? "Checking your website…" : "Run my free website check"}
-          </button>
-        </section>
       )}
       {error && <p role="alert">{error}</p>}
       <p>
@@ -168,6 +149,7 @@ export function resultFindings(result: ToolResult) {
           ? nested.findings.map((finding) => ({
               ...record(finding),
               group: String(group.name ?? "Website"),
+              details: nested.details,
             }))
           : [];
       })
@@ -175,7 +157,20 @@ export function resultFindings(result: ToolResult) {
   return [...entries, ...grouped].map((item) => {
     const f = record(item);
     const status = String(f.status ?? f.severity ?? "warn");
+    const details = record(f.details ?? output.details);
+    const title = String(f.title ?? f.message ?? "Finding");
+    const evidence =
+      title === "Page title"
+        ? details.title
+        : title === "Search description"
+          ? details.description
+          : title === "SSL certificate" && details.validTo
+            ? `Expires ${String(details.validTo)} (${String(details.daysLeft)} days left)`
+            : title.startsWith("Structured data") && Array.isArray(details.types)
+              ? details.types.join(", ")
+              : undefined;
     return {
+      evidence: evidence === undefined ? undefined : String(evidence || "Not found"),
       title: String(f.title ?? f.message ?? (typeof item === "string" ? item : "Finding")),
       group: typeof f.group === "string" ? f.group : undefined,
       status:
@@ -241,8 +236,139 @@ function ResultValue({ value }: { value: unknown }): ReactNode {
     );
   return formatResultValue(value);
 }
+export function resultTitle(result: ToolResult) {
+  const titles: Record<string, string> = {
+    "seo.site.audit": "Website health audit",
+    "ai.visibility.check": "AI visibility check",
+    "content.readability": "Readability check",
+    "content.write": "Marketing draft",
+    "content.repurpose": "Repurposed content",
+    "content.brief": "Content brief",
+  };
+  return titles[result.tool] ?? result.tool.split(".").map(humanLabel).join(" · ");
+}
+function markdownValue(value: unknown, depth = 2): string {
+  if (Array.isArray(value))
+    return value
+      .map((v) => (typeof v === "object" ? markdownValue(v, depth) : `- ${formatResultValue(v)}`))
+      .join("\n");
+  if (value && typeof value === "object")
+    return Object.entries(value)
+      .map(
+        ([k, v]) =>
+          `${"#".repeat(Math.min(depth, 6))} ${humanLabel(k)}\n\n${markdownValue(v, depth + 1)}`,
+      )
+      .join("\n\n");
+  return formatResultValue(value);
+}
 export function resultMarkdown(result: ToolResult) {
-  return `# Website check\n\n${result.status === "error" ? (result.error?.message ?? "Could not check") : JSON.stringify(result.output, null, 2)}`;
+  const title = `# ${resultTitle(result)}\n\n`;
+  if (result.status === "error") return title + (result.error?.message ?? "Could not check");
+  const output = record(result.output);
+  if (typeof output.draft === "string") return title + output.draft;
+  const findings = resultFindings(result);
+  if (findings.length)
+    return (
+      title +
+      [
+        typeof output.score === "number" ? `Score: ${output.score}/100` : "Score unavailable",
+        output.coverage,
+        Array.isArray(output.topFixes)
+          ? `## Start here\n\n${output.topFixes.map((v) => `- ${String(v)}`).join("\n")}`
+          : "",
+        ...findings.map(
+          (f) =>
+            `## ${f.title} (${f.status})\n\n${f.why}\n\n${f.fix ? `How to fix: ${f.fix}` : ""}`,
+        ),
+        output.groups ? `## Measured evidence\n\n${markdownValue(output.groups)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+    );
+  return title + markdownValue(output);
+}
+function VisibilityResult({
+  output,
+  fix,
+}: {
+  output: Record<string, unknown>;
+  fix?: ((prompt: string) => Promise<void>) | undefined;
+}) {
+  const summary = record(output.summary);
+  const scope = record(output.scope);
+  const [error, setError] = useState("");
+  return (
+    <div>
+      <h2>
+        Mentioned in {String(summary.mentioned ?? 0)} of {String(summary.answered ?? 0)} answers
+      </h2>
+      <p>
+        1 assistant, {Array.isArray(scope.prompts) ? scope.prompts.length : 0} prompts, this
+        machine, just now
+      </p>
+      <p>
+        Share of voice:{" "}
+        {summary.shareOfVoice === null ? "Not available" : `${summary.shareOfVoice}%`} among your
+        brand and supplied competitors.
+      </p>
+      <p>{String(output.message ?? "")}</p>
+      {Array.isArray(summary.competitors) &&
+        summary.competitors.map((v) => {
+          const c = record(v);
+          return (
+            <p className="am-finding" key={String(c.brand)}>
+              <b>{String(c.brand)}</b> · mentioned in {String(c.answers)} answers
+            </p>
+          );
+        })}
+      {Array.isArray(output.answers) &&
+        output.answers.map((v) => {
+          const a = record(v);
+          return (
+            <article className="am-card" key={String(a.prompt)}>
+              <h3>{String(a.prompt)}</h3>
+              <span
+                className={`am-status am-status-${a.mentioned === true ? "pass" : a.mentioned === false ? "warn" : "unknown"}`}
+              >
+                {a.mentioned === true
+                  ? "Mentioned"
+                  : a.mentioned === false
+                    ? "Not mentioned"
+                    : "Could not check"}
+              </span>
+              <p>Position: {a.position === null ? "Not ranked" : String(a.position)}</p>
+              <p>{String(a.excerpt ?? "No answer available").slice(0, 700)}</p>
+              <p>
+                Cited domains:{" "}
+                {Array.isArray(a.citations) && a.citations.length
+                  ? a.citations
+                      .map((c) => {
+                        try {
+                          return new URL(String(c)).hostname;
+                        } catch {
+                          return String(c);
+                        }
+                      })
+                      .join(", ")
+                  : "None"}
+              </p>
+              {a.mentioned === false && fix && (
+                <button
+                  onClick={() =>
+                    void fix(
+                      `Help my brand become a useful recommendation for: ${String(a.prompt)}. Suggest evidence and content improvements.`,
+                    ).catch(() => setError("Could not open your task. Try again."))
+                  }
+                >
+                  Fix this with AI
+                </button>
+              )}
+            </article>
+          );
+        })}
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
 }
 export const ResultFooterContext = createContext<((result: ToolResult) => ReactNode) | null>(null);
 export function ResultFooterSlot({ result }: { result: ToolResult }) {
@@ -271,7 +397,12 @@ export function MarketingResult({
             ? "WEBSITE CHECK"
             : "TOOL RESULTS"}
       </p>
-      <h2>{result.status === "error" ? "Could not check your website" : "Your results"}</h2>
+      <h2>
+        {result.status === "error" ||
+        ["could_not_check", "could_not_generate"].includes(String(output.status))
+          ? "Could not complete this check"
+          : "Your results"}
+      </h2>
       {needsProvider ? (
         <div className="am-finding">
           <h3>Connect Claude or ChatGPT</h3>
@@ -279,7 +410,15 @@ export function MarketingResult({
             This check uses your existing AI subscription to see whether your assistant mentions
             your brand. Connect an assistant, then return here to run the check.
           </p>
-          <a href="/home#ai-subscriptions">Connect your AI assistant →</a>
+          <a
+            href="/home#ai-subscriptions"
+            onClick={(event) => {
+              event.preventDefault();
+              marketingNavigate("/home#ai-subscriptions");
+            }}
+          >
+            Connect your AI assistant →
+          </a>
           <p>Your local website checks remain free and work without AI.</p>
         </div>
       ) : result.status === "error" ? (
@@ -296,12 +435,53 @@ export function MarketingResult({
                 : `Grade ${String(output.grade)}`}
             </strong>
           )}
+          {typeof output.readingEase === "number" && (
+            <p>
+              {output.readingEase >= 60
+                ? "Easy to read. Good for most audiences."
+                : output.readingEase >= 30
+                  ? "Somewhat complex. Try shorter sentences."
+                  : "Hard to read. Simplify words and sentences."}
+            </p>
+          )}
           {typeof output.coverage === "string" && <p>{output.coverage}</p>}
+          {findings.length > 0 && (
+            <p>
+              {findings.filter((f) => f.status === "fail").length} to fix ·{" "}
+              {findings.filter((f) => f.status === "warn").length} worth improving ·{" "}
+              {findings.filter((f) => f.status === "pass").length} passing
+            </p>
+          )}
+          {Array.isArray(output.topFixes) && output.topFixes.length > 0 && (
+            <section className="am-card">
+              <h2>Start here</h2>
+              <ol>
+                {output.topFixes.map((v) => (
+                  <li key={String(v)}>{String(v)}</li>
+                ))}
+              </ol>
+            </section>
+          )}
+          {Array.isArray(output.groups) && (
+            <details>
+              <summary>Measured evidence</summary>
+              {output.groups.map((v) => {
+                const g = record(v);
+                return (
+                  <section key={String(g.name)}>
+                    <h3>{String(g.name)}</h3>
+                    <ResultValue value={record(g.result).details} />
+                  </section>
+                );
+              })}
+            </details>
+          )}
+          {result.tool === "ai.visibility.check" && <VisibilityResult output={output} fix={fix} />}
           {["fail", "warn", "unknown", "pass"].map((status) => {
             const group = findings.filter((f) => f.status === status);
             return group.length ? (
-              <div key={status}>
-                <h3>
+              <details key={status} open={status !== "pass"}>
+                <summary>
                   {status === "fail"
                     ? "Needs attention"
                     : status === "warn"
@@ -309,12 +489,19 @@ export function MarketingResult({
                       : status === "unknown"
                         ? "Could not check"
                         : "Looking good"}
-                </h3>
+                </summary>
                 {group.map((f) => (
                   <article className="am-finding" key={`${f.group ?? ""}:${f.title}:${f.fix}`}>
                     {f.group && <p className="am-eyebrow">{f.group}</p>}
                     <h4>{f.title}</h4>
-                    <small>{humanLabel(f.status)}</small>
+                    {f.evidence && (
+                      <p>
+                        <b>Found:</b> {f.evidence}
+                      </p>
+                    )}
+                    <span className={`am-status am-status-${f.status}`}>
+                      {f.status === "unknown" ? "Unavailable" : humanLabel(f.status)}
+                    </span>
                     <p>
                       <b>Why it matters:</b> {f.why}
                     </p>
@@ -336,10 +523,10 @@ export function MarketingResult({
                     )}
                   </article>
                 ))}
-              </div>
+              </details>
             ) : null;
           })}
-          {!findings.length && (
+          {!findings.length && result.tool !== "ai.visibility.check" && (
             <dl>
               {Object.entries(output).map(([key, value]) => (
                 <div className="am-finding" key={key}>
@@ -368,7 +555,7 @@ export function MarketingResult({
                 );
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = "website-check.md";
+                link.download = result.tool.replaceAll(".", "-") + ".md";
                 link.click();
                 URL.revokeObjectURL(url);
               }}
@@ -382,4 +569,8 @@ export function MarketingResult({
       <ResultFooterSlot result={result} />
     </section>
   );
+}
+
+export function marketingNavigate(path: string) {
+  window.dispatchEvent(new CustomEvent("amicited-navigate", { detail: path }));
 }

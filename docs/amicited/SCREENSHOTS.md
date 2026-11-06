@@ -37,3 +37,14 @@ pairing URL; do not upload it. The harness closes its browser, signals only the
 server and web processes it spawned, and deletes its temporary
 home on exit. It never reads or writes `~/.t3`. Add future journey steps before
 the finally block, using accessible locators and explicit readiness conditions.
+
+The r2 journey keeps these filenames for comparison. Continue now runs the audit
+immediately, so `02-website-and-ai` records that result rather than an intervening
+setup step. `02b-provider-sign-in` opens direct Claude setup and
+`02c-provider-ready` records readiness and the saved generation selection.
+`06-ai-visibility` restores a disconnected fixture; `06b-visibility-result-fixture`
+uses a labelled successful visibility fixture. Neither invokes generation. `06c-fix-with-ai-task` follows the missing-brand action to its prefilled task.
+`08b-task-draft`, `08d-task-reply-replay` and `08c-tasks-list` capture the draft,
+a free Replay reply and two saved tasks. Quick mode also captures dark 1440
+for 03, 04 and 06. The connected cloud summary remains covered by the local MCP
+fixture tests rather than a production connection.

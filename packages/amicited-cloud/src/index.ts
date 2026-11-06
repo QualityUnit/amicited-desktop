@@ -35,7 +35,7 @@ export const errorState = (error: unknown): Extract<Connection, { state: "error"
           : "network";
   const messages: Record<ErrorKind, string> = {
     auth: "We could not sign you in. Connect again or check your workspace key.",
-    plan_required: "Connecting AmICited needs Pro or above. Ask your workspace owner to upgrade.",
+    plan_required: "Connecting AmICited needs Pro or above. Upgrade to Pro to connect.",
     no_credits:
       "Your workspace needs credits before it can connect. Add credits in AmICited, then try again.",
     rate_limited:

@@ -15,7 +15,11 @@ it("offers a successful result once, persists Not now, and opens the real signup
   };
   const gate = createUpsellGate(storage, storage);
   const open = vi.fn();
-  const result = { status: "success", tool: "site.audit" };
+  const result = {
+    status: "success",
+    tool: "site.audit",
+    output: { status: "checked", score: 75 },
+  };
   await using screen = await render(
     <AmicitedUpsellCard
       ui={ui}
