@@ -382,3 +382,16 @@ fixture now supplies partial coverage for UI evidence.
 The old marketer button/input variants and font/colour overrides are removed.
 Marketer approvals use `WorkLogRow` and `ComposerPendingApprovalActions`;
 marketing results use `WorkLogButton` and `WorkLogDetails` through the UI adapter.
+
+## Native marketer presentation
+
+- `apps/web/src/components/ChatView.tsx`: mounts marketer composer context in the existing ContextStrip outside Host.
+- `apps/web/src/components/chat/ChatComposer.tsx`: portals website, connection and starter controls to that context strip; disconnected assistants disable sending.
+- `apps/web/src/components/chat/ChatHeader.tsx`: adds the marketer workspace segment with the existing breadcrumb primitives.
+- `apps/web/src/marketing.tsx`: injects T3 work-log disclosures, breadcrumbs, settings groups/rows and category controls into the portable marketing UI.
+- `apps/web/src/marketingChat.tsx`: connects report questions and uses composer approval actions.
+- `apps/web/src/rpc/amicitedCloud.tsx`: supplies native Collapsible and SettingsGroup to account connection controls.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: asserts the consolidated work-row summary and inspectable failures.
+
+- `apps/web/src/components/chat/ComposerPendingApprovalActions.tsx`: optional ghost decline control for marketer approvals, preserving the default upstream presentation.
+- `apps/web/src/marketingOffer.browser.test.tsx`: supplies the report-question hook at its mocked subscription boundary.

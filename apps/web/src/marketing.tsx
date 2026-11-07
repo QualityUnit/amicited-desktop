@@ -1,7 +1,19 @@
+import { ToggleGroup, Toggle } from "./components/ui/toggle-group";
+import { SettingsGroup } from "./components/settings/SettingsGroup";
+import { SettingsRow } from "./components/settings/settingsLayout";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "./components/ui/collapsible";
+import { ChevronRight, PlugZap } from "lucide-react";
+import { ActivityShimmerOverlay } from "./components/chat/TimelineRowParts";
+import {
+  WorkspaceBreadcrumb,
+  WorkspaceBreadcrumbItem,
+  WorkspaceBreadcrumbText,
+  WorkspaceBreadcrumbSeparator,
+} from "./components/WorkspaceBreadcrumb";
 import { resolveWorkingStartedAt } from "./components/Sidebar.logic";
 import { formatWorkingDurationLabel } from "@t3tools/client-runtime/state/models";
 import { tickTextContent } from "./lib/tickTextContent";
-import { Wrench, Sparkles, Settings } from "lucide-react";
+import { Wrench, Settings, CircleDashed } from "lucide-react";
 import { WorkLogButton, WorkLogDetails } from "./components/chat/WorkLog";
 import { Hammer } from "lucide-react";
 import { SidebarChromeHeader } from "./components/sidebar/SidebarChrome";
@@ -96,15 +108,17 @@ const KitButton = ({
     type={type}
     size="sm"
     variant={
-      variant === "agent"
-        ? "warning-outline"
-        : variant === "default"
-          ? "default"
-          : variant === "row"
-            ? "ghost"
-            : variant === "link"
-              ? "ghost-muted"
-              : "outline"
+      variant === "header"
+        ? "media-navigation"
+        : variant === "agent"
+          ? "warning-outline"
+          : variant === "default"
+            ? "default"
+            : variant === "row"
+              ? "ghost"
+              : variant === "link"
+                ? "ghost-muted"
+                : "outline"
     }
     data-am-variant={variant}
     {...props}
@@ -142,22 +156,92 @@ function KitMenu({ label, children }: { label: ReactNode; children: ReactNode })
     </Menu>
   );
 }
-function KitWorkDisclosure({ label, children }: { label: ReactNode; children: ReactNode }) {
+function KitWorkDisclosure({
+  label,
+  children,
+  pending,
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  pending?: boolean | undefined;
+}) {
   const [expanded, setExpanded] = useState(true);
   return (
-    <>
-      <WorkLogButton
-        aria-expanded={expanded}
-        icon={<Hammer className="size-4 text-icon-muted" />}
-        label={label}
-        onClick={() => setExpanded(!expanded)}
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger
+        render={
+          <WorkLogButton
+            aria-expanded={expanded}
+            icon={<Hammer className="size-4 text-icon-muted" />}
+            label={
+              pending ? (
+                <span className="relative">
+                  {label}
+                  <ActivityShimmerOverlay>{label}</ActivityShimmerOverlay>
+                </span>
+              ) : (
+                label
+              )
+            }
+            trailing={
+              <ChevronRight
+                className={
+                  expanded
+                    ? "size-3 rotate-90 text-muted-foreground"
+                    : "size-3 text-muted-foreground"
+                }
+              />
+            }
+          />
+        }
       />
-      {expanded && <WorkLogDetails>{children}</WorkLogDetails>}
-    </>
+      <CollapsiblePanel animate={false}>
+        <WorkLogDetails>{children}</WorkLogDetails>
+      </CollapsiblePanel>
+    </Collapsible>
+  );
+}
+function KitBreadcrumb({ children }: { children: ReactNode }) {
+  return (
+    <WorkspaceBreadcrumb ariaLabel="Workspace">
+      <WorkspaceBreadcrumbItem>
+        <WorkspaceBreadcrumbText>Your workspace</WorkspaceBreadcrumbText>
+      </WorkspaceBreadcrumbItem>
+      <WorkspaceBreadcrumbSeparator />
+      <WorkspaceBreadcrumbItem current>
+        <WorkspaceBreadcrumbText>{children}</WorkspaceBreadcrumbText>
+      </WorkspaceBreadcrumbItem>
+    </WorkspaceBreadcrumb>
   );
 }
 const marketingUi = {
+  Categories: ({
+    value,
+    items,
+    onChange,
+  }: {
+    value: string;
+    items: readonly (readonly [string, string])[];
+    onChange: (value: string) => void;
+  }) => (
+    <ToggleGroup
+      aria-label="Tool categories"
+      value={[value]}
+      onValueChange={(values) => {
+        if (values[0]) onChange(values[0]);
+      }}
+    >
+      {items.map(([key, label]) => (
+        <Toggle key={key} value={key}>
+          {label}
+        </Toggle>
+      ))}
+    </ToggleGroup>
+  ),
+  SettingsGroup,
+  SettingsRow,
   WorkDisclosure: KitWorkDisclosure,
+  Breadcrumb: KitBreadcrumb,
   Menu: KitMenu,
   Button: KitButton,
   Input: KitInput,
@@ -193,7 +277,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   [
                     ["Settings", "/settings/general", Settings],
                     ["Tools", "/tools", Wrench],
-                    ["AmICited", "/marketing-settings", Sparkles],
+                    ["AmICited", "/marketing-settings", PlugZap],
                   ] as const
                 ).map(([label, href, Icon]) => (
                   <SidebarMenuItem key={label}>
@@ -237,7 +321,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
         >
           {archived ? (
             <div className="am-secondary-page">
-              <h1>Archived chats</h1>
+              <KitBreadcrumb>Archived chats</KitBreadcrumb>
               <p>Archived chats stay here until you restore or delete them.</p>
             </div>
           ) : path === "/marketing-settings" ? (
@@ -396,7 +480,7 @@ function rememberResult(result: ToolResult) {
   }
   localStorage.setItem("amicited.first-win", "true");
 }
-function useMarketingTask() {
+export function useMarketingTask() {
   const environmentId = usePrimaryEnvironmentId();
   const scratch = useScratchProject();
   const newThread = useNewThreadHandler();
@@ -653,7 +737,6 @@ function MarketingHistory({
   const [renaming, setRenaming] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const sorted = threads.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
-  const [today] = useState(() => new Date().toDateString());
   return (
     <div className="am-flat-history">
       <SidebarThreadHeader
@@ -690,16 +773,12 @@ function MarketingHistory({
       {!threads.length && (
         <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
       )}
-      {["Today", "Earlier"].map((group) => {
-        const rows = sorted.filter(
-          (thread) =>
-            (new Date(Date.parse(thread.updatedAt)).toDateString() === today
-              ? "Today"
-              : "Earlier") === group && thread.title.toLowerCase().includes(search.toLowerCase()),
+      {["Chats"].map((group) => {
+        const rows = sorted.filter((thread) =>
+          thread.title.toLowerCase().includes(search.toLowerCase()),
         );
         return rows.length ? (
           <section key={group}>
-            <small>{group}</small>
             {rows.map((thread) => {
               const ref = scopeThreadRef(thread.environmentId, thread.id);
               const key = thread.environmentId + thread.id;
@@ -782,10 +861,10 @@ function MarketingHistory({
                                 });
                               }}
                             >
+                              <MarketingHistoryStatus thread={thread} />
                               <span>
                                 {thread.title === "New thread" ? "New chat" : thread.title}
                               </span>
-                              <MarketingHistoryStatus thread={thread} />
                             </button>
                           }
                         />
@@ -857,9 +936,11 @@ function MarketingHistoryStatus({
   const status = marketingHistoryStatus(thread);
   return (
     <small className="am-history-status" data-status={status}>
-      {status !== "Done" && (
+      <span className="flex items-center gap-1">
+        {status === "Working" && <CircleDashed size={12} />} {status === "Done" ? "Chat" : status}
+      </span>
+      {status === "Working" && (
         <>
-          <span aria-hidden="true">●</span> {status}{" "}
           {status === "Working" && (
             <span
               ref={tickTextContent((now) => {
@@ -868,7 +949,6 @@ function MarketingHistoryStatus({
               }, true)}
             />
           )}{" "}
-          ·{" "}
         </>
       )}
       <RelativeTime timestamp={thread.updatedAt} />

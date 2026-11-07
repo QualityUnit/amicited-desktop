@@ -79,3 +79,9 @@ journey. Native captures record the marketer and developer computed font family,
 size, line height and text colour for sidebar, breadcrumb, composer and timeline
 in `style-parity.json`. System font availability is checked through `document.fonts`;
 the retired dashboard font files are no longer loaded.
+
+Wave 26 uses `.amicited-shots/r24/`. The integrated collapsed rail checks all
+three footer destinations. Browser and Electron journeys use the native category
+control and list groups; Electron also captures Settings. `style-parity.json`
+includes padding, dimensions, border widths and radii for composer, sidebar row,
+header and work-log samples, alongside the typography fields.

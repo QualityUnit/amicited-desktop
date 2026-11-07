@@ -1,6 +1,5 @@
 import { CompactMarketingResult } from "./chat.js";
 import { Card } from "./cloud/Card.js";
-import { AmICitedFreeToolCard } from "./cloud/AmICitedFreeToolCard.js";
 import { packs } from "./packs.js";
 import {
   MarketingButton,
@@ -8,7 +7,9 @@ import {
   MarketingTextarea,
   MarketingIcon,
   toolIcon,
-  MarketingTitle,
+  MarketingSettingsGroup,
+  MarketingSettingsRow,
+  MarketingUiContext,
 } from "./primitives.js";
 import {
   initialFields,
@@ -27,7 +28,7 @@ import {
   resultQuestion,
 } from "./experience.js";
 export * from "./experience.js";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useContext, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 
 export const PRODUCT_NAME = "AmICited Desktop";
@@ -65,47 +66,61 @@ export function ToolsGrid({
   navigate: (path: string) => void;
 }) {
   const activePack = selectedPack;
+  const { Categories } = useContext(MarketingUiContext);
   return (
     <>
-      <nav className="am-pack-tabs" aria-label="Tool categories">
-        {packs.map(([pack, label]) => (
-          <a
-            key={pack}
-            href={"/tools?category=" + pack}
-            className="text-body relative flex items-center gap-1.5 px-2 py-2.5 font-medium whitespace-nowrap"
-            aria-current={activePack === pack ? "page" : undefined}
-            onClick={(event) => {
-              event.preventDefault();
-              navigate("/tools?category=" + pack);
-            }}
-          >
-            <MarketingIcon name={pack} />
-            {label}
-          </a>
-        ))}
-      </nav>
+      {Categories ? (
+        <Categories
+          value={activePack}
+          items={packs}
+          onChange={(pack) => navigate("/tools?category=" + pack)}
+        />
+      ) : (
+        <nav className="am-pack-tabs" aria-label="Tool categories">
+          {packs.map(([pack, label]) => (
+            <a
+              key={pack}
+              href={"/tools?category=" + pack}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium whitespace-nowrap"
+              aria-current={activePack === pack ? "page" : undefined}
+              onClick={(event) => {
+                event.preventDefault();
+                navigate("/tools?category=" + pack);
+              }}
+            >
+              <MarketingIcon name={pack} />
+              {label}
+            </a>
+          ))}
+        </nav>
+      )}
       <p className="am-hint">Free local tools. Useful checks, clear results. No account needed.</p>
-      <div className="am-tool-frame overflow-hidden rounded-xl border border-ai-line bg-ai-surf">
-        <div className="am-tool-grid -mr-px -mb-px grid md:grid-cols-2 2xl:grid-cols-3 [&>*]:border-r [&>*]:border-b [&>*]:border-[var(--ai-line)]">
+      <div className="am-tool-frame">
+        <MarketingSettingsGroup className="am-tool-list">
           {tools
             .filter((tool) => tool.pack === activePack)
             .map((tool) => (
-              <AmICitedFreeToolCard
+              <a
                 key={tool.name}
-                tool={{
-                  slug: tool.name,
-                  icon: <MarketingIcon name={toolIcon(tool.name)} />,
-                  title: tool.title,
-                  description: tool.description,
-
-                  i18nKey: tool.name,
+                href={"/tools/" + tool.name}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigate("/tools/" + tool.name);
                 }}
-                onOpen={(slug) => {
-                  navigate("/tools/" + slug);
-                }}
-              />
+              >
+                <MarketingSettingsRow
+                  title={
+                    <span className="flex items-center gap-3">
+                      <MarketingIcon name={toolIcon(tool.name)} />
+                      {tool.title}
+                    </span>
+                  }
+                  description={tool.description}
+                  control={<MarketingIcon name="right" />}
+                />
+              </a>
             ))}
-        </div>
+        </MarketingSettingsGroup>
       </div>
     </>
   );
@@ -143,7 +158,6 @@ export function ToolForm({
   const required = (tool.inputSchema.required ?? []) as string[];
   return (
     <>
-      {!result && <MarketingTitle>{tool.title}</MarketingTitle>}
       {!result && (
         <>
           <form
@@ -283,33 +297,55 @@ export function MarketingSettings({
     <div className="am-page">
       <Card className="am-card" id="website">
         <h2>Your website / brand</h2>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            try {
-              const brand = normalizeWebsite(website);
-              saveBrand({ ...brand, name: name.trim() || brand.name });
-              setMessage("Saved");
-            } catch {
-              setMessage("Enter a website like example.com.");
-            }
-          }}
-        >
-          <label>
-            Website URL
-            <MarketingInput value={website} onChange={(e) => setWebsite(e.target.value)} required />
-          </label>
-          <label>
-            Brand name
-            <MarketingInput value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <MarketingButton variant="default">Save</MarketingButton>
-          <p role="status">{message}</p>
-        </form>
+        <MarketingSettingsGroup>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              try {
+                const brand = normalizeWebsite(website);
+                saveBrand({ ...brand, name: name.trim() || brand.name });
+                setMessage("Saved");
+              } catch {
+                setMessage("Enter a website like example.com.");
+              }
+            }}
+          >
+            <MarketingSettingsRow
+              title="Website URL"
+              description="The website used for your local checks."
+              control={
+                <MarketingInput
+                  aria-label="Website URL"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  required
+                />
+              }
+            />
+            <MarketingSettingsRow
+              title="Brand name"
+              control={
+                <MarketingInput
+                  aria-label="Brand name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              }
+            />
+            <MarketingSettingsRow
+              title={message || "Save your website and brand"}
+              control={<MarketingButton variant="default">Save</MarketingButton>}
+            />
+            <p role="status">{message}</p>
+          </form>
+        </MarketingSettingsGroup>
       </Card>
 
       <Card className="am-card">
-        <WorkspaceModeControl control={modeControl} />
+        <h2>Workspace</h2>
+        <MarketingSettingsGroup>
+          <WorkspaceModeControl control={modeControl} />
+        </MarketingSettingsGroup>
       </Card>
     </div>
   );
@@ -321,27 +357,25 @@ export function WorkspaceModeControl({
 } = {}) {
   const mode = useWorkspaceMode();
   return (
-    <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
-      {control ? (
-        control(mode === "developer", (checked) =>
-          setWorkspaceMode(checked ? "developer" : "marketer"),
+    <MarketingSettingsRow
+      title="Developer features"
+      description="Show coding tools and advanced settings."
+      control={
+        control ? (
+          control(mode === "developer", (checked) =>
+            setWorkspaceMode(checked ? "developer" : "marketer"),
+          )
+        ) : (
+          <MarketingInput
+            type="checkbox"
+            role="switch"
+            aria-label="Developer features"
+            checked={mode === "developer"}
+            onChange={(e) => setWorkspaceMode(e.target.checked ? "developer" : "marketer")}
+          />
         )
-      ) : (
-        <MarketingInput
-          type="checkbox"
-          role="switch"
-          aria-label="Developer features"
-          checked={mode === "developer"}
-          onChange={(e) => {
-            setWorkspaceMode(e.target.checked ? "developer" : "marketer");
-          }}
-        />
-      )}
-      <span>
-        Developer features
-        <small style={{ display: "block" }}>Show coding tools and advanced settings.</small>
-      </span>
-    </label>
+      }
+    />
   );
 }
 

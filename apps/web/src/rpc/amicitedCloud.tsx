@@ -1,3 +1,8 @@
+import { SettingsRow } from "../components/settings/settingsLayout";
+import { Badge } from "../components/ui/badge";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../components/ui/collapsible";
+import { ChevronRight } from "lucide-react";
+import { SettingsGroup } from "../components/settings/SettingsGroup";
 import { marketingNavigate, SectionHead } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
 import {
@@ -22,7 +27,24 @@ import { Input } from "../components/ui/input";
 const CloudButton = (props: ComponentProps<typeof MarketingButton>) => (
   <MarketingButton {...props} />
 );
-const ui = { Button: CloudButton, Input };
+function CloudDisclosure({
+  label,
+  children,
+}: {
+  label: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="group flex items-center gap-2 text-sm text-muted-foreground">
+        <ChevronRight className="size-3 group-data-open:rotate-90" />
+        {label}
+      </CollapsibleTrigger>
+      <CollapsiblePanel animate={false}>{children}</CollapsiblePanel>
+    </Collapsible>
+  );
+}
+const ui = { Button: CloudButton, Input, Disclosure: CloudDisclosure, Row: SettingsRow, Group: SettingsGroup };
 const openExternal = (url: string) => {
   void createLocalApi().shell.openExternal(url);
 };
@@ -180,7 +202,7 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
                       ? "Find where other brands are cited"
                       : "Compare recommendations in your target markets"}
                 </small>
-              </span>
+              </Badge>
               <span aria-hidden="true">→</span>
             </MarketingButton>
           ),
@@ -235,7 +257,7 @@ export function CloudPage() {
         subtitle="See who cites you across AI assistants. Track changes every day against your competitors."
         actions={
           <div className="am-actions">
-            <span className="am-status am-status-neutral">
+            <Badge variant="secondary">
               {connection?.state === "connected" ? "Connected" : "Not connected"}
             </span>
             {promotionsAllowed(connection) && (

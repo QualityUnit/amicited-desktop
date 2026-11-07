@@ -16,7 +16,11 @@ the composer. Marketing checks use expandable T3 work rows, compact summaries
 and links to the full result. Approval uses T3’s work row and permission actions
 with plain-language copy. Errors and coverage limitations remain explicit.
 
-Secondary pages use constrained settings-style sections and list rows. Numbers
+Secondary pages render T3 SettingsGroup and SettingsRow through the UI adapter.
+Categories use T3 ToggleGroup; disclosures use Collapsible and WorkLogButton.
+The composer context is a portal into ContextStrip outside the painted Host.
+Only the work row carries the check title, domain, score and status; expanded
+content carries coverage, findings and actions. Numbers
 use the interface font with tabular numerals. The inline AmICited offer keeps
 the existing first-win gate, session frequency, snooze and hiding preferences;
 local tools never require an account.

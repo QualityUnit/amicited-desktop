@@ -498,6 +498,7 @@ export default function ChatView(props: ChatViewProps) {
           lastVisitedAt: fallbackLastVisitedAt,
         });
   const promptRef = useRef("");
+  const [marketingContextTarget, setMarketingContextTarget] = useState<HTMLDivElement | null>(null);
   const localComposerRef = useRef<ChatComposerHandle | null>(null);
   const composerRef = useComposerHandleContext() ?? localComposerRef;
   const queuedRunEdit = useQueuedRunEdit({
@@ -3593,7 +3594,7 @@ export default function ChatView(props: ChatViewProps) {
                     }
                   >
                     <ChildThreadApprovals threadRef={activeThreadRef} />
-                    <ComposerSurface.Shell contextRow={showComposerContextStrip}>
+                    <ComposerSurface.Shell contextRow={!developerMode || showComposerContextStrip}>
                       <ComposerSurface.Host
                         inert={queuedRunEdit.isSaving}
                         aria-busy={queuedRunEdit.isSaving}
@@ -3625,6 +3626,7 @@ export default function ChatView(props: ChatViewProps) {
                           ) : null}
                           {!composerMounted ? null : (
                             <ChatComposer
+                              marketingContextTarget={marketingContextTarget}
                               canOperateThread={canOperateThread}
                               reportedModelSelection={reportedModelSelection}
                               multipleModelSelections={multipleModelSelections}
@@ -3792,6 +3794,11 @@ export default function ChatView(props: ChatViewProps) {
                           )}
                         </div>
                       </ComposerSurface.Host>
+                      {!developerMode && (
+                        <ComposerSurface.ContextStrip>
+                          <div className="w-full" ref={setMarketingContextTarget} />
+                        </ComposerSurface.ContextStrip>
+                      )}
                       <div className="min-h-0">
                         <div
                           data-terminal-open={terminalUiState.terminalOpen ? "true" : undefined}

@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type ReactNode,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
 } from "react";
@@ -11,6 +12,9 @@ import { DOCS_URL, SIGNUP_URL, type Connection } from "@amicited/cloud-client/mo
 import { createUpsellGate, whatYouAreMissing, type WinResult } from "@amicited/cloud-client/upsell";
 
 export interface CloudUi {
+  Row?: ComponentType<{ title: ReactNode; description?: ReactNode; control?: ReactNode }>;
+  Disclosure?: ComponentType<{ label: ReactNode; children: ReactNode }>;
+  Group?: ComponentType<{ children: ReactNode }>;
   Button: ComponentType<
     ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "outline" | "link" }
   >;
@@ -51,7 +55,8 @@ export function AmicitedUpsellCard({
   if (!visible || connected || !comparison) return null;
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
-      <p>{comparison.missing.replace(/\.$/, "")} · 7-day trial, then EUR 120/month Pro.</p>
+      <p>{comparison.missing}</p>
+      <p className="am-hint">7-day trial, then EUR 120/month Pro.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial
@@ -77,7 +82,7 @@ export function AmicitedConnectPanel({
   actions,
   onChange,
   openExternal,
-  ui: { Button, Input },
+  ui: { Button, Input, Disclosure = FallbackDisclosure, Group = FallbackGroup, Row = FallbackRow },
 }: {
   connection: Connection;
   actions: CloudActions;
@@ -103,69 +108,76 @@ export function AmicitedConnectPanel({
   const pending = busy || connection.state === "connecting";
   return (
     <section aria-label="AmICited connection" className="am-cloud-stack">
-      <p>Your local tools always work without an account.</p>
-      {connection.state === "connected" ? (
-        <>
-          <p>
-            Connected to {connection.workspace}
-            {connection.plan ? ` · ${connection.plan}` : ""}
-          </p>
-          <Button disabled={busy} onClick={() => void run(actions.disconnect)}>
-            Disconnect
-          </Button>
-        </>
-      ) : (
-        <>
-          {connection.state === "error" && (
-            <div role="alert">
-              <p>{connection.message}</p>
-              {connection.kind === "plan_required" && (
-                <Button onClick={() => openExternal(SIGNUP_URL)}>Upgrade to Pro</Button>
-              )}
-              {connection.kind === "no_credits" && (
-                <Button onClick={() => openExternal("https://app.flowhunt.io/")}>
-                  Add credits in AmICited
+      <Group>
+        {connection.state === "connected" ? (
+          <>
+            <Row
+              title={`Connected to ${connection.workspace}${connection.plan ? ` · ${connection.plan}` : ""}`}
+              description="Your local tools always work without an account."
+              control={
+                <Button disabled={busy} onClick={() => void run(actions.disconnect)}>
+                  Disconnect
                 </Button>
-              )}
-            </div>
-          )}
-          <Button
-            variant="default"
-            disabled={pending}
-            onClick={() => void run(actions.connectOAuth)}
-          >
-            {pending ? "Connecting…" : "Connect with AmICited"}
-          </Button>
-          <details>
-            <summary>Use an API key instead</summary>
-            <p>Find your workspace key on the AI agents page in AmICited.</p>
-            <Button onClick={() => openExternal(DOCS_URL)}>Where to find your key</Button>
-            <label>
-              Workspace API key
-              <Input
-                type="password"
-                autoComplete="off"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-              />
-            </label>
-            <Button
-              disabled={pending || !apiKey.trim()}
-              onClick={() => void run(() => actions.connectApiKey(apiKey))}
-            >
-              Connect with key
-            </Button>
-          </details>
-        </>
-      )}
-      {failure && <p role="alert">We could not update the connection. Please try again.</p>}
-      <details>
-        <summary>How this works</summary>
-        <p>
-          AmICited shares your workspace through MCP. Sign-in stays in your browser and credentials
-          stay in your computer’s secure storage. Pro or above is required.
-        </p>
-      </details>
+              }
+            />
+          </>
+        ) : (
+          <>
+            {connection.state === "error" && (
+              <div role="alert">
+                <p>{connection.message}</p>
+                {connection.kind === "plan_required" && (
+                  <Button onClick={() => openExternal(SIGNUP_URL)}>Upgrade to Pro</Button>
+                )}
+                {connection.kind === "no_credits" && (
+                  <Button onClick={() => openExternal("https://app.flowhunt.io/")}>
+                    Add credits in AmICited
+                  </Button>
+                )}
+              </div>
+            )}
+            <Row
+              title="Connection"
+              description="Your local tools always work without an account."
+              control={
+                <Button
+                  variant="default"
+                  disabled={pending}
+                  onClick={() => void run(actions.connectOAuth)}
+                >
+                  {pending ? "Connecting…" : "Connect with AmICited"}
+                </Button>
+              }
+            />
+            <Disclosure label="Use an API key instead">
+              <p>Find your workspace key on the AI agents page in AmICited.</p>
+              <Button onClick={() => openExternal(DOCS_URL)}>Where to find your key</Button>
+              <label>
+                Workspace API key
+                <Input
+                  type="password"
+                  autoComplete="off"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                />
+              </label>
+              <Button
+                disabled={pending || !apiKey.trim()}
+                onClick={() => void run(() => actions.connectApiKey(apiKey))}
+              >
+                Connect with key
+              </Button>
+            </Disclosure>
+          </>
+        )}
+        {failure && <p role="alert">We could not update the connection. Please try again.</p>}
+        <Disclosure label="How this works">
+          <p>
+            AmICited shares your workspace through MCP. Sign-in stays in your browser and
+            credentials stay in your computer’s secure storage. Pro or above is required.
+          </p>
+        </Disclosure>
+      </Group>
     </section>
   );
 }
@@ -212,5 +224,38 @@ export function AmicitedConnectedBadge({
       <Button onClick={() => void open()}>Open in AmICited</Button>
       {error && <p role="alert">Could not open your report. Please try again.</p>}
     </section>
+  );
+}
+
+function FallbackGroup({ children }: { children: ReactNode }) {
+  return <div>{children}</div>;
+}
+function FallbackDisclosure({ label, children }: { label: ReactNode; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span aria-hidden>{open ? "⌄" : "›"}</span> <span>{label}</span>
+      </button>
+      <div hidden={!open}>{children}</div>
+    </div>
+  );
+}
+
+function FallbackRow({
+  title,
+  description,
+  control,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  control?: ReactNode;
+}) {
+  return (
+    <div>
+      <p>{title}</p>
+      <p>{description}</p>
+      {control}
+    </div>
   );
 }

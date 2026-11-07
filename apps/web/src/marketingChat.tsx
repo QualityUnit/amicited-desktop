@@ -40,9 +40,10 @@ import {
   MarketingCallState,
   MarketingButton,
   resultTitle,
+  resultQuestion,
   useWorkspaceMode,
 } from "@amicited/ui-marketing";
-import { MarketingSubscriptions } from "./marketing";
+import { MarketingSubscriptions, useMarketingTask } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
 export function MarketingComposerContext({
   onSelected,
@@ -89,14 +90,14 @@ export function MarketingComposerContext({
     <div>
       <div className="am-composer-context">
         <Popover open={editingWebsite} onOpenChange={setEditingWebsite}>
-          <PopoverTrigger render={<MarketingButton type="button" />}>
+          <PopoverTrigger render={<MarketingButton variant="link" type="button" />}>
             <Globe size={14} />
             {brand?.website.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? "Add your website"}
           </PopoverTrigger>
           {editingWebsite && (
             <PopoverPopup
-              side="bottom"
               align="start"
+              side="top"
               width="md"
               aria-label="Website"
               data-amicited-tokens=""
@@ -146,6 +147,7 @@ export function MarketingComposerContext({
         </Popover>
         {ready ? (
           <MarketingButton
+            variant="link"
             type="button"
             onClick={() => {
               sendAfterConnect.current = false;
@@ -159,6 +161,7 @@ export function MarketingComposerContext({
         ) : (
           <>
             <MarketingButton
+              variant="link"
               type="button"
               onClick={() => {
                 connectionSent.current = false;
@@ -169,6 +172,7 @@ export function MarketingComposerContext({
               Connect Claude
             </MarketingButton>
             <MarketingButton
+              variant="link"
               type="button"
               onClick={() => {
                 connectionSent.current = false;
@@ -221,6 +225,7 @@ export function MarketingTranscriptCard({
       ? { environmentId, threadId: projectedItem.sourceThreadId }
       : null,
   );
+  const { startTask } = useMarketingTask();
   const fetched = detail.data?.item;
   const result = marketingToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
   const navigate = useNavigate();
@@ -252,6 +257,14 @@ export function MarketingTranscriptCard({
     );
   return (
     <CompactMarketingResult
+      ask={() =>
+        void startTask(resultQuestion(result), false, result).catch(() =>
+          toastManager.add({
+            type: "error",
+            title: "Could not open your question. Please try again.",
+          }),
+        )
+      }
       result={result}
       open={() => {
         sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
@@ -444,10 +457,12 @@ export function MarketingApprovalCard({
       }
     >
       <div className="ms-7.5 flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-warning">Needs your OK</span>
+        <span className="text-primary">Needs your OK</span>
+        <span className="h-4 border-l border-border" />
         {onRespond && (
           <ComposerPendingApprovalActions
-            presentation="inline"
+            presentation="composer"
+            declineVariant="ghost"
             requestId={approval.requestId}
             canRespond={!disabled}
             disabled={disabled}

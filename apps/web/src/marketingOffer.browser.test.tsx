@@ -11,7 +11,10 @@ const state = vi.hoisted(() => ({
   connected: false,
   dismissed: false,
 }));
-vi.mock("./marketing", () => ({ MarketingSubscriptions: () => null }));
+vi.mock("./marketing", () => ({
+  MarketingSubscriptions: () => null,
+  useMarketingTask: () => ({ startTask: async () => {} }),
+}));
 vi.mock("./state/entities", () => ({
   useThreadVisibleTurnItems: () => state.items,
   useThreadShell: () => null,

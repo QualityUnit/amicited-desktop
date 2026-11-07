@@ -301,6 +301,14 @@ export const ChatHeader = memo(function ChatHeader({
         ariaLabel={marketer ? "Task breadcrumb" : "Thread breadcrumb"}
         className="flex-1 overflow-clip [overflow-clip-margin:2px]"
       >
+        {marketer && (
+          <>
+            <WorkspaceBreadcrumbItem>
+              <WorkspaceBreadcrumbText>Your workspace</WorkspaceBreadcrumbText>
+            </WorkspaceBreadcrumbItem>
+            <WorkspaceBreadcrumbSeparator />
+          </>
+        )}
         {activeProject && !marketer ? (
           <>
             <WorkspaceBreadcrumbItem className="shrink">

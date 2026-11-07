@@ -166,6 +166,11 @@ try {
         header: '[data-slot="workspace-breadcrumb-text"]',
         composer: '[data-testid="composer-editor"]',
         timeline: "[data-thread-find-text] p",
+        composerSurface: '[data-slot="composer-host"]',
+        sidebarRow:
+          '[data-chat-history-link][aria-current="page"], [data-testid="sidebar-row-card"][aria-current="page"]',
+        headerLayout: '[aria-label="Task breadcrumb"], [aria-label="Thread breadcrumb"]',
+        workLog: '.am-tool-card [data-slot="collapsible-trigger"], .group\\/timeline-row',
       };
       return Object.fromEntries(
         Object.entries(selectors).map(([name, selector]) => {
@@ -176,7 +181,20 @@ try {
           return [
             name,
             Object.fromEntries(
-              ["fontFamily", "fontSize", "color", "lineHeight"].map((key) => [key, style[key]]),
+              [
+                "fontFamily",
+                "fontSize",
+                "color",
+                "lineHeight",
+                "paddingTop",
+                "paddingRight",
+                "paddingBottom",
+                "paddingLeft",
+                "height",
+                "width",
+                "borderWidth",
+                "borderRadius",
+              ].map((key) => [key, style[key]]),
             ),
           ];
         }),
@@ -241,10 +259,15 @@ try {
   await page.getByTestId("composer-editor").fill("Thanks, keep this for the next campaign.");
   await page.getByTestId("composer-editor").press("Enter");
   await page.getByRole("link", { name: "Tools", exact: true }).click();
-  await page.getByRole("link", { name: "Content tools", exact: true }).click();
+  await page.getByRole("button", { name: "Content tools", exact: true }).click();
   if (!page.url().includes("category=content")) throw new Error("Electron lost category route");
   await capture("tools-content");
-  await page.locator(".am-tool-grid > a").first().click();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("switch", { name: "Developer features" }).waitFor();
+  await capture("settings");
+  await page.getByRole("link", { name: "Tools", exact: true }).click();
+  await page.getByRole("button", { name: "Content tools", exact: true }).click();
+  await page.locator(".am-tool-list > a").first().click();
   await page.getByRole("button", { name: /Run/ }).first().waitFor();
   await capture("tool-form");
   if (process.env.AMICITED_CAPTURE_HOME) {

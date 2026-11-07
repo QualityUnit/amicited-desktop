@@ -12,6 +12,7 @@ import { composerFloatingLayerProps } from "./composerEventScope";
 
 interface ComposerPendingApprovalActionsProps {
   presentation?: "composer" | "inline";
+  declineVariant?: "outline" | "ghost";
   requestId: RuntimeRequestId;
   isResponding: boolean;
   canRespond: boolean;
@@ -32,6 +33,7 @@ const DEFAULT_APPROVAL_OPTIONS = [
 
 export const ComposerPendingApprovalActions = memo(function ComposerPendingApprovalActions({
   presentation = "composer",
+  declineVariant = "outline",
   requestId,
   isResponding,
   canRespond,
@@ -80,7 +82,7 @@ export const ComposerPendingApprovalActions = memo(function ComposerPendingAppro
               key={option.decision}
               {...buttonProps}
               size="xs"
-              variant={option.decision === "accept" ? "default" : "outline"}
+              variant={option.decision === "accept" ? "default" : declineVariant}
             >
               {content}
             </Button>

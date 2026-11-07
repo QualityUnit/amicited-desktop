@@ -1,4 +1,5 @@
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
+import { MarketingWorkDisclosure } from "./primitives.js";
 import { MarketingButton } from "./primitives.js";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { isUsefulResult, type ToolResult } from "@amicited/tools-core";
@@ -221,7 +222,7 @@ export function MarketingResult({
   const output = record(result.output);
   return (
     <section className="am-page" aria-label="Tool result">
-      <h1>{title ?? resultTitle(result)}</h1>
+      <h1 className="sr-only">{title ?? resultTitle(result)}</h1>
       <p className="am-hint">
         {String(record(result.input).url ?? record(result.input).website ?? "")
           .replace(/^https?:\/\//, "")
@@ -291,10 +292,9 @@ export function MarketingResult({
           <ResultValue value={result.output} />
         )}
         {findings.length > 0 && (
-          <details>
-            <summary>All check details</summary>
+          <MarketingWorkDisclosure label="All check details">
             <ResultValue value={result.output} />
-          </details>
+          </MarketingWorkDisclosure>
         )}
         <div className="am-actions">
           {retry && <MarketingButton onClick={retry}>Edit inputs</MarketingButton>}

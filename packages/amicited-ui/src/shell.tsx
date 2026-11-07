@@ -1,16 +1,8 @@
 import { resultTitle } from "./experience.js";
-import {
-  PanelLeftClose,
-  PanelLeftOpen,
-  Wrench,
-  Sparkles,
-  Settings,
-  ArrowLeft,
-  History,
-} from "lucide-react";
-import { useState, type ReactNode, type ComponentProps } from "react";
+import { PanelLeftClose, PanelLeftOpen, Wrench, PlugZap, Settings, History } from "lucide-react";
+import { useState, useContext, type ReactNode, type ComponentProps } from "react";
 import { AmICitedMark } from "./brand.js";
-import { MarketingTooltip, MarketingButton } from "./primitives.js";
+import { MarketingUiContext, MarketingTooltip, MarketingButton } from "./primitives.js";
 export function MarketingShell({
   children,
   path,
@@ -31,6 +23,7 @@ export function MarketingShell({
   brandHeader?: ReactNode;
   footer?: ReactNode;
 }) {
+  const { Breadcrumb } = useContext(MarketingUiContext);
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("amicited.rail-collapsed") === "true",
   );
@@ -45,7 +38,7 @@ export function MarketingShell({
         <div className="am-chat-brand">
           {brandHeader ?? <AmICitedMark />}
           <MarketingButton
-            variant="link"
+            variant={collapsed ? "row" : "header"}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => {
               setCollapsed(!collapsed);
@@ -71,7 +64,7 @@ export function MarketingShell({
             {(
               [
                 ["Tools", "/tools", Wrench],
-                ["AmICited", "/marketing-settings", Sparkles],
+                ["AmICited", "/marketing-settings", PlugZap],
                 ["Settings", "/settings/general", Settings],
               ] as const
             ).map(([label, href, Icon]) => (
@@ -99,36 +92,36 @@ export function MarketingShell({
         ) ? (
           <>
             <MarketingHeader className="am-page-header">
-              {path.startsWith("/tools")
-                ? "Tools" +
-                  (path === "/tools"
-                    ? ""
-                    : " / " +
-                      (path.endsWith("/result")
+              {Breadcrumb ? (
+                <Breadcrumb>
+                  {path.startsWith("/tools")
+                    ? path === "/tools"
+                      ? "Tools"
+                      : path.endsWith("/result")
                         ? "Result"
-                        : resultTitle({ tool: decodeURIComponent(path.split("/").at(-1) ?? "") })))
-                : "Your workspace / " + (path === "/marketing-settings" ? "AmICited" : "Settings")}
-            </MarketingHeader>
-            <div className="am-secondary-page">
-              <MarketingButton
-                onClick={() => navigate(sessionStorage.getItem("amicited.return-chat") ?? "/home")}
-              >
-                <ArrowLeft size={14} />
-                Back to chat
-              </MarketingButton>
-              {path === "/tools" || path.startsWith("/settings") ? (
-                <h1>
-                  {path === "/tools"
-                    ? "Tools"
+                        : resultTitle({ tool: decodeURIComponent(path.split("/").at(-1) ?? "") })
                     : path === "/marketing-settings"
                       ? "AmICited"
-                      : path.startsWith("/settings")
-                        ? "Settings"
-                        : "Tool result"}
-                </h1>
-              ) : null}
-              {children}
-            </div>
+                      : "Settings"}
+                </Breadcrumb>
+              ) : (
+                <span>
+                  {path.startsWith("/tools")
+                    ? "Tools" +
+                      (path === "/tools"
+                        ? ""
+                        : " / " +
+                          (path.endsWith("/result")
+                            ? "Result"
+                            : resultTitle({
+                                tool: decodeURIComponent(path.split("/").at(-1) ?? ""),
+                              })))
+                    : "Your workspace / " +
+                      (path === "/marketing-settings" ? "AmICited" : "Settings")}
+                </span>
+              )}
+            </MarketingHeader>
+            <div className="am-secondary-page">{children}</div>
           </>
         ) : (
           children

@@ -58,3 +58,40 @@ it("maps sign-in failures and preserves the MCP failure reason", async () => {
     }),
   ).toBe("The website did not respond");
 });
+
+it("uses the shared work disclosure for pending and failed calls", async () => {
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { MarketingUiContext } = await import("./primitives.js");
+  const { MarketingCallState } = await import("./chat.js");
+  for (const [status, expected, pending] of [
+    ["inProgress", "Running website health audit on example.com…", true],
+    ["failed", "Couldn't check website health audit on example.com", false],
+  ] as const) {
+    const labels: unknown[] = [];
+    const markup = renderToStaticMarkup(
+      createElement(
+        MarketingUiContext,
+        {
+          value: {
+            Button: (props) => createElement("button", props),
+            Input: (props) => createElement("input", props),
+            Textarea: (props) => createElement("textarea", props),
+            WorkDisclosure: (props) => {
+              labels.push([props.label, props.pending]);
+              return createElement("section", { "data-shared-disclosure": true }, props.children);
+            },
+          },
+        },
+        createElement(MarketingCallState, {
+          status,
+          input: { name: "seo.site.audit", input: { url: "https://example.com" } },
+          output: "The website did not respond.",
+        }),
+      ),
+    );
+    expect(labels[0]).toEqual([expected, pending]);
+    expect(markup).toContain('data-shared-disclosure="true"');
+    if (!pending) expect(markup).toContain("The website did not respond.");
+  }
+});

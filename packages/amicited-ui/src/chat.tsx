@@ -55,9 +55,16 @@ export function marketingToolResult(value: unknown, depth = 0): ToolResult | nul
   }
   return null;
 }
-export function CompactMarketingResult({ result, open }: { result: ToolResult; open: () => void }) {
+export function CompactMarketingResult({
+  result,
+  open,
+  ask,
+}: {
+  result: ToolResult;
+  open: () => void;
+  ask?: () => void;
+}) {
   const output = record(result.output);
-  const summary = record(output.summary);
   const useful = isUsefulResult(result);
   return (
     <div className="am-inline-result">
@@ -65,28 +72,14 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
         <MarketingWorkDisclosure
           label={
             <>
-              Ran {resultTitle(result).toLowerCase()} ·{" "}
+              {useful ? "Ran" : "Couldn't check"} {resultTitle(result).toLowerCase()}
+              {marketingTarget(result.input)} ·{" "}
               {typeof output.score === "number" ? `${output.score}/100 · ` : ""}
-              {useful ? (output.status === "partial" ? "Partial" : "Complete") : "Couldn't check"}
+              {useful ? (output.status === "partial" ? "Partial" : "Complete") : ""}
             </>
           }
         >
           <div className="am-work-summary">
-            <header>
-              <strong>{resultTitle(result)}</strong>
-              <small className="am-status-pill">
-                {useful ? (output.status === "partial" ? "Partial" : "Complete") : "Couldn't check"}
-              </small>
-            </header>
-            {useful && (
-              <strong className="am-chat-figure">
-                {typeof output.score === "number"
-                  ? `${output.score}/100`
-                  : typeof summary.mentioned === "number"
-                    ? `Mentioned in ${summary.mentioned} of ${summary.answered}`
-                    : marketingPreview(result)}
-              </strong>
-            )}
             {useful && result.tool === "seo.site.audit" && (
               <p className="am-hint">
                 {String(output.coverage ?? "")} · Technical snapshot; doesn't measure AI citations
@@ -98,29 +91,43 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
                   String(output.message ?? "Connect your assistant or try again.")}
               </p>
             )}
+            {useful && result.tool !== "seo.site.audit" && (
+              <dl>
+                {Object.entries(output)
+                  .filter(
+                    ([key, value]) =>
+                      !["status", "score", "coverage", "message"].includes(key) &&
+                      ["string", "number", "boolean"].includes(typeof value),
+                  )
+                  .map(([key, value]) => (
+                    <div className="am-finding" key={key}>
+                      <dt>
+                        {key
+                          .replace(/([a-z])([A-Z])/g, "$1 $2")
+                          .replace(/^./, (c) => c.toUpperCase())}
+                      </dt>
+                      <dd>{String(value)}</dd>
+                    </div>
+                  ))}
+              </dl>
+            )}
             <ul>
               {rankedFindings(result)
                 .slice(0, 3)
                 .map((f) => (
-                  <li key={`${f.group}:${f.title}`}>
-                    <span className={`am-finding-dot am-finding-${f.status}`} />
-                    {f.title}
-                  </li>
+                  <li key={`${f.group}:${f.title}`}>{f.title}</li>
                 ))}
             </ul>
-            <p className="am-hint">
-              {String(
-                record(result.input).url ??
-                  record(result.input).website ??
-                  record(result.input).domain ??
-                  "",
-              )
-                .replace(/^https?:\/\//, "")
-                .replace(/\/$/, "")}
-            </p>
-            <MarketingButton variant="link" onClick={open}>
-              Open full result
-            </MarketingButton>
+            <div className="am-result-links">
+              <MarketingButton variant="link" onClick={open}>
+                Open full result
+              </MarketingButton>
+              {ask && (
+                <MarketingButton variant="link" onClick={ask}>
+                  Ask AI about this
+                </MarketingButton>
+              )}
+            </div>
           </div>
         </MarketingWorkDisclosure>
       </article>
@@ -163,41 +170,35 @@ export function MarketingCallState({
   output: unknown;
 }) {
   const state = marketingCallState(status, output);
+  const title =
+    typeof record(input).name === "string"
+      ? resultTitle({ tool: String(record(input).name) }).toLowerCase()
+      : "marketing check";
   return (
     <article className="am-tool-card" aria-label="Marketing tool result" data-state={state}>
-      <header>
-        <strong>
-          {typeof record(input).name === "string"
-            ? resultTitle({ tool: String(record(input).name) })
-            : "Marketing check"}
-        </strong>
-        <small className="am-status-pill">
-          {state === "pending"
-            ? "Checking…"
-            : state === "cancelled"
-              ? "Cancelled"
-              : "Couldn't check"}
-        </small>
-      </header>
-      {state === "pending" ? (
-        <div className="am-result-skeleton" aria-label="Waiting for result">
-          <div />
-          <div />
-          <div />
-        </div>
-      ) : (
-        <>
-          <p>
-            {state === "cancelled"
-              ? "This check was stopped. You can ask your assistant to try again."
-              : marketingErrorText(output)}
-          </p>
-          <details>
-            <summary>Show details</summary>
-            <pre>{typeof output === "string" ? output : JSON.stringify(output, null, 2)}</pre>
-          </details>
-        </>
-      )}
+      <MarketingWorkDisclosure
+        pending={state === "pending"}
+        label={`${state === "pending" ? "Running" : state === "cancelled" ? "Stopped" : "Couldn't check"} ${title}${marketingTarget(record(input).input)}${state === "pending" ? "…" : ""}`}
+      >
+        {state === "pending" ? (
+          <div className="am-result-skeleton" aria-label="Waiting for result">
+            <div />
+            <div />
+            <div />
+          </div>
+        ) : (
+          <>
+            <p>
+              {state === "cancelled"
+                ? "This check was stopped. You can ask your assistant to try again."
+                : marketingErrorText(output)}
+            </p>
+            <MarketingWorkDisclosure label="Show details">
+              <pre>{typeof output === "string" ? output : JSON.stringify(output, null, 2)}</pre>
+            </MarketingWorkDisclosure>
+          </>
+        )}
+      </MarketingWorkDisclosure>
     </article>
   );
 }
@@ -218,4 +219,15 @@ export function marketingSignInError(message: string): boolean {
   return /could not authenticate|not (?:signed|logged) in|auth login|authentication failed|authentication.*required|invalid.*(?:token|credential)/i.test(
     message,
   );
+}
+
+function marketingTarget(input: unknown) {
+  const r = record(input);
+  const target = r.url ?? r.website ?? r.domain;
+  if (typeof target !== "string" || !target) return "";
+  try {
+    return ` on ${new URL(target.includes("://") ? target : `https://${target}`).hostname}`;
+  } catch {
+    return ` on ${target}`;
+  }
 }

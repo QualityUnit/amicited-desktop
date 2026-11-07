@@ -232,6 +232,12 @@ try {
     await capture("02c-website-popover");
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.getByRole("button", { name: "Collapse sidebar" }).click();
+    for (const label of ["Settings", "Tools", "AmICited"]) {
+      const button = page.getByRole("link", { name: label, exact: true });
+      await button.waitFor({ state: "visible" });
+      const box = await button.boundingBox();
+      if (!box || box.x + box.width > 48) throw new Error(`Collapsed footer hides ${label}`);
+    }
     await capture("02d-collapsed-sidebar");
     await page.getByRole("button", { name: "Expand sidebar" }).click();
     await waitForOperate();
@@ -261,13 +267,13 @@ try {
     await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
     await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
     await capture("03-tool-card-turn");
-    await page.getByText("Partial", { exact: true }).waitFor();
+    await page.getByRole("button", { name: /Ran website health audit.*Partial/ }).waitFor();
     await capture("03c-partial-coverage");
     const marketingChatUrl = page.url();
     await page.getByRole("button", { name: "Open full result" }).click();
     await page.getByRole("region", { name: "Tool result" }).waitFor();
     await capture("04-full-result");
-    await page.getByRole("button", { name: "Back to chat", exact: false }).click();
+    await page.goto(marketingChatUrl);
     await page
       .getByRole("article", { name: "Marketing tool result" })
       .first()
@@ -394,12 +400,12 @@ try {
         await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
       await capture(name!);
       if (path === "/tools") {
-        await page.locator(".am-tool-grid > a").first().hover();
+        await page.locator(".am-tool-list > a").first().hover();
         await capture("06b-tools-hover");
       }
     }
     await page.getByRole("link", { name: "Tools", exact: true }).click();
-    await page.getByRole("link", { name: "Content tools", exact: true }).click();
+    await page.getByRole("button", { name: "Content tools", exact: true }).click();
     await page.locator('a[href="/tools/content.readability"]').click();
     await page
       .getByRole("textbox", { name: "text", exact: true })

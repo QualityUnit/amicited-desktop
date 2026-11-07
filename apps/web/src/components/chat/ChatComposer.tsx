@@ -1,3 +1,5 @@
+import { getOnboardingProviderState } from "../../onboarding/providerReadiness.logic";
+import { createPortal } from "react-dom";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer suggestion styles come from @amicited/ui-marketing. */
 import { marketingStarters, readBrand } from "@amicited/ui-marketing";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
@@ -351,6 +353,7 @@ export interface ChatComposerHandle {
 }
 
 export interface ChatComposerProps {
+  marketingContextTarget?: HTMLElement | null;
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
   canOperateThread: boolean;
@@ -943,6 +946,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     selectedModel,
   );
   const sendDisabledReason =
+    (workspaceMode === "marketer" &&
+    (!selectedProviderEntry ||
+      getOnboardingProviderState(selectedProviderEntry.snapshot) !== "ready")
+      ? "Connect an assistant to start"
+      : null) ??
     externalSendDisabledReason ??
     (multipleModelSelections?.length === 0 ? "Select at least one model." : null) ??
     (activePendingProgress
@@ -3633,35 +3641,42 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           </div>
         </ComposerSurface.Main>
       </div>
-      {workspaceMode === "marketer" ? (
-        <MarketingComposerContext
-          selectedInstanceId={selectedInstanceId}
-          onConnected={setMarketingPendingSend}
-          onSelected={(selection) => {
-            onProviderModelSelect(selection.instanceId, selection.model);
-          }}
-        />
-      ) : null}
-      {workspaceMode === "marketer" && routeKind === "draft" ? (
-        <div className="am-starters">
-          {marketingStarters.map((prompt) => (
-            <button
-              type="button"
-              key={prompt}
-              onClick={() => {
-                setPrompt(prompt);
-                if (readBrand() && activeProjectId && environmentId)
-                  void openMarketingDraft(scopeProjectRef(environmentId, activeProjectId), {
-                    prompt,
-                    sendImmediately: true,
-                  });
-              }}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {workspaceMode === "marketer" && props.marketingContextTarget
+        ? createPortal(
+            <>
+              <MarketingComposerContext
+                selectedInstanceId={selectedInstanceId}
+                onConnected={setMarketingPendingSend}
+                onSelected={(selection) => {
+                  onProviderModelSelect(selection.instanceId, selection.model);
+                }}
+              />
+              {routeKind === "draft" ? (
+                <div className="am-starters">
+                  {marketingStarters.map((prompt) => (
+                    <Button
+                      variant="ghost-muted"
+                      size="xs"
+                      type="button"
+                      key={prompt}
+                      onClick={() => {
+                        setPrompt(prompt);
+                        if (readBrand() && activeProjectId && environmentId)
+                          void openMarketingDraft(scopeProjectRef(environmentId, activeProjectId), {
+                            prompt,
+                            sendImmediately: true,
+                          });
+                      }}
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+            </>,
+            props.marketingContextTarget,
+          )
+        : null}
     </form>
   );
 });

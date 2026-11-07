@@ -79,3 +79,8 @@
   margin-top: 8px;
   gap: 8px;
 }
+
+.am-cloud-stack [data-slot="settings-group"] > :not([data-slot="settings-row"]) {
+  margin: 0;
+  padding: 16px;
+}

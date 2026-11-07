@@ -157,7 +157,7 @@ it("renders a compact result in the conversation and opens the full result", asy
       open={open}
     />,
   );
-  await expect.element(screen.getByText("41/100")).toBeVisible();
+  await expect.element(screen.getByText(/Ran website health audit.*41\/100/)).toBeVisible();
   await expect.element(screen.getByText("Missing title")).toBeVisible();
   await screen.getByRole("button", { name: "Open full result" }).click();
   expect(open).toHaveBeenCalledOnce();
@@ -301,15 +301,18 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
         />
       </MarketingShell>,
     );
-    await expect.element(screen.getByText("Couldn't check", { exact: true })).toBeVisible();
+    await expect
+      .element(screen.getByText("Couldn't check marketing check", { exact: true }))
+      .toBeVisible();
     await expect
       .element(screen.getByText("Permission refused", { exact: true }).first())
       .toBeVisible();
     await screen.getByText("Show details").click();
+    await screen.getByText("Show details").click();
     await expect
       .element(screen.getByText("Permission refused", { exact: true }).last())
       .toBeVisible();
-    const card = document.querySelector<HTMLAnchorElement>(".am-tool-grid > a")!;
+    const card = document.querySelector<HTMLAnchorElement>(".am-tool-list > a")!;
     expect(getComputedStyle(card).backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(getComputedStyle(card).color).not.toBe(getComputedStyle(card).backgroundColor);
   } finally {
