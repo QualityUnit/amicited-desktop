@@ -41,7 +41,7 @@ export function MarketingShell({
       data-amicited-tokens=""
       className={`am-chat-shell ${collapsed ? "am-chat-collapsed" : ""}`}
     >
-      <aside className="am-chat-sidebar" aria-label="Chat sidebar">
+      <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
         <div className="am-chat-brand">
           {brandHeader ?? <AmICitedMark />}
           <MarketingButton
