@@ -1654,7 +1654,14 @@ export function threadShellFromProjection(
         item.type === "dynamic_tool" &&
         item.toolName?.endsWith("marketing_tools_run") &&
         (item.status === "failed" ||
-          (JSON.stringify(item.output) ?? "").includes('"could_not_check"')),
+          (typeof item.output === "object" &&
+            item.output !== null &&
+            (Reflect.get(item.output, "status") === "error" ||
+              (typeof Reflect.get(item.output, "output") === "object" &&
+                Reflect.get(item.output, "output") !== null &&
+                ["error", "could_not_check"].includes(
+                  Reflect.get(Reflect.get(item.output, "output"), "status"),
+                ))))),
     ),
     activityRunStatus: activityRun?.status ?? null,
     activityRunStartedAt:
@@ -6230,7 +6237,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 WHERE marketing_item.thread_id = t.thread_id AND marketing_item.run_id = presented.run_id
                   AND marketing_item.type = 'dynamic_tool'
                   AND json_extract(marketing_item.payload_json, '$.toolName') LIKE '%marketing_tools_run'
-                  AND (marketing_item.status = 'failed' OR marketing_item.payload_json LIKE '%could_not_check%')
+                  AND (marketing_item.status = 'failed' OR json_extract(marketing_item.payload_json, '$.output.status') = 'error' OR json_extract(marketing_item.payload_json, '$.output.output.status') IN ('error', 'could_not_check'))
               ) AS marketing_check_failed,
               blocked.run_id AS blocking_run_id,
               blocked.requested_at AS blocking_run_requested_at,

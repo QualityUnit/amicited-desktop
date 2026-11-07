@@ -1,3 +1,4 @@
+import { setWorkspaceMode } from "@amicited/ui-marketing";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { type ReactElement } from "react";
@@ -127,6 +128,7 @@ it("keeps compact audio playback loaded across signed URL renewals", async () =>
 });
 
 function setup() {
+  setWorkspaceMode("developer");
   appearance.value = "light";
   parsedSources.length = 0;
   settingsOverrides.mathRenderingEnabled = false;
@@ -460,4 +462,17 @@ describe("ChatMarkdown Windows file links", () => {
       expect(fileHrefs(container)).toEqual([]);
     }
   });
+});
+
+it("keeps marketer file names as inline code", async () => {
+  setup();
+  setWorkspaceMode("marketer");
+  try {
+    await using screen = await renderText("Read `robots.txt` and `sitemap.xml`.");
+    await expect.element(screen.getByText("robots.txt", { exact: true })).toBeVisible();
+    expect(screen.container.querySelector("code")?.textContent).toBe("robots.txt");
+    expect(screen.container.querySelectorAll("a, button")).toHaveLength(0);
+  } finally {
+    setWorkspaceMode("developer");
+  }
 });

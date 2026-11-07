@@ -59,7 +59,7 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
       <article aria-label="Marketing tool result" className="am-tool-card">
         <header>
           <strong>{resultTitle(result)}</strong>
-          <small className="am-status-pill">{useful ? "Complete" : "Could not check"}</small>
+          <small className="am-status-pill">{useful ? "Complete" : "Couldn't check"}</small>
         </header>
         {useful && (
           <strong className="am-chat-figure">
@@ -150,7 +150,7 @@ export function MarketingCallState({
             ? "Checking…"
             : state === "cancelled"
               ? "Cancelled"
-              : "Could not check"}
+              : "Couldn't check"}
         </small>
       </header>
       {state === "pending" ? (

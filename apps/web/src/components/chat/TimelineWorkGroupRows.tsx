@@ -1,3 +1,4 @@
+import { useThreadVisibleTurnItems, useThreadShell } from "../../state/entities";
 import { MarketingTranscriptCard } from "../../marketingChat";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
@@ -281,7 +282,20 @@ export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
   const { isCompacting, isPreparingWorktree, backgroundWorktreeSetup } =
     use(TimelineRowActivityCtx);
   const marketer = useWorkspaceMode() === "marketer";
-  if (marketer) return null;
+  const { threadRef, pendingApprovals } = use(TimelineRowCtx);
+  const items = useThreadVisibleTurnItems(threadRef);
+  const thread = useThreadShell(threadRef);
+  if (marketer) {
+    const hasContent = items.some(
+      ({ item }) =>
+        item.runId === thread?.latestRun?.runId &&
+        ((item.type === "assistant_message" && item.text.trim()) ||
+          (item.type === "dynamic_tool" && item.toolName?.endsWith("marketing_tools_run"))),
+    );
+    return pendingApprovals.size || hasContent ? null : (
+      <p className="px-1 py-2 text-sm text-muted-foreground">Thinking…</p>
+    );
+  }
   const compacting = row.compacting === true || isCompacting;
   const shimmer = isPreparingWorktree || compacting;
   const label = isPreparingWorktree ? (

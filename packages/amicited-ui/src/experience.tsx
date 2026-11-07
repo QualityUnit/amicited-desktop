@@ -254,7 +254,7 @@ export function MarketingResult({
                       fail: "Needs attention",
                       warn: "Improve",
                       pass: "Passing",
-                      unknown: "Could not check",
+                      unknown: "Couldn't check",
                     }[f.status]
                   }
                 </small>

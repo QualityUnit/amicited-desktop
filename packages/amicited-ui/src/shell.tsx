@@ -1,3 +1,4 @@
+import { resultTitle } from "./experience.js";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -95,27 +96,15 @@ export function MarketingShell({
         ) ? (
           <>
             <MarketingHeader className="am-page-header">
-              Your workspace /{" "}
               {path.startsWith("/tools")
-                ? path !== "/tools" &&
-                  sessionStorage.getItem(
-                    "amicited.result-origin." +
-                      (() => {
-                        try {
-                          return (
-                            JSON.parse(sessionStorage.getItem("amicited.last-result") ?? "null")
-                              ?.id ?? ""
-                          );
-                        } catch {
-                          return "";
-                        }
-                      })(),
-                  )
-                  ? "Chat"
-                  : "Tools"
-                : path === "/marketing-settings"
-                  ? "AmICited"
-                  : "Settings"}
+                ? "Tools" +
+                  (path === "/tools"
+                    ? ""
+                    : " / " +
+                      (path.endsWith("/result")
+                        ? "Result"
+                        : resultTitle({ tool: decodeURIComponent(path.split("/").at(-1) ?? "") })))
+                : "Your workspace / " + (path === "/marketing-settings" ? "AmICited" : "Settings")}
             </MarketingHeader>
             <div className="am-secondary-page">
               <MarketingButton

@@ -136,14 +136,14 @@ it("binds reports to scoped identities and consumes only the successfully sent r
 });
 it("reads history status from shells without conversation items", async () => {
   const { marketingHistoryStatus } = await import("./marketingContext");
-  expect(marketingHistoryStatus({ hasPendingApprovals: true, source: {} })).toBe("Needs OK");
+  expect(marketingHistoryStatus({ hasPendingApprovals: true, source: {} })).toBe("Needs your OK");
   expect(
     marketingHistoryStatus({
       hasPendingApprovals: false,
       latestRun: { status: "failed" },
       source: {},
     }),
-  ).toBe("Failed");
+  ).toBe("Couldn't check");
   expect(marketingHistoryStatus({ hasPendingApprovals: false, source: {} })).toBe("Done");
   expect(
     marketingHistoryStatus({
@@ -196,7 +196,7 @@ it("keeps bounded tool-specific evidence and targets in standalone report questi
 });
 it("folds audit sections only for the same target and turn", async () => {
   const { marketingSubcheckCovered } = await import("./marketingContext");
-  const project = (name: string, url: string, runId = "run") =>
+  const project = (name: string, url: string, runId = "run", output?: unknown) =>
     ({
       item: {
         type: "dynamic_tool",
@@ -204,9 +204,53 @@ it("folds audit sections only for the same target and turn", async () => {
         input: { name, input: { url } },
         status: "completed",
         runId,
+        output,
       },
     }) as unknown as import("@t3tools/contracts").OrchestrationV2ProjectedTurnItem;
-  const audit = project("seo.site.audit", "https://example.com");
+  const projectAudit = (output?: unknown) =>
+    project("seo.site.audit", "https://example.com", "run", output);
+  const subcheck = project("seo.robots.check", "https://example.com");
+  expect(marketingSubcheckCovered(subcheck, [projectAudit()])).toBe(false);
+  const result = {
+    id: "audit",
+    tool: "seo.site.audit",
+    input: {},
+    startedAt: "now",
+    durationMs: 1,
+    status: "success",
+    output: {
+      status: "partial",
+      groups: [
+        {
+          name: "AI crawler access",
+          result: { status: "checked", score: 50, findings: [{ status: "warn" }] },
+        },
+      ],
+    },
+  };
+  expect(marketingSubcheckCovered(subcheck, [projectAudit({ ...result, status: "error" })])).toBe(
+    false,
+  );
+  const audit = projectAudit(result);
+  expect(
+    marketingSubcheckCovered(project("seo.sitemap.check", "https://example.com"), [audit]),
+  ).toBe(false);
+  expect(
+    marketingSubcheckCovered(subcheck, [
+      projectAudit({
+        ...result,
+        output: {
+          ...result.output,
+          groups: [
+            {
+              name: "AI crawler access",
+              result: { status: "could_not_check", score: null, findings: [{ status: "unknown" }] },
+            },
+          ],
+        },
+      }),
+    ]),
+  ).toBe(false);
   expect(
     marketingSubcheckCovered(project("seo.robots.check", "https://example.com"), [audit]),
   ).toBe(true);

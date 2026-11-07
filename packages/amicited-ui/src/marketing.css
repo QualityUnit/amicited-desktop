@@ -465,16 +465,6 @@
 .am-result-skeleton div:last-child {
   width: 65%;
 }
-.am-website-popover {
-  position: absolute;
-  z-index: 30;
-  bottom: 100%;
-  border: 1px solid var(--ai-line);
-  border-radius: 10px;
-  padding: 16px;
-  background: var(--ai-surf);
-  box-shadow: 0 8px 30px #0002;
-}
 .am-composer-context {
   position: relative;
 }
@@ -558,20 +548,6 @@
 }
 .am-tool-card .am-hint {
   margin-bottom: 14px;
-}
-.am-website-popover {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  bottom: auto;
-  top: 100%;
-}
-.am-website-popover label,
-.am-website-popover p {
-  flex-basis: 100%;
-}
-.am-website-popover input {
-  outline: none;
 }
 
 .am-cloud-page {
@@ -658,10 +634,6 @@
 .am-tool-card[aria-label="Assistant sign in"] > p {
   margin-block: 12px;
 }
-.am-website-popover {
-  bottom: calc(100% + 12px);
-  top: auto;
-}
 
 .am-history-row {
   border-radius: 6px;
@@ -690,32 +662,79 @@
   display: block;
   margin-block: 4px 8px;
 }
-.am-website-popover input:focus-visible {
-  box-shadow: none;
-  outline: none;
+
+.am-flat-history {
+  padding-top: 8px;
 }
-.am-website-popover {
-  width: 260px;
-  left: 0;
-  bottom: calc(100% + 8px);
-  top: auto;
+.am-flat-history .am-archive-toggle {
+  margin-bottom: 10px;
+  border: 0;
+  background: transparent;
 }
-.am-website-anchor {
+.am-history-empty,
+.am-flat-history > h2 {
+  padding: 14px 12px;
+  color: var(--ai-ink-3);
+  font-size: 12px;
+}
+.am-history-row {
   position: relative;
-  width: 260px;
 }
-.am-website-anchor > button {
+.am-flat-history .am-history-row > button:first-child {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+}
+.am-flat-history .am-history-row > button:first-child > span {
+  flex: auto;
   width: 100%;
 }
-.am-composer-context:has(.am-website-popover) {
-  padding-top: 160px;
+.am-history-status {
+  color: var(--ai-ink-3);
+  font-size: 11px;
 }
-.am-website-popover [data-slot="input-control"]:focus-within {
-  box-shadow: 0 0 0 2px var(--ai-accent);
-  outline: none;
+.am-history-status > span {
+  color: var(--ai-accent);
+  font-size: 8px;
 }
-.am-website-popover [data-slot="input"] {
-  background: transparent;
-  border: 0;
-  border-radius: inherit;
+.am-history-status[data-status="Couldn't check"] > span {
+  color: #d97706;
+}
+.am-history-status[data-status="Needs your OK"] > span {
+  color: #b383cc;
+}
+.am-history-row > button:last-child:not(:first-child) {
+  position: absolute;
+  right: 4px;
+  top: 8px;
+  background: var(--ai-surf-2);
+}
+.am-history-row:has(.am-restore-chat) > button:first-child {
+  padding-right: 65px;
+}
+.am-history-row .am-restore-chat {
+  position: absolute;
+  right: 28px;
+  font-size: 11px;
+}
+.am-website-editor {
+  padding: 4px;
+  color: var(--ai-ink);
+}
+.am-website-editor label {
+  display: block;
+  margin-bottom: 12px;
+}
+.am-website-editor input {
+  padding-inline: 10px;
+}
+.am-website-editor button {
+  margin-right: 8px;
+}
+.am-chat-shell [data-scroll-to-end] {
+  background: var(--ai-surf-1);
+  box-shadow: 0 3px 12px #0003;
+}
+.am-cloud-page p + button {
+  margin-top: 12px;
 }

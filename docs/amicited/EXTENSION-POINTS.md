@@ -359,3 +359,12 @@ preservation of the tool's evidence limits using the existing evaluator.
 `apps/server/src/provider/agentContextBudget.json` records the measured marketing
 catalog/instruction growth; its normal CI budget label still applies.
 `apps/web/src/amicited-cloud.browser.test.tsx` follows the marketer details label.
+
+- `apps/web/src/components/ChatMarkdown.tsx` and its browser tests: marketer mode leaves file names as inline code and bypasses workspace file-link detection.
+- `apps/web/src/hooks/useThreadActions.ts`: optional marketer deletion copy and action label through the existing confirmation path.
+- `packages/contracts/src/ipc.ts`, `apps/web/src/confirmDialog.ts`, and `apps/web/src/components/ConfirmDialogHost.tsx`: optional confirmation action label, retaining upstream defaults.
+- `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: quiet marketer thinking state until visible answer content, suppressed during approvals.
+- `apps/web/src/marketingRecovery.browser.test.tsx`: drives the actual marketer recovery component across the authentication boundary and successful retry.
+- `apps/server/scripts/dev-replay/marketing_transcript.ndjson`: gives the controlled marketing scenario an initial thinking interval for capture.
+
+- `apps/web/src/components/ChatMarkdown.permissions.browser.test.tsx`: explicitly selects developer mode for workspace file-action permission cases.

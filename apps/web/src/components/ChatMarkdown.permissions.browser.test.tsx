@@ -1,3 +1,4 @@
+import { setWorkspaceMode } from "@amicited/ui-marketing";
 import {
   AuthOrchestrationOperateScope,
   EnvironmentId,
@@ -126,6 +127,7 @@ const serverConfig = {
 };
 
 function setup() {
+  setWorkspaceMode("developer");
   using stack = new DisposableStack();
   state.allowed = true;
   state.listeners.clear();

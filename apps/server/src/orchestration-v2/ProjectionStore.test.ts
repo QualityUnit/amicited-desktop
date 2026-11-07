@@ -900,12 +900,42 @@ it.effect("SQL shells flag only an active turn blocked solely on T3 thread waits
     yield* updateItem({ ...wait, status: "completed", completedAt: at });
     yield* assertBlocked(false);
 
-    for (const failed of [true, false]) {
+    for (const [status, output, input, failed] of [
+      ["failed", undefined, {}, true],
+      ["completed", { status: "error", error: { code: "timeout" } }, {}, true],
+      ["completed", { status: "success", output: { status: "error" } }, {}, true],
+      ["completed", { status: "success", output: { status: "could_not_check" } }, {}, true],
+      [
+        "completed",
+        {
+          status: "success",
+          output: { status: "partial", answers: [{ status: "could_not_check" }] },
+        },
+        {},
+        false,
+      ],
+      [
+        "completed",
+        {
+          status: "success",
+          output: { status: "checked", queries: [{ status: "could_not_check" }] },
+        },
+        {},
+        false,
+      ],
+      [
+        "completed",
+        { status: "success", output: { status: "checked" } },
+        { text: "could_not_check" },
+        false,
+      ],
+    ] as const) {
       yield* updateItem({
         ...wait,
         toolName: "marketing_tools_run",
-        status: "completed",
-        output: { status: "success", output: { status: failed ? "could_not_check" : "checked" } },
+        status,
+        output,
+        input,
       });
       const projection = yield* store.getThreadProjection(threadId);
       const listed = (yield* store.getShellSnapshot()).threads.find((row) => row.id === threadId);

@@ -1,3 +1,4 @@
+import { marketingToolResult } from "@amicited/ui-marketing";
 import { ComposerContextId, type OrchestrationMessageContext } from "@t3tools/contracts";
 
 export function withMarketingWebsite(
@@ -117,9 +118,9 @@ export function marketingHistoryStatus(thread: {
   source: { activityRunStatus?: unknown; latestMarketingCheckFailed?: boolean | undefined };
 }) {
   return thread.hasPendingApprovals
-    ? "Needs OK"
+    ? "Needs your OK"
     : thread.latestRun?.status === "failed"
-      ? "Failed"
+      ? "Couldn't check"
       : thread.source.activityRunStatus
         ? "Working"
         : thread.source.latestMarketingCheckFailed
@@ -229,10 +230,44 @@ export function marketingSubcheckCovered(
       return (
         audit?.name === "seo.site.audit" &&
         audit.input?.url === currentInput.input?.url &&
-        p.item.status === "completed"
+        p.item.status === "completed" &&
+        (() => {
+          const result = marketingToolResult(p.item.output);
+          if (result?.status !== "success") return false;
+          const output = record(result.output);
+          if (output.status !== "checked" && output.status !== "partial") return false;
+          const category = currentInput.name.split(".")[1];
+          const names: Record<string, string> = {
+            robots: "AI crawler access",
+            sitemap: "Sitemap check",
+            llmstxt: "AI website guide",
+            meta: "Search and social preview",
+            schema: "Structured data check",
+            ssl: "Secure connection",
+          };
+          return (
+            Array.isArray(output.groups) &&
+            output.groups.some((group) => {
+              const g = record(group);
+              const evidence = record(g.result);
+              return (
+                g.name === names[category ?? ""] &&
+                evidence.status === "checked" &&
+                typeof evidence.score === "number" &&
+                Array.isArray(evidence.findings) &&
+                evidence.findings.length > 0 &&
+                evidence.findings.every((finding) => record(finding).status !== "unknown")
+              );
+            })
+          );
+        })()
       );
     })
   )
     return true;
   return false;
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }

@@ -97,7 +97,7 @@ export function ToolsGrid({
                   icon: <MarketingIcon name={toolIcon(tool.name)} />,
                   title: tool.title,
                   description: tool.description,
-                  category: tool.pack,
+
                   i18nKey: tool.name,
                 }}
                 onOpen={(slug) => {

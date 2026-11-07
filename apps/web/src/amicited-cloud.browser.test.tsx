@@ -297,7 +297,7 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
         />
       </MarketingShell>,
     );
-    await expect.element(screen.getByText("Could not check", { exact: true })).toBeVisible();
+    await expect.element(screen.getByText("Couldn't check", { exact: true })).toBeVisible();
     await expect
       .element(screen.getByText("Permission refused", { exact: true }).first())
       .toBeVisible();

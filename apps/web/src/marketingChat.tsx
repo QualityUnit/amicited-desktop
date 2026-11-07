@@ -1,3 +1,5 @@
+import { Globe } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverPopup } from "./components/ui/popover";
 import { whatYouAreMissing } from "@amicited/cloud-client/upsell";
 import { createMarketingResend } from "./marketingRecovery";
 import { useOrchestrationCommand } from "./state/use-orchestration-command";
@@ -83,46 +85,49 @@ export function MarketingComposerContext({
   return (
     <div>
       <div className="am-composer-context">
-        <div className="am-website-anchor">
-          <MarketingButton type="button" onClick={() => setEditingWebsite(!editingWebsite)}>
-            {brand?.website.replace(/^https?:\/\//, "") ?? "Add your website"}
-          </MarketingButton>
+        <Popover open={editingWebsite} onOpenChange={setEditingWebsite}>
+          <PopoverTrigger render={<MarketingButton type="button" />}>
+            <Globe size={14} />
+            {brand?.website.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? "Add your website"}
+          </PopoverTrigger>
           {editingWebsite && (
-            <div className="am-website-popover" role="dialog" aria-label="Website">
-              <label>
-                Website
-                <MarketingInput
-                  value={websiteDraft}
-                  onChange={(e) => setWebsiteDraft(e.target.value)}
-                  autoFocus
-                  required
-                />
-              </label>
-              <MarketingButton
-                variant="default"
-                type="button"
-                onClick={() => {
-                  try {
-                    const next = normalizeWebsite(websiteDraft);
-                    const updated = { ...next, name: brand?.name ?? next.name };
-                    saveBrand(updated);
-                    setBrand(updated);
-                    setEditingWebsite(false);
-                    setWebsiteError("");
-                  } catch {
-                    setWebsiteError("Enter a website like example.com.");
-                  }
-                }}
-              >
-                Save website
-              </MarketingButton>
-              <MarketingButton type="button" onClick={() => setEditingWebsite(false)}>
-                Cancel
-              </MarketingButton>
-              <p role="alert">{websiteError}</p>
-            </div>
+            <PopoverPopup side="top" align="start" width="md" aria-label="Website">
+              <div data-amicited-tokens="" className="am-website-editor">
+                <label>
+                  Website
+                  <MarketingInput
+                    value={websiteDraft}
+                    onChange={(e) => setWebsiteDraft(e.target.value)}
+                    autoFocus
+                    required
+                  />
+                </label>
+                <MarketingButton
+                  variant="default"
+                  type="button"
+                  onClick={() => {
+                    try {
+                      const next = normalizeWebsite(websiteDraft);
+                      const updated = { ...next, name: brand?.name ?? next.name };
+                      saveBrand(updated);
+                      setBrand(updated);
+                      setEditingWebsite(false);
+                      setWebsiteError("");
+                    } catch {
+                      setWebsiteError("Enter a website like example.com.");
+                    }
+                  }}
+                >
+                  Save website
+                </MarketingButton>
+                <MarketingButton type="button" onClick={() => setEditingWebsite(false)}>
+                  Cancel
+                </MarketingButton>
+                <p role="alert">{websiteError}</p>
+              </div>
+            </PopoverPopup>
           )}
-        </div>
+        </Popover>
         {ready ? (
           <MarketingButton
             type="button"
@@ -341,7 +346,11 @@ export function MarketingSignInRecovery({
         disabled={resending}
         onClick={() => {
           if (ready) {
-            const last = items.findLast((p) => p.item.type === "user_message")?.item;
+            const last = items.findLast(
+              (p) =>
+                p.item.type === "user_message" &&
+                (!latestError || p.item.runId === latestError.item.runId),
+            )?.item;
             if (threadRef && last?.type === "user_message") {
               if (resending || !thread) return;
               setResending(true);

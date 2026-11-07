@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { buildFileLinkParentSuffixByPath, fileLinkLabel } from "@t3tools/shared/fileLinks";
 import {
   isWindowsDrivePathHref,
@@ -673,7 +674,8 @@ function useChatMarkdownState({
   // Keyed by the file links found, not the text, so streamed text that adds none keeps the
   // renderer context, and every block reading it, unchanged.
   // A template literal marks the key as a string, so the compiler memoizes the maps on its value.
-  const fileLinksKey = `${fileLinkSourcesKey(text, cwd, imageBaseDir)}`;
+  const marketer = useWorkspaceMode() === "marketer";
+  const fileLinksKey = `${fileLinkSourcesKey(marketer ? "" : text, cwd, imageBaseDir)}`;
   const { markdownFileLinkMetaByHref, inlineCodeFileLinkMetaByText, fileLinkParentSuffixByPath } =
     resolveFileLinkSources(fileLinksKey, cwd, imageBaseDir);
   const resolveThreadPullRequest = (
@@ -886,6 +888,7 @@ function useChatMarkdownState({
   };
 
   const componentState = {
+    marketer,
     canOperateHost,
     canOperatePreview,
     cwd,
@@ -1073,6 +1076,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
       updateThreadPullRequestLink,
       fileLinkChip,
       renderContextReference,
+      marketer,
     } = use(ChatMarkdownRendererContext);
     const text = use(ChatMarkdownTextContext);
     const citation = href ? parseAssistantCitationHref(href) : null;
@@ -1098,10 +1102,11 @@ const CHAT_MARKDOWN_COMPONENTS = {
       );
     }
     const normalizedHref = href ? normalizeMarkdownLinkHrefKey(href) : "";
-    const fileLinkMeta = normalizedHref
-      ? (markdownFileLinkMetaByHref.get(normalizedHref) ??
-        resolveMarkdownFileLinkMeta(normalizedHref, cwd, imageBaseDir ?? cwd))
-      : null;
+    const fileLinkMeta =
+      !marketer && normalizedHref
+        ? (markdownFileLinkMetaByHref.get(normalizedHref) ??
+          resolveMarkdownFileLinkMeta(normalizedHref, cwd, imageBaseDir ?? cwd))
+        : null;
     if (!fileLinkMeta) {
       const faviconHost = resolveExternalWebLinkHost(href);
       const hasText = hastHasText(node);
@@ -1327,8 +1332,15 @@ const CHAT_MARKDOWN_COMPONENTS = {
     );
   },
   code: function MarkdownCode({ node, children, className, ...props }) {
-    const { cwd, imageBaseDir, inlineCodeFileLinkMetaByText, fileLinkChip, mathEnabled, inline } =
-      use(ChatMarkdownRendererContext);
+    const {
+      cwd,
+      imageBaseDir,
+      inlineCodeFileLinkMetaByText,
+      fileLinkChip,
+      mathEnabled,
+      inline,
+      marketer,
+    } = use(ChatMarkdownRendererContext);
     const math = mathEnabled ? mathKind(className) : null;
     if (math) {
       return (
@@ -1341,9 +1353,10 @@ const CHAT_MARKDOWN_COMPONENTS = {
     }
     if (node?.properties?.dataInlineCode != null) {
       const codeText = nodeToPlainText(children);
-      const fileLinkMeta =
-        inlineCodeFileLinkMetaByText.get(codeText.trim()) ??
-        resolveInlineCodeFileLinkMeta(codeText, cwd, imageBaseDir ?? cwd);
+      const fileLinkMeta = !marketer
+        ? (inlineCodeFileLinkMetaByText.get(codeText.trim()) ??
+          resolveInlineCodeFileLinkMeta(codeText, cwd, imageBaseDir ?? cwd))
+        : null;
       if (fileLinkMeta) {
         return fileLinkChip(
           fileLinkMeta,

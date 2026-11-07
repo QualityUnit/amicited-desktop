@@ -923,7 +923,7 @@ export function useThreadActions() {
 
   const confirmAndDeleteThread = async (
     target: ScopedThreadRef,
-    options?: { forceConfirm?: boolean },
+    options?: { forceConfirm?: boolean; marketer?: boolean },
   ) => {
     const permissionFailure = threadOperationFailure(target);
     if (permissionFailure) return permissionFailure;
@@ -934,11 +934,13 @@ export function useThreadActions() {
       const title = resolved?.thread.title ?? "this thread";
       const confirmationResult = await settlePromise(() =>
         localApi.dialogs.confirm(
-          [
-            `Delete thread "${title}"?`,
-            "This permanently clears conversation history for this thread.",
-          ].join("\n"),
-          { variant: "destructive" },
+          options?.marketer
+            ? "Delete this chat?\nIt can't be undone."
+            : [
+                `Delete thread "${title}"?`,
+                "This permanently clears conversation history for this thread.",
+              ].join("\n"),
+          { variant: "destructive", ...(options?.marketer ? { confirmLabel: "Delete chat" } : {}) },
         ),
       );
       if (confirmationResult._tag === "Failure") {

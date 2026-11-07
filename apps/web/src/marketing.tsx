@@ -139,6 +139,7 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
+  const [archived, setArchived] = useState(false);
 
   const taskTarget = useThreadRouteTarget();
   const path = useLocation({ select: (location) => location.pathname });
@@ -147,14 +148,22 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
       <MarketingShell
-        history={<MarketingHistory />}
+        history={<MarketingHistory archived={archived} setArchived={setArchived} />}
         mode={mode}
         taskView={taskTarget !== null}
         path={path}
         hash={hash}
-        navigate={(path) => void navigate({ to: path })}
+        navigate={(path) => {
+          setArchived(false);
+          void navigate({ to: path });
+        }}
       >
-        {path === "/marketing-settings" ? (
+        {archived ? (
+          <div className="am-secondary-page">
+            <h1>Archived chats</h1>
+            <p>Restore a chat from the sidebar to continue it.</p>
+          </div>
+        ) : path === "/marketing-settings" ? (
           <CloudPage />
         ) : path === "/settings/general" ? (
           <MarketingSettings />
@@ -538,9 +547,14 @@ export function MarketingNewTask() {
   return <MarketingHome />;
 }
 
-function MarketingHistory() {
+function MarketingHistory({
+  archived,
+  setArchived,
+}: {
+  archived: boolean;
+  setArchived: (value: boolean) => void;
+}) {
   const activeThreads = useThreadShells();
-  const [archived, setArchived] = useState(false);
   const environmentIds = useConnectedEnvironmentIds();
   const { snapshots } = useArchivedThreadSnapshots(environmentIds);
   const threads = archived
@@ -563,7 +577,14 @@ function MarketingHistory() {
   const [today] = useState(() => new Date().toDateString());
   return (
     <div className="am-flat-history">
-      <MarketingButton type="button" onClick={() => setArchived(!archived)}>
+      <MarketingButton
+        type="button"
+        className="am-archive-toggle"
+        onClick={() => {
+          setArchived(!archived);
+          void navigate({ to: "/home" });
+        }}
+      >
         {archived ? "Back to chats" : "Archived"}
       </MarketingButton>
       <Input
@@ -572,7 +593,10 @@ function MarketingHistory() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      {!threads.length && <p>No chats yet</p>}
+      {archived && <h2>Archived chats</h2>}
+      {!threads.length && (
+        <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
+      )}
       {["Today", "Earlier"].map((group) => {
         const rows = sorted.filter(
           (thread) =>
@@ -654,15 +678,16 @@ function MarketingHistory() {
                                 event.preventDefault();
                                 buttons[next]?.focus();
                               }}
-                              onClick={() =>
+                              onClick={() => {
+                                setArchived(false);
                                 void navigate({
                                   to: "/$environmentId/$threadId",
                                   params: {
                                     environmentId: thread.environmentId,
                                     threadId: thread.id,
                                   },
-                                })
-                              }
+                                });
+                              }}
                             >
                               <span>
                                 {thread.title === "New thread" ? "New chat" : thread.title}
@@ -671,8 +696,18 @@ function MarketingHistory() {
                             </button>
                           }
                         />
-                        <TooltipPopup>{thread.title}</TooltipPopup>
+                        <TooltipPopup>
+                          {thread.title === "New thread" ? "New chat" : thread.title}
+                        </TooltipPopup>
                       </Tooltip>
+                      {archived && (
+                        <MarketingButton
+                          className="am-restore-chat"
+                          onClick={() => void act(unarchiveThread(ref))}
+                        >
+                          Restore
+                        </MarketingButton>
+                      )}
                       <Menu>
                         <MenuTrigger
                           aria-label={`Chat actions for ${thread.title}`}
@@ -699,7 +734,9 @@ function MarketingHistory() {
                           <MenuItem
                             variant="destructive"
                             onClick={() =>
-                              void act(confirmAndDeleteThread(ref, { forceConfirm: true }))
+                              void act(
+                                confirmAndDeleteThread(ref, { forceConfirm: true, marketer: true }),
+                              )
                             }
                           >
                             Delete
@@ -724,5 +761,9 @@ function MarketingHistoryStatus({
   thread: ReturnType<typeof useThreadShells>[number];
 }) {
   const status = marketingHistoryStatus(thread);
-  return status === "Done" ? null : <small className="am-status-pill">{status}</small>;
+  return status === "Done" ? null : (
+    <small className="am-history-status" data-status={status}>
+      <span aria-hidden="true">●</span> {status}
+    </small>
+  );
 }

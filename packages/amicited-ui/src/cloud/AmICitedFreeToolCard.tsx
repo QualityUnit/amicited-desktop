@@ -9,7 +9,7 @@ interface AmICitedFreeToolCardProps {
     icon: ReactNode;
     title: string;
     description: string;
-    category: string;
+    category?: string;
     popular?: boolean;
     i18nKey: string;
   };
@@ -51,9 +51,11 @@ export const AmICitedFreeToolCard: FC<AmICitedFreeToolCardProps> = ({
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {}
-            <span className="rounded bg-[var(--ai-surf-2)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--ai-ink-3)] uppercase transition-colors group-hover:bg-[var(--ai-surf-3)]">
-              {tool.category}
-            </span>
+            {tool.category && (
+              <span className="rounded bg-[var(--ai-surf-2)] px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-[var(--ai-ink-3)] uppercase transition-colors group-hover:bg-[var(--ai-surf-3)]">
+                {tool.category}
+              </span>
+            )}
             {tool.popular && (
               <span
                 className="rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase"

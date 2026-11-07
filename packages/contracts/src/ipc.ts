@@ -1218,6 +1218,7 @@ export interface DesktopPreviewBridge {
 export type ConfirmDialogVariant = "default" | "destructive";
 
 export interface ConfirmDialogOptions {
+  readonly confirmLabel?: string;
   readonly variant?: ConfirmDialogVariant;
 }
 

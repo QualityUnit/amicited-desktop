@@ -12,6 +12,10 @@ import { chromium } from "playwright-core";
 
 const out = NodePath.resolve(process.argv[2] ?? ".amicited-shots/wave0");
 await NodeFSP.mkdir(out, { recursive: true });
+await NodeFSP.writeFile(
+  NodePath.join(out, "capture-head.txt"),
+  NodeChildProcess.execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }),
+);
 const home =
   process.env.AMICITED_CAPTURE_HOME ??
   (await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-journey-")));
@@ -216,6 +220,8 @@ try {
         "marketing",
       ),
     );
+    await page.getByText("Thinking…", { exact: true }).waitFor();
+    await capture("03b-thinking");
     await page.locator('[data-state="pending"]').waitFor();
     await capture("03a-mid-stream");
     await page
@@ -317,6 +323,8 @@ try {
       .getByRole("button", { name: /Chat actions for/ })
       .first()
       .waitFor({ state: "hidden" });
+    await page.getByText("No archived chats", { exact: true }).waitFor();
+    await capture("05e-archived-empty");
     await page.getByRole("button", { name: "Back to chats", exact: true }).click();
     await page
       .getByRole("button", { name: /Chat actions for/ })
@@ -608,6 +616,21 @@ try {
   );
   await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
   await capture("12-sign-in-recovery");
+  for (const [index, title] of [
+    "Website audit — review crawler access and discovery recommendations",
+    "Campaign content — check readability before publishing",
+    "AI search visibility — review the latest website findings",
+  ].entries()) {
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .nth(index)
+      .click();
+    await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+    await page.getByRole("textbox", { name: "Chat name" }).fill(title);
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("textbox", { name: "Chat name" }).waitFor({ state: "hidden" });
+  }
+  await capture("12b-sidebar-statuses");
   await NodeFSP.writeFile(
     NodePath.join(out, "sign-in-recovery-transcript.txt"),
     await page.locator("body").innerText(),

@@ -58,3 +58,10 @@ chat. The fetched example.com HTML is retained in `example-com-fetch.json`:
 this response contains no H1, so an empty H1 finding is expected for that fetch.
 Account-backed production cloud authentication and an agent-issued paid MCP call
 remain unverified until an account is available.
+
+Wave 23 uses `.amicited-shots/r21/`. Additional states cover the initial quiet
+Thinking line, readable sidebar statuses, the anchored website editor, marketer
+delete copy, and populated/empty archives. The recovery browser test drives the
+real component through failed authentication, readiness and retry; interactive
+subscription sign-in itself is represented by its boundary. Scored prioritization
+evals require API credentials; the real subscription turn is separate evidence.
