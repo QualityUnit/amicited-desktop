@@ -929,6 +929,35 @@ it.effect("SQL shells flag only an active turn blocked solely on T3 thread waits
         { text: "could_not_check" },
         false,
       ],
+      ...[
+        { status: "success", output: { status: "checked" } },
+        { status: "error", error: { code: "timeout" } },
+        { status: "could_not_check" },
+        { status: "success", output: { status: "could_not_check" } },
+        {
+          status: "success",
+          output: { status: "partial", answers: [{ status: "could_not_check" }] },
+        },
+      ].flatMap((result) => {
+        const failed =
+          result.status === "error" ||
+          result.status === "could_not_check" ||
+          result.output?.status === "could_not_check";
+        return [
+          ["completed", { structuredContent: result }, {}, failed],
+          [
+            "completed",
+            {
+              content: [
+                { type: "text", text: "not JSON" },
+                { type: "text", text: JSON.stringify(result) },
+              ],
+            },
+            {},
+            failed,
+          ],
+        ] as const;
+      }),
     ] as const) {
       yield* updateItem({
         ...wait,

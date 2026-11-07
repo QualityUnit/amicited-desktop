@@ -1528,6 +1528,32 @@ const linkCardStillAsks = (
   latestUserAuthoredMessageAt === null ||
   !DateTime.isGreaterThan(latestUserAuthoredMessageAt, item.startedAt ?? item.updatedAt);
 
+function marketingResultFailed(value: unknown, depth = 0): boolean {
+  if (depth > 6) return false;
+  if (typeof value === "string") {
+    try {
+      return marketingResultFailed(JSON.parse(value), depth + 1);
+    } catch {
+      return false;
+    }
+  }
+  if (Array.isArray(value)) return value.some((v) => marketingResultFailed(v, depth + 1));
+  if (value === null || typeof value !== "object") return false;
+  const status = Reflect.get(value, "status");
+  const output = Reflect.get(value, "output");
+  if (
+    status === "error" ||
+    status === "could_not_check" ||
+    (output !== null &&
+      typeof output === "object" &&
+      ["error", "could_not_check"].includes(Reflect.get(output, "status")))
+  )
+    return true;
+  return ["structuredContent", "content", "result", "text"].some((key) =>
+    marketingResultFailed(Reflect.get(value, key), depth + 1),
+  );
+}
+
 export function threadShellFromProjection(
   projection: OrchestrationV2ThreadProjection,
 ): OrchestrationV2ThreadShell {
@@ -1653,15 +1679,7 @@ export function threadShellFromProjection(
         item.runId === latestRun?.id &&
         item.type === "dynamic_tool" &&
         item.toolName?.endsWith("marketing_tools_run") &&
-        (item.status === "failed" ||
-          (typeof item.output === "object" &&
-            item.output !== null &&
-            (Reflect.get(item.output, "status") === "error" ||
-              (typeof Reflect.get(item.output, "output") === "object" &&
-                Reflect.get(item.output, "output") !== null &&
-                ["error", "could_not_check"].includes(
-                  Reflect.get(Reflect.get(item.output, "output"), "status"),
-                ))))),
+        (item.status === "failed" || marketingResultFailed(item.output)),
     ),
     activityRunStatus: activityRun?.status ?? null,
     activityRunStartedAt:
@@ -6237,7 +6255,22 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 WHERE marketing_item.thread_id = t.thread_id AND marketing_item.run_id = presented.run_id
                   AND marketing_item.type = 'dynamic_tool'
                   AND json_extract(marketing_item.payload_json, '$.toolName') LIKE '%marketing_tools_run'
-                  AND (marketing_item.status = 'failed' OR json_extract(marketing_item.payload_json, '$.output.status') = 'error' OR json_extract(marketing_item.payload_json, '$.output.output.status') IN ('error', 'could_not_check'))
+                  AND (marketing_item.status = 'failed' OR EXISTS (
+                    WITH RECURSIVE envelopes(value, depth) AS (
+                      SELECT json_extract(marketing_item.payload_json, '$.output'), 0
+                      UNION ALL
+                      SELECT child.value, envelopes.depth + 1
+                      FROM envelopes, json_each(CASE WHEN json_valid(envelopes.value) THEN envelopes.value ELSE '{}' END) child
+                      WHERE envelopes.depth < 6
+                        AND (json_type(CASE WHEN json_valid(envelopes.value) THEN envelopes.value ELSE '{}' END) = 'array' OR child.key IN ('structuredContent', 'content', 'result', 'text'))
+                        AND json_valid(child.value)
+                    )
+                    SELECT 1 FROM envelopes
+                    WHERE json_valid(value) AND (
+                      json_extract(value, '$.status') IN ('error', 'could_not_check')
+                      OR json_extract(value, '$.output.status') IN ('error', 'could_not_check')
+                    )
+                  ))
               ) AS marketing_check_failed,
               blocked.run_id AS blocking_run_id,
               blocked.requested_at AS blocking_run_requested_at,

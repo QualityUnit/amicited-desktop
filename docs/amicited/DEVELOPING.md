@@ -117,3 +117,11 @@ sign-in scenario, inside the transcript. It is not an authenticated sign-in
 exercise. Production cloud MCP remains unverified because no account is available.
 The session's earlier Replay result claims the one-off upsell, so suppressing
 another offer after the real audit in that session is expected.
+
+Wave 24 validation uses the focused ProjectionStore envelope parity table,
+marketing context/recovery and Replay tests, touched-package/server/web
+checks, and unscoped `vp run check:changed`. Developer turns omit the marketing
+catalogue; marketer messages carry it through the existing context seam.
+The r22 journey covers partial audit coverage and sign-in status. Production
+cloud authentication and paid MCP execution still require account-backed
+verification; model prioritization remains a limitation pending scored evals.

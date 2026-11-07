@@ -278,24 +278,26 @@ function ExpandedWorkGroupEntries({
 
 const workEntryKey = (entry: TimelineWorkEntry) => entry.id;
 
+function MarketerThinkingRow() {
+  const { threadRef, pendingApprovals } = use(TimelineRowCtx);
+  const items = useThreadVisibleTurnItems(threadRef);
+  const thread = useThreadShell(threadRef);
+  const hasContent = items.some(
+    ({ item }) =>
+      item.runId === thread?.latestRun?.runId &&
+      ((item.type === "assistant_message" && item.text.trim()) ||
+        (item.type === "dynamic_tool" && item.toolName?.endsWith("marketing_tools_run"))),
+  );
+  return pendingApprovals.size || hasContent ? null : (
+    <p className="px-1 py-2 text-sm text-muted-foreground">Thinking…</p>
+  );
+}
+
 export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "working" }> }) {
   const { isCompacting, isPreparingWorktree, backgroundWorktreeSetup } =
     use(TimelineRowActivityCtx);
   const marketer = useWorkspaceMode() === "marketer";
-  const { threadRef, pendingApprovals } = use(TimelineRowCtx);
-  const items = useThreadVisibleTurnItems(threadRef);
-  const thread = useThreadShell(threadRef);
-  if (marketer) {
-    const hasContent = items.some(
-      ({ item }) =>
-        item.runId === thread?.latestRun?.runId &&
-        ((item.type === "assistant_message" && item.text.trim()) ||
-          (item.type === "dynamic_tool" && item.toolName?.endsWith("marketing_tools_run"))),
-    );
-    return pendingApprovals.size || hasContent ? null : (
-      <p className="px-1 py-2 text-sm text-muted-foreground">Thinking…</p>
-    );
-  }
+  if (marketer) return <MarketerThinkingRow />;
   const compacting = row.compacting === true || isCompacting;
   const shimmer = isPreparingWorktree || compacting;
   const label = isPreparingWorktree ? (

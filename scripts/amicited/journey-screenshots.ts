@@ -151,6 +151,18 @@ try {
         (dark) => document.documentElement.classList.contains("dark") === dark,
         theme === "dark",
       );
+      if (name === "09-failed-tool")
+        await page
+          .getByText("Could not check: the website did not respond. Try again later.", {
+            exact: true,
+          })
+          .waitFor();
+      if (name === "12-sign-in-recovery" || name === "12b-sidebar-statuses") {
+        await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
+        await page.locator('.am-history-status[data-status="Sign in needed"]').first().waitFor();
+      }
+      if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
+        await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
     }
@@ -241,6 +253,8 @@ try {
     await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
     await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
     await capture("03-tool-card-turn");
+    await page.getByText("Partial", { exact: true }).waitFor();
+    await capture("03c-partial-coverage");
     const marketingChatUrl = page.url();
     await page.getByRole("button", { name: "Open full result" }).click();
     await page.getByRole("region", { name: "Tool result" }).waitFor();
@@ -543,6 +557,16 @@ try {
           .getByRole("article", { name: "Marketing tool result" })
           .filter({ hasText: "Website health audit" })
           .evaluate((element) => element.scrollIntoView({ block: "center" }));
+        await page
+          .getByRole("button", { name: /Chat actions for/ })
+          .filter({ visible: true })
+          .first()
+          .click();
+        await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+        await page
+          .getByRole("textbox", { name: "Chat name" })
+          .fill("Website audit — technical snapshot for example.com");
+        await page.getByRole("button", { name: "Save", exact: true }).click();
         await capture("11-real-haiku-turn");
       }
     }
@@ -618,7 +642,7 @@ try {
   await capture("12-sign-in-recovery");
   for (const [index, title] of [
     "Website audit — review crawler access and discovery recommendations",
-    "Campaign content — check readability before publishing",
+    "Website audit — technical snapshot for example.com",
     "AI search visibility — review the latest website findings",
   ].entries()) {
     await page

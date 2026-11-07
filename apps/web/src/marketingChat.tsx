@@ -91,7 +91,14 @@ export function MarketingComposerContext({
             {brand?.website.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? "Add your website"}
           </PopoverTrigger>
           {editingWebsite && (
-            <PopoverPopup side="top" align="start" width="md" aria-label="Website">
+            <PopoverPopup
+              side="bottom"
+              align="start"
+              width="md"
+              aria-label="Website"
+              data-amicited-tokens=""
+              data-amicited-popup=""
+            >
               <div data-amicited-tokens="" className="am-website-editor">
                 <label>
                   Website
@@ -102,27 +109,33 @@ export function MarketingComposerContext({
                     required
                   />
                 </label>
-                <MarketingButton
-                  variant="default"
-                  type="button"
-                  onClick={() => {
-                    try {
-                      const next = normalizeWebsite(websiteDraft);
-                      const updated = { ...next, name: brand?.name ?? next.name };
-                      saveBrand(updated);
-                      setBrand(updated);
-                      setEditingWebsite(false);
-                      setWebsiteError("");
-                    } catch {
-                      setWebsiteError("Enter a website like example.com.");
-                    }
-                  }}
-                >
-                  Save website
-                </MarketingButton>
-                <MarketingButton type="button" onClick={() => setEditingWebsite(false)}>
-                  Cancel
-                </MarketingButton>
+                <div className="am-website-actions">
+                  <MarketingButton
+                    variant="default"
+                    type="button"
+                    onClick={() => {
+                      try {
+                        const next = normalizeWebsite(websiteDraft);
+                        const updated = { ...next, name: brand?.name ?? next.name };
+                        saveBrand(updated);
+                        setBrand(updated);
+                        setEditingWebsite(false);
+                        setWebsiteError("");
+                      } catch {
+                        setWebsiteError("Enter a website like example.com.");
+                      }
+                    }}
+                  >
+                    Save website
+                  </MarketingButton>
+                  <MarketingButton
+                    variant="link"
+                    type="button"
+                    onClick={() => setEditingWebsite(false)}
+                  >
+                    Cancel
+                  </MarketingButton>
+                </div>
                 <p role="alert">{websiteError}</p>
               </div>
             </PopoverPopup>

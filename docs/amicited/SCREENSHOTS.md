@@ -65,3 +65,10 @@ delete copy, and populated/empty archives. The recovery browser test drives the
 real component through failed authentication, readiness and retry; interactive
 subscription sign-in itself is represented by its boundary. Scored prioritization
 evals require API credentials; the real subscription turn is separate evidence.
+
+Wave 24 uses `.amicited-shots/r22/`, including the controlled Partial coverage
+card (`03c-partial-coverage`) and the persisted Sign in needed sidebar row.
+Every failed-tool theme/viewport capture awaits the actual failure transcript;
+real-turn captures await the marketing result card. The real Haiku turn uses
+the normal user HOME with isolated T3 state. Browser and Electron captures reuse
+that stopped state; `capture-head.txt` identifies the commit rendered.

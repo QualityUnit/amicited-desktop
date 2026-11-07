@@ -1,12 +1,28 @@
-import { marketingToolResult } from "@amicited/ui-marketing";
+import { marketingSignInError, marketingToolResult } from "@amicited/ui-marketing";
 import { ComposerContextId, type OrchestrationMessageContext } from "@t3tools/contracts";
 
 export function withMarketingWebsite(
   context: OrchestrationMessageContext | undefined,
   website: string | undefined,
   _firstMessage: boolean,
+  marketer = false,
 ): OrchestrationMessageContext | undefined {
-  if (!website) return context;
+  if (!website)
+    return marketer
+      ? {
+          version: 1,
+          records: [
+            ...(context?.records ?? []),
+            {
+              version: 1,
+              kind: "marketing-workspace",
+              contextId: ComposerContextId.make("marketing-workspace"),
+              label: "Marketing workspace",
+              payload: {},
+            },
+          ],
+        }
+      : context;
   return {
     version: 1,
     records: [
@@ -115,12 +131,18 @@ export function marketingApprovalTool(
 export function marketingHistoryStatus(thread: {
   hasPendingApprovals: boolean;
   latestRun?: { status: string } | null;
-  source: { activityRunStatus?: unknown; latestMarketingCheckFailed?: boolean | undefined };
+  source: {
+    activityRunStatus?: unknown;
+    latestMarketingCheckFailed?: boolean | undefined;
+    lastError?: string | null | undefined;
+  };
 }) {
   return thread.hasPendingApprovals
     ? "Needs your OK"
     : thread.latestRun?.status === "failed"
-      ? "Couldn't check"
+      ? marketingSignInError(thread.source.lastError ?? "")
+        ? "Sign in needed"
+        : "Couldn't check"
       : thread.source.activityRunStatus
         ? "Working"
         : thread.source.latestMarketingCheckFailed

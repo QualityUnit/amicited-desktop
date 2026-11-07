@@ -368,3 +368,14 @@ catalog/instruction growth; its normal CI budget label still applies.
 - `apps/server/scripts/dev-replay/marketing_transcript.ndjson`: gives the controlled marketing scenario an initial thinking interval for capture.
 
 - `apps/web/src/components/ChatMarkdown.permissions.browser.test.tsx`: explicitly selects developer mode for workspace file-action permission cases.
+
+Wave 24 keeps marketing instructions out of developer turns: the existing
+`apps/web/src/components/chat/useComposerSend.ts` context seam marks marketer
+messages, including those without a website. `@amicited/tools-core` supplies
+marketing guidance only for that context; the generic
+`packages/provider-core/src/server/orchestrationInstructions.ts` no longer
+contains it. `apps/server/src/provider/agentContextBudget.json` reflects the
+smaller developer context. `ProjectionStore.ts` normalizes native MCP result
+envelopes in SQL and memory; its existing parity table covers structured and
+text-wrapped failures and partial results. The controlled marketing Replay
+fixture now supplies partial coverage for UI evidence.

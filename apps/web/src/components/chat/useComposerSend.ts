@@ -930,6 +930,7 @@ export function useComposerSend(input: ComposerSendInput) {
           }),
           readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
           isLocalDraftThread,
+          readWorkspaceMode() === "marketer",
         ),
         report,
       );

@@ -59,7 +59,9 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
       <article aria-label="Marketing tool result" className="am-tool-card">
         <header>
           <strong>{resultTitle(result)}</strong>
-          <small className="am-status-pill">{useful ? "Complete" : "Couldn't check"}</small>
+          <small className="am-status-pill">
+            {useful ? (output.status === "partial" ? "Partial" : "Complete") : "Couldn't check"}
+          </small>
         </header>
         {useful && (
           <strong className="am-chat-figure">
@@ -69,6 +71,11 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
                 ? `Mentioned in ${summary.mentioned} of ${summary.answered}`
                 : marketingPreview(result)}
           </strong>
+        )}
+        {useful && result.tool === "seo.site.audit" && (
+          <p className="am-hint">
+            {String(output.coverage ?? "")} · Technical snapshot; doesn't measure AI citations
+          </p>
         )}
         {!useful && (
           <p>

@@ -51,7 +51,7 @@ export function AmicitedUpsellCard({
   if (!visible || connected || !comparison) return null;
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
-      <p>{comparison.missing} · 7-day trial, then EUR 120/month Pro.</p>
+      <p>{comparison.missing.replace(/\.$/, "")} · 7-day trial, then EUR 120/month Pro.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial

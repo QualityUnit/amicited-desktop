@@ -161,7 +161,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
         {archived ? (
           <div className="am-secondary-page">
             <h1>Archived chats</h1>
-            <p>Restore a chat from the sidebar to continue it.</p>
+            <p>Archived chats stay here until you restore or delete them.</p>
           </div>
         ) : path === "/marketing-settings" ? (
           <CloudPage />
@@ -593,7 +593,6 @@ function MarketingHistory({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      {archived && <h2>Archived chats</h2>}
       {!threads.length && (
         <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
       )}
@@ -716,7 +715,7 @@ function MarketingHistory({
                         >
                           <MoreHorizontal size={16} />
                         </MenuTrigger>
-                        <MenuPopup>
+                        <MenuPopup data-amicited-tokens="" data-amicited-popup="">
                           <MenuItem
                             onClick={() => {
                               setTitle(thread.title);

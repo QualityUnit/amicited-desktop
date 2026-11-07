@@ -12,6 +12,11 @@ it("supplies the current website as context while preserving the user's stored t
   expect(withMarketingWebsite(undefined, undefined, true)).toBeUndefined();
   expect(marketingWebsiteInstructions(context?.records ?? [])).toContain("https://example.com");
   expect(marketingWebsiteInstructions([])).toBe("");
+  expect(
+    marketingWebsiteInstructions(
+      withMarketingWebsite(undefined, undefined, false, true)?.records ?? [],
+    ),
+  ).toContain("For marketing tasks");
   expect(text).toBe("Audit my website");
 });
 
@@ -144,6 +149,13 @@ it("reads history status from shells without conversation items", async () => {
       source: {},
     }),
   ).toBe("Couldn't check");
+  expect(
+    marketingHistoryStatus({
+      hasPendingApprovals: false,
+      latestRun: { status: "failed" },
+      source: { lastError: "Claude could not authenticate. Run claude auth login" },
+    }),
+  ).toBe("Sign in needed");
   expect(marketingHistoryStatus({ hasPendingApprovals: false, source: {} })).toBe("Done");
   expect(
     marketingHistoryStatus({

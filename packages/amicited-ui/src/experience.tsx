@@ -244,6 +244,12 @@ export function MarketingResult({
         {useful && typeof output.score === "number" && (
           <strong className="am-chat-figure">{output.score}/100</strong>
         )}
+        {useful && result.tool === "seo.site.audit" && (
+          <p className="am-hint">
+            {output.status === "partial" ? "Partial" : "Complete"} · {String(output.coverage ?? "")}{" "}
+            · Technical snapshot; doesn't measure AI citations
+          </p>
+        )}
         {findings.length ? (
           <div className="am-result-findings">
             {findings.map((f) => (
@@ -265,6 +271,22 @@ export function MarketingResult({
               </article>
             ))}
           </div>
+        ) : result.tool === "content.readability" ? (
+          <>
+            <strong className="am-chat-figure">
+              Reading ease: {String(output.readingEase ?? "Unavailable")}
+            </strong>
+            <p>
+              {typeof output.grade === "number"
+                ? `Grade ${output.grade}: approximately US school year ${Math.max(1, Math.round(output.grade))} reading level. Lower grades are easier to read.`
+                : "Not enough text to assess reading level."}
+            </p>
+            <ResultValue
+              value={Object.fromEntries(
+                Object.entries(output).filter(([key]) => key !== "readingEase" && key !== "grade"),
+              )}
+            />
+          </>
         ) : (
           <ResultValue value={result.output} />
         )}
