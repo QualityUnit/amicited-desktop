@@ -378,7 +378,9 @@ try {
   await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
   await page.getByText("I added", { exact: false }).first().waitFor();
   const completedWork = page.getByRole("button", { name: /^Worked for/ });
-  if (await completedWork.count()) await completedWork.first().click();
+  await completedWork.first().waitFor();
+  await completedWork.first().click();
+  await completedWork.first().and(page.locator('[aria-expanded="true"]')).waitFor();
   await page.locator('[class~="group/timeline-row"]').first().waitFor();
   await capture("reference-t3-turn");
   NodeFS.writeFileSync(
