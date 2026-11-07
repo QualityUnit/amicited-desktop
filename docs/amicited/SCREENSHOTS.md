@@ -50,3 +50,11 @@ to recapture that stopped turn without paying for another request. The recovery
 scenario runs through the provider protocol and persists a failed run; it no
 longer mounts a detached recovery component. The real result may contain several
 cards because the assistant chooses its checks.
+
+Wave 22 captures go in `.amicited-shots/r20/`. The journey additionally cancels
+a deletion, archives and restores a chat, and asserts route, theme and absence
+of the boot screen before captures. Fresh-chat evidence explicitly opens a new
+chat. The fetched example.com HTML is retained in `example-com-fetch.json`:
+this response contains no H1, so an empty H1 finding is expected for that fetch.
+Account-backed production cloud authentication and an agent-issued paid MCP call
+remain unverified until an account is available.

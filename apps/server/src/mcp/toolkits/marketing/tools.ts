@@ -24,7 +24,7 @@ export const MarketingToolkit = Toolkit.make(
   Tool.make("marketing_tools_run", {
     ...shared,
     description:
-      "Run a discovered marketing tool by exact name with its input object. Same service as the marketing UI. Provider-backed tools use the user's AI subscription and can return needs_provider. Unknown or failed checks are never evidence of a pass or absence.",
+      "Call directly by exact name. Catalog: seo.site.audit {url} (includes crawler/robots, sitemap, llms.txt guide, meta, schema and SSL checks; do not repeat its sections for the same URL); content.readability {text or url}; content.citability {text or url}; serp.autocomplete {query}; serp.fetch {query}. Use marketing_tools_search only for other tools or unknown schemas. Same service as the marketing UI. Provider-backed tools use the user's AI subscription and can return needs_provider. Unknown or failed checks are never evidence of a pass or absence.",
     parameters: Schema.Struct({
       name: Schema.String,
       input: Schema.Record(Schema.String, Schema.Unknown),

@@ -42,7 +42,8 @@ const state = vi.hoisted(() => ({
   sessionLookupFails: false,
 }));
 
-vi.mock("react", () => ({
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
   useCallback: (callback: unknown) => callback,
   useMemo: (factory: () => unknown) => factory(),
   useRef: (current: unknown) => ({ current }),
@@ -281,6 +282,24 @@ describe("thread action permissions", () => {
       ]);
     },
   );
+
+  it("keeps a cancelled deletion and restores an archived chat through its command", async () => {
+    state.scopes.get(secondary)!.add(AuthOrchestrationOperateScope);
+    state.confirm.mockResolvedValueOnce(false);
+    const actions = useThreadActions();
+    await actions.confirmAndDeleteThread(target);
+    expect(state.confirm).toHaveBeenCalledOnce();
+    expect(state.requests).toEqual([]);
+    await actions.unarchiveThread(target);
+    expect(state.requests).toEqual([
+      expect.objectContaining({
+        action: "unarchive",
+        environmentId: secondary,
+        input: { threadId: target.threadId },
+      }),
+    ]);
+    expect(state.localEffects).toContain("refresh-archive");
+  });
 
   it.each(["confirmAndDeleteThread", "confirmAndUnpinThread"] as const)(
     "%s blocks a forbidden confirmation",

@@ -1,3 +1,7 @@
+import { MoreHorizontal } from "lucide-react";
+import { useArchivedThreadSnapshots } from "./lib/archivedThreadsState";
+import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { toastManager } from "./components/ui/toast";
 import { useThreadActions } from "./hooks/useThreadActions";
 import { useOrchestrationCommand } from "./state/use-orchestration-command";
 import { threadEnvironment } from "./state/threads";
@@ -106,9 +110,7 @@ function KitTooltip({ children, label }: { children: ReactNode; label: string })
 function KitMenu({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <Menu>
-      <MenuTrigger render={<Button size="amicited" variant="amicited-secondary" />}>
-        {label}
-      </MenuTrigger>
+      <MenuTrigger render={<Button size="icon-xs" variant="ghost" />}>{label}</MenuTrigger>
       <MenuPopup align="end">
         {Children.map(children, (child) =>
           isValidElement(child) ? <MenuItem render={child} /> : child,
@@ -536,11 +538,23 @@ export function MarketingNewTask() {
 }
 
 function MarketingHistory() {
-  const threads = useThreadShells().filter((thread) => !thread.archivedAt);
+  const activeThreads = useThreadShells();
+  const [archived, setArchived] = useState(false);
+  const environmentId = usePrimaryEnvironmentId();
+  const { snapshots } = useArchivedThreadSnapshots(environmentId ? [environmentId] : []);
+  const threads = archived
+    ? snapshots.flatMap(({ environmentId, snapshot }) =>
+        snapshot.threads.map((thread) => presentThreadShell(environmentId, thread)),
+      )
+    : activeThreads.filter((thread) => !thread.archivedAt);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const path = useLocation({ select: (location) => location.pathname });
-  const { archiveThread, deleteThread } = useThreadActions();
+  const { archiveThread, unarchiveThread, confirmAndDeleteThread } = useThreadActions();
+  const act = async (operation: Promise<{ _tag: string }>) => {
+    if ((await operation)._tag === "Failure")
+      toastManager.add({ type: "error", title: "Could not update chat. Please try again." });
+  };
   const update = useOrchestrationCommand(threadEnvironment.updateMetadata);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [title, setTitle] = useState("");
@@ -548,6 +562,9 @@ function MarketingHistory() {
   const [today] = useState(() => new Date().toDateString());
   return (
     <div className="am-flat-history">
+      <MarketingButton type="button" onClick={() => setArchived(!archived)}>
+        {archived ? "Back to chats" : "Archived"}
+      </MarketingButton>
       <Input
         aria-label="Search chats"
         placeholder="Search chats"
@@ -569,7 +586,13 @@ function MarketingHistory() {
               const ref = scopeThreadRef(thread.environmentId, thread.id);
               const key = thread.environmentId + thread.id;
               return (
-                <div className="am-history-row" key={key}>
+                <div
+                  className="am-history-row"
+                  data-selected={
+                    decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
+                  }
+                  key={key}
+                >
                   {renaming === key ? (
                     <form
                       onSubmit={(event) => {
@@ -596,49 +619,65 @@ function MarketingHistory() {
                     </form>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        data-chat-history-link=""
-                        aria-current={
-                          decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
-                            ? "page"
-                            : undefined
-                        }
-                        onKeyDown={(event) => {
-                          if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
-                          const buttons = Array.from(
-                            event.currentTarget
-                              .closest(".am-flat-history")
-                              ?.querySelectorAll<HTMLButtonElement>("[data-chat-history-link]") ??
-                              [],
-                          );
-                          const index = buttons.indexOf(event.currentTarget);
-                          const next =
-                            event.key === "Home"
-                              ? 0
-                              : event.key === "End"
-                                ? buttons.length - 1
-                                : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) %
-                                  buttons.length;
-                          event.preventDefault();
-                          buttons[next]?.focus();
-                        }}
-                        onClick={() =>
-                          void navigate({
-                            to: "/$environmentId/$threadId",
-                            params: { environmentId: thread.environmentId, threadId: thread.id },
-                          })
-                        }
-                      >
-                        <span>{thread.title === "New thread" ? "New chat" : thread.title}</span>
-                        <MarketingHistoryStatus thread={thread} />
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <button
+                              type="button"
+                              data-chat-history-link=""
+                              aria-current={
+                                decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
+                                  ? "page"
+                                  : undefined
+                              }
+                              onKeyDown={(event) => {
+                                if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
+                                  return;
+                                const buttons = Array.from(
+                                  event.currentTarget
+                                    .closest(".am-flat-history")
+                                    ?.querySelectorAll<HTMLButtonElement>(
+                                      "[data-chat-history-link]",
+                                    ) ?? [],
+                                );
+                                const index = buttons.indexOf(event.currentTarget);
+                                const next =
+                                  event.key === "Home"
+                                    ? 0
+                                    : event.key === "End"
+                                      ? buttons.length - 1
+                                      : (index +
+                                          (event.key === "ArrowDown" ? 1 : -1) +
+                                          buttons.length) %
+                                        buttons.length;
+                                event.preventDefault();
+                                buttons[next]?.focus();
+                              }}
+                              onClick={() =>
+                                void navigate({
+                                  to: "/$environmentId/$threadId",
+                                  params: {
+                                    environmentId: thread.environmentId,
+                                    threadId: thread.id,
+                                  },
+                                })
+                              }
+                            >
+                              <span>
+                                {thread.title === "New thread" ? "New chat" : thread.title}
+                              </span>
+                              <MarketingHistoryStatus thread={thread} />
+                            </button>
+                          }
+                        />
+                        <TooltipPopup>{thread.title}</TooltipPopup>
+                      </Tooltip>
                       <Menu>
                         <MenuTrigger
                           aria-label={`Chat actions for ${thread.title}`}
-                          render={<Button size="amicited" variant="amicited-secondary" />}
+                          render={<Button size="icon-xs" variant="ghost" />}
                         >
-                          …
+                          <MoreHorizontal size={16} />
                         </MenuTrigger>
                         <MenuPopup>
                           <MenuItem
@@ -649,8 +688,21 @@ function MarketingHistory() {
                           >
                             Rename
                           </MenuItem>
-                          <MenuItem onClick={() => void archiveThread(ref)}>Archive</MenuItem>
-                          <MenuItem onClick={() => void deleteThread(ref)}>Delete</MenuItem>
+                          <MenuItem
+                            onClick={() =>
+                              void act(archived ? unarchiveThread(ref) : archiveThread(ref))
+                            }
+                          >
+                            {archived ? "Restore" : "Archive"}
+                          </MenuItem>
+                          <MenuItem
+                            variant="destructive"
+                            onClick={() =>
+                              void act(confirmAndDeleteThread(ref, { forceConfirm: true }))
+                            }
+                          >
+                            Delete
+                          </MenuItem>
                         </MenuPopup>
                       </Menu>
                     </>
@@ -670,5 +722,6 @@ function MarketingHistoryStatus({
 }: {
   thread: ReturnType<typeof useThreadShells>[number];
 }) {
-  return <small className="am-status-pill">{marketingHistoryStatus(thread)}</small>;
+  const status = marketingHistoryStatus(thread);
+  return status === "Done" ? null : <small className="am-status-pill">{status}</small>;
 }

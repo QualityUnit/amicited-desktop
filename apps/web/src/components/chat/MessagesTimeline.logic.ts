@@ -1930,7 +1930,7 @@ export function deriveMessagesTimelineRows(input: {
             ...(visibleGroupedEntries.some(
               (entry) =>
                 entry.structuredPayload?.type === "dynamic_tool" &&
-                entry.structuredPayload.toolName?.toLowerCase().includes("marketing_tools_run"),
+                entry.structuredPayload.toolName?.toLowerCase().includes("marketing_tools_"),
             )
               ? {
                   marketingEntries: visibleGroupedEntries.filter(

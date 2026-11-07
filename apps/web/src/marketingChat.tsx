@@ -1,6 +1,10 @@
-import { flushSync } from "react-dom";
-import { useComposerDraftStore } from "./composerDraftStore";
+import { whatYouAreMissing } from "@amicited/cloud-client/upsell";
+import { createMarketingResend } from "./marketingRecovery";
+import { useOrchestrationCommand } from "./state/use-orchestration-command";
+import { threadEnvironment } from "./state/threads";
+import { toastManager } from "./components/ui/toast";
 import {
+  marketingSubcheckCovered,
   marketingApprovalTool,
   marketingApprovalInput,
   shouldResumeMarketingDraft,
@@ -79,44 +83,46 @@ export function MarketingComposerContext({
   return (
     <div>
       <div className="am-composer-context">
-        <MarketingButton type="button" onClick={() => setEditingWebsite(!editingWebsite)}>
-          {brand?.website.replace(/^https?:\/\//, "") ?? "Add your website"}
-        </MarketingButton>
-        {editingWebsite && (
-          <div className="am-website-popover" role="dialog" aria-label="Website">
-            <label>
-              Website
-              <MarketingInput
-                value={websiteDraft}
-                onChange={(e) => setWebsiteDraft(e.target.value)}
-                autoFocus
-                required
-              />
-            </label>
-            <MarketingButton
-              variant="default"
-              type="button"
-              onClick={() => {
-                try {
-                  const next = normalizeWebsite(websiteDraft);
-                  const updated = { ...next, name: brand?.name ?? next.name };
-                  saveBrand(updated);
-                  setBrand(updated);
-                  setEditingWebsite(false);
-                  setWebsiteError("");
-                } catch {
-                  setWebsiteError("Enter a website like example.com.");
-                }
-              }}
-            >
-              Save website
-            </MarketingButton>
-            <MarketingButton type="button" onClick={() => setEditingWebsite(false)}>
-              Cancel
-            </MarketingButton>
-            <p role="alert">{websiteError}</p>
-          </div>
-        )}
+        <div className="am-website-anchor">
+          <MarketingButton type="button" onClick={() => setEditingWebsite(!editingWebsite)}>
+            {brand?.website.replace(/^https?:\/\//, "") ?? "Add your website"}
+          </MarketingButton>
+          {editingWebsite && (
+            <div className="am-website-popover" role="dialog" aria-label="Website">
+              <label>
+                Website
+                <MarketingInput
+                  value={websiteDraft}
+                  onChange={(e) => setWebsiteDraft(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </label>
+              <MarketingButton
+                variant="default"
+                type="button"
+                onClick={() => {
+                  try {
+                    const next = normalizeWebsite(websiteDraft);
+                    const updated = { ...next, name: brand?.name ?? next.name };
+                    saveBrand(updated);
+                    setBrand(updated);
+                    setEditingWebsite(false);
+                    setWebsiteError("");
+                  } catch {
+                    setWebsiteError("Enter a website like example.com.");
+                  }
+                }}
+              >
+                Save website
+              </MarketingButton>
+              <MarketingButton type="button" onClick={() => setEditingWebsite(false)}>
+                Cancel
+              </MarketingButton>
+              <p role="alert">{websiteError}</p>
+            </div>
+          )}
+        </div>
         {ready ? (
           <MarketingButton
             type="button"
@@ -214,6 +220,7 @@ export function MarketingTranscriptCard({
     )
   )
     return null;
+  if (marketingSubcheckCovered(projectedItem, visible)) return null;
   if (!result)
     return (
       <MarketingCallState
@@ -243,12 +250,25 @@ export function MarketingTurnOffer({
   runId: RunId | null;
 }) {
   const items = useThreadVisibleTurnItems(threadRef);
-  const projected = items.findLast(
-    (p) =>
-      p.item.runId === runId &&
-      p.item.type === "dynamic_tool" &&
-      p.item.toolName?.includes("marketing_tools_run"),
-  );
+  const candidates = items
+    .filter(
+      (p) =>
+        p.item.runId === runId &&
+        p.item.type === "dynamic_tool" &&
+        p.item.toolName?.endsWith("marketing_tools_run") &&
+        p.item.status === "completed",
+    )
+    .toReversed();
+  return <MarketingOfferCandidate candidates={candidates} threadRef={threadRef} />;
+}
+function MarketingOfferCandidate({
+  candidates,
+  threadRef,
+}: {
+  candidates: readonly OrchestrationV2ProjectedTurnItem[];
+  threadRef: ScopedThreadRef | null;
+}) {
+  const projected = candidates[0];
   const detail = useTurnItemDetail(
     projected && threadRef && turnItemNeedsDetailFetch(projected.item)
       ? {
@@ -261,7 +281,11 @@ export function MarketingTurnOffer({
   );
   const item = detail.data?.item ?? projected?.item;
   const result = item?.type === "dynamic_tool" ? marketingToolResult(item.output) : null;
-  return result ? <CloudFooter result={result} /> : null;
+  if (result && whatYouAreMissing(result)) return <CloudFooter result={result} />;
+  if (detail.isPending) return null;
+  return candidates.length > 1 ? (
+    <MarketingOfferCandidate candidates={candidates.slice(1)} threadRef={threadRef} />
+  ) : null;
 }
 
 export function MarketingSignInRecovery({
@@ -274,6 +298,9 @@ export function MarketingSignInRecovery({
   threadRef?: ScopedThreadRef | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendOnce] = useState(createMarketingResend);
+  const resend = useOrchestrationCommand(threadEnvironment.startTurn);
   const items = useThreadVisibleTurnItems(threadRef ?? null);
   const thread = useThreadShell(threadRef ?? null);
   const providers = useEnvironmentProviders();
@@ -297,8 +324,8 @@ export function MarketingSignInRecovery({
   if (errorItemId && latestError && latestError.item.id !== errorItemId) return null;
   if (
     latestError &&
-    thread?.latestRun?.status === "completed" &&
-    latestError.item.runId !== thread.latestRun.runId
+    thread?.latestRun?.status !== "failed" &&
+    latestError.item.runId !== thread?.latestRun?.runId
   )
     return null;
   return (
@@ -311,12 +338,33 @@ export function MarketingSignInRecovery({
       </p>
       <MarketingButton
         variant="default"
+        disabled={resending}
         onClick={() => {
           if (ready) {
             const last = items.findLast((p) => p.item.type === "user_message")?.item;
             if (threadRef && last?.type === "user_message") {
-              flushSync(() => useComposerDraftStore.getState().setPrompt(threadRef, last.text));
-              document.querySelector<HTMLFormElement>("[data-chat-composer-form]")?.requestSubmit();
+              if (resending || !thread) return;
+              setResending(true);
+              void resendOnce(Boolean(ready), resend, {
+                environmentId: threadRef.environmentId,
+                input: {
+                  threadId: threadRef.threadId,
+                  message: {
+                    messageId: last.messageId,
+                    role: "user",
+                    text: last.text,
+                    attachments: last.attachments,
+                    ...(last.context ? { context: last.context } : {}),
+                  },
+                  runtimeMode: thread.runtimeMode,
+                  interactionMode: thread.interactionMode,
+                },
+              }).then((result) => {
+                if (result?._tag === "Failure") {
+                  setResending(false);
+                  toastManager.add({ type: "error", title: "Could not try again. Please retry." });
+                }
+              });
             }
           } else setOpen(true);
         }}

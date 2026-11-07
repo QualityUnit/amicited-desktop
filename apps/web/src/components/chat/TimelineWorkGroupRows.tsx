@@ -281,8 +281,7 @@ export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
   const { isCompacting, isPreparingWorktree, backgroundWorktreeSetup } =
     use(TimelineRowActivityCtx);
   const marketer = useWorkspaceMode() === "marketer";
-  const { pendingApprovals } = use(TimelineRowCtx);
-  if (marketer && pendingApprovals.size > 0) return null;
+  if (marketer) return null;
   const compacting = row.compacting === true || isCompacting;
   const shimmer = isPreparingWorktree || compacting;
   const label = isPreparingWorktree ? (
@@ -621,8 +620,7 @@ export function WorkGroupToggleTimelineRow({
     <>
       <WorkGroupHeader
         label={
-          workspaceMode === "marketer" &&
-          (row.marketingEntries?.length || row.summary.includes("T3 Code integration"))
+          workspaceMode === "marketer" && row.marketingEntries !== undefined
             ? "Used AmICited tools"
             : row.summary
         }

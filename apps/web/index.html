@@ -429,8 +429,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 96px;
-        height: 96px;
+        gap: 16px;
+        padding: 24px;
       }
 
       #boot-shell-logo {
@@ -677,7 +677,12 @@
         <div id="boot-shell-card" aria-label="AmICited Desktop splash screen">
           <svg id="boot-shell-logo" aria-label="AmICited" viewBox="0 0 32 32">
             <rect width="32" height="32" rx="9" fill="#3b5cff" />
-            <path d="M8 24 16 7l8 17h-5l-3-7-3 7Z" fill="#ffffff" />
+            <path
+              d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
+              stroke="white"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
           </svg>
           <p>AmICited Desktop</p>
         </div>

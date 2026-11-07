@@ -159,6 +159,7 @@ try {
     ),
   );
   async function capture(name) {
+    const intendedRoute = page.url();
     for (const theme of ["light", "dark"]) {
       await page.evaluate(
         (theme) => document.documentElement.classList.toggle("dark", theme === "dark"),
@@ -167,6 +168,12 @@ try {
       await page.addStyleTag({
         content: "* { transition: none !important; animation: none !important; }",
       });
+      await page.locator("#boot-shell").waitFor({ state: "detached" });
+      if (page.url() !== intendedRoute) throw new Error(`Route changed before ${name}`);
+      await page.waitForFunction(
+        (dark) => document.documentElement.classList.contains("dark") === dark,
+        theme === "dark",
+      );
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
     }

@@ -145,6 +145,12 @@ it("reads history status from shells without conversation items", async () => {
     }),
   ).toBe("Failed");
   expect(marketingHistoryStatus({ hasPendingApprovals: false, source: {} })).toBe("Done");
+  expect(
+    marketingHistoryStatus({
+      hasPendingApprovals: false,
+      source: { latestMarketingCheckFailed: true },
+    }),
+  ).toBe("Couldn't check");
 });
 
 it("produces JSON-safe report context when a finding has no suggested fix", async () => {
@@ -158,4 +164,59 @@ it("produces JSON-safe report context when a finding has no suggested fix", asyn
   expect(record && "payload" in record ? record.payload : null).toStrictEqual(
     JSON.parse(JSON.stringify(record && "payload" in record ? record.payload : null)),
   );
+});
+
+it("keeps bounded tool-specific evidence and targets in standalone report questions", async () => {
+  const { withMarketingReport } = await import("./marketingContext");
+  for (const [tool, output] of [
+    ["content.write", { draft: "A useful draft", message: "Review before publishing" }],
+    [
+      "content.readability",
+      { words: 100, grade: 7, longSentences: ["Shorten this sentence"], note: "Approximate" },
+    ],
+    ["serp.autocomplete", { suggestions: ["best shoes"], failedQueries: [] }],
+    [
+      "serp.fetch",
+      {
+        organic: [{ title: "Shoes", url: "https://example.com" }],
+        peopleAlsoAsk: ["Which shoes?"],
+      },
+    ],
+  ] as const) {
+    const context = withMarketingReport(undefined, {
+      id: tool,
+      tool,
+      input: { url: "https://example.com" },
+      output,
+    });
+    expect(context?.records[0]).toMatchObject({
+      payload: { report: { input: { url: "https://example.com" }, evidence: output } },
+    });
+  }
+});
+it("folds audit sections only for the same target and turn", async () => {
+  const { marketingSubcheckCovered } = await import("./marketingContext");
+  const project = (name: string, url: string, runId = "run") =>
+    ({
+      item: {
+        type: "dynamic_tool",
+        toolName: "marketing_tools_run",
+        input: { name, input: { url } },
+        status: "completed",
+        runId,
+      },
+    }) as unknown as import("@t3tools/contracts").OrchestrationV2ProjectedTurnItem;
+  const audit = project("seo.site.audit", "https://example.com");
+  expect(
+    marketingSubcheckCovered(project("seo.robots.check", "https://example.com"), [audit]),
+  ).toBe(true);
+  expect(
+    marketingSubcheckCovered(project("seo.robots.check", "https://other.example"), [audit]),
+  ).toBe(false);
+  expect(
+    marketingSubcheckCovered(project("seo.robots.check", "https://example.com", "other"), [audit]),
+  ).toBe(false);
+  expect(
+    marketingSubcheckCovered(project("content.readability", "https://example.com"), [audit]),
+  ).toBe(false);
 });

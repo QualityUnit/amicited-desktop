@@ -1025,6 +1025,7 @@ type ShellThreadRow = {
   readonly activity_run_started_at: string | null;
   readonly last_error: string | null;
   readonly terminal_failure_payload_json: string | null;
+  readonly marketing_check_failed: number;
   readonly blocking_run_id: string | null;
   readonly blocking_run_requested_at: string | null;
   readonly blocking_run_started_at: string | null;
@@ -1647,6 +1648,14 @@ export function threadShellFromProjection(
       ),
     activeRunId: activeRun?.id ?? null,
     blockedOnThreadWait: deriveBlockedOnThreadWait({ activeRun, turnItems: projection.turnItems }),
+    latestMarketingCheckFailed: projection.turnItems.some(
+      (item) =>
+        item.runId === latestRun?.id &&
+        item.type === "dynamic_tool" &&
+        item.toolName?.endsWith("marketing_tools_run") &&
+        (item.status === "failed" ||
+          (JSON.stringify(item.output) ?? "").includes('"could_not_check"')),
+    ),
     activityRunStatus: activityRun?.status ?? null,
     activityRunStartedAt:
       activityRun === null ? null : orchestrationV2RunWorkStartedAt(activityRun),
@@ -1764,6 +1773,7 @@ type ShellThreadState = {
   readonly latestRunStopRequested: boolean;
   readonly activeRunId: RunId | null;
   readonly blockedOnThreadWait: boolean;
+  readonly latestMarketingCheckFailed: boolean;
   readonly activityRunStatus: ShellActivityRunStatus | null;
   readonly activityRunStartedAt: DateTime.Utc | null;
   readonly lastError: string | null;
@@ -1924,6 +1934,7 @@ function shellFromState(input: {
     latestRunStopRequested: input.state.latestRunStopRequested,
     activeRunId: input.state.activeRunId,
     blockedOnThreadWait: input.state.blockedOnThreadWait,
+    latestMarketingCheckFailed: input.state.latestMarketingCheckFailed,
     activityRunStatus: input.state.activityRunStatus,
     activityRunStartedAt: input.state.activityRunStartedAt,
     status: input.state.latestRunStatus,
@@ -6214,6 +6225,13 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
                 ORDER BY item.updated_at DESC, item.ordinal DESC, item.turn_item_id DESC
                 LIMIT 1
               ) AS terminal_failure_payload_json,
+              EXISTS (
+                SELECT 1 FROM orchestration_v2_projection_turn_items marketing_item
+                WHERE marketing_item.thread_id = t.thread_id AND marketing_item.run_id = presented.run_id
+                  AND marketing_item.type = 'dynamic_tool'
+                  AND json_extract(marketing_item.payload_json, '$.toolName') LIKE '%marketing_tools_run'
+                  AND (marketing_item.status = 'failed' OR marketing_item.payload_json LIKE '%could_not_check%')
+              ) AS marketing_check_failed,
               blocked.run_id AS blocking_run_id,
               blocked.requested_at AS blocking_run_requested_at,
               json_extract(blocked.payload_json, '$.startedAt') AS blocking_run_started_at,
@@ -6859,6 +6877,7 @@ export const layer: Layer.Layer<ProjectionStoreV2, never, SqlClient.SqlClient> =
           latestRunStartedAt,
           latestRunCompletedAt,
           latestRunStopRequested,
+          latestMarketingCheckFailed: row.marketing_check_failed === 1,
           activeRunId: row.active_run_id === null ? null : RunId.make(row.active_run_id),
           blockedOnThreadWait: deriveBlockedOnThreadWait({
             activeRun:

@@ -662,3 +662,48 @@
   bottom: calc(100% + 12px);
   top: auto;
 }
+
+.am-history-row {
+  border-radius: 6px;
+  padding-left: 8px;
+  padding-right: 4px;
+}
+.am-history-row[data-selected="true"] {
+  background: var(--ai-surf-2);
+  box-shadow: inset 3px 0 var(--ai-accent);
+}
+.am-history-row > button[aria-current="page"] {
+  background: transparent;
+  box-shadow: none;
+}
+.am-history-row > button:last-child:not(:first-child) {
+  width: 24px;
+  height: 24px;
+  opacity: 0;
+}
+.am-history-row:hover > button:last-child,
+.am-history-row:focus-within > button:last-child,
+.am-history-row > button[data-popup-open] {
+  opacity: 1;
+}
+.am-tool-form label > small {
+  display: block;
+  margin-block: 4px 8px;
+}
+.am-website-popover input:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+.am-website-popover {
+  width: 260px;
+  left: 0;
+  bottom: calc(100% + 8px);
+  top: auto;
+}
+.am-website-anchor {
+  position: relative;
+  width: 260px;
+}
+.am-website-anchor > button {
+  width: 100%;
+}

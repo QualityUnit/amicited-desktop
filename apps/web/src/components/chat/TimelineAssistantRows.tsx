@@ -1,3 +1,4 @@
+import { useEnvironmentProviders } from "../../state/environments";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingTurnOffer } from "../../marketingChat";
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
@@ -29,6 +30,13 @@ import { MESSAGE_HEADING_LEVEL, MessageAuthorHeading } from "./TimelineRowParts"
 export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
   const marketer = useWorkspaceMode() === "marketer";
   const ctx = use(TimelineRowCtx);
+  const shell = useThreadShell(ctx.threadRef);
+  const providers = useEnvironmentProviders();
+  const driver = ctx.threadRef
+    ? providers
+        .get(ctx.threadRef.environmentId)
+        ?.find((provider) => provider.instanceId === shell?.providerInstanceId)?.driver
+    : undefined;
   // The timeline holds a streaming message's row while only its text grows.
   const liveText = useAssistantMessageText(
     row.message.streaming ? ctx.threadRef : null,
@@ -40,7 +48,9 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
   return (
     <>
       <div className="relative min-w-0 px-1 py-0.5">
-        <MessageAuthorHeading>T3 Code</MessageAuthorHeading>
+        <MessageAuthorHeading>
+          {marketer ? (driver === "codex" ? "ChatGPT" : "Claude") : "T3 Code"}
+        </MessageAuthorHeading>
         <div data-thread-find-text="true">
           <AssistantCitationSource
             messageId={row.message.id}

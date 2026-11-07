@@ -114,7 +114,7 @@ export function marketingApprovalTool(
 export function marketingHistoryStatus(thread: {
   hasPendingApprovals: boolean;
   latestRun?: { status: string } | null;
-  source: { activityRunStatus?: unknown };
+  source: { activityRunStatus?: unknown; latestMarketingCheckFailed?: boolean | undefined };
 }) {
   return thread.hasPendingApprovals
     ? "Needs OK"
@@ -122,7 +122,9 @@ export function marketingHistoryStatus(thread: {
       ? "Failed"
       : thread.source.activityRunStatus
         ? "Working"
-        : "Done";
+        : thread.source.latestMarketingCheckFailed
+          ? "Couldn't check"
+          : "Done";
 }
 
 function compactMarketingReport(report: unknown) {
@@ -132,9 +134,13 @@ function compactMarketingReport(report: unknown) {
     value.output && typeof value.output === "object"
       ? (value.output as Record<string, unknown>)
       : {};
-  const findings = Array.isArray(output.findings)
-    ? output.findings
+  const allFindings = Array.isArray(output.groups)
+    ? output.groups.flatMap((group) => group?.result?.findings ?? [])
+    : output.findings;
+  const findings = Array.isArray(allFindings)
+    ? allFindings
         .filter((f) => f && typeof f === "object" && f.status !== "pass")
+        .toSorted((a, b) => Number(b.status === "fail") - Number(a.status === "fail"))
         .slice(0, 5)
         .map((f) => ({
           title: String(f.title ?? "").slice(0, 280),
@@ -146,6 +152,35 @@ function compactMarketingReport(report: unknown) {
     tool: String(value.tool ?? ""),
     score: typeof output.score === "number" && Number.isFinite(output.score) ? output.score : null,
     findings,
+    input: boundedEvidence(value.input),
+    evidence: boundedEvidence(
+      Object.fromEntries(
+        Object.entries(output).filter(([key]) =>
+          [
+            "draft",
+            "message",
+            "words",
+            "sentences",
+            "syllables",
+            "readingEase",
+            "grade",
+            "longSentences",
+            "note",
+            "suggestions",
+            "failedQueries",
+            "organic",
+            "aiOverview",
+            "peopleAlsoAsk",
+            "scope",
+            "summary",
+            "answers",
+            "status",
+            "coverage",
+            "limitations",
+          ].includes(key),
+        ),
+      ),
+    ),
     ...(Array.isArray(output.topFixes)
       ? {
           topFixes: output.topFixes
@@ -155,4 +190,49 @@ function compactMarketingReport(report: unknown) {
         }
       : {}),
   };
+}
+
+type Evidence = null | string | number | boolean | Evidence[] | { [key: string]: Evidence };
+function boundedEvidence(value: unknown, depth = 0): Evidence {
+  if (depth > 5 || value == null) return null;
+  if (typeof value === "string") return value.slice(0, 8000);
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value))
+    return value.slice(0, 12).map((entry) => boundedEvidence(entry, depth + 1));
+  if (typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 20)
+        .map(([key, entry]) => [key, boundedEvidence(entry, depth + 1)]),
+    );
+  return null;
+}
+
+export function marketingSubcheckCovered(
+  projectedItem: import("@t3tools/contracts").OrchestrationV2ProjectedTurnItem | undefined,
+  items: readonly import("@t3tools/contracts").OrchestrationV2ProjectedTurnItem[],
+) {
+  const currentInput =
+    projectedItem?.item.type === "dynamic_tool"
+      ? marketingApprovalInput(projectedItem.item.toolName, projectedItem.item.input)
+      : null;
+  if (
+    currentInput &&
+    currentInput.input?.url &&
+    currentInput.name !== "seo.site.audit" &&
+    /^seo\.(robots|sitemap|llmstxt|meta|schema|ssl)\.check$/.test(currentInput.name) &&
+    items.some((p) => {
+      if (p.item.runId !== projectedItem?.item.runId || p.item.type !== "dynamic_tool")
+        return false;
+      const audit = marketingApprovalInput(p.item.toolName, p.item.input);
+      return (
+        audit?.name === "seo.site.audit" &&
+        audit.input?.url === currentInput.input?.url &&
+        p.item.status === "completed"
+      );
+    })
+  )
+    return true;
+  return false;
 }

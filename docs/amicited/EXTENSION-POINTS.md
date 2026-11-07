@@ -347,3 +347,12 @@ the message, then clears it. History reads shell summaries only. Approval cards 
 an unambiguous same-thread/run execution or native request reference.
 
 - `apps/server/scripts/dev-replay-agent.test.ts`: verifies the controlled sign-in failure crosses the real provider protocol.
+
+Wave 22 uses the existing marketer sidebar and timeline seams for hover actions,
+archived chat restoration, scoped resend, provider headings and audit-section
+folding. `apps/web/src/hooks/useThreadActions.ts` adds an optional forced
+confirmation for marketer deletions. `packages/contracts/src/orchestrationV2.ts`
+and `apps/server/src/orchestration-v2/ProjectionStore.ts` expose one optional
+marketing-check failure flag on shell rows without loading chat items in history.
+`evals/mcp-tool-use/cases/marketing.ndjson` exercises direct audit selection and
+preservation of the tool's evidence limits using the existing evaluator.

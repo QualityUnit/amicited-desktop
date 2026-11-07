@@ -147,7 +147,7 @@ export function ToolForm({
       {!result && (
         <>
           <form
-            className="overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card"
+            className="am-tool-form overflow-clip rounded-xl border border-ai-line bg-ai-surf p-5 max-sm:p-4 max-sm:[--tv2-edge:16px] am-card"
             onSubmit={(event) => {
               event.preventDefault();
               setBusy(true);

@@ -124,6 +124,7 @@ try {
   await page.goto(pairing.replace(new URL(pairing).origin, url));
   await page.locator("[data-amicited-shell]").waitFor();
   const capture = async (name: string) => {
+    const intendedRoute = page.url();
     for (const [theme, width, height] of [
       ["light", 1344, 1016],
       ["dark", 1344, 1016],
@@ -139,6 +140,13 @@ try {
           "*, *::before, *::after { transition: none !important; animation: none !important; }",
       });
       if (!name.startsWith("reference-")) await page.locator("[data-amicited-shell]").waitFor();
+      await page.locator("#boot-shell").waitFor({ state: "detached" });
+      await page.getByTestId("composer-editor").or(page.getByRole("main")).first().waitFor();
+      if (page.url() !== intendedRoute) throw new Error(`Route changed before ${name}`);
+      await page.waitForFunction(
+        (dark) => document.documentElement.classList.contains("dark") === dark,
+        theme === "dark",
+      );
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
     }
@@ -276,12 +284,38 @@ try {
       });
     await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
     await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
+    await page.mouse.move(1000, 100);
     await capture("05-chat-list");
     await page
       .getByRole("button", { name: /Chat actions for/ })
       .first()
       .click();
     await capture("05b-chat-menu");
+    await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+    await page.getByRole("alertdialog").waitFor();
+    await capture("05c-delete-confirmation");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .first()
+      .click();
+    await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
+    await page.getByRole("button", { name: "Archived", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .first()
+      .waitFor();
+    await capture("05d-archived");
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .first()
+      .click();
+    await page.getByRole("menuitem", { name: "Restore", exact: true }).click();
+    await page.getByRole("button", { name: "Back to chats", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .first()
+      .click();
     await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
     await page.getByRole("textbox", { name: "Chat name" }).fill("Website audit review");
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -327,6 +361,30 @@ try {
         await capture("06b-tools-hover");
       }
     }
+    await page.goto(url + "/tools/content.readability");
+    await page
+      .getByRole("textbox", { name: "text", exact: true })
+      .fill("Our campaign helps small teams write clearly. Keep the message useful and concise.");
+    await page.getByRole("button", { name: "Run check", exact: true }).click();
+    await page.getByRole("button", { name: "Ask AI about this", exact: true }).waitFor();
+    await capture("08b-readability-result");
+    await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+    await page.getByTestId("composer-editor").waitFor();
+    await capture("08c-readability-context");
+    await NodeFSP.writeFile(
+      NodePath.join(out, "readability-report-context.json"),
+      await page.evaluate(() =>
+        JSON.stringify(
+          Object.fromEntries(
+            Object.entries(sessionStorage).filter(([key]) =>
+              key.startsWith("amicited.report-context."),
+            ),
+          ),
+          null,
+          2,
+        ),
+      ),
+    );
     await page.goto(marketingChatUrl);
     await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
     await page.evaluate(() =>
@@ -337,6 +395,9 @@ try {
     await page
       .getByText("Could not check: the website did not respond. Try again later.", { exact: true })
       .waitFor();
+    await page
+      .getByRole("button", { name: "Stop generating", exact: false })
+      .waitFor({ state: "hidden" });
     await capture("09-failed-tool");
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
@@ -548,7 +609,10 @@ try {
   await page.reload();
   await page.evaluate(() => localStorage.setItem("t3code:theme", "dark"));
   await page.reload();
+  await page.getByRole("button", { name: "New chat", exact: true }).click();
+  await page.waitForURL(/\/draft\//);
   await page.getByTestId("composer-editor").waitFor();
+  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
   await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.addStyleTag({ content: "* { transition: none !important; }" });
   await page.setViewportSize({ width: 1344, height: 1016 });

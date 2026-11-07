@@ -280,7 +280,11 @@ export function MarketingScope({ children }: { children: ReactNode }) {
 export const MarketingTitleContext = createContext<HTMLElement | null>(null);
 export function MarketingTitle({ children }: { children: ReactNode }) {
   const target = useContext(MarketingTitleContext);
-  return target ? createPortal(<span className="am-page-title">{children}</span>, target) : null;
+  return target ? (
+    createPortal(<span className="am-page-title">{children}</span>, target)
+  ) : (
+    <h1 className="am-page-title">{children}</h1>
+  );
 }
 
 export const MarketingToolbarContext = createContext<HTMLElement | null>(null);

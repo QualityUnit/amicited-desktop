@@ -3477,7 +3477,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                               ? "Choose a project above to start a thread"
                               : showProviderUnavailable
                                 ? workspaceMode === "marketer"
-                                  ? "What do you want to work on? Connect an assistant when you’re ready."
+                                  ? "Connect an assistant to start"
                                   : "Enable a provider in Settings to send a message"
                                 : workspaceMode === "marketer"
                                   ? "What do you want to get done?"

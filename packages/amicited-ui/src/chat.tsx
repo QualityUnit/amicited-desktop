@@ -167,7 +167,7 @@ export function MarketingCallState({
               : marketingErrorText(output)}
           </p>
           <details>
-            <summary>Inspect tool output</summary>
+            <summary>Show details</summary>
             <pre>{typeof output === "string" ? output : JSON.stringify(output, null, 2)}</pre>
           </details>
         </>
