@@ -414,6 +414,8 @@ try {
         await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
       if (path === "/marketing-settings")
         await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
+      if (path === "/settings/general")
+        await page.getByRole("textbox", { name: "Website URL", exact: true }).waitFor();
       await capture(name!);
       if (path === "/tools") {
         await page.locator(".am-tool-list > a").first().hover();

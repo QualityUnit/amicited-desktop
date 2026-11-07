@@ -1,5 +1,5 @@
 import { Globe } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 export type Brand = { website: string; name: string };
 export function readBrand(): Brand | null {
   try {
@@ -36,16 +36,22 @@ export function BrandFavicon({ website, name }: { website?: string | undefined; 
   );
 }
 export function AmICitedMark() {
+  const mask = useId();
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <svg aria-hidden="true" width="18" height="18" viewBox="0 0 32 32">
-        <rect width="32" height="32" rx="9" fill="currentColor" />
-        <path
-          d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
-          stroke="var(--sidebar)"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
+        <defs>
+          <mask id={mask}>
+            <rect width="32" height="32" fill="white" />
+            <path
+              d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
+              stroke="black"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          </mask>
+        </defs>
+        <rect width="32" height="32" rx="9" fill="currentColor" mask={`url(#${mask})`} />
       </svg>
       <strong>AmICited</strong>
     </span>
