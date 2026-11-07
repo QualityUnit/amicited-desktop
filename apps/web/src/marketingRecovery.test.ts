@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vite-plus/test";
+import { withMarketingReport } from "./marketingContext";
 import { createMarketingResend } from "./marketingRecovery";
-import { EnvironmentId, ThreadId, MessageId } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId, MessageId, ChatAttachmentId } from "@t3tools/contracts";
 it("resends exactly once when ready and preserves the original message identity and context", async () => {
   const resend = createMarketingResend();
   const request = {
@@ -11,8 +12,21 @@ it("resends exactly once when ready and preserves the original message identity 
         messageId: MessageId.make("original"),
         role: "user" as const,
         text: "Explain my report",
-        attachments: [],
-        context: { version: 1 as const, records: [] },
+        attachments: [
+          {
+            type: "image" as const,
+            id: ChatAttachmentId.make("original-image"),
+            name: "campaign.png",
+            mimeType: "image/png",
+            sizeBytes: 512,
+          },
+        ],
+        context: withMarketingReport(undefined, {
+          id: "report",
+          tool: "content.readability",
+          input: { url: "https://example.com" },
+          output: { words: 100, grade: 7 },
+        })!,
       },
       runtimeMode: "full-access" as const,
       interactionMode: "default" as const,
