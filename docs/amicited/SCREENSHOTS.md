@@ -112,3 +112,7 @@ chat pipeline. It uses `request.target` for start and `run_id` for get. It is
 controlled Replay evidence, not production execution. Connection-state captures
 update the dev-only connection store and render the real Settings page; no
 standalone connection component is mounted over the page.
+
+Native reuse of a real Haiku turn requires `AMICITED_REUSE_REAL=1`; reusing a
+free Replay home does not assume an account-backed run exists. Native cloud
+settings states use the same controlled dev event as the browser journey.

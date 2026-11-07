@@ -370,12 +370,40 @@ try {
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("switch", { name: "Developer features" }).waitFor();
   await capture("settings");
+  await page.getByRole("link", { name: "AmICited", exact: true }).click();
+  await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
+  for (const state of ["waiting", "free", "upgrade"]) {
+    await page.evaluate((state) => {
+      window.dispatchEvent(
+        new CustomEvent("amicited-cloud-evidence", {
+          detail:
+            state === "waiting"
+              ? { state: "connecting" }
+              : {
+                  state: "connected",
+                  workspace: "Your AmICited workspace",
+                  scopes: [],
+                  access: "free",
+                },
+        }),
+      );
+    }, state);
+    if (state === "waiting")
+      await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
+    else await page.getByText(/Connected to Your AmICited workspace/).waitFor();
+    await capture("cloud-" + state);
+  }
+  await page.evaluate(() => window.t3dev.replay("marketing-cloud"));
+  await page.getByText(/The free site health check is complete/).waitFor();
+  await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
+  await capture("cloud-site-health");
+
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("button", { name: "Content tools", exact: true }).click();
   await page.locator(".am-tool-list > a").first().click();
   await page.getByRole("button", { name: /Run/ }).first().waitFor();
   await capture("tool-form");
-  if (process.env.AMICITED_CAPTURE_HOME) {
+  if (process.env.AMICITED_CAPTURE_HOME && process.env.AMICITED_REUSE_REAL === "1") {
     const { DatabaseSync } = await import("node:sqlite");
     const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
       readOnly: true,
