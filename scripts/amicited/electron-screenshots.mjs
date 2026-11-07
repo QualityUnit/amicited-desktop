@@ -169,7 +169,7 @@ try {
         brandHeader:
           '.am-chat-brand > div:first-child, [data-slot="sidebar"] > div:has(a[aria-label="T3 Code home"])',
         collapseToggle: '.am-sidebar-toggle, button[aria-label="Toggle main sidebar"]',
-        contextLine: '.am-composer-context button, [data-slot="composer-context-strip"] button',
+        contextLine: '.am-composer-context button, button[aria-label^="Permissions:"]',
         selectionBounds:
           '.am-history-row:has([aria-current="page"]), [data-sidebar-row][aria-current="page"]',
         composerSurface: '[data-slot="composer-host"]',
@@ -177,7 +177,7 @@ try {
           '[data-chat-history-link][aria-current="page"], [data-testid="sidebar-row-card"][aria-current="page"]',
         headerLayout: '[aria-label="Task breadcrumb"], [aria-label="Thread breadcrumb"]',
         workLog:
-          '.am-tool-card [data-slot="collapsible-trigger"], button[class~="group/timeline-row"]',
+          '.am-tool-card [data-slot="collapsible-trigger"], [class~="group/timeline-row"][role="button"], button[class~="group/timeline-row"]',
       };
       return Object.fromEntries(
         Object.entries(selectors).map(([name, selector]) => {
@@ -376,6 +376,9 @@ try {
     .first()
     .click();
   await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+  await page.getByText("I added", { exact: false }).first().waitFor();
+  const completedWork = page.getByRole("button", { name: /^Worked for/ });
+  if (await completedWork.count()) await completedWork.first().click();
   await page.locator('[class~="group/timeline-row"]').first().waitFor();
   await capture("reference-t3-turn");
   NodeFS.writeFileSync(
