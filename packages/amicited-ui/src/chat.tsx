@@ -42,7 +42,12 @@ export function marketingToolResult(value: unknown, depth = 0): ToolResult | nul
       const result = marketingToolResult(record(block).text, depth + 1);
       if (result) return result;
     }
-  for (const candidate of [r.result, r.structuredContent, r.text]) {
+  for (const candidate of [
+    r.result,
+    r.structuredContent,
+    r.text,
+    typeof r.content === "string" ? r.content : undefined,
+  ]) {
     if (candidate !== undefined) {
       const result = marketingToolResult(candidate, depth + 1);
       if (result) return result;

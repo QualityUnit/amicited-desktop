@@ -15,6 +15,7 @@ it("decodes direct and MCP text results without accepting partial or unrelated o
     JSON.stringify(result),
     { result },
     { structuredContent: result },
+    { content: JSON.stringify(result) },
     [{ type: "text", text: JSON.stringify(result) }],
     { content: [{ type: "text", text: JSON.stringify(result) }] },
   ])
