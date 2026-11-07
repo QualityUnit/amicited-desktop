@@ -387,3 +387,17 @@ marketing results use `WorkLogButton` and `WorkLogDetails` through the UI adapte
 - `apps/web/src/marketingChat.tsx`: connects report questions and uses composer approval actions.
 - `apps/web/src/components/chat/ComposerPendingApprovalActions.tsx`: optional ghost decline control for marketer approvals, preserving the default upstream presentation.
 - `apps/web/src/marketingOffer.browser.test.tsx`: supplies the report-question hook at its mocked subscription boundary.
+
+- `apps/web/src/components/AppSidebarLayout.tsx`: shares the existing macOS fullscreen-aware title-bar inset hook with the marketer boundary.
+- `apps/web/src/rpc/amicitedCloud.tsx`: accepts connection-tool offers through the existing trial card and persistent promotion gate.
+- `apps/web/src/marketingOffer.browser.test.tsx`: extends the existing offer table to connection results and hidden offers.
+- `apps/server/scripts/dev-replay-agent.ts`: registers the controlled hidden-offer marketing scenario.
+
+`amicited_connection` uses the existing cloud service and provider-injected local
+MCP toolkit. Connected calls name `amicited_cloud_read` and `amicited_cloud_run`,
+which remain attached for Claude and Codex and forward calls without exposing
+credentials. Disconnected calls describe measured visibility and tracking;
+connection actions require a first useful local result. The latest marketer
+message carries the browser's offer preferences; a hidden or snoozed preference
+suppresses suggestions. Existing chats retain their submitted preference until
+the next message. Developer messages carry no marketing promotion context.

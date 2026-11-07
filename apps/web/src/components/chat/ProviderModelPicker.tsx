@@ -238,13 +238,8 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     .join(" · ");
 
   const marketer = useWorkspaceMode() === "marketer";
-  const triggerText = marketer
-    ? ({ codex: "ChatGPT", claudeAgent: "Claude", gemini: "Gemini" }[
-        String(props.lockedProvider ?? activeEntry?.driverKind)
-      ] ??
-      activeEntry?.displayName ??
-      "Choose assistant")
-    : (props.triggerLabel ?? multipleLabel ?? triggerTitle);
+  const triggerText =
+    props.triggerLabel ?? multipleLabel ?? (marketer ? triggerLabel : triggerTitle);
   const triggerTextProps = {
     className: cn(
       "min-w-0 flex-1 overflow-hidden truncate",

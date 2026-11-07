@@ -1,3 +1,4 @@
+import { isUsefulResult } from "@amicited/tools-core";
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -46,6 +47,54 @@ export const errorState = (error: unknown): Extract<Connection, { state: "error"
   return { state: "error", kind, message: messages[kind] };
 };
 export class CloudClient {
+  async connectionForRequest(request: string, offersAllowed: boolean, firstWin: boolean) {
+    const connection = await this.status();
+    if (connection.state === "connected")
+      return {
+        state: "connected",
+        kind: "amicited-connection",
+        tools: ["amicited_cloud_read", "amicited_cloud_run"],
+        readTools: [
+          "list_domains",
+          "list_prompts",
+          "list_competitors",
+          "list_tags",
+          "prompt_analytics",
+          "report_link",
+          "list_toolsets",
+          "search_tools",
+          "describe_tool",
+          "read_tool",
+        ],
+        instruction:
+          "Use amicited_cloud_read to discover and run read-only AmICited tools in this chat; use amicited_cloud_run for approved writes.",
+      };
+    if (!offersAllowed)
+      return {
+        state: "hidden",
+        kind: "amicited-connection",
+        instruction: "Do not suggest AmICited again. Continue helping with the free local tools.",
+      };
+    return {
+      state: connection.state,
+      connection,
+      kind: "amicited-connection",
+      request,
+      missing:
+        "AmICited adds measured citations and mentions in ChatGPT, Perplexity, Gemini and Google AI Overviews, daily history, competitors and share of voice, and prompt and topic tracking.",
+      ...(firstWin
+        ? {
+            action: "Connect AmICited",
+            pricing: "7-day trial, then EUR 120/month Pro",
+            settingsPath: "/marketing-settings",
+          }
+        : {}),
+      instruction: firstWin
+        ? "The chat can offer the optional AmICited connection. Keep local tools available."
+        : "Complete the local task first. Explain measurement limits honestly; do not promote a trial before the first useful result.",
+    };
+  }
+
   private current: Connection = { state: "disconnected" };
   private generation = 0;
   private cancelOAuth: (() => void) | undefined;
@@ -378,4 +427,15 @@ export function visibilityHeadlines(analytics: unknown) {
     const value = data[key!];
     return typeof value === "number" && Number.isFinite(value) ? [{ label: label!, value }] : [];
   });
+}
+
+export function usefulMarketingResult(output: unknown) {
+  const value = toolData(output) ?? output;
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "status" in value &&
+    typeof value.status === "string" &&
+    isUsefulResult({ status: value.status, output: "output" in value ? value.output : undefined })
+  );
 }

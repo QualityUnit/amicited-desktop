@@ -28,6 +28,7 @@ const env = {
   PORT: String(webPort),
   VITE_DEV_SERVER_URL: `http://localhost:${webPort}`,
   T3CODE_DEV_SEED: "0",
+  T3CODE_DEV_REPLAY_CAPTURE: "1",
   T3CODE_NO_BROWSER: "1",
   T3CODE_SINGLE_ORIGIN_DEV: "1",
 };
@@ -126,6 +127,7 @@ try {
     ...context.pages().map(select),
     context.waitForEvent("page").then(select),
   ]);
+  page.setDefaultTimeout(120_000);
   await page.locator("[data-amicited-shell]").first().waitFor({ timeout: 120000 });
   const cdp = await context.newCDPSession(page);
   await cdp.send("Emulation.setDeviceMetricsOverride", {
@@ -364,9 +366,57 @@ try {
   );
   await page.goto(marketingTurnUrl);
   await page.getByTestId("composer-editor").waitFor();
+  const marketerInset = await page.evaluate(() => {
+    const toggle = document.querySelector(".am-sidebar-toggle");
+    const brand = document.querySelector(".am-chat-brand span");
+    return {
+      left: toggle.getBoundingClientRect().left,
+      brandLeft: brand.getBoundingClientRect().left,
+      drag: getComputedStyle(document.querySelector(".am-chat-brand")).webkitAppRegion,
+    };
+  });
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  const collapsedInset = await page.evaluate(() => {
+    const toggle = document.querySelector(".am-sidebar-toggle").getBoundingClientRect();
+    const rail = document.querySelector(".am-chat-sidebar").getBoundingClientRect();
+    return { left: toggle.left, right: toggle.right, railRight: rail.right };
+  });
+  if (collapsedInset.left !== marketerInset.left || collapsedInset.right > collapsedInset.railRight)
+    throw new Error("Collapsed rail overlaps the native controls or clips its toggle");
+  await capture("collapsed-native-controls");
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.reload();
-  await page.getByTestId("composer-editor").waitFor();
+  await page.getByRole("link", { name: "T3 Code home", exact: true }).waitFor();
+  const developerInset = await page.evaluate(() => {
+    const toggle = document.querySelector(
+      '[data-sidebar-control] button[aria-label="Toggle main sidebar"]',
+    );
+    const brand = document.querySelector('a[aria-label="T3 Code home"]');
+    return {
+      left: toggle.getBoundingClientRect().left,
+      brandLeft: brand.getBoundingClientRect().left,
+    };
+  });
+  if (
+    Math.abs(marketerInset.left - developerInset.left) > 1 ||
+    Math.abs(marketerInset.brandLeft - developerInset.brandLeft) > 1 ||
+    marketerInset.drag !== "drag"
+  )
+    throw new Error("Native titlebar inset differs from developer mode");
+  NodeFS.writeFileSync(
+    NodePath.join(out, "macos-controls-layout-proof.json"),
+    JSON.stringify(
+      {
+        marketerInset,
+        collapsedInset,
+        developerInset,
+        method: "computed layout in the same Electron window",
+      },
+      null,
+      2,
+    ),
+  );
   await page.evaluate(() => window.t3dev.replay("showcase"));
   await page
     .getByRole("button", { name: /Allow|Approve/, exact: false })

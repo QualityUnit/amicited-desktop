@@ -1,3 +1,4 @@
+import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { marketingSignInError, marketingToolResult } from "@amicited/ui-marketing";
 import { ComposerContextId, type OrchestrationMessageContext } from "@t3tools/contracts";
 
@@ -7,6 +8,11 @@ export function withMarketingWebsite(
   _firstMessage: boolean,
   marketer = false,
 ): OrchestrationMessageContext | undefined {
+  const storage = typeof localStorage === "undefined" ? undefined : localStorage;
+  const promotion = {
+    offersAllowed: storage ? createUpsellGate(storage, storage).eligible(true, Date.now()) : false,
+    firstWin: storage?.getItem("amicited.first-win") === "true",
+  };
   if (!website)
     return marketer
       ? {
@@ -18,7 +24,7 @@ export function withMarketingWebsite(
               kind: "marketing-workspace",
               contextId: ComposerContextId.make("marketing-workspace"),
               label: "Marketing workspace",
-              payload: {},
+              payload: promotion,
             },
           ],
         }
@@ -33,6 +39,7 @@ export function withMarketingWebsite(
         contextId: ComposerContextId.make("marketing-website"),
         label: "Website",
         payload: {
+          ...promotion,
           website,
           instruction:
             "Use this website as the default for local marketing checks unless the user names another.",

@@ -33,12 +33,15 @@ vi.mock("./rpc/amicitedCloud", async () => {
 import { MarketingTurnOffer } from "./marketingChat";
 const threadRef = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("chat") };
 it.each([
-  { connected: false, dismissed: false, offered: true },
-  { connected: true, dismissed: false, offered: false },
-  { connected: false, dismissed: true, offered: false },
+  { connected: false, dismissed: false, offered: true, connectionTool: false, hiddenReply: false },
+  { connected: true, dismissed: false, offered: false, connectionTool: false, hiddenReply: false },
+  { connected: false, dismissed: true, offered: false, connectionTool: false, hiddenReply: false },
+  { connected: false, dismissed: false, offered: true, connectionTool: true, hiddenReply: false },
+  { connected: false, dismissed: true, offered: false, connectionTool: true, hiddenReply: false },
+  { connected: false, dismissed: false, offered: false, connectionTool: true, hiddenReply: true },
 ])(
   "offers the last eligible successful result in a multi-tool turn, gated by $connected/$dismissed",
-  async ({ connected, dismissed, offered }) => {
+  async ({ connected, dismissed, offered, connectionTool, hiddenReply }) => {
     state.connected = connected;
     state.dismissed = dismissed;
     state.items = [
@@ -67,6 +70,25 @@ it.each([
           },
         }) as unknown as OrchestrationV2ProjectedTurnItem,
     );
+    if (connectionTool)
+      state.items = [
+        ...state.items,
+        {
+          item: {
+            id: "connection",
+            type: "dynamic_tool",
+            runId: "run",
+            toolName: "amicited_connection",
+            status: "completed",
+            output: {
+              kind: "amicited-connection",
+              state: hiddenReply ? "hidden" : "disconnected",
+              action: "Connect AmICited",
+              missing: "Daily measured citations",
+            },
+          },
+        } as unknown as OrchestrationV2ProjectedTurnItem,
+      ];
     await using screen = await render(
       <MarketingTurnOffer threadRef={threadRef} runId={RunId.make("run")} />,
       // This test exercises result selection and gates without navigation.
@@ -75,7 +97,7 @@ it.each([
     if (offered)
       await expect
         .element(screen.getByRole("complementary", { name: "Cloud offer" }))
-        .toHaveTextContent("content.readability");
+        .toHaveTextContent(connectionTool ? "amicited.connection" : "content.readability");
     else
       await expect
         .element(screen.getByRole("complementary", { name: "Cloud offer" }))

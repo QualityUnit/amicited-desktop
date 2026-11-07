@@ -18,7 +18,7 @@ import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runti
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { SIGNUP_URL, type Connection } from "@amicited/cloud-client/model";
-import type { ToolResult } from "@amicited/tools-core";
+import type { WinResult } from "@amicited/cloud-client/upsell";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
@@ -128,7 +128,7 @@ function useCloud() {
   }, [environmentId]);
   return { environmentId, connection, setConnection };
 }
-export function CloudFooter({ result }: { result: ToolResult }) {
+export function CloudFooter({ result }: { result: WinResult }) {
   const { connection } = useCloud();
   const [gate] = useState(() => createUpsellGate(localStorage, sessionStorage));
   if (!connection) return null;

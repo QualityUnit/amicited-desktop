@@ -12,6 +12,7 @@ export function MarketingShell({
   brandHeader,
   footer,
   headerTitle,
+  desktop,
 }: {
   children: ReactNode;
   path: string;
@@ -24,6 +25,7 @@ export function MarketingShell({
   brandHeader?: ReactNode;
   footer?: ReactNode;
   headerTitle?: string | undefined;
+  desktop?: boolean;
 }) {
   const { Breadcrumb } = useContext(MarketingUiContext);
   const [collapsed, setCollapsed] = useState(
@@ -37,7 +39,7 @@ export function MarketingShell({
       className={`am-chat-shell ${collapsed ? "am-chat-collapsed" : ""}`}
     >
       <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
-        <div className="am-chat-brand">
+        <div className={`am-chat-brand ${desktop ? "drag-region" : ""}`}>
           {brandHeader ?? <AmICitedMark />}
           <div className="am-sidebar-toggle">
             <MarketingButton
@@ -98,7 +100,7 @@ export function MarketingShell({
           path.startsWith(prefix),
         ) ? (
           <>
-            <MarketingHeader className="am-page-header">
+            <MarketingHeader className={`am-page-header ${desktop ? "drag-region" : ""}`}>
               {Breadcrumb ? (
                 <Breadcrumb>
                   {headerTitle ??

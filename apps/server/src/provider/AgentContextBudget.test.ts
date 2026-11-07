@@ -133,6 +133,9 @@ it.effect("only request_secret asks Claude Code to load it up front", () =>
     const alwaysLoad = mcp.tools
       .filter(({ tool }) => tool._meta?.["anthropic/alwaysLoad"] !== undefined)
       .map(({ tool }) => [tool.name, tool._meta]);
+    expect(mcp.tools.map(({ tool }) => tool.name)).toEqual(
+      expect.arrayContaining(["amicited_connection", "amicited_cloud_read", "amicited_cloud_run"]),
+    );
     expect(alwaysLoad).toEqual([["request_secret", { "anthropic/alwaysLoad": true }]]);
   }).pipe(Effect.provide(layerAdvertisedTools)),
 );

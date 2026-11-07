@@ -33,6 +33,7 @@ import { useNavigate, useLocation } from "@tanstack/react-router";
 import {
   CompactMarketingResult,
   marketingToolResult,
+  marketingOfferResult,
   readBrand,
   saveBrand,
   normalizeWebsite,
@@ -147,21 +148,7 @@ export function MarketingComposerContext({
             </PopoverPopup>
           )}
         </Popover>
-        {ready ? (
-          <MarketingButton
-            size="xs"
-            variant="link"
-            type="button"
-            onClick={() => {
-              sendAfterConnect.current = false;
-              setConnecting(
-                connecting ? null : selected?.driver === "codex" ? "codex" : "claudeAgent",
-              );
-            }}
-          >
-            Manage assistant
-          </MarketingButton>
-        ) : (
+        {!ready && (
           <>
             <MarketingButton
               size="xs"
@@ -191,7 +178,7 @@ export function MarketingComposerContext({
         )}
         <CloudConnectedChip />
       </div>
-      {connecting && (
+      {connecting && !ready && (
         <MarketingSubscriptions
           initialDriver={connecting}
           usageLink={false}
@@ -294,7 +281,8 @@ export function MarketingTurnOffer({
       (p) =>
         p.item.runId === runId &&
         p.item.type === "dynamic_tool" &&
-        p.item.toolName?.endsWith("marketing_tools_run") &&
+        (p.item.toolName?.endsWith("marketing_tools_run") ||
+          p.item.toolName?.endsWith("amicited_connection")) &&
         p.item.status === "completed",
     )
     .toReversed();
@@ -319,8 +307,10 @@ function MarketingOfferCandidate({
       : null,
   );
   const item = detail.data?.item ?? projected?.item;
-  const result = item?.type === "dynamic_tool" ? marketingToolResult(item.output) : null;
-  if (result && whatYouAreMissing(result)) return <CloudFooter result={result} />;
+  const result = item?.type === "dynamic_tool" ? marketingOfferResult(item.output) : null;
+  if (result?.tool === "amicited.connection" && result.status === "hidden") return null;
+  if (result && item && whatYouAreMissing(result))
+    return <CloudFooter result={{ ...result, id: item.id }} />;
   if (detail.isPending) return null;
   return candidates.length > 1 ? (
     <MarketingOfferCandidate candidates={candidates.slice(1)} threadRef={threadRef} />

@@ -3655,7 +3655,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 <div className="am-starters">
                   {marketingStarters.map((prompt) => (
                     <Button
-                      variant="ghost-muted"
+                      variant="outline"
                       size="xs"
                       type="button"
                       key={prompt}
@@ -3668,6 +3668,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                           });
                       }}
                     >
+                      <span aria-hidden="true">↗</span>
                       {prompt}
                     </Button>
                   ))}

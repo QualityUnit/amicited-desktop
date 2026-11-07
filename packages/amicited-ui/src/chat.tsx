@@ -28,6 +28,7 @@ export function marketingToolResult(value: unknown, depth = 0): ToolResult | nul
     return null;
   }
   const r = record(value);
+
   if (
     typeof r.id === "string" &&
     typeof r.tool === "string" &&
@@ -54,6 +55,42 @@ export function marketingToolResult(value: unknown, depth = 0): ToolResult | nul
     }
   }
   return null;
+}
+export function marketingOfferResult(
+  value: unknown,
+): { tool: string; status: string; output?: unknown } | null {
+  const local = marketingToolResult(value);
+  if (local) return local;
+  const find = (value: unknown, depth = 0): Record<string, unknown> | null => {
+    if (depth > 6) return null;
+    if (typeof value === "string") {
+      try {
+        return find(JSON.parse(value), depth + 1);
+      } catch {
+        return null;
+      }
+    }
+    if (Array.isArray(value))
+      return value.map((part) => find(part, depth + 1)).find(Boolean) ?? null;
+    const r = record(value);
+    if (r.kind === "amicited-connection") return r;
+    for (const part of [r.structuredContent, r.content, r.text, r.result]) {
+      if (part !== undefined) {
+        const found = find(part, depth + 1);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  const connection = find(value);
+  return connection
+    ? {
+        tool: "amicited.connection",
+        status:
+          connection.state === "hidden" || connection.state === "connected" ? "hidden" : "success",
+        output: connection,
+      }
+    : null;
 }
 export function CompactMarketingResult({
   result,

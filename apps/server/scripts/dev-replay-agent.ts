@@ -64,6 +64,11 @@ export const SCENARIOS = [
     name: "Marketing approval",
     file: "./dev-replay/marketing_approval_transcript.ndjson",
   },
+  {
+    id: "marketing-hidden",
+    name: "Marketing with hidden offers",
+    file: "./dev-replay/marketing_hidden_transcript.ndjson",
+  },
   { id: "marketing", name: "Marketing audit", file: "./dev-replay/marketing_transcript.ndjson" },
   {
     id: "todo-list",
@@ -105,7 +110,7 @@ const REPLAYED_REQUESTS = new Set(["session/request_permission", "elicitation/cr
 
 const CHUNK_DELAY_MS = 30;
 const FRAME_DELAY_MS = 250;
-const MAX_RECORDED_DELAY_MS = 2_000;
+const MAX_RECORDED_DELAY_MS = process.env.T3CODE_DEV_REPLAY_CAPTURE === "1" ? 10_000 : 2_000;
 const WORDS_PER_CHUNK = 3;
 
 function isReplayedFrame(frame: LogicalFrame): boolean {

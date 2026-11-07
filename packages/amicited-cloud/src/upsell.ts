@@ -14,7 +14,12 @@ export function whatYouAreMissing(result: WinResult) {
   let checked: string;
   let missing: string;
   let teaser: string | undefined;
-  if (result.tool === "ai.visibility.check") {
+  if (result.tool === "amicited.connection") {
+    const output = record(result.output);
+    if (typeof output.missing !== "string" || !output.action) return undefined;
+    checked = "Your local tools remain available.";
+    missing = output.missing;
+  } else if (result.tool === "ai.visibility.check") {
     const scope = record(record(result.output).scope);
     const assistants = Array.isArray(scope.assistants)
       ? scope.assistants.filter((v): v is string => typeof v === "string").map(friendlyAssistant)

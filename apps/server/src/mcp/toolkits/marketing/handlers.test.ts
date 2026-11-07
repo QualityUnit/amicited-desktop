@@ -1,3 +1,5 @@
+import { CloudClient } from "@amicited/cloud-client";
+import { AmicitedCloud } from "../../../amicited/Cloud.ts";
 import { expect, it } from "@effect/vitest";
 import { EnvironmentId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
@@ -21,6 +23,13 @@ it.effect("MCP discovers the library and prevents read-only clients consuming pr
     };
     const dependencies = Layer.mergeAll(
       MarketingTools.layer,
+      Layer.succeed(
+        AmicitedCloud,
+        new CloudClient({
+          secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+          openExternal: async () => {},
+        }),
+      ),
       Testkit.liveThreadsLayer,
       Layer.succeed(McpInvocationContext.McpInvocationContext, scope),
     );
@@ -29,6 +38,13 @@ it.effect("MCP discovers the library and prevents read-only clients consuming pr
         McpToolAccess.HandlersLayer.layer(Handlers.layer).pipe(Layer.provide(dependencies)),
       ),
     );
+    const connection = yield* toolkit
+      .handle("amicited_connection", { request: "citations" })
+      .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
+    expect(connection.at(-1)?.result).toMatchObject({
+      state: "hidden",
+      instruction: expect.stringContaining("Do not suggest"),
+    });
     const search = yield* toolkit
       .handle("marketing_tools_search", { query: "visibility" })
       .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));

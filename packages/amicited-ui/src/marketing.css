@@ -51,7 +51,7 @@
     overflow: auto;
   }
   .am-chat-collapsed .am-chat-sidebar {
-    width: 48px;
+    width: max(48px, calc(var(--workspace-controls-left) + 36px));
   }
   .am-chat-collapsed .am-chat-brand > div:not(.am-sidebar-toggle),
   .am-chat-collapsed .am-chat-brand > span {
@@ -111,23 +111,10 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-start;
-    gap: 2px;
+    gap: 6px;
     margin: 8px 0;
     max-width: 640px;
-    flex-direction: column;
     align-items: flex-start;
-  }
-  .am-starters button {
-    padding: 4px 8px;
-    color: var(--muted-foreground);
-    border-radius: var(--radius-md);
-    font-size: 12px;
-    cursor: pointer;
-    text-align: left;
-  }
-  .am-starters button:hover {
-    background: var(--accent);
-    color: var(--foreground);
   }
   .am-composer-context {
     display: flex;
@@ -360,7 +347,7 @@
   }
   .am-sidebar-toggle {
     position: absolute;
-    left: 12px;
+    left: var(--workspace-controls-left);
     top: 50%;
     translate: 0 -50%;
     z-index: 20;

@@ -397,6 +397,7 @@ export {
   marketingErrorText,
   marketingStarters,
   marketingToolResult,
+  marketingOfferResult,
   MarketingCallState,
   CompactMarketingResult,
 } from "./chat.js";

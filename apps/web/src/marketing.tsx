@@ -1,3 +1,5 @@
+import { useWindowControlsInsetStyle } from "./components/AppSidebarLayout";
+import { isElectron } from "./env";
 import { ToggleGroup, Toggle } from "./components/ui/toggle-group";
 import { SettingsGroup } from "./components/settings/SettingsGroup";
 import { SettingsRow } from "./components/settings/settingsLayout";
@@ -265,6 +267,7 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
+  const windowControlsInsetStyle = useWindowControlsInsetStyle();
   const [archived, setArchived] = useState(false);
 
   const taskTarget = useThreadRouteTarget();
@@ -273,8 +276,9 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <SidebarProvider>
+      <SidebarProvider style={windowControlsInsetStyle}>
         <MarketingShell
+          desktop={isElectron}
           footer={
             <SidebarFooter>
               <SidebarMenu className="flex-row">
@@ -306,7 +310,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           }
           brandHeader={
             <SidebarChromeHeader
-              isElectron={false}
+              isElectron={isElectron}
               brand={
                 <span className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white">
                   <AmICitedMark />
@@ -703,7 +707,6 @@ export function MarketingSubscriptions({
           </section>
         )}
       {selectionError && <p role="alert">{selectionError}</p>}
-      <p>Gemini · Coming soon</p>
       {usageLink && <Link to="/usage">View AI plan usage →</Link>}
     </>
   );

@@ -85,3 +85,16 @@ three footer destinations. Browser and Electron journeys use the native category
 control and list groups; Electron also captures Settings. `style-parity.json`
 includes padding, dimensions, border widths and radii for composer, sidebar row,
 header and equivalent native work-log buttons, alongside typography, background, translation, context-line and outer selection measurements. Archive captures restore through Settings rows; native evidence includes a failed tool and seeds the website context.
+
+Wave 29 uses `.amicited-shots/r27/`. The journey includes outlined starters,
+the exact composer model and native picker, plus controlled connection-tool
+results with visible and hidden offers. `macos-controls-layout-proof.json`
+compares marketer and developer title-bar controls and brand insets in the same
+Electron window, including its drag region. This is computed-layout evidence;
+renderer screenshots omit native macOS traffic lights. Evals need the API key
+or proxy described in `evals/mcp-tool-use/README.md`; missing credentials do not
+count as a scored result.
+
+The harnesses set `T3CODE_DEV_REPLAY_CAPTURE=1` so recorded thinking and
+pending-tool intervals last long enough for the three theme/viewport captures.
+Normal Replay timing stays unchanged.

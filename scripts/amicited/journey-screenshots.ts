@@ -68,6 +68,7 @@ const env: NodeJS.ProcessEnv = {
   T3CODE_TELEMETRY_ENABLED: "false",
   T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "0",
   T3CODE_DEV_SEED: "0",
+  T3CODE_DEV_REPLAY_CAPTURE: "1",
   T3CODE_PORT_OFFSET: "173",
 };
 delete env.VITE_HTTP_URL;
@@ -253,6 +254,10 @@ try {
     await page.reload();
     await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
     await capture("02-empty-chat");
+    await page.locator("[data-chat-provider-model-picker]").last().click();
+    await page.getByPlaceholder("Search models...").waitFor();
+    await capture("02e-model-picker");
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "example.com", exact: true }).click();
     await page.getByRole("button", { name: "Save website" }).waitFor();
     await capture("02c-website-popover");
@@ -295,6 +300,26 @@ try {
     await capture("03-tool-card-turn");
     await page.getByRole("button", { name: /Ran website health audit.*Partial/ }).waitFor();
     await capture("03c-partial-coverage");
+    await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+    await capture("03d-connection-offer");
+    await page.evaluate(() =>
+      localStorage.setItem("amicited.cloud.upsell", JSON.stringify({ dismissed: true })),
+    );
+    const offerChatUrl = page.url();
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing-hidden",
+      ),
+    );
+    await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+    await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+    await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+    if (await page.getByRole("complementary", { name: "More with AmICited" }).count())
+      throw new Error("Hidden offer rendered");
+    await capture("03e-connection-hidden");
+    await page.evaluate(() => localStorage.setItem("amicited.cloud.upsell", "{}"));
+    await page.goto(offerChatUrl);
+    await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
     const marketingChatUrl = page.url();
     await page.getByRole("button", { name: "Open full result" }).click();
     await page.getByRole("region", { name: "Tool result" }).waitFor();
@@ -401,7 +426,7 @@ try {
           { replaceOptions: true, explicit: true },
         );
     });
-    await page.getByRole("button", { name: "Manage assistant", exact: true }).waitFor();
+    await page.locator("[data-chat-provider-model-picker]").last().waitFor();
     await capture("02b-empty-connected");
     for (const [path, name] of [
       ["/tools", "06-tools"],

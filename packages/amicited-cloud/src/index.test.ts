@@ -154,8 +154,23 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   await using fake = await fixture();
   const cloud = fake.make();
   expect(await cloud.status()).toEqual({ state: "disconnected" });
+  expect(await cloud.connectionForRequest("citations", true, true)).toMatchObject({
+    state: "disconnected",
+    action: "Connect AmICited",
+    missing: expect.stringContaining("citations"),
+  });
+  expect(await cloud.connectionForRequest("citations", false, true)).toMatchObject({
+    state: "hidden",
+    instruction: expect.stringContaining("Do not suggest"),
+  });
+  expect(await cloud.connectionForRequest("citations", true, false)).not.toHaveProperty("action");
   expect((await cloud.connectApiKey("test-key")).state).toBe("connected");
   expect(JSON.stringify(await cloud.status())).not.toContain("test-key");
+  expect(await cloud.connectionForRequest("citations", false, true)).toMatchObject({
+    state: "connected",
+    tools: ["amicited_cloud_read", "amicited_cloud_run"],
+    readTools: expect.arrayContaining(["prompt_analytics", "search_tools"]),
+  });
   expect((await fake.make().status()).state).toBe("connected");
   await cloud.promptAnalytics("domain-1");
   await cloud.reportLink({ domain_id: "domain-1" });
