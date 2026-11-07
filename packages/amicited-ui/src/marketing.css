@@ -707,3 +707,15 @@
 .am-website-anchor > button {
   width: 100%;
 }
+.am-composer-context:has(.am-website-popover) {
+  padding-top: 160px;
+}
+.am-website-popover [data-slot="input-control"]:focus-within {
+  box-shadow: 0 0 0 2px var(--ai-accent);
+  outline: none;
+}
+.am-website-popover [data-slot="input"] {
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+}
