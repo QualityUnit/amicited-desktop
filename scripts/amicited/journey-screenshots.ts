@@ -174,6 +174,28 @@ try {
       }
       if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
         await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      if (name === "02c-website-popover") {
+        await page.getByRole("button", { name: "Save website", exact: true }).waitFor();
+        await page.waitForFunction(() => {
+          const starters = document.querySelector(".am-starters");
+          return !starters || getComputedStyle(starters).visibility === "hidden";
+        });
+      }
+      if (name === "05a-chat-hover") {
+        const row = page.locator(".am-history-row").first();
+        await row.hover();
+        await page.waitForFunction(() => {
+          const row = document.querySelector(".am-history-row");
+          const slot = row?.querySelector(".am-history-status-slot");
+          const actions = row?.querySelector(".am-history-actions");
+          return (
+            slot &&
+            actions &&
+            getComputedStyle(slot).visibility === "hidden" &&
+            getComputedStyle(actions).opacity === "1"
+          );
+        });
+      }
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
     }
@@ -325,6 +347,7 @@ try {
     await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
     await page.mouse.move(1000, 100);
     await capture("05-chat-list");
+    await capture("05a-chat-hover");
     await page
       .getByRole("button", { name: /Chat actions for/ })
       .first()

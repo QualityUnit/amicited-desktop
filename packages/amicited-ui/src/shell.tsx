@@ -42,7 +42,7 @@ export function MarketingShell({
           <div className="am-sidebar-toggle">
             <MarketingButton
               size="icon-sm"
-              variant="header"
+              variant={collapsed ? "row" : "header"}
               className="relative top-auto translate-y-0"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               onClick={() => {

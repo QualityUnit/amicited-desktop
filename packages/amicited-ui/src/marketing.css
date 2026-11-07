@@ -99,8 +99,13 @@
   .am-history-actions:has([data-popup-open]) {
     opacity: 1;
   }
-  .am-history-row:hover > button:first-child > span {
-    padding-right: 24px;
+  .am-history-row:hover .am-history-status-slot,
+  .am-history-row:focus-within .am-history-status-slot,
+  .am-history-row:has([data-popup-open]) .am-history-status-slot {
+    visibility: hidden;
+  }
+  [data-am-website-open="true"] ~ .am-starters {
+    visibility: hidden;
   }
   .am-starters {
     display: flex;
@@ -162,7 +167,6 @@
   }
   .am-card,
   .am-cloud-card {
-    border-top: 1px solid var(--border);
     padding: 16px 0;
     margin: 12px 0;
     font-size: 14px;
@@ -297,14 +301,15 @@
   .am-tool-frame {
     margin-top: 16px;
   }
+  .am-tool-list {
+    overflow: hidden;
+  }
+  .am-tool-list [data-slot="settings-row"] {
+    border-radius: 0;
+  }
   .am-tool-list > a {
     display: block;
-    border-radius: inherit;
     outline-offset: 2px;
-  }
-  .am-card,
-  .am-cloud-card {
-    border-top: 0;
   }
   .am-card h2 {
     margin-bottom: 12px;
@@ -368,6 +373,7 @@
     background: var(--accent);
     outline-color: var(--ring);
   }
+  .am-hint:has(+ .am-tool-frame),
   .am-page > .am-hint {
     margin-top: 12px;
   }

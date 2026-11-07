@@ -162,13 +162,14 @@ try {
       await document.fonts.ready;
       const selectors = {
         sidebar:
-          '[data-chat-history-link][aria-current="page"] > span, [data-testid="sidebar-row-card"][aria-current="page"] span[aria-hidden].text-sm',
+          '[data-chat-history-link][aria-current="page"] [data-marketing-history-title], [data-testid="sidebar-row-card"][aria-current="page"] span[aria-hidden].text-sm',
         header: '[data-slot="workspace-breadcrumb-text"]',
         composer: '[data-testid="composer-editor"]',
         timeline: "[data-thread-find-text] p",
         brandHeader:
           '.am-chat-brand > div:first-child, [data-slot="sidebar"] > div:has(a[aria-label="T3 Code home"])',
-        collapseToggle: '.am-sidebar-toggle, button[aria-label="Toggle main sidebar"]',
+        collapseToggle:
+          '.am-sidebar-toggle > button, [data-sidebar-control] button[aria-label="Toggle main sidebar"]',
         contextLine: '.am-composer-context button, button[aria-label^="Permissions:"]',
         selectionBounds:
           '.am-history-row:has([aria-current="page"]), [data-sidebar-row][aria-current="page"]',
@@ -177,7 +178,7 @@ try {
           '[data-chat-history-link][aria-current="page"], [data-testid="sidebar-row-card"][aria-current="page"]',
         headerLayout: '[aria-label="Task breadcrumb"], [aria-label="Thread breadcrumb"]',
         workLog:
-          '.am-tool-card [data-slot="collapsible-trigger"], [class~="group/timeline-row"][role="button"], button[class~="group/timeline-row"]',
+          '.am-tool-card [data-slot="collapsible-trigger"] .text-secondary-label, [class~="group/timeline-row"] .text-secondary-label',
       };
       return Object.fromEntries(
         Object.entries(selectors).map(([name, selector]) => {
@@ -186,7 +187,6 @@ try {
             name === "header"
               ? elements[elements.length - 1]
               : Array.from(elements).find((element) => element.getBoundingClientRect().width > 0);
-          if (name === "collapseToggle") el = document.querySelector(".am-sidebar-toggle") ?? el;
           if (name === "brandHeader" && !document.querySelector(".am-chat-brand"))
             el = document.querySelector('a[aria-label="T3 Code home"]')?.parentElement
               ?.parentElement?.parentElement;
@@ -257,6 +257,7 @@ try {
           .filter({ hasText: "6/6 audit categories returned a score" })
           .waitFor();
       }
+      await page.mouse.move(1000, 100);
       await page.evaluate(() => document.fonts.ready);
       if (["empty-chat", "tool-card-turn", "reference-t3-turn"].includes(name))
         parity[`${name}-${theme}`] = await readStyles();

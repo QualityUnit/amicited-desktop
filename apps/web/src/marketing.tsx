@@ -28,9 +28,11 @@ import {
   SidebarMenuButton,
   SidebarProvider,
 } from "./components/ui/sidebar";
-import { AmICitedMark } from "@amicited/ui-marketing";
+import { AmICitedMark, readBrand } from "@amicited/ui-marketing";
 import { Archive } from "lucide-react";
 import { useRef } from "react";
+import { useNowMinute } from "./hooks/useNowMinute";
+import { formatRelativeTimeLabel } from "./timestampFormat";
 import { RelativeTime } from "./components/RelativeTime";
 import { MoreHorizontal } from "lucide-react";
 import { useArchivedThreadSnapshots } from "./lib/archivedThreadsState";
@@ -306,7 +308,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             <SidebarChromeHeader
               isElectron={false}
               brand={
-                <span className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium">
+                <span className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white">
                   <AmICitedMark />
                 </span>
               }
@@ -863,7 +865,7 @@ function MarketingHistory({
                             >
                               <div className="flex w-full flex-col gap-1 px-2.5 py-1.5">
                                 <MarketingHistoryStatus thread={thread} />
-                                <span className="truncate">
+                                <span data-marketing-history-title="" className="truncate">
                                   {thread.title === "New thread" ? "New chat" : thread.title}
                                 </span>
                               </div>
@@ -932,10 +934,18 @@ function MarketingHistoryStatus({
   thread: ReturnType<typeof useThreadShells>[number];
 }) {
   const status = marketingHistoryStatus(thread);
+  const label = status === "Done" && !thread.latestRun ? "" : status;
+  const nowMinute = useNowMinute();
+  const relative = formatRelativeTimeLabel(
+    thread.latestUserMessageAt ?? thread.updatedAt,
+    Date.parse(`${nowMinute}:00.000Z`),
+  );
+  const time = relative === "just now" ? "now" : relative.replace(/ ago$/, "");
   return (
     <small className="am-history-status" data-status={status}>
+      <span className="min-w-0 flex-1 truncate">{readBrand()?.name ?? "Your workspace"}</span>
       <span
-        className={`flex items-center gap-1 ${status === "Working" ? "text-info-foreground" : status === "Needs your OK" ? "text-warning-foreground" : status === "Couldn't check" || status === "Sign in needed" ? "text-error-foreground" : ""}`}
+        className={`am-history-status-slot flex shrink-0 items-center gap-1 ${status === "Working" ? "text-info-foreground" : status === "Needs your OK" ? "text-warning-foreground" : status === "Couldn't check" || status === "Sign in needed" ? "text-error-foreground" : ""}`}
       >
         {status === "Working" ? (
           <CircleDashed size={12} />
@@ -944,7 +954,7 @@ function MarketingHistoryStatus({
         ) : status === "Couldn't check" || status === "Sign in needed" ? (
           <CircleAlert size={12} />
         ) : null}
-        {status !== "Done" && status}
+        {label || time}
         {status === "Working" && (
           <span
             ref={tickTextContent((now) => {
@@ -954,7 +964,6 @@ function MarketingHistoryStatus({
           />
         )}
       </span>
-      {status !== "Working" && <RelativeTime timestamp={thread.updatedAt} />}
     </small>
   );
 }

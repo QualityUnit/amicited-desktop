@@ -332,10 +332,14 @@ export function MarketingSettings({
                 />
               }
             />
-            <div className="am-website-actions">
-              <MarketingButton variant="default">Save</MarketingButton>
+            <div className="flex items-center justify-between gap-3 p-4">
+              <p role="status" className="text-xs text-muted-foreground">
+                {message}
+              </p>
+              <MarketingButton size="xs" variant="default">
+                Save
+              </MarketingButton>
             </div>
-            <p role="status">{message}</p>
           </form>
         </MarketingSettingsGroup>
       </Card>

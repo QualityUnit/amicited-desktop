@@ -87,7 +87,7 @@ export function MarketingComposerContext({
   const [websiteDraft, setWebsiteDraft] = useState(() => readBrand()?.website ?? "");
   const [websiteError, setWebsiteError] = useState("");
   return (
-    <div>
+    <div data-am-website-open={editingWebsite}>
       <div className="am-composer-context">
         <Popover open={editingWebsite} onOpenChange={setEditingWebsite}>
           <PopoverTrigger render={<MarketingButton size="xs" variant="link" type="button" />}>
@@ -462,7 +462,7 @@ export function MarketingApprovalCard({
       }
     >
       <div className="ms-7.5 flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-primary">Needs your OK</span>
+        <span className="text-warning-foreground">Needs your OK</span>
         <span className="h-4 border-l border-border" />
         {onRespond && (
           <ComposerPendingApprovalActions

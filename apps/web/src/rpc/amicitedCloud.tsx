@@ -4,7 +4,7 @@ import { Badge } from "../components/ui/badge";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
 import { SettingsGroup } from "../components/settings/SettingsGroup";
-import { marketingNavigate, SectionHead } from "@amicited/ui-marketing";
+import { marketingNavigate } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
 import {
   useEffect,
@@ -272,19 +272,16 @@ export function CloudPage() {
   const { connection } = useCloud();
   return (
     <section className="am-card am-cloud-page">
-      <SectionHead
-        title="AmICited"
-        subtitle="See who cites you across AI assistants. Track changes every day against your competitors."
-        actions={
-          <div className="am-actions">
-            {promotionsAllowed(connection) && (
-              <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
-                Start 7-day free trial
-              </MarketingButton>
-            )}
-          </div>
-        }
-      />
+      <p className="am-hint">
+        See who cites you across AI assistants. Track changes every day against your competitors.
+      </p>
+      <div className="am-actions">
+        {promotionsAllowed(connection) && (
+          <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
+            Start 7-day free trial
+          </MarketingButton>
+        )}
+      </div>
       {promotionsAllowed(connection) && (
         <p className="am-hint">7-day trial, then EUR 120/month Pro, cancel anytime.</p>
       )}

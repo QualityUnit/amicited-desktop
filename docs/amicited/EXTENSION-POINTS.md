@@ -16,7 +16,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `apps/server/src/auth/RpcAuthorization.ts`: requires orchestration read for listing and orchestration operate for running tools.
 - `apps/web/package.json`: dependencies on marketing UI and tool types.
 - `apps/web/src/branding.ts`: sources the marketer-facing product name from one package constant.
-- `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls, terminal drawer, and developer panel launchers. mounts marketer composer context in the existing ContextStrip outside Host.
+- `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls, terminal drawer, and developer panel launchers and mounts marketer composer context in the existing ContextStrip outside Host.
 - `apps/web/src/routes/_chat.settings.general.tsx`: provides the reverse switch from developer to marketer mode.
 - `apps/web/src/routeTree.gen.ts`: generated route registration for the marketing mounts.
 - `knip.jsonc`: declares the scripted screenshot entry points.
@@ -67,7 +67,7 @@ upstream settings and navigation remain available through Developer features.
 - `apps/web/src/routes/_chat.index.tsx`: prevents draft creation on the marketer landing path.
 - `apps/web/src/routes/_chat.new.tsx`: empty links open a task composer and invalid links offer recovery.
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: exports a provider-filtered connection step for direct marketer sign-in.
-- `apps/web/src/components/chat/ChatComposer.tsx`: marketer composer prompt. portals website, connection and starter controls to that context strip; disconnected assistants disable sending.
+- `apps/web/src/components/chat/ChatComposer.tsx`: provides the marketer composer prompt and portals website, connection and starter controls to that context strip; disconnected assistants disable sending.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: friendly subscription label; the existing popup retains advanced model selection.
 - `apps/web/src/components/chat/useThreadLifecycle.tsx`: labels completed marketer tasks Done.
 
@@ -133,7 +133,7 @@ Additional upstream extension points:
 - `apps/server/src/ws.test.ts`: supplies an inert cloud client to existing config-stream fixtures.
 - `apps/server/src/provider/AgentContextBudget.test.ts`: supplies an inert cloud client for advertised-tool measurement.
 - `apps/server/src/provider/agentContextBudget.json`: records the two additional proxy tools (908 bytes).
-- `apps/web/src/amicited-cloud.browser.test.tsx`: tests unmounted components with the real web UI kit. asserts the consolidated work-row summary and collapsed technical failure details.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: tests unmounted components with the real web UI kit and asserts the consolidated work-row summary and collapsed technical failure details.
 - Server, contracts and web package manifests plus `pnpm-lock.yaml`: add workspace dependencies only.
 
 RPC names: `amicited.cloud.status`, `amicited.cloud.connectOAuth`,
@@ -203,8 +203,8 @@ detour in session storage. No provider credentials are stored in the browser.
 
 ## Marketer design scope (Wave 4)
 
-- `apps/web/src/marketing.tsx`: supplies upstream Button, Input and Textarea through the portable UI context, only inside marketer mode and first run. injects T3 work-log disclosures, breadcrumbs, settings groups/rows and category controls into the portable marketing UI.
-- `apps/web/src/rpc/amicitedCloud.tsx`: uses the same injected Button for cloud controls. supplies native Collapsible and SettingsGroup to account connection controls.
+- `apps/web/src/marketing.tsx`: supplies upstream Button, Input and Textarea through the portable UI context, only inside marketer mode and first run, and injects T3 work-log disclosures, breadcrumbs, settings groups/rows and category controls into the portable marketing UI.
+- `apps/web/src/rpc/amicitedCloud.tsx`: uses the same injected Button for cloud controls and supplies native Collapsible and SettingsGroup to account connection controls.
 - `apps/web/src/amicited-cloud.browser.test.tsx`: checks the actual marketer scope and developer-mode exclusion.
 - `scripts/amicited/journey-screenshots.ts`: waits for bundled fonts and captures first-run and successful visibility dark states.
 
@@ -217,7 +217,7 @@ connection primitives inherit T3’s tokens. No upstream UI-kit variants remain.
 - `apps/web/src/hooks/useHandleNewThread.ts` and its test: optional model selection and immediate-send intent seed an empty draft before navigation.
 - `apps/web/src/components/ChatView.tsx`: hands an explicit marketer send intent to the existing composer send operation.
 - `apps/web/src/components/chat/DraftHeroProjectHeading.tsx` and `DraftHeroHeadline.tsx`: gate task wording and the no-project escape on workspace mode.
-- `apps/web/src/components/chat/ChatHeader.tsx`: marketer task breadcrumbs and workspace label. adds the marketer workspace segment with the existing breadcrumb primitives.
+- `apps/web/src/components/chat/ChatHeader.tsx`: adds marketer task breadcrumbs, the workspace label and the marketer workspace segment with the existing breadcrumb primitives.
 - `apps/web/src/components/chat/ComposerFooterControls.tsx` and `apps/web/src/components/ComposerContextPermissions.tsx`: hide advanced permission chips in marketer mode; server permission enforcement is unchanged.
 - `apps/web/src/marketingNavigation.tsx`: routes standalone marketing UI events through TanStack Router.
 - `apps/web/src/routes/__root.tsx`: mounts the navigation bridge for both onboarding and the marketer shell.
