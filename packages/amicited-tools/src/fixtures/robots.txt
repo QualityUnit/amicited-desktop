@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /private/
+Allow: /private/public/
+User-agent: GPTBot
+Disallow: /
+Allow: /news/
+User-agent: ClaudeBot
+User-agent: Claude-Web
+Disallow: /private/
+Sitemap: https://example.com/map.xml

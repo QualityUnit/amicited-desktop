@@ -1,0 +1,26 @@
+{
+  "name": "@amicited/ui-marketing",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.tsx",
+    "./kit": "./src/kit.ts"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "@amicited/tools-core": "workspace:*",
+    "lucide-react": "^0.564.0",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}

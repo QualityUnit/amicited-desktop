@@ -46,10 +46,10 @@ Put this section before the model and harness line at the end:
 
 Rounds: 2
 
-| Member | Round 1 | Round 2 |
-| --- | --- | --- |
-| Claude Opus | 7/10 | 9/10 |
-| GPT Sol | 8/10 | 10/10 |
+| Member      | Round 1 | Round 2 |
+| ----------- | ------- | ------- |
+| Claude Opus | 7/10    | 9/10    |
+| GPT Sol     | 8/10    | 10/10   |
 ```
 
 If a member gives no score, write `no score`. Do not invent one.
