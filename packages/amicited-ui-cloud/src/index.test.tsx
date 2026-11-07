@@ -23,13 +23,17 @@ it("renders accessible account-optional connect controls and actionable plan err
     <AmicitedConnectPanel
       ui={ui}
       actions={actions}
-      connection={{ state: "error", kind: "plan_required", message: "Connecting needs Pro." }}
+      connection={{
+        state: "error",
+        kind: "plan_required",
+        message: "This tool needs a trial or paid plan.",
+      }}
       onChange={() => {}}
       openExternal={() => {}}
     />,
   );
   expect(html).toContain("Your local tools always work without an account");
-  expect(html).toContain("Upgrade to Pro");
+  expect(html).toContain("Start 7-day free trial");
   expect(html).toContain('type="password"');
   expect(html).not.toContain("Bearer");
 });

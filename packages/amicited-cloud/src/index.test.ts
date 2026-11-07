@@ -8,6 +8,8 @@ async function fixture() {
   let challenge = "";
   let refreshed = false;
   const calls: string[] = [];
+  let initializations = 0;
+  const argumentsByTool: Record<string, unknown> = {};
   let origin = "";
   const server = NodeHttp.createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", origin);
@@ -67,13 +69,37 @@ async function fixture() {
       return;
     }
     let result: unknown = {};
-    if (rpc.method === "initialize")
+    if (rpc.method === "initialize") {
+      initializations++;
       result = {
         protocolVersion: "2025-03-26",
         capabilities: { tools: {} },
         serverInfo: { name: "fixture", version: "1" },
       };
+    }
+    if (rpc.method === "tools/list")
+      result = {
+        tools: [
+          {
+            name: "free_site_health_get",
+            inputSchema: { type: "object" },
+            annotations: { readOnlyHint: true, destructiveHint: false },
+          },
+          {
+            name: "free_site_health_start",
+            inputSchema: { type: "object" },
+            annotations: { readOnlyHint: false, destructiveHint: false },
+          },
+          { name: "unknown_annotations", inputSchema: { type: "object" } },
+          {
+            name: "contradictory",
+            inputSchema: { type: "object" },
+            annotations: { readOnlyHint: true, destructiveHint: true },
+          },
+        ],
+      };
     if (rpc.method === "tools/call") {
+      argumentsByTool[rpc.params.name] = rpc.params.arguments;
       calls.push(rpc.params.name);
       result = {
         content: [
@@ -128,6 +154,10 @@ async function fixture() {
       });
     },
     calls,
+    argumentsByTool,
+    get initializations() {
+      return initializations;
+    },
     get stored() {
       return stored;
     },
@@ -168,22 +198,28 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   expect(JSON.stringify(await cloud.status())).not.toContain("test-key");
   expect(await cloud.connectionForRequest("citations", false, true)).toMatchObject({
     state: "connected",
-    tools: ["amicited_cloud_read", "amicited_cloud_run"],
-    readTools: expect.arrayContaining(["prompt_analytics", "search_tools"]),
+    tools: ["amicited_cloud_discover", "amicited_cloud_call"],
   });
   expect((await fake.make().status()).state).toBe("connected");
-  await cloud.promptAnalytics("domain-1");
-  await cloud.reportLink({ domain_id: "domain-1" });
-  expect(await cloud.summary()).toMatchObject({
-    domains: [{ id: "domain-1", name: "example.com" }],
-    headlines: [
-      { label: "example.com · Visibility", value: 23 },
-      { label: "example.com · Citations", value: 7 },
-    ],
-    reportUrl: "https://app.flowhunt.io/reports/test",
+  expect(await cloud.summary()).toMatchObject({ connection: { state: "connected" } });
+  await cloud.call("free_site_health_get", { report_id: "report-1" });
+  expect(fake.argumentsByTool.free_site_health_get).toEqual({ report_id: "report-1" });
+  expect(await cloud.toolPolicy("free_site_health_get")).toEqual({ needsApproval: false });
+  for (const name of ["free_site_health_start", "unknown_annotations", "contradictory"])
+    expect(await cloud.toolPolicy(name)).toEqual({ needsApproval: true });
+  expect(fake.initializations).toBe(2); // One restored client and the original reused session.
+  expect(fake.calls.filter((name) => name === "list_toolsets")).toHaveLength(2);
+  expect(fake.calls).not.toContain("list_domains");
+  fake.refuse("requires a Pro plan or above");
+  expect(await cloud.call("list_domains")).toMatchObject({
+    isError: true,
+    structuredContent: { kind: "amicited-upgrade" },
   });
-  expect(fake.calls).toContain("prompt_analytics");
-  expect(fake.calls).toContain("report_link");
+  expect(await cloud.status()).toMatchObject({ state: "connected", access: "free" });
+  expect(fake.stored).toContain("test-key");
+  fake.refuse("");
+  await cloud.call("list_domains");
+  expect(await cloud.status()).toMatchObject({ state: "connected", access: "full" });
   expect(await cloud.disconnect()).toEqual({ state: "disconnected" });
   expect(fake.stored).toBeUndefined();
 });
@@ -216,16 +252,22 @@ it("maps refused tools to honest actionable states without saving rejected keys"
 });
 it("disconnect cancels browser sign-in and ignores later callbacks", async () => {
   await using fake = await fixture();
+  let redirect = "";
   let opened!: () => void;
   const browserOpened = new Promise<void>((resolve) => {
     opened = resolve;
   });
-  const cloud = fake.make(async () => {
+  const cloud = fake.make(async (value) => {
+    const url = new URL(value);
+    expect(url.searchParams.get("app")).toBe("amicited");
+    expect(url.searchParams.get("scope")).toContain("amicited:spending");
+    redirect = url.searchParams.get("redirect_uri")!;
     opened();
   });
   const connecting = cloud.connectOAuth();
   await browserOpened;
   expect(await cloud.disconnect()).toEqual({ state: "disconnected" });
   expect(await connecting).toEqual({ state: "disconnected" });
+  await expect(fetch(redirect)).rejects.toThrow();
   expect(fake.stored).toBeUndefined();
 });

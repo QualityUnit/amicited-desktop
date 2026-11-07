@@ -2,6 +2,8 @@
 // @effect-diagnostics nodeBuiltinImport:off - Standalone browser harness owns its Node processes and temporary files.
 // @effect-diagnostics globalTimers:off - Bounds startup readiness outside the Effect runtime.
 // @effect-diagnostics globalConsole:off - CLI prints the capture destination.
+
+import * as NodeHttp from "node:http";
 import * as NodeNet from "node:net";
 import * as NodeFS from "node:fs";
 import * as NodeChildProcess from "node:child_process";
@@ -16,6 +18,87 @@ await NodeFSP.writeFile(
   NodePath.join(out, "capture-head.txt"),
   NodeChildProcess.execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }),
 );
+const { CloudClient } = await import(String("../../packages/amicited-cloud/src/index.ts"));
+// Exercise the real client against a local MCP fixture; no production credentials.
+const fixture = NodeHttp.createServer(async (req, res) => {
+  if (req.method !== "POST") {
+    res.writeHead(405).end();
+    return;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  const rpc = JSON.parse(Buffer.concat(chunks).toString());
+  if (rpc.id === undefined) {
+    res.writeHead(202).end();
+    return;
+  }
+  const result =
+    rpc.method === "initialize"
+      ? {
+          protocolVersion: "2025-03-26",
+          capabilities: { tools: {} },
+          serverInfo: { name: "capture-fixture", version: "1" },
+        }
+      : rpc.method === "tools/list"
+        ? {
+            tools: [
+              {
+                name: "free_site_health_get",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+            ],
+          }
+        : {
+            content: [
+              {
+                type: "text",
+                text:
+                  rpc.params.name === "paid_refusal"
+                    ? "This tool requires a Pro plan or upgrade"
+                    : rpc.params.name === "free_site_health_get"
+                      ? "Site health report for example.com: HTTPS is available. This is controlled fixture data."
+                      : "Workspace tool available.",
+              },
+            ],
+            ...(rpc.params.name === "paid_refusal" ? { isError: true } : {}),
+          };
+  res
+    .writeHead(200, { "Content-Type": "application/json" })
+    .end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result }));
+});
+await new Promise<void>((resolve) => fixture.listen(0, "127.0.0.1", resolve));
+const fixtureAddress = fixture.address();
+if (!fixtureAddress || typeof fixtureAddress === "string") throw new Error("Fixture port missing");
+let fixtureSecret: string | undefined;
+const fixtureClient = new CloudClient({
+  endpoint: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
+  secrets: {
+    read: async () => fixtureSecret,
+    write: async (value: string) => {
+      fixtureSecret = value;
+    },
+    clear: async () => {
+      fixtureSecret = undefined;
+    },
+  },
+  openExternal: async () => {},
+});
+let cloudFixtures;
+try {
+  await fixtureClient.connectApiKey("capture-only");
+  const upgrade = await fixtureClient.call("paid_refusal");
+  const free = await fixtureClient.status();
+  const policy = await fixtureClient.toolPolicy("free_site_health_get");
+  if (policy.needsApproval) throw new Error("Fixture read unexpectedly needs approval");
+  const result = await fixtureClient.call("free_site_health_get", { report_id: "fixture" });
+  await fixtureClient.call("paid_success");
+  cloudFixtures = { free, full: await fixtureClient.status(), result, upgrade };
+} finally {
+  await fixtureClient.disconnect();
+  fixture.closeAllConnections();
+  await new Promise<void>((resolve) => fixture.close(() => resolve()));
+}
 const home =
   process.env.AMICITED_CAPTURE_HOME ??
   (await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-journey-")));
@@ -442,6 +525,95 @@ try {
       if (path === "/settings/general")
         await page.getByRole("textbox", { name: "Website URL", exact: true }).waitFor();
       await capture(name!);
+      if (path === "/marketing-settings") {
+        for (const state of ["waiting", "free", "upgrade", "full"]) {
+          await page.evaluate(
+            async ({ state, fixtures, uiModule, marketingModule }) => {
+              const reactModule = await import(String("/node_modules/.vite/deps/react.js"));
+              const React = reactModule.default ?? reactModule;
+              const domModule = await import(
+                String("/node_modules/.vite/deps/react-dom_client.js")
+              );
+              const { createRoot } = domModule.default ?? domModule;
+              const { AmicitedConnectPanel } = await import(String(uiModule));
+              const { CloudToolResultCard } = await import(String(marketingModule));
+              const { Button } = await import(String("/src/components/ui/button.tsx"));
+              const { Input } = await import(String("/src/components/ui/input.tsx"));
+              const host = document.createElement("div");
+              host.id = "cloud-evidence";
+              host.setAttribute("data-amicited-tokens", "");
+              Object.assign(host.style, {
+                position: "fixed",
+                inset: "90px 40px 80px 280px",
+                zIndex: "10000",
+                background: "var(--background)",
+                padding: "32px",
+                overflow: "auto",
+              });
+              document.body.append(host);
+              const root = createRoot(host);
+              const connection =
+                state === "waiting"
+                  ? { state: "connecting" }
+                  : state === "full"
+                    ? fixtures.full
+                    : fixtures.free;
+              root.render(
+                React.createElement(
+                  "div",
+                  {},
+                  React.createElement(
+                    "p",
+                    {},
+                    "Controlled MCP fixture — connection and result presentation",
+                  ),
+                  React.createElement(AmicitedConnectPanel, {
+                    connection,
+                    ui: { Button, Input },
+                    actions: {
+                      connectOAuth: async () => connection,
+                      connectApiKey: async () => connection,
+                      disconnect: async () => ({ state: "disconnected" }),
+                    },
+                    onChange: () => {},
+                    openExternal: () => {},
+                  }),
+                  ...(state === "free" || state === "upgrade"
+                    ? [
+                        React.createElement(CloudToolResultCard, {
+                          onStartTrial: () => {},
+                          cloud: {
+                            tool: state === "free" ? "free_site_health_get" : "paid_refusal",
+                            result: state === "free" ? fixtures.result : fixtures.upgrade,
+                          },
+                        }),
+                      ]
+                    : []),
+                ),
+              );
+              (window as unknown as { disposeCloudEvidence(): void }).disposeCloudEvidence = () => {
+                root.unmount();
+                host.remove();
+              };
+            },
+            {
+              state,
+              fixtures: cloudFixtures,
+              uiModule: "/@fs" + NodePath.resolve("packages/amicited-ui-cloud/src/index.tsx"),
+              marketingModule: "/@fs" + NodePath.resolve("packages/amicited-ui/src/index.tsx"),
+            },
+          );
+          await page
+            .getByText("Controlled MCP fixture — connection and result presentation")
+            .waitFor();
+          if (state === "waiting")
+            await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
+          await capture("07-cloud-" + state);
+          await page.evaluate(() =>
+            (window as unknown as { disposeCloudEvidence(): void }).disposeCloudEvidence(),
+          );
+        }
+      }
       if (path === "/tools") {
         await page.locator(".am-tool-list > a").first().hover();
         await capture("06b-tools-hover");

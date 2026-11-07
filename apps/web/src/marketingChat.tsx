@@ -1,3 +1,4 @@
+import { createLocalApi } from "./localApi";
 import { WorkLogRow } from "./components/chat/WorkLog";
 import { ComposerPendingApprovalActions } from "./components/chat/ComposerPendingApprovalActions";
 import { Shield } from "lucide-react";
@@ -32,6 +33,8 @@ import { useState, useEffect, useEffectEvent, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import {
   CompactMarketingResult,
+  cloudToolResult,
+  CloudToolResultCard,
   marketingToolResult,
   marketingOfferResult,
   readBrand,
@@ -239,6 +242,16 @@ export function MarketingTranscriptCard({
   )
     return null;
   if (marketingSubcheckCovered(projectedItem, visible)) return null;
+  const cloud = cloudToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
+  if (cloud)
+    return (
+      <CloudToolResultCard
+        cloud={cloud}
+        onStartTrial={() =>
+          void createLocalApi().shell.openExternal("https://app.flowhunt.io/amicited/subscription")
+        }
+      />
+    );
   if (!result)
     return (
       <MarketingCallState

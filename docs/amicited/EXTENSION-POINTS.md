@@ -144,13 +144,11 @@ when available, analytics and headlines. OAuth opens the browser on the server's
 machine; remote users must complete sign-in there or use a workspace key. A second
 connection request sees `connecting`; disconnect cancels the pending callback.
 
-Agents use existing provider-injected local MCP access (Claude Code, Codex and
-other MCP-capable adapters): `amicited_cloud_read` accepts a read meta-tool name
-and arguments; `amicited_cloud_run` forwards to `run_tool` behind the inherited
-write/full-access checks. No cloud token is passed to providers. These proxies
-are advertised while disconnected so an agent can explain the Settings connection;
-they fail honestly until connected. The remote `read_tool` enforces read-only tool
-execution; writes go through the separate destructive proxy.
+Agents use existing provider-injected local MCP access. `amicited_cloud_discover`
+proxies `list_toolsets`, `search_tools` and `describe_tool`.
+`amicited_cloud_call` uses a real tool name and arguments. The server reads MCP
+annotations; anything not explicitly read-only and non-destructive requires
+approval and inherited full-access checks. No cloud token reaches providers.
 
 ### Completed mounts
 
@@ -394,11 +392,22 @@ marketing results use `WorkLogButton` and `WorkLogDetails` through the UI adapte
 - `apps/server/scripts/dev-replay-agent.ts`: registers the controlled hidden-offer marketing scenario.
 
 `amicited_connection` uses the existing cloud service and provider-injected local
-MCP toolkit. Connected calls name `amicited_cloud_read` and `amicited_cloud_run`,
+MCP toolkit. Connected calls name `amicited_cloud_discover` and `amicited_cloud_call`,
 which remain attached for Claude and Codex without exposing credentials.
-Their existing limited routing and free-tier validation gaps are deferred to the
-cloud-client follow-up; this wave changes discovery guidance and offer copy. Disconnected calls describe measured visibility and tracking;
+Disconnected calls describe measured visibility and tracking;
 connection actions require a first useful local result. The latest marketer
 message carries the browser's offer preferences; a hidden or snoozed preference
 suppresses suggestions. Existing chats retain their submitted preference until
 the next message. Developer messages carry no marketing promotion context.
+
+Wave 30 keeps existing cloud RPC and toolkit seams and adds:
+
+- `apps/web/src/components/chat/ComposerModelEffort.tsx`: marketer footer omits workflow and access controls.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx`: hides Replay in production marketer mode.
+- `apps/web/src/components/chat/TimelineWorkEntryRow.tsx`: sends cloud tool results through the marketer renderer.
+- `evals/mcp-tool-use/run.ts`: includes real cloud proxy declarations in the evaluator.
+
+- `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: names completed marketing work from its actual results.
+- `apps/server/src/provider/AgentContextBudget.test.ts` and `agentContextBudget.json`: measure the real discovery/call proxy declarations.
+- `apps/web/src/amicited-cloud.browser.test.tsx`: exercises shared connect and cancellation without stale completion.
+- `scripts/amicited/journey-screenshots.ts`: isolated MCP fixture captures alongside the existing journey.

@@ -1,6 +1,6 @@
 import { useThreadVisibleTurnItems, useThreadShell } from "../../state/entities";
 import { MarketingTranscriptCard } from "../../marketingChat";
-import { useWorkspaceMode } from "@amicited/ui-marketing";
+import { useWorkspaceMode, marketingToolResult, resultTitle } from "@amicited/ui-marketing";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogButton, WorkLogList, WorkLogRow } from "./WorkLog";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
@@ -632,12 +632,20 @@ export function WorkGroupToggleTimelineRow({
 }) {
   const workspaceMode = useWorkspaceMode();
   const ctx = use(TimelineRowCtx);
+  const marketingTitles = row.marketingEntries?.flatMap((entry) => {
+    const result = marketingToolResult(
+      entry.structuredPayload?.type === "dynamic_tool"
+        ? entry.structuredPayload.output
+        : entry.toolData,
+    );
+    return result ? [resultTitle(result)] : [];
+  });
   return (
     <>
       <WorkGroupHeader
         label={
           workspaceMode === "marketer" && row.marketingEntries !== undefined
-            ? "Used AmICited tools"
+            ? [...new Set(marketingTitles)].join(", ") || "Marketing checks"
             : row.summary
         }
         iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}

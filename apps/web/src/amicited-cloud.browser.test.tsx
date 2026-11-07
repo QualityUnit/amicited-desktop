@@ -8,7 +8,7 @@ import { render } from "../test/render";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 const ui = { Button, Input };
-it("offers a successful result once, persists Not now, and opens the real signup", async () => {
+it("offers a successful result once, persists Not now, and starts the shared OAuth connect flow", async () => {
   const map = new Map<string, string>();
   const storage = {
     getItem: (key: string) => map.get(key) ?? null,
@@ -18,6 +18,7 @@ it("offers a successful result once, persists Not now, and opens the real signup
   };
   const gate = createUpsellGate(storage, storage);
   const open = vi.fn();
+  const connect = vi.fn();
   const result = {
     status: "success",
     tool: "site.audit",
@@ -29,13 +30,12 @@ it("offers a successful result once, persists Not now, and opens the real signup
       result={result}
       gate={gate}
       openExternal={open}
-      onConnect={() => {}}
+      onConnect={connect}
     />,
   );
   await screen.getByRole("button", { name: "Start 7-day free trial" }).click();
-  expect(open).toHaveBeenCalledWith(
-    "https://app.flowhunt.io/sign-in?app=amicited&plan=pro&interval=month",
-  );
+  expect(connect).toHaveBeenCalledOnce();
+  expect(open).not.toHaveBeenCalled();
   await screen.getByRole("button", { name: "Not now", exact: true }).click();
   await expect.element(screen.getByRole("complementary")).not.toBeInTheDocument();
   expect(map.get("amicited.cloud.upsell")).toContain("snoozedUntil");
@@ -345,4 +345,36 @@ it("keeps report context scoped in hash-routed clients and clears after dispatch
     clearMarketingReport(first);
     clearMarketingReport(second);
   }
+});
+
+it("cancels browser waiting and ignores the old OAuth completion", async () => {
+  let resolve!: (value: import("@amicited/cloud-client/model").Connection) => void;
+  const pending = new Promise<import("@amicited/cloud-client/model").Connection>((done) => {
+    resolve = done;
+  });
+  const changed = vi.fn();
+  const disconnect = vi.fn(async () => ({ state: "disconnected" }) as const);
+  await using screen = await render(
+    <AmicitedConnectPanel
+      ui={ui}
+      connection={{ state: "disconnected" }}
+      actions={{
+        connectOAuth: () => pending,
+        connectApiKey: async () => ({ state: "disconnected" }),
+        disconnect,
+      }}
+      onChange={changed}
+      openExternal={() => {}}
+    />,
+  );
+  await screen.getByRole("button", { name: "Connect with AmICited" }).click();
+  await expect
+    .element(screen.getByRole("status"))
+    .toHaveTextContent("Waiting for you to finish in your browser… Cancel");
+  await screen.getByRole("button", { name: "Cancel", exact: true }).click();
+  await vi.waitFor(() => expect(changed).toHaveBeenCalledWith({ state: "disconnected" }));
+  resolve({ state: "connected", workspace: "Old operation", scopes: [] });
+  await pending;
+  expect(disconnect).toHaveBeenCalledOnce();
+  expect(changed).toHaveBeenCalledTimes(1);
 });

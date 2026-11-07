@@ -98,3 +98,10 @@ count as a scored result.
 The harnesses set `T3CODE_DEV_REPLAY_CAPTURE=1` so recorded thinking and
 pending-tool intervals last long enough for the three theme/viewport captures.
 Normal Replay timing stays unchanged.
+
+Wave 30 evidence is in `.amicited-shots/r28/`. The production OAuth transcript
+records discovery, public-client registration, S256, resource, all three scopes
+and AmICited branding; verification stops at the FlowHunt login without forms.
+The journey captures the shared settings connection surface and native model
+picker. Controlled component states are explicitly separate from account-backed
+production access; free discovery cannot establish a workspace plan.

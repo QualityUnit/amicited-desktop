@@ -411,7 +411,9 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
   if (
     workspaceMode === "marketer" &&
     (marketingItem?.toolName?.toLowerCase().includes("marketing_tools_run") ||
-      workEntry.label.toLowerCase().includes("marketing_tools_run"))
+      workEntry.label.toLowerCase().includes("marketing_tools_run") ||
+      marketingItem?.toolName?.toLowerCase().includes("amicited_cloud_") ||
+      workEntry.label.toLowerCase().includes("amicited_cloud_"))
   ) {
     return (
       <MarketingTranscriptCard

@@ -17,7 +17,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
-import { SIGNUP_URL, type Connection } from "@amicited/cloud-client/model";
+import { type Connection } from "@amicited/cloud-client/model";
 import type { WinResult } from "@amicited/cloud-client/upsell";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
@@ -68,7 +68,11 @@ const ui = {
 const openExternal = (url: string) => {
   void createLocalApi().shell.openExternal(url);
 };
-const connect = () => marketingNavigate("/marketing-settings");
+const connect = () => {
+  sessionStorage.setItem("amicited.connect-requested", "true");
+  marketingNavigate("/marketing-settings");
+  window.dispatchEvent(new Event("amicited-connect"));
+};
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
   label: "cloud:status",
@@ -151,6 +155,26 @@ function CloudSettings() {
   const canOAuth = useAtomValue(oauth.permissionAtom(environmentId));
   const canKey = useAtomValue(key.permissionAtom(environmentId));
   const canDisconnect = useAtomValue(disconnect.permissionAtom(environmentId));
+  const startOAuth = useEffectEvent(async () => {
+    if (
+      !environmentId ||
+      !canOAuth ||
+      sessionStorage.getItem("amicited.connect-requested") !== "true"
+    )
+      return;
+    sessionStorage.removeItem("amicited.connect-requested");
+    setConnection({ state: "connecting" });
+    const result = await doOAuth({ environmentId, input: undefined });
+    if (result._tag === "Success") setConnection(result.value);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- External connect requests share the settings OAuth action.
+  useEffect(() => {
+    if (!environmentId || !canOAuth) return;
+    void startOAuth();
+    const start = () => void startOAuth();
+    window.addEventListener("amicited-connect", start);
+    return () => window.removeEventListener("amicited-connect", start);
+  }, [environmentId, canOAuth]);
   if (!connection || !environmentId) return <p>Reading AmICited connection…</p>;
   return (
     <div className="am-cloud-settings">
@@ -254,7 +278,7 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
                 : "Track prompts and citations every day. Keep a history so you can see what changes."}
           </p>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-          <CloudButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
+          <CloudButton variant="default" onClick={connect}>
             Start 7-day free trial
           </CloudButton>{" "}
           <CloudButton variant="link" onClick={connect}>
@@ -284,7 +308,7 @@ export function CloudPage() {
       </p>
       <div className="am-actions">
         {promotionsAllowed(connection) && (
-          <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
+          <MarketingButton variant="default" onClick={connect}>
             Start 7-day free trial
           </MarketingButton>
         )}

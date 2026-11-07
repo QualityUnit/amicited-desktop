@@ -18,32 +18,25 @@ const shared = {
   ],
 };
 export const CloudToolkit = Toolkit.make(
-  Tool.make("amicited_cloud_read", {
+  Tool.make("amicited_cloud_discover", {
     ...shared,
     description:
-      "Read the connected AmICited workspace. Discover tools with search_tools and describe_tool; read_tool runs read-only tools. If disconnected, ask the user to connect in Settings. Credentials are kept by the server.",
+      "Discover real AmICited tools through list_toolsets, search_tools and describe_tool. Read the selected tool's schema before calling it with amicited_cloud_call. Credentials stay on the server. If disconnected, connect in Settings.",
     parameters: Schema.Struct({
-      tool: Schema.Literals([
-        "list_domains",
-        "list_prompts",
-        "list_competitors",
-        "list_tags",
-        "prompt_analytics",
-        "report_link",
-        "list_toolsets",
-        "search_tools",
-        "describe_tool",
-        "read_tool",
-      ]),
+      tool: Schema.Literals(["list_toolsets", "search_tools", "describe_tool"]),
       arguments: Schema.Record(Schema.String, Schema.Unknown),
     }),
   }).annotate(Tool.Readonly, true),
-  Tool.make("amicited_cloud_run", {
+  Tool.make("amicited_cloud_call", {
     ...shared,
     description:
-      "Run an AmICited workspace tool through run_tool. This may publish content or spend credits. Obtain the user's approval for the action and its cost first. Use amicited_cloud_read for read-only operations.",
-    parameters: Schema.Struct({ arguments: Schema.Record(Schema.String, Schema.Unknown) }),
-  }).annotate(Tool.Destructive, true),
+      "Call a real AmICited tool by name with its advertised arguments, including free_* tools. Server annotations decide whether approval is required. First call with approved=false. If approval is required, explain the action and cost and obtain the user's approval before repeating with approved=true. A trial or paid-tool refusal leaves free tools available.",
+    parameters: Schema.Struct({
+      tool: Schema.String,
+      arguments: Schema.Record(Schema.String, Schema.Unknown),
+      approved: Schema.Boolean,
+    }),
+  }),
 );
 const call = Effect.fn("AmicitedCloud.proxy")(function* (
   tool: string,
@@ -51,7 +44,7 @@ const call = Effect.fn("AmicitedCloud.proxy")(function* (
 ) {
   yield* readCaller();
   const cloud = yield* AmicitedCloud;
-  return yield* Effect.tryPromise({
+  const result = yield* Effect.tryPromise({
     try: () => cloud.call(tool, args),
     catch: () =>
       new OrchestratorMcpFailure({
@@ -59,10 +52,39 @@ const call = Effect.fn("AmicitedCloud.proxy")(function* (
         message: "Could not use AmICited. Check the connection in Settings and try again.",
       }),
   });
+  return { kind: "amicited-cloud-result", tool, result };
+});
+const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
+  tool: string;
+  arguments: Record<string, unknown>;
+  approved: boolean;
+}) {
+  yield* readCaller();
+  const cloud = yield* AmicitedCloud;
+  const policy = yield* Effect.tryPromise({
+    try: () => cloud.toolPolicy(params.tool),
+    catch: () =>
+      new OrchestratorMcpFailure({
+        code: "provider_unavailable",
+        message:
+          "Could not check this AmICited tool. Check your connection and discover its name first.",
+      }),
+  });
+  if (policy.needsApproval && !params.approved)
+    return {
+      kind: "approval_required",
+      tool: params.tool,
+      message: "Ask the user to approve this action and its cost before running it.",
+    };
+  return yield* call(params.tool, params.arguments);
 });
 export const layer = McpToolAccess.toLayer(CloudToolkit, {
-  amicited_cloud_read: McpToolAccess.reads(({ tool, arguments: args }) => call(tool, args)),
-  amicited_cloud_run: McpToolAccess.writesEnvironment(({ arguments: args }, check) =>
-    check.pipe(Effect.andThen(call("run_tool", args))),
+  amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) => call(tool, args)),
+  amicited_cloud_call: McpToolAccess.either(
+    (params) => params.approved,
+    McpToolAccess.writesEnvironment((params, check) =>
+      check.pipe(Effect.andThen(guardedCall(params))),
+    ),
+    McpToolAccess.reads(guardedCall),
   ),
 });

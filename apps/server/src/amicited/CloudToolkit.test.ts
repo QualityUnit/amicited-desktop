@@ -16,6 +16,7 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
       secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
       openExternal: async () => {},
     });
+    cloud.toolPolicy = async (name) => ({ needsApproval: name !== "free_site_health_get" });
     cloud.call = async (name) => {
       calls.push(name);
       return { content: [{ type: "text", text: "workspace data" }] };
@@ -39,14 +40,35 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
     yield* Effect.gen(function* () {
       const toolkit = yield* CloudToolkit;
       const read = yield* toolkit
-        .handle("amicited_cloud_read", { tool: "list_domains", arguments: {} })
+        .handle("amicited_cloud_discover", { tool: "list_toolsets", arguments: {} })
         .pipe(Stream.unwrap, Stream.runCollect);
-      expect(read.at(-1)?.result).toMatchObject({ content: [{ text: "workspace data" }] });
+      expect(read.at(-1)?.result).toMatchObject({
+        result: { content: [{ text: "workspace data" }] },
+      });
       const write = yield* toolkit
-        .handle("amicited_cloud_run", { arguments: {} })
+        .handle("amicited_cloud_call", {
+          tool: "free_site_health_start",
+          arguments: {},
+          approved: true,
+        })
         .pipe(Stream.unwrap, Stream.runCollect);
       expect(write.at(-1)?.result).toMatchObject({ code: "capability_denied" });
-      expect(calls).toEqual(["list_domains"]);
+      const pending = yield* toolkit
+        .handle("amicited_cloud_call", {
+          tool: "free_site_health_start",
+          arguments: {},
+          approved: false,
+        })
+        .pipe(Stream.unwrap, Stream.runCollect);
+      expect(pending.at(-1)?.result).toMatchObject({ kind: "approval_required" });
+      yield* toolkit
+        .handle("amicited_cloud_call", {
+          tool: "free_site_health_get",
+          arguments: {},
+          approved: false,
+        })
+        .pipe(Stream.unwrap, Stream.runCollect);
+      expect(calls).toEqual(["list_toolsets", "free_site_health_get"]);
     }).pipe(
       Effect.provide(
         McpToolAccess.HandlersLayer.layer(layer).pipe(Layer.provideMerge(dependencies)),

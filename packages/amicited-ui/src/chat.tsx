@@ -11,6 +11,29 @@ export const marketingStarters = [
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
+export function cloudToolResult(
+  value: unknown,
+  depth = 0,
+): { tool: string; result: unknown } | null {
+  if (depth > 8) return null;
+  if (typeof value === "string") {
+    try {
+      return cloudToolResult(JSON.parse(value), depth + 1);
+    } catch {
+      return null;
+    }
+  }
+  if (Array.isArray(value))
+    return value.map((part) => cloudToolResult(part, depth + 1)).find(Boolean) ?? null;
+  const data = record(value);
+  if (data.kind === "amicited-cloud-result" && typeof data.tool === "string")
+    return { tool: data.tool, result: data.result };
+  for (const candidate of [data.result, data.structuredContent, data.content, data.text]) {
+    const found = candidate === undefined ? null : cloudToolResult(candidate, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
 export function marketingToolResult(value: unknown, depth = 0): ToolResult | null {
   if (depth > 6) return null;
   if (typeof value === "string") {
@@ -274,4 +297,29 @@ function marketingTarget(input: unknown) {
   } catch {
     return ` on ${target}`;
   }
+}
+
+export function CloudToolResultCard({
+  cloud,
+  onStartTrial,
+}: {
+  cloud: { tool: string; result: unknown };
+  onStartTrial(): void;
+}) {
+  const result = cloud.result as {
+    structuredContent?: { kind?: string; message?: string };
+    content?: { text?: string }[];
+  };
+  const upgrade = result?.structuredContent?.kind === "amicited-upgrade";
+  return (
+    <article className="am-tool-card" aria-label="AmICited tool result">
+      <p>{cloud.tool.replaceAll("_", " ")}</p>
+      <p>
+        {upgrade
+          ? result.structuredContent?.message
+          : result?.content?.map((part) => part.text ?? "").join("\n")}
+      </p>
+      {upgrade && <MarketingButton onClick={onStartTrial}>Start 7-day free trial</MarketingButton>}
+    </article>
+  );
 }

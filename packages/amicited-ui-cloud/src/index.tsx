@@ -8,7 +8,7 @@ import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
 } from "react";
-import { DOCS_URL, SIGNUP_URL, type Connection } from "@amicited/cloud-client/model";
+import { DOCS_URL, SUBSCRIPTION_URL, type Connection } from "@amicited/cloud-client/model";
 import { createUpsellGate, whatYouAreMissing, type WinResult } from "@amicited/cloud-client/upsell";
 
 export interface CloudUi {
@@ -31,7 +31,6 @@ export function AmicitedUpsellCard({
   gate,
   connected = false,
   ui: { Button },
-  openExternal,
   onConnect,
 }: {
   result: WinResult;
@@ -56,14 +55,12 @@ export function AmicitedUpsellCard({
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
       <p>{comparison.missing}</p>
-      <p className="am-hint">
-        Connecting is free. Optional 7-day trial, then EUR 120/month Pro for the full set.
-      </p>
+      <p className="am-hint">Optional 7-day trial, then EUR 120/month Pro for the full set.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={onConnect}>
           Connect AmICited
         </Button>
-        <Button variant="link" onClick={() => openExternal(SIGNUP_URL)}>
+        <Button variant="link" onClick={onConnect}>
           Start 7-day free trial
         </Button>
         <Button variant="link" onClick={onConnect}>
@@ -98,15 +95,18 @@ export function AmicitedConnectPanel({
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState(false);
+  const operation = useRef(0);
   async function run(action: () => Promise<Connection>) {
+    const id = ++operation.current;
     setBusy(true);
     setFailure(false);
     try {
-      onChange(await action());
+      const result = await action();
+      if (id === operation.current) onChange(result);
     } catch {
-      setFailure(true);
+      if (id === operation.current) setFailure(true);
     } finally {
-      setBusy(false);
+      if (id === operation.current) setBusy(false);
       setApiKey("");
     }
   }
@@ -118,13 +118,24 @@ export function AmicitedConnectPanel({
           <>
             <Row
               title={`Connected to ${connection.workspace}${connection.plan ? ` · ${connection.plan}` : ""}`}
-              description="Your local tools always work without an account."
+              description={
+                connection.state === "connected"
+                  ? connection.access === "full"
+                    ? "Full AmICited access is unlocked."
+                    : connection.access === "free"
+                      ? "Free AmICited tools are unlocked: brand visibility, query fan-out, llms.txt, site health and watermark detection."
+                      : "AmICited tools are connected. Your workspace plan determines which tools are available."
+                  : "Your local tools always work without an account."
+              }
               control={
                 <Button disabled={busy} onClick={() => void run(actions.disconnect)}>
                   Disconnect
                 </Button>
               }
             />
+            {connection.access !== "full" && (
+              <Button onClick={() => openExternal(SUBSCRIPTION_URL)}>Start 7-day free trial</Button>
+            )}
           </>
         ) : (
           <>
@@ -132,7 +143,9 @@ export function AmicitedConnectPanel({
               <div role="alert">
                 <p>{connection.message}</p>
                 {connection.kind === "plan_required" && (
-                  <Button onClick={() => openExternal(SIGNUP_URL)}>Upgrade to Pro</Button>
+                  <Button onClick={() => openExternal(SUBSCRIPTION_URL)}>
+                    Start 7-day free trial
+                  </Button>
                 )}
                 {connection.kind === "no_credits" && (
                   <Button onClick={() => openExternal("https://app.flowhunt.io/")}>
@@ -154,8 +167,14 @@ export function AmicitedConnectPanel({
                 </Button>
               }
             />
+            {pending && (
+              <div role="status">
+                Waiting for you to finish in your browser…{" "}
+                <Button onClick={() => void run(actions.disconnect)}>Cancel</Button>
+              </div>
+            )}
             <Disclosure label="Use an API key instead">
-              <p>Find your workspace key on the AI agents page in AmICited.</p>
+              <p>Find your workspace key in AmICited settings.</p>
               <Button onClick={() => openExternal(DOCS_URL)}>Where to find your key</Button>
               <label>
                 Workspace API key

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { CloudToolkit } from "../../apps/server/src/amicited/CloudToolkit.ts";
 import { MarketingToolkit } from "../../apps/server/src/mcp/toolkits/marketing/tools.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 /**
@@ -430,6 +431,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   PreviewControlsToolkit,
   WorktreeToolkit,
   MarketingToolkit,
+  CloudToolkit,
   PullRequestsToolkit,
   PreviewToolkit,
   DeviceToolkit,

@@ -403,3 +403,5 @@ export {
 } from "./chat.js";
 
 export { MarketingHeader } from "./shell.js";
+
+export { cloudToolResult, CloudToolResultCard } from "./chat.js";

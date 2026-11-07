@@ -125,3 +125,9 @@ catalogue; marketer messages carry it through the existing context seam.
 The r22 journey covers partial audit coverage and sign-in status. Production
 cloud authentication and paid MCP execution still require account-backed
 verification; model prioritization remains a limitation pending scored evals.
+
+Wave 30 validates connections with free discovery and reuses an MCP session per
+credential. Status is cached for 30 seconds; it never probes a paid tool. The
+summary no longer calls analytics without a prompt or requests an unspecified
+report. Production OAuth boundary evidence is redacted and stops before login;
+account-backed verification still belongs to the owner.

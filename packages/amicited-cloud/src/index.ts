@@ -9,7 +9,7 @@ import type {
   OAuthClientInformationMixed,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 
-import { MCP_URL, SCOPES, type Connection, type ErrorKind } from "./model.ts";
+import { MCP_URL, SCOPES, SUBSCRIPTION_URL, type Connection, type ErrorKind } from "./model.ts";
 export * from "./model.ts";
 export interface SecretStorage {
   read(): Promise<string | undefined>;
@@ -38,8 +38,7 @@ export const errorState = (error: unknown): Extract<Connection, { state: "error"
     auth: "We could not sign you in. Connect again or check your workspace key.",
     plan_required:
       "This AmICited tool needs a paid plan. Connecting and using the free tools does not need Pro.",
-    no_credits:
-      "Your workspace needs credits before it can connect. Add credits in AmICited, then try again.",
+    no_credits: "This tool needs workspace credits. Add credits in AmICited, then try again.",
     rate_limited:
       "AmICited is busy with your requests. Wait for your limit to reset, then try again.",
     network:
@@ -54,20 +53,10 @@ export class CloudClient {
       return {
         state: "connected",
         kind: "amicited-connection",
-        tools: ["amicited_cloud_read", "amicited_cloud_run"],
-        readTools: [
-          "list_domains",
-          "list_prompts",
-          "list_competitors",
-          "list_tags",
-          "prompt_analytics",
-          "report_link",
-          "list_toolsets",
-          "search_tools",
-          "describe_tool",
-        ],
+        access: connection.access,
+        tools: ["amicited_cloud_discover", "amicited_cloud_call"],
         instruction:
-          "Use amicited_cloud_read with list_toolsets, search_tools and describe_tool for discovery. The current desktop proxy has limited tool routing; do not claim the free tools ran unless an actual call succeeded.",
+          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. Approval is required unless the server marks a tool read-only and non-destructive. Never claim a tool ran unless its call succeeded.",
       };
     if (!offersAllowed)
       return {
@@ -98,6 +87,13 @@ export class CloudClient {
 
   private current: Connection = { state: "disconnected" };
   private generation = 0;
+  private checkedAt = 0;
+  private session: { key: string; client: Client } | undefined;
+  private async closeSession() {
+    const session = this.session;
+    this.session = undefined;
+    await session?.client.close();
+  }
   private cancelOAuth: (() => void) | undefined;
   private queue = Promise.resolve();
   private readonly options: {
@@ -146,7 +142,10 @@ export class CloudClient {
         verifier = value;
       },
       codeVerifier: () => verifier,
-      redirectToAuthorization: (url) => open(url.href),
+      redirectToAuthorization: (url) => {
+        url.searchParams.set("app", "amicited");
+        return open(url.href);
+      },
     };
   }
   private endpoint() {
@@ -157,6 +156,10 @@ export class CloudClient {
     run: (client: Client) => Promise<T>,
     persist = (value: Credential) => this.options.secrets.write(JSON.stringify(value)),
   ): Promise<T> {
+    const key = JSON.stringify(credential);
+    if (this.session?.key === key && (!credential.expiresAt || credential.expiresAt > Date.now()))
+      return run(this.session.client);
+    await this.closeSession();
     const provider = credential.apiKey
       ? undefined
       : this.provider(
@@ -187,10 +190,12 @@ export class CloudClient {
       await client.connect(
         transport as import("@modelcontextprotocol/sdk/shared/transport.js").Transport,
       );
-      return await run(client);
-    } finally {
+      this.session = { key: JSON.stringify(credential), client };
+    } catch (error) {
       await client.close();
+      throw error;
     }
+    return run(client);
   }
   private async invoke(client: Client, name: string, args: Record<string, unknown>) {
     const result = await client.callTool({ name, arguments: args });
@@ -198,10 +203,12 @@ export class CloudClient {
     return result;
   }
   private async validate(credential: Credential) {
-    await this.withClient(credential, (client) => this.invoke(client, "list_domains", {}));
+    await this.withClient(credential, (client) => this.invoke(client, "list_toolsets", {}));
+    this.checkedAt = Date.now();
     return {
       state: "connected",
       workspace: "Your AmICited workspace",
+      access: this.current.state === "connected" ? (this.current.access ?? "unknown") : "unknown",
       scopes: credential.apiKey
         ? [...SCOPES]
         : (credential.tokens?.scope ?? "amicited:read").split(" "),
@@ -222,6 +229,8 @@ export class CloudClient {
   }
   async status(): Promise<Connection> {
     if (this.current.state === "connecting") return this.current;
+    if (this.current.state === "connected" && Date.now() - this.checkedAt < 30_000)
+      return this.current;
     return this.serial(async () => {
       try {
         const credential = await this.credential();
@@ -277,7 +286,7 @@ export class CloudClient {
       resolveCode(code);
       res.end("You can return to AmICited Desktop.");
     });
-    const timer = setTimeout(() => rejectCode(new Error("Authentication cancelled")), 180_000);
+    const timer = setTimeout(() => rejectCode(new Error("Authentication cancelled")), 15 * 60_000);
     this.cancelOAuth = () => {
       rejectCode(new Error("Authentication cancelled"));
       server.close();
@@ -319,8 +328,10 @@ export class CloudClient {
     this.cancelOAuth?.();
     return this.serial(async () => {
       try {
-        await this.options.secrets.clear();
         this.current = { state: "disconnected" };
+        await this.closeSession();
+        this.checkedAt = 0;
+        await this.options.secrets.clear();
       } catch (error) {
         this.current = errorState(error);
       }
@@ -332,71 +343,67 @@ export class CloudClient {
       try {
         const credential = await this.credential();
         if (!credential) throw new Error("Authentication required");
-        return await this.withClient(credential, (client) => this.invoke(client, name, args));
+        const result = await this.withClient(credential, (client) =>
+          this.invoke(client, name, args),
+        );
+        if (
+          !name.startsWith("free_") &&
+          !["list_toolsets", "search_tools", "describe_tool"].includes(name) &&
+          this.current.state === "connected"
+        )
+          this.current = { ...this.current, access: "full" };
+        return result;
       } catch (error) {
-        this.current = errorState(error);
+        const failure = errorState(error);
+        if (failure.kind === "plan_required") {
+          if (this.current.state === "connected")
+            this.current = { ...this.current, access: "free" };
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: "This tool needs a trial or paid AmICited plan. Your connection and free tools are still available.",
+              },
+            ],
+            structuredContent: {
+              kind: "amicited-upgrade",
+              message:
+                "This tool needs a trial or paid AmICited plan. Your free tools are still available.",
+              action: "Start 7-day free trial",
+              url: SUBSCRIPTION_URL,
+            },
+          };
+        }
+        this.current = failure;
         // oxlint-disable-next-line preserve-caught-error -- Remote errors can contain credentials; expose only safe copy.
         throw new Error(this.current.message);
       }
     });
   }
-  listDomains() {
-    return this.call("list_domains");
-  }
-  promptAnalytics(domainId: string) {
-    return this.call("prompt_analytics", { domain_id: domainId });
-  }
-  reportLink(args: Record<string, unknown>) {
-    return this.call("report_link", args);
+  async toolPolicy(name: string) {
+    return this.serial(async () => {
+      const credential = await this.credential();
+      if (!credential) throw new Error("Connect AmICited in Settings first.");
+      return this.withClient(credential, async (client) => {
+        let cursor: string | undefined;
+        do {
+          const page = await client.listTools(cursor ? { cursor } : {});
+          const tool = page.tools.find((tool) => tool.name === name);
+          if (tool)
+            return {
+              needsApproval:
+                tool.annotations?.readOnlyHint !== true ||
+                tool.annotations.destructiveHint !== false,
+            };
+          cursor = page.nextCursor;
+        } while (cursor);
+        throw new Error("Could not find this AmICited tool. Discover its real name first.");
+      });
+    });
   }
   async summary() {
-    try {
-      const raw = await this.listDomains();
-      const data = toolData(raw);
-      const items = Array.isArray(data)
-        ? data
-        : Array.isArray(record(data).domains)
-          ? (record(data).domains as unknown[])
-          : [];
-      const domains = items
-        .map((item) => record(item))
-        .flatMap((item) =>
-          typeof item.id === "string" && typeof item.name === "string"
-            ? [{ id: item.id, name: item.name }]
-            : [],
-        );
-      const first = domains[0];
-      const analyticsResult = first
-        ? await this.promptAnalytics(first.id)
-            .then(toolData)
-            .catch(() => undefined)
-        : undefined;
-      const analytics = analyticsResult;
-      const report = await this.reportLink(first ? { domain_id: first.id } : {})
-        .then(toolData)
-        .catch(() => undefined);
-      const candidate =
-        typeof report === "string" ? report : (record(report).url ?? record(report).report_link);
-      let reportUrl: string | undefined;
-      try {
-        if (typeof candidate === "string" && new URL(candidate).protocol === "https:")
-          reportUrl = candidate;
-      } catch {
-        /* Missing or invalid report links are omitted. */
-      }
-      return {
-        connection: await this.status(),
-        domains,
-        ...(analytics === undefined ? {} : { analytics }),
-        headlines: visibilityHeadlines(analytics).map((headline) => ({
-          ...headline,
-          label: first ? `${first.name} · ${headline.label}` : headline.label,
-        })),
-        ...(reportUrl === undefined ? {} : { reportUrl }),
-      };
-    } catch {
-      return { connection: this.current };
-    }
+    return { connection: await this.status() };
   }
 }
 function record(value: unknown): Record<string, unknown> {

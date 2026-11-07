@@ -265,7 +265,13 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
         : {})}
       lockedProvider={props.lockedProvider}
       lockedContinuationGroupKey={props.lockedContinuationGroupKey ?? null}
-      instanceEntries={props.instanceEntries}
+      instanceEntries={
+        marketer && import.meta.env.PROD
+          ? props.instanceEntries.filter(
+              (entry) => entry.driverKind !== "devReplay" && entry.instanceId !== "devReplay",
+            )
+          : props.instanceEntries
+      }
       {...(props.keybindings ? { keybindings: props.keybindings } : {})}
       modelOptionsByInstance={props.modelOptionsByInstance}
       terminalOpen={props.terminalOpen ?? false}
