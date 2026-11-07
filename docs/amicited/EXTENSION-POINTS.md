@@ -275,10 +275,8 @@ The marketer adapter uses upstream variants. Provider adapters,
 contracts and mobile UI retain their existing behavior. Marketer navigation and
 results share their web/desktop entry points, including local and remote RPC.
 
-Wave 15 keeps the Button extension self-contained: its additive AmICited sizes
-and variants contain literal classes, with no fork-package imports. Input also
-contains only its local additive size. The web marketing adapter supplies the
-T3 menu to result export and authenticates the tool registry for marketer search;
+The web marketing adapter supplies the T3 menu to result export and
+authenticates the tool registry for marketer search;
 its browser test covers sidebar, keyboard, tool, result and task navigation.
 The patches/ policy remains an owner decision; this round does not change it.
 
@@ -332,7 +330,7 @@ service; standalone RPC calls continue to use the explicit environment default.
 - `apps/web/src/amicited-cloud.browser.test.tsx`: asserts the failure reason is visible before opening raw details.
 - `apps/server/src/marketing/MarketingToolsLive.test.ts`: verifies website and report context projection, including rejected URL schemes.
 
-Existing chat-header, composer, timeline and provider-turn seams now share the marketer header, distinguish assistant management from sending, and forward the current report and website separately from the user's text. The isolated native capture harness can reuse a stopped journey home to render the authenticated audit without spending another turn.
+Existing chat-header, composer, timeline and provider-turn seams preserve T3’s header, distinguish assistant management from sending, and forward the current report and website separately from the user's text. The isolated native capture harness can reuse a stopped journey home to render the authenticated audit without spending another turn.
 
 - `apps/server/scripts/dev-replay-agent.ts`: adds controlled sign-in failure and non-audit approval scenarios for the marketer journey.
 - `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: names marketing integration groups, hides marketer reasoning and approval timers.
