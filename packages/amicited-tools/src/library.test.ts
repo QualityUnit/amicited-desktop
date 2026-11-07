@@ -118,6 +118,8 @@ describe("site tools", () => {
       const audit = await tools.audit.run({ url }, ctx());
       expect(audit.score).toBe(code === 503 ? null : 33);
       expect(audit.coverage).toContain("unavailable checks are excluded");
+      expect(audit.limitations).toContain("not a measurement or prediction of AI visibility");
+      expect(audit.limitations).toContain("missing sitemap does not block crawlers");
     }
     const complete = await siteTools(fakeFetch({ [url]: fixture("site.html") }), {
       ...sslCheck,

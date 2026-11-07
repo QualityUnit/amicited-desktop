@@ -398,6 +398,7 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
     status: Schema.Literals(["checked", "partial", "could_not_check"]),
     score: Schema.NullOr(Schema.Number),
     coverage: Schema.String,
+    limitations: Schema.String,
     groups: Schema.Array(Schema.Struct({ name: Schema.String, result: checkOutput })),
     topFixes: Schema.Array(Schema.String),
   });
@@ -445,6 +446,8 @@ export function siteTools(fetcher: Fetcher = fetch, ssl = sslCheck) {
           ? Math.round(known.reduce((n, g) => n + g.result.score!, 0) / known.length)
           : null,
         coverage: `${known.length}/${groups.length} audit categories returned a score${known.length < groups.length ? "; unavailable checks are excluded" : ""}.`,
+        limitations:
+          "This score is a technical snapshot of six website checks, not a measurement or prediction of AI visibility or citations. A missing sitemap does not block crawlers: they can follow links. Missing robots.txt does not block crawlers by default. llms.txt is an emerging convention, with no demonstrated visibility benefit from this check. These fixes may help discoverability, but this audit cannot prove improved AI mentions, indexing by all assistants, or discovery of all content. Preserve the exact findings: a title outside the suggested length is not an absent title.",
         groups,
         topFixes: groups
           .flatMap((g) => g.result.findings)
