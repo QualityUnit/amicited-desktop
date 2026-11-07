@@ -174,6 +174,18 @@ try {
         (dark) => document.documentElement.classList.contains("dark") === dark,
         theme === "dark",
       );
+      if (name === "real-haiku-turn") {
+        await page
+          .getByText(
+            "Audit my website example.com for AI search. Give me the three most useful next steps.",
+            { exact: true },
+          )
+          .waitFor();
+        await page
+          .getByRole("article", { name: "Marketing tool result" })
+          .filter({ hasText: "6/6 audit categories returned a score" })
+          .waitFor();
+      }
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
     }
@@ -214,14 +226,14 @@ try {
     });
     const row = database
       .prepare(
-        "SELECT title FROM orchestration_v2_projection_threads WHERE thread_id = (SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' ORDER BY requested_at DESC LIMIT 1)",
+        "SELECT thread_id, title FROM orchestration_v2_projection_threads WHERE thread_id = (SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' ORDER BY requested_at DESC LIMIT 1)",
       )
       .get();
     database.close();
-    await page
-      .getByRole("button", { name: new RegExp(row.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) })
-      .first()
-      .click();
+    await page.evaluate(async (threadId) => {
+      const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+      location.hash = `/${readPrimaryEnvironmentId()}/${threadId}`;
+    }, row.thread_id);
     await page
       .getByRole("article", { name: "Marketing tool result" })
       .filter({ hasText: "Website health audit" })
