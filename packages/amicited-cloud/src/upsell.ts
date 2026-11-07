@@ -34,24 +34,24 @@ export function whatYouAreMissing(result: WinResult) {
       .join(" · ");
     if (teaser) teaser += " · not checked";
     missing =
-      "With AmICited: ChatGPT, Perplexity, Gemini, Google AI Overviews and AI Mode, Copilot and Claude, tracked daily, in the countries you choose, with competitors, citation sources and history.";
+      "Connect AmICited for free brand visibility across AI assistants and query fan-out. The optional trial or Pro adds daily prompt and citation tracking and competitors.";
   } else if (/audit/.test(result.tool)) {
     checked =
       "You completed a one-time site audit, including whether AI crawlers can read your site.";
     const score = record(result.output).score;
     if (typeof score === "number") checked += ` Your audit score was ${score}/100.`;
     missing =
-      "AmICited shows whether ChatGPT, Perplexity, Gemini and Google AI Overviews actually cite you, every day, against your competitors.";
+      "Connect AmICited for free site health and llms.txt tools. The optional trial or Pro adds daily prompt and citation tracking, competitors, SEO reports and audits.";
   } else if (/^content\./.test(result.tool)) {
     checked = "You completed a content task.";
     missing =
-      "With AmICited: AI articles and citation-gap briefs to plan content around sources AI assistants cite.";
+      "Connect AmICited for free query fan-out and watermark detection tools. The optional trial or Pro adds prompt and citation tracking, SEO reports and audits.";
   } else return undefined;
   return {
     checked,
     missing,
     teaser,
-    pricing: "7-day trial, then EUR 120/month Pro, cancel anytime",
+    pricing: "Connecting is free. Optional 7-day trial, then EUR 120/month Pro for the full set",
   };
 }
 export interface UpsellPreferences {

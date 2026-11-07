@@ -202,31 +202,36 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
   return (
     <section className="am-card">
       <h2>Works better with AmICited</h2>
-      <p>Optional cloud tracking alongside your free local tools.</p>
+      <p>
+        Connect for free brand visibility, query fan-out, llms.txt, site health and watermark
+        detection. A trial or Pro adds daily tracking and the full set.
+      </p>
       <div className="am-quick">
-        {["Daily AI visibility tracking", "Competitor citation gaps", "Multi-country tracking"].map(
-          (name) => (
-            <MarketingButton
-              variant="row"
-              className="am-promo-row"
-              key={name}
-              aria-label={name + " →"}
-              onClick={() => setSelected(name)}
-            >
-              <span>
-                {name}
-                <small className="am-promo-description">
-                  {name === "Daily AI visibility tracking"
-                    ? "Follow citations across assistants every day"
-                    : name === "Competitor citation gaps"
-                      ? "Find where other brands are cited"
-                      : "Compare recommendations in your target markets"}
-                </small>
-              </span>
-              <span aria-hidden="true">→</span>
-            </MarketingButton>
-          ),
-        )}
+        {[
+          "Daily prompt and citation tracking",
+          "Competitor tracking",
+          "SEO reports and audits",
+        ].map((name) => (
+          <MarketingButton
+            variant="row"
+            className="am-promo-row"
+            key={name}
+            aria-label={name + " →"}
+            onClick={() => setSelected(name)}
+          >
+            <span>
+              {name}
+              <small className="am-promo-description">
+                {name === "Daily prompt and citation tracking"
+                  ? "Follow prompts and citations every day"
+                  : name === "Competitor tracking"
+                    ? "Compare your brand with competitors"
+                    : "Review SEO reports and website audits"}
+              </small>
+            </span>
+            <span aria-hidden="true">→</span>
+          </MarketingButton>
+        ))}
       </div>
       {selected && (
         <dialog
@@ -242,11 +247,11 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
         >
           <h2>{selected}</h2>
           <p>
-            {selected === "Competitor citation gaps"
-              ? "Find prompts where competitors get cited and your brand is missing, then turn those gaps into useful content briefs."
-              : selected === "Multi-country tracking"
-                ? "See how recommendations change across your target countries, without changing your own location."
-                : "Follow your citations across ChatGPT, Perplexity, Gemini and Google AI Overviews every day. Keep a history so you can see what improves."}
+            {selected === "Competitor tracking"
+              ? "Track competitors alongside your brand."
+              : selected === "SEO reports and audits"
+                ? "Review SEO reports and website audits."
+                : "Track prompts and citations every day. Keep a history so you can see what changes."}
           </p>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
           <CloudButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
@@ -273,7 +278,9 @@ export function CloudPage() {
   return (
     <section className="am-card am-cloud-page">
       <p className="am-hint">
-        See who cites you across AI assistants. Track changes every day against your competitors.
+        Connect AmICited for free tools for brand visibility across AI assistants, query fan-out,
+        llms.txt, site health and watermark detection. A 7-day trial or Pro adds daily prompt and
+        citation tracking, competitors, SEO reports and audits.
       </p>
       <div className="am-actions">
         {promotionsAllowed(connection) && (

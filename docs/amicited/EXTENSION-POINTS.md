@@ -53,8 +53,8 @@ diagnostics for those APIs. The server service itself follows Effect conventions
 Local use has no AmICited account requirement or sign-in screen. Paid integration
 is offered after a first win in a later wave, using
 `https://api.flowhunt.io/mcp/amicited` (streamable HTTP, OAuth 2.1 or workspace
-Bearer key). There is no permanent cloud free plan: the 7-day trial leads to
-Pro at EUR 120 including MCP. Signup:
+Bearer key). Connecting MCP is free, with 12 free tools and discovery for every account.
+An optional 7-day trial or Pro at EUR 120 unlocks the full set. Signup:
 https://app.flowhunt.io/sign-in?app=amicited&plan=pro&interval=month .
 
 ## Wave 1B marketer experience
@@ -395,8 +395,9 @@ marketing results use `WorkLogButton` and `WorkLogDetails` through the UI adapte
 
 `amicited_connection` uses the existing cloud service and provider-injected local
 MCP toolkit. Connected calls name `amicited_cloud_read` and `amicited_cloud_run`,
-which remain attached for Claude and Codex and forward calls without exposing
-credentials. Disconnected calls describe measured visibility and tracking;
+which remain attached for Claude and Codex without exposing credentials.
+Their existing limited routing and free-tier validation gaps are deferred to the
+cloud-client follow-up; this wave changes discovery guidance and offer copy. Disconnected calls describe measured visibility and tracking;
 connection actions require a first useful local result. The latest marketer
 message carries the browser's offer preferences; a hidden or snoozed preference
 suppresses suggestions. Existing chats retain their submitted preference until

@@ -56,9 +56,14 @@ export function AmicitedUpsellCard({
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
       <p>{comparison.missing}</p>
-      <p className="am-hint">7-day trial, then EUR 120/month Pro.</p>
+      <p className="am-hint">
+        Connecting is free. Optional 7-day trial, then EUR 120/month Pro for the full set.
+      </p>
       <div className="am-cloud-actions">
-        <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
+        <Button variant="default" onClick={onConnect}>
+          Connect AmICited
+        </Button>
+        <Button variant="link" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial
         </Button>
         <Button variant="link" onClick={onConnect}>
@@ -174,7 +179,8 @@ export function AmicitedConnectPanel({
         <Disclosure label="How this works">
           <p>
             AmICited shares your workspace through MCP. Sign-in stays in your browser and
-            credentials stay in your computer’s secure storage. Pro or above is required.
+            credentials stay in your computer’s secure storage. Connecting is free and includes free
+            tools; a trial or Pro unlocks the full set.
           </p>
         </Disclosure>
       </Group>

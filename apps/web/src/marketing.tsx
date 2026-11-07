@@ -312,7 +312,10 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             <SidebarChromeHeader
               isElectron={isElectron}
               brand={
-                <span className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white">
+                <span
+                  data-amicited-brand=""
+                  className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white"
+                >
                   <AmICitedMark />
                 </span>
               }

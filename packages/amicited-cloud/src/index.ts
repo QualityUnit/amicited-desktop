@@ -36,7 +36,8 @@ export const errorState = (error: unknown): Extract<Connection, { state: "error"
           : "network";
   const messages: Record<ErrorKind, string> = {
     auth: "We could not sign you in. Connect again or check your workspace key.",
-    plan_required: "Connecting AmICited needs Pro or above. Upgrade to Pro to connect.",
+    plan_required:
+      "This AmICited tool needs a paid plan. Connecting and using the free tools does not need Pro.",
     no_credits:
       "Your workspace needs credits before it can connect. Add credits in AmICited, then try again.",
     rate_limited:
@@ -64,10 +65,9 @@ export class CloudClient {
           "list_toolsets",
           "search_tools",
           "describe_tool",
-          "read_tool",
         ],
         instruction:
-          "Use amicited_cloud_read to discover and run read-only AmICited tools in this chat; use amicited_cloud_run for approved writes.",
+          "Use amicited_cloud_read with list_toolsets, search_tools and describe_tool for discovery. The current desktop proxy has limited tool routing; do not claim the free tools ran unless an actual call succeeded.",
       };
     if (!offersAllowed)
       return {
@@ -81,11 +81,12 @@ export class CloudClient {
       kind: "amicited-connection",
       request,
       missing:
-        "AmICited adds measured citations and mentions in ChatGPT, Perplexity, Gemini and Google AI Overviews, daily history, competitors and share of voice, and prompt and topic tracking.",
+        "Connecting AmICited is free: brand visibility across AI assistants, query fan-out, llms.txt, site health and watermark detection. A 7-day trial or Pro adds daily prompt and citation tracking, competitors, SEO reports and audits.",
       ...(firstWin
         ? {
             action: "Connect AmICited",
-            pricing: "7-day trial, then EUR 120/month Pro",
+            pricing:
+              "Free connection and free tools. Optional 7-day trial, then EUR 120/month Pro for the full set",
             settingsPath: "/marketing-settings",
           }
         : {}),

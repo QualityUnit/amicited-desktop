@@ -121,7 +121,7 @@ it.each([
         await expect
           .element(screen.getByRole("heading", { name: "Works better with AmICited" }))
           .toBeVisible();
-        await screen.getByRole("button", { name: "Daily AI visibility tracking →" }).click();
+        await screen.getByRole("button", { name: "Daily prompt and citation tracking →" }).click();
         await expect
           .element(screen.getByRole("button", { name: "Start 7-day free trial" }))
           .toBeVisible();

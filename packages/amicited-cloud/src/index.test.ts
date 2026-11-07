@@ -157,7 +157,7 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   expect(await cloud.connectionForRequest("citations", true, true)).toMatchObject({
     state: "disconnected",
     action: "Connect AmICited",
-    missing: expect.stringContaining("citations"),
+    missing: expect.stringContaining("Connecting AmICited is free"),
   });
   expect(await cloud.connectionForRequest("citations", false, true)).toMatchObject({
     state: "hidden",
