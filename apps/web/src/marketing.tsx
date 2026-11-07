@@ -821,7 +821,10 @@ function MarketingHistory({
                           render={
                             <SidebarMenuButton
                               size="lg"
-                              className="h-auto"
+                              className="h-auto flex-col items-stretch"
+                              isActive={
+                                decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
+                              }
                               type="button"
                               data-chat-history-link=""
                               aria-current={
