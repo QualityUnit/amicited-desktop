@@ -819,7 +819,9 @@ function MarketingHistory({
                       <Tooltip>
                         <TooltipTrigger
                           render={
-                            <button
+                            <SidebarMenuButton
+                              size="lg"
+                              className="h-auto"
                               type="button"
                               data-chat-history-link=""
                               aria-current={
@@ -865,7 +867,7 @@ function MarketingHistory({
                               <span>
                                 {thread.title === "New thread" ? "New chat" : thread.title}
                               </span>
-                            </button>
+                            </SidebarMenuButton>
                           }
                         />
                         <TooltipPopup>

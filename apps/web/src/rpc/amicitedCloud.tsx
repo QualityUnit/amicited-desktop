@@ -44,7 +44,13 @@ function CloudDisclosure({
     </Collapsible>
   );
 }
-const ui = { Button: CloudButton, Input, Disclosure: CloudDisclosure, Row: SettingsRow, Group: SettingsGroup };
+const ui = {
+  Button: CloudButton,
+  Input,
+  Disclosure: CloudDisclosure,
+  Row: SettingsRow,
+  Group: SettingsGroup,
+};
 const openExternal = (url: string) => {
   void createLocalApi().shell.openExternal(url);
 };
@@ -202,7 +208,7 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
                       ? "Find where other brands are cited"
                       : "Compare recommendations in your target markets"}
                 </small>
-              </Badge>
+              </span>
               <span aria-hidden="true">→</span>
             </MarketingButton>
           ),
@@ -259,7 +265,7 @@ export function CloudPage() {
           <div className="am-actions">
             <Badge variant="secondary">
               {connection?.state === "connected" ? "Connected" : "Not connected"}
-            </span>
+            </Badge>
             {promotionsAllowed(connection) && (
               <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
                 Start 7-day free trial
