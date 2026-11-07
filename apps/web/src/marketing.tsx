@@ -702,6 +702,7 @@ function MarketingHistory({
                       </Tooltip>
                       {archived && (
                         <MarketingButton
+                          variant="link"
                           className="am-restore-chat"
                           onClick={() => void act(unarchiveThread(ref))}
                         >
