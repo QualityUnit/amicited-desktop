@@ -166,7 +166,9 @@ try {
         header: '[data-slot="workspace-breadcrumb-text"]',
         composer: '[data-testid="composer-editor"]',
         timeline: "[data-thread-find-text] p",
-        brandHeader: '.am-chat-brand, [data-slot="sidebar"] > div > div:first-child',
+        brandHeader:
+          '.am-chat-brand > div:first-child, [data-slot="sidebar"] > div:has(a[aria-label="T3 Code home"])',
+        collapseToggle: '.am-sidebar-toggle, button[aria-label="Toggle main sidebar"]',
         contextLine: '.am-composer-context button, [data-slot="composer-context-strip"] button',
         selectionBounds:
           '.am-history-row:has([aria-current="page"]), [data-sidebar-row][aria-current="page"]',
@@ -185,32 +187,35 @@ try {
           const style = getComputedStyle(el);
           return [
             name,
-            Object.fromEntries(
-              [
-                "backgroundColor",
-                "translate",
-                "transform",
-                "fontFamily",
-                "fontSize",
-                "color",
-                "lineHeight",
-                "paddingTop",
-                "paddingRight",
-                "paddingBottom",
-                "paddingLeft",
-                "height",
-                "width",
-                "borderWidth",
-                "borderRadius",
-              ].map((key) => [key, style[key]]),
-            ),
+            {
+              bounds: el.getBoundingClientRect().toJSON(),
+              ...Object.fromEntries(
+                [
+                  "backgroundColor",
+                  "translate",
+                  "transform",
+                  "fontFamily",
+                  "fontSize",
+                  "color",
+                  "lineHeight",
+                  "paddingTop",
+                  "paddingRight",
+                  "paddingBottom",
+                  "paddingLeft",
+                  "height",
+                  "width",
+                  "borderWidth",
+                  "borderRadius",
+                ].map((key) => [key, style[key]]),
+              ),
+            },
           ];
         }),
       );
     });
   }
   async function capture(name) {
-    await page.waitForURL((url) => !url.hash.includes("/draft/"));
+    if (name === "report-context") await page.waitForURL((url) => !url.hash.includes("/draft/"));
     await page
       .locator('.am-history-row:has([aria-current="page"]) [data-status="Working"]')
       .waitFor({ state: "hidden" });
