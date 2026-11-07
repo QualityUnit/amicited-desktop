@@ -127,6 +127,13 @@ try {
   });
   await page.goto(pairing.replace(new URL(pairing).origin, url));
   await page.locator("[data-amicited-shell]").waitFor({ timeout: 120000 });
+  const waitForOperate = () =>
+    page.waitForFunction(async () => {
+      const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+      const { readEnvironmentScope } = await import(String("/src/state/session.ts"));
+      const environment = readPrimaryEnvironmentId();
+      return environment !== null && readEnvironmentScope(environment, "orchestration:operate");
+    });
   const capture = async (name: string) => {
     const intendedRoute = page.url();
     for (const [theme, width, height] of [
@@ -227,6 +234,7 @@ try {
     await page.getByRole("button", { name: "Collapse sidebar" }).click();
     await capture("02d-collapsed-sidebar");
     await page.getByRole("button", { name: "Expand sidebar" }).click();
+    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing",
@@ -283,6 +291,7 @@ try {
     await page.getByTestId("composer-editor").fill("");
     await page.goto(marketingChatUrl);
     await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing",
@@ -389,7 +398,9 @@ try {
         await capture("06b-tools-hover");
       }
     }
-    await page.goto(url + "/tools/content.readability");
+    await page.getByRole("link", { name: "Tools", exact: true }).click();
+    await page.getByRole("link", { name: "Content tools", exact: true }).click();
+    await page.locator('a[href="/tools/content.readability"]').click();
     await page
       .getByRole("textbox", { name: "text", exact: true })
       .fill("Our campaign helps small teams write clearly. Keep the message useful and concise.");
@@ -415,6 +426,7 @@ try {
     );
     await page.goto(marketingChatUrl);
     await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
+    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing-failed",
@@ -427,6 +439,7 @@ try {
       .getByRole("button", { name: "Stop generating", exact: false })
       .waitFor({ state: "hidden" });
     await capture("09-failed-tool");
+    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing-approval",
@@ -439,6 +452,7 @@ try {
       .last()
       .click();
     await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
+    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing-readability-approval",
@@ -632,6 +646,7 @@ try {
   await page.getByRole("button", { name: "New chat", exact: true }).click();
   await page.waitForURL(/\/draft\//);
   await page.getByTestId("composer-editor").waitFor();
+  await waitForOperate();
   await page.evaluate(() =>
     (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
       "marketing-auth",
@@ -675,6 +690,7 @@ try {
   await page.goto(url + "/");
   await page.getByTestId("composer-editor").waitFor();
   await capture("reference-t3-empty-chat");
+  await waitForOperate();
   await page.evaluate(() =>
     (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
       "showcase",
