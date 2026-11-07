@@ -162,7 +162,7 @@ try {
       await document.fonts.ready;
       const selectors = {
         sidebar:
-          '[data-chat-history-link] > span, [data-testid="sidebar-row-card"] span[aria-hidden].text-sm',
+          '[data-chat-history-link][aria-current="page"] > span, [data-testid="sidebar-row-card"][aria-current="page"] span[aria-hidden].text-sm',
         header: '[data-slot="workspace-breadcrumb-text"]',
         composer: '[data-testid="composer-editor"]',
         timeline: "[data-thread-find-text] p",
