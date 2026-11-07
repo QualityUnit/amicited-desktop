@@ -136,10 +136,8 @@ try {
   });
   const fonts = await page.evaluate(async () => {
     const values = {};
-    for (const family of ["Inter", "Geist", "Geist Mono", "Fraunces"])
-      values[family] =
-        (await document.fonts.load(`14px "${family}"`)).length > 0 &&
-        document.fonts.check(`14px "${family}"`);
+    for (const family of ["-apple-system", "system-ui"])
+      values[family] = document.fonts.check(`14px ${family}`);
     return values;
   });
   NodeFS.writeFileSync(
@@ -158,6 +156,32 @@ try {
       2,
     ),
   );
+  const parity = {};
+  async function readStyles() {
+    return page.evaluate(async () => {
+      await document.fonts.ready;
+      const selectors = {
+        sidebar: '[data-chat-history-link] > span, [data-testid="sidebar-row-card"]',
+        header: '[data-slot="workspace-breadcrumb-text"]',
+        composer: '[data-testid="composer-editor"]',
+        timeline: "[data-thread-find-text] p",
+      };
+      return Object.fromEntries(
+        Object.entries(selectors).map(([name, selector]) => {
+          const elements = document.querySelectorAll(selector);
+          const el = name === "header" ? elements[elements.length - 1] : elements[0];
+          if (!el) return [name, null];
+          const style = getComputedStyle(el);
+          return [
+            name,
+            Object.fromEntries(
+              ["fontFamily", "fontSize", "color", "lineHeight"].map((key) => [key, style[key]]),
+            ),
+          ];
+        }),
+      );
+    });
+  }
   async function capture(name) {
     const intendedRoute = page.url();
     for (const theme of ["light", "dark"]) {
@@ -187,6 +211,8 @@ try {
           .waitFor();
       }
       await page.evaluate(() => document.fonts.ready);
+      if (["empty-chat", "tool-card-turn", "reference-t3-turn"].includes(name))
+        parity[`${name}-${theme}`] = await readStyles();
       await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
     }
   }
@@ -196,6 +222,7 @@ try {
   await page.getByRole("article", { name: "Marketing tool result" }).waitFor({ timeout: 120000 });
   await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
   await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+  const marketingTurnUrl = page.url();
   await capture("tool-card-turn");
   await page.getByRole("button", { name: "Open full result" }).click();
   await page.getByRole("button", { name: "Ask AI about this" }).click();
@@ -265,6 +292,38 @@ try {
   NodeFS.writeFileSync(
     NodePath.join(out, "electron-outgoing-context.json"),
     JSON.stringify({ reportQuestion, followUp }, null, 2),
+  );
+  await page.goto(marketingTurnUrl);
+  await page.getByTestId("composer-editor").waitFor();
+  await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+  await page.reload();
+  await page.getByTestId("composer-editor").waitFor();
+  await page.locator("[data-thread-find-text] p").first().waitFor();
+  await capture("reference-t3-turn");
+  NodeFS.writeFileSync(
+    NodePath.join(out, "style-parity.json"),
+    JSON.stringify(
+      {
+        fonts,
+        samples: parity,
+        comparison: Object.fromEntries(
+          ["light", "dark"].map((theme) => [
+            theme,
+            Object.fromEntries(
+              Object.keys(parity[`tool-card-turn-${theme}`]).map((key) => [
+                key,
+                {
+                  marketer: parity[`tool-card-turn-${theme}`][key],
+                  developer: parity[`reference-t3-turn-${theme}`][key],
+                },
+              ]),
+            ),
+          ]),
+        ),
+      },
+      null,
+      2,
+    ),
   );
   await cdp.detach();
   const report = JSON.parse(NodeFS.readFileSync(NodePath.join(out, "electron-fonts.json"), "utf8"));

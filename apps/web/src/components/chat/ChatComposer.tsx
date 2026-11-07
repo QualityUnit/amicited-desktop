@@ -1,3 +1,7 @@
+/* oxlint-disable shadcn/no-unknown-classes -- Marketer suggestion styles come from @amicited/ui-marketing. */
+import { marketingStarters, readBrand } from "@amicited/ui-marketing";
+import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
+import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { MarketingComposerContext } from "../../marketingChat";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
@@ -2141,6 +2145,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     }
   };
   const submitComposerStable = useStableCallback(submitComposer);
+  const openMarketingDraft = useNewThreadHandler();
   const [marketingPendingSend, setMarketingPendingSend] = useState<ModelSelection | null>(null);
   const marketingSentSelection = useRef<ModelSelection | null>(null);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A subscription connection hands the preserved prompt back to the mounted composer after model selection commits.
@@ -3227,15 +3232,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       data-chat-composer-form="true"
       {...threadContextDropTargetProps()}
     >
-      {workspaceMode === "marketer" ? (
-        <MarketingComposerContext
-          selectedInstanceId={selectedInstanceId}
-          onConnected={setMarketingPendingSend}
-          onSelected={(selection) => {
-            onProviderModelSelect(selection.instanceId, selection.model);
-          }}
-        />
-      ) : null}
       <ComposerBanner.Dock>
         <ComposerBanner.Column>
           <ComposerBannerStack items={shelfItems} />
@@ -3637,6 +3633,35 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           </div>
         </ComposerSurface.Main>
       </div>
+      {workspaceMode === "marketer" ? (
+        <MarketingComposerContext
+          selectedInstanceId={selectedInstanceId}
+          onConnected={setMarketingPendingSend}
+          onSelected={(selection) => {
+            onProviderModelSelect(selection.instanceId, selection.model);
+          }}
+        />
+      ) : null}
+      {workspaceMode === "marketer" && routeKind === "draft" ? (
+        <div className="am-starters">
+          {marketingStarters.map((prompt) => (
+            <button
+              type="button"
+              key={prompt}
+              onClick={() => {
+                setPrompt(prompt);
+                if (readBrand() && activeProjectId && environmentId)
+                  void openMarketingDraft(scopeProjectRef(environmentId, activeProjectId), {
+                    prompt,
+                    sendImmediately: true,
+                  });
+              }}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </form>
   );
 });

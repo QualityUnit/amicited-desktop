@@ -379,3 +379,11 @@ smaller developer context. `ProjectionStore.ts` normalizes native MCP result
 envelopes in SQL and memory; its existing parity table covers structured and
 text-wrapped failures and partial results. The controlled marketing Replay
 fixture now supplies partial coverage for UI evidence.
+
+- `apps/web/src/components/sidebar/SidebarChrome.tsx`: optional brand slot lets marketer mode reuse the complete T3 header backdrop and height.
+- `apps/web/src/components/sidebar/SidebarThreadHeader.tsx`: optional labels and project-action visibility reuse T3 search and icon actions for chats and archives.
+- `apps/web/src/index.css`: scans marketer components and registers their aliases to existing T3 tokens; no secondary palette.
+
+The old marketer button/input variants and font/colour overrides are removed.
+Marketer approvals use `WorkLogRow` and `ComposerPendingApprovalActions`;
+marketing results use `WorkLogButton` and `WorkLogDetails` through the UI adapter.

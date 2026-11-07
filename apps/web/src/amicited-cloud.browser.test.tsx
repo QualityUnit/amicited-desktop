@@ -67,7 +67,7 @@ it("validates a pasted key and clears it after connecting", async () => {
   await expect.element(screen.getByLabelText("Workspace API key")).toHaveValue("");
 });
 
-it("scopes marketer tokens to the shell and removes them in developer mode", async () => {
+it("inherits the T3 palette and removes the marketer shell in developer mode", async () => {
   await using screen = await render(
     <MarketingShell path="/home" navigate={() => {}}>
       <h1>Workspace</h1>
@@ -76,9 +76,13 @@ it("scopes marketer tokens to the shell and removes them in developer mode", asy
   await expect.element(screen.getByRole("heading", { name: "Workspace" })).toBeVisible();
   const shell = document.querySelector("[data-amicited-shell]");
   expect(shell).not.toBeNull();
-  expect(getComputedStyle(shell!).getPropertyValue("--primary").trim()).toBe("#3b5cff");
+  expect(getComputedStyle(shell!).getPropertyValue("--primary").trim()).toBe(
+    getComputedStyle(document.documentElement).getPropertyValue("--primary").trim(),
+  );
   document.documentElement.classList.add("dark");
-  expect(getComputedStyle(shell!).getPropertyValue("--ai-bg").trim()).toBe("#111928");
+  expect(getComputedStyle(shell!).getPropertyValue("--ai-bg").trim()).toBe(
+    getComputedStyle(document.documentElement).getPropertyValue("--background").trim(),
+  );
   document.documentElement.classList.remove("dark");
   await screen.rerender(
     <MarketingShell mode="developer" path="/home" navigate={() => {}}>
@@ -205,8 +209,8 @@ it("keeps chat history and secondary navigation available when collapsed", async
     expect(navigate).toHaveBeenCalledWith("/env/chat");
     await screen.getByRole("button", { name: "Collapse sidebar" }).click();
     await expect.element(screen.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-    await screen.getByRole("button", { name: "New chat" }).click();
-    expect(navigate).toHaveBeenCalledWith("/new");
+    await screen.getByRole("link", { name: "Tools", exact: true }).click();
+    expect(navigate).toHaveBeenCalledWith("/tools");
   } finally {
     localStorage.removeItem("amicited.rail-collapsed");
   }
@@ -306,7 +310,7 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
       .element(screen.getByText("Permission refused", { exact: true }).last())
       .toBeVisible();
     const card = document.querySelector<HTMLAnchorElement>(".am-tool-grid > a")!;
-    expect(getComputedStyle(card).backgroundColor).toBe("rgb(31, 41, 55)");
+    expect(getComputedStyle(card).backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(getComputedStyle(card).color).not.toBe(getComputedStyle(card).backgroundColor);
   } finally {
     document.documentElement.classList.remove("dark");

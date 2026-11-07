@@ -14,6 +14,9 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
 export interface SidebarThreadHeaderProps {
   hasProjects: boolean;
+  hideNewProject?: boolean;
+  newThreadLabel?: string;
+  searchLabel?: string;
   projectScope: ReactNode;
   onNewProject: () => void;
   onNewThread: (event: ReactMouseEvent) => void;
@@ -33,6 +36,9 @@ export interface SidebarThreadHeaderProps {
 
 export function SidebarThreadHeader({
   hasProjects,
+  hideNewProject = false,
+  newThreadLabel: threadLabel = "New thread",
+  searchLabel = "Search threads",
   projectScope,
   onNewProject,
   onNewThread,
@@ -54,7 +60,7 @@ export function SidebarThreadHeader({
   const activeResultExists = resultsVisible && activeSearchResultIndex < searchResultCount;
   const newThreadLabel = newThreadShortcutLabel
     ? `New thread (${newThreadShortcutLabel})`
-    : "New thread";
+    : threadLabel;
 
   return (
     <div className="flex items-center gap-1">
@@ -68,7 +74,7 @@ export function SidebarThreadHeader({
           onChange={(event) => onSearchQueryChange(event.currentTarget.value)}
           onKeyDown={onSearchKeyDown}
           placeholder="Search"
-          aria-label="Search threads"
+          aria-label={searchLabel}
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={resultsVisible}
@@ -100,13 +106,15 @@ export function SidebarThreadHeader({
         {hasProjects ? (
           <>
             {projectScope}
-            <SidebarHeaderIconButton label="Add project" onClick={onNewProject}>
-              <FolderPlusIcon />
-            </SidebarHeaderIconButton>
+            {!hideNewProject && (
+              <SidebarHeaderIconButton label="Add project" onClick={onNewProject}>
+                <FolderPlusIcon />
+              </SidebarHeaderIconButton>
+            )}
           </>
         ) : null}
         <SidebarHeaderIconButton
-          label="New thread"
+          label={threadLabel}
           tooltip={
             showNewThreadInProjectHint ? (
               <span className="flex flex-col gap-0.5">

@@ -126,7 +126,7 @@ try {
     content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
   });
   await page.goto(pairing.replace(new URL(pairing).origin, url));
-  await page.locator("[data-amicited-shell]").waitFor();
+  await page.locator("[data-amicited-shell]").waitFor({ timeout: 120000 });
   const capture = async (name: string) => {
     const intendedRoute = page.url();
     for (const [theme, width, height] of [
@@ -444,8 +444,7 @@ try {
         "marketing-readability-approval",
       ),
     );
-    await page.getByRole("article", { name: "Marketing approval" }).waitFor();
-    await page.getByText("Readability check", { exact: true }).first().waitFor();
+    await page.getByRole("group", { name: "Marketing approval" }).waitFor();
     await capture("10b-readability-approval");
     await page.getByRole("button", { name: "Don't allow", exact: true }).click();
     if (process.env.AMICITED_REAL_PROVIDER === "1") {
@@ -689,12 +688,14 @@ try {
   const fold = page.getByRole("button", { name: /^Worked for/ });
   if (await fold.count()) await fold.first().click();
   await capture("reference-t3-showcase");
+  await capture("reference-t3-sidebar");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByText("General", { exact: true }).first().waitFor();
+  await capture("reference-t3-settings");
   const fonts = await page.evaluate(async () => {
     const result: Record<string, boolean> = {};
-    for (const family of ["Inter", "Geist", "Geist Mono", "Fraunces"])
-      result[family] =
-        (await document.fonts.load(`14px "${family}"`)).length > 0 &&
-        document.fonts.check(`14px "${family}"`);
+    for (const family of ["-apple-system", "system-ui"])
+      result[family] = document.fonts.check(`14px ${family}`);
     return { faces: result, devicePixelRatio };
   });
   await NodeFSP.writeFile(NodePath.join(out, "browser-fonts.json"), JSON.stringify(fonts, null, 2));

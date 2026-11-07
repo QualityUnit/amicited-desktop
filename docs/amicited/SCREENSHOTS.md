@@ -72,3 +72,10 @@ Every failed-tool theme/viewport capture awaits the actual failure transcript;
 real-turn captures await the marketing result card. The real Haiku turn uses
 the normal user HOME with isolated T3 state. Browser and Electron captures reuse
 that stopped state; `capture-head.txt` identifies the commit rendered.
+
+Wave 25 uses `.amicited-shots/r23/`. The reference set includes developer empty
+chat, tool work log, populated sidebar and Settings in both themes and the 1440
+journey. Native captures record the marketer and developer computed font family,
+size, line height and text colour for sidebar, breadcrumb, composer and timeline
+in `style-parity.json`. System font availability is checked through `document.fonts`;
+the retired dashboard font files are no longer loaded.

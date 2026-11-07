@@ -1,5 +1,4 @@
-/* oxlint-disable shadcn/no-unknown-classes -- Marketer styles live in the fork package. */
-import { marketingStarters, readBrand, useWorkspaceMode } from "@amicited/ui-marketing";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import type { DraftId } from "~/composerDraftStore";
 import { composerDraftHasUserContent, useComposerDraftStore } from "~/composerDraftStore";
 import { resolveEnvironmentMachineKind, type ScopedProjectRef } from "@t3tools/contracts";
@@ -408,24 +407,9 @@ export function DraftHeroHeadline({
   if (marketer)
     return (
       <div>
-        <h1 className="text-center text-3xl font-normal">What do you want to work on?</h1>
-        <div className="am-starters">
-          {marketingStarters.map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              onClick={() => {
-                if (draftId) {
-                  useComposerDraftStore.getState().setPrompt(draftId, prompt);
-                  if (readBrand() && activeProjectRef)
-                    void openProjectDraft(activeProjectRef, { prompt, sendImmediately: true });
-                }
-              }}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
+        <h1 className="w-full text-center font-normal text-2xl text-foreground tracking-tight sm:text-3xl">
+          What do you want to work on?
+        </h1>
       </div>
     );
 

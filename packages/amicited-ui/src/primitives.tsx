@@ -1,4 +1,3 @@
-import { controlSurface, CONTROL_AREA } from "./cloud/controlSurface.js";
 import { CloudSectionHead } from "./cloud/SectionHead.js";
 import { createPortal } from "react-dom";
 import {
@@ -49,6 +48,7 @@ export type MarketingButtonProps = ComponentProps<"button"> & {
   variant?: "agent" | "default" | "outline" | "secondary" | "link" | "row";
 };
 type Primitives = {
+  WorkDisclosure?: ComponentType<{ label: ReactNode; children: ReactNode }>;
   Menu?: ComponentType<{ label: ReactNode; children: ReactNode }>;
   Tooltip?: ComponentType<{ children: ReactNode; label: string }>;
   Button: ComponentType<MarketingButtonProps>;
@@ -79,16 +79,11 @@ export function MarketingButton({
 }
 export function MarketingInput(props: ComponentProps<"input">) {
   const { Input } = useContext(MarketingUiContext);
-  return <Input {...props} className={`${controlSurface()} my-2 ${props.className ?? ""}`} />;
+  return <Input {...props} className={props.className} />;
 }
 export function MarketingTextarea(props: ComponentProps<"textarea">) {
   const { Textarea } = useContext(MarketingUiContext);
-  return (
-    <Textarea
-      {...props}
-      className={`${controlSurface()} ${CONTROL_AREA} my-2 min-h-20 ${props.className ?? ""}`}
-    />
-  );
+  return <Textarea {...props} className={props.className} />;
 }
 export function SectionHead({
   title,
@@ -313,6 +308,24 @@ export function MarketingMenu({ label, children }: { label: ReactNode; children:
     <Menu label={label}>{children}</Menu>
   ) : (
     <details>
+      <summary>{label}</summary>
+      {children}
+    </details>
+  );
+}
+
+export function MarketingWorkDisclosure({
+  label,
+  children,
+}: {
+  label: ReactNode;
+  children: ReactNode;
+}) {
+  const { WorkDisclosure } = useContext(MarketingUiContext);
+  return WorkDisclosure ? (
+    <WorkDisclosure label={label}>{children}</WorkDisclosure>
+  ) : (
+    <details open>
       <summary>{label}</summary>
       {children}
     </details>

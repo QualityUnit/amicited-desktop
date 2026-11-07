@@ -1,4 +1,4 @@
-import { MarketingHeader, useWorkspaceMode } from "@amicited/ui-marketing";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   AuthOrchestrationOperateScope,
   type EnvironmentId,
@@ -287,7 +287,7 @@ export const ChatHeader = memo(function ChatHeader({
       setRenaming(null);
     }
   };
-  const Header = marketer ? MarketingHeader : "div";
+  const Header = "div";
   return (
     <Header
       ref={breadcrumbContainerRef}

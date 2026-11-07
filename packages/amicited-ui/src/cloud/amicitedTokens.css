@@ -1,127 +1,32 @@
-/* Ported from flowhunt2 origin/main 44d4019d4c: frontend/src/styles/amicitedTokens.css. */
-/* The AmICited design tokens and the utilities built on them. App stylesheet
-   only: the auth sheet (oauth.css) never shows an AmICited page, so this stays
-   out of tailwindShared.css.
-
-   They are declared on the AmICited layout root (`data-amicited-tokens`), not
-   on `:root`: shared components of other products read some of these names,
-   and a value on `:root` would reach them. Kit overlays portal into a
-   container inside that root (`OverlayRootProvider`), so they inherit them.
-
-   CSS owns the rendered palette. The legacy light snapshot in theme.ts is
-   retained for concrete-colour consumers and the protected website theme;
-   components/amicited/ui/tokens.test.ts keeps its light values equal.
-
-   A utility is defined here only for a value Tailwind has no class for. */
-
 @custom-variant amicited (&:is([data-amicited-tokens], [data-amicited-tokens] *));
-@custom-variant amicited-dark (
-  &:is([data-amicited-tokens], [data-amicited-tokens] *):is(
-      .dark,
-      .dark *,
-      [data-theme="dark"],
-      [data-theme="dark"] *
-    )
-);
-
 @layer base {
-  [data-amicited-font] {
-    font-family: var(--font-ai-sans), ui-sans-serif, system-ui, sans-serif;
-  }
-
   [data-amicited-tokens] {
-    --ai-bg: #f3f4f6;
-    --ai-surf: #ffffff;
-    --ai-surf-2: #e5e7eb;
-    --ai-surf-3: #d1d5db;
-    --ai-surf-hover: #f9fafb;
-    --ai-surf-head: #f7f8f9;
-    --ai-ink: #111928;
-    --ai-ink-2: #374151;
-    --ai-ink-3: #6b7280;
-    --ai-ink-4: #9ca3af;
-    --ai-line: rgba(17, 25, 40, 0.08);
-    --ai-line-2: rgba(17, 25, 40, 0.14);
-    --ai-edge: #f4f4f4;
-    --ai-line-solid: #dedfe1;
-    --ai-good: #10b981;
-    --ai-good-soft: rgba(16, 185, 129, 0.13);
-    --ai-good-ink: #0a6b3a;
-    --ai-bad: #ef4444;
-    --ai-warn: #f7a93d;
-    --ai-bad-ink: #9b2c22;
-    --ai-warn-ink: #8a5208;
-    --ai-accent: #3b5cff;
-    --ai-on-accent: #ffffff;
-    --ai-hover: rgba(59, 92, 255, 0.05);
-
-    --ui-good: var(--ai-good);
-    --ui-good-soft: var(--ai-good-soft);
-    --ui-good-ink: var(--ai-good-ink);
-    --ui-warn: var(--ai-warn);
-    --ui-warn-ink: var(--ai-warn-ink);
-    --ui-bad: var(--ai-bad);
-    --ui-bad-ink: var(--ai-bad-ink);
-    --ui-accent: var(--ai-accent);
-    --ui-hover: var(--ai-hover);
-    --ui-font-mono: var(--font-ai-mono, ui-monospace, monospace);
-  }
-
-  /* The protected public website maps the same roles onto its own palette. */
-  [data-amicited-tokens]:where([data-amicited-public-tokens]) {
-    --ai-bg: var(--white);
-    --ai-surf: var(--white);
-    --ai-surf-2: var(--ink-100);
-    --ai-surf-3: var(--ink-200);
-    --ai-surf-hover: var(--ink-050);
-    --ai-surf-head: var(--ink-050);
-    --ai-ink: var(--ink-950);
-    --ai-ink-2: var(--ink-700);
-    --ai-ink-3: var(--ink-500);
-    --ai-ink-4: var(--ink-400);
-    --ai-line: var(--border-hairline);
-    --ai-line-2: var(--ink-300);
-    --ai-edge: var(--ink-050);
-    --ai-line-solid: var(--ink-200);
-    --ai-accent: var(--blue-600);
-  }
-
-  /* A portal may own the token root itself; both forms follow the same theme.
-     Nothing is declared on :root, so other products keep their palette. */
-  .dark [data-amicited-tokens],
-  [data-theme="dark"] [data-amicited-tokens],
-  [data-amicited-tokens].dark,
-  [data-amicited-tokens][data-theme="dark"] {
-    --ai-bg: #111928;
-    --ai-surf: #1f2937;
-    --ai-surf-2: #374151;
-    --ai-surf-3: #4b5563;
-    --ai-surf-hover: #293444;
-    --ai-surf-head: #243041;
-    --ai-ink: #f9fafb;
-    --ai-ink-2: #e5e7eb;
-    --ai-ink-3: #d1d5db;
-    --ai-ink-4: #9ca3af;
-    --ai-line: #374151;
-    --ai-line-2: #4b5563;
-    --ai-edge: #293444;
-    --ai-line-solid: #374151;
-    --ai-good: #34d399;
-    --ai-good-soft: rgba(52, 211, 153, 0.13);
-    --ai-good-ink: #6ee7b7;
-    --ai-bad: #f87171;
-    --ai-warn: #fbbf24;
-    --ai-bad-ink: #fca5a5;
-    --ai-warn-ink: #fde68a;
-    --ai-accent: #a5b4fc;
-    --ai-on-accent: #111928;
-    --ai-hover: rgba(165, 180, 252, 0.1);
+    --ai-bg: var(--background);
+    --ai-surf: var(--background);
+    --ai-surf-2: var(--muted);
+    --ai-surf-3: var(--border);
+    --ai-surf-hover: var(--accent);
+    --ai-surf-head: var(--muted);
+    --ai-ink: var(--foreground);
+    --ai-ink-2: var(--foreground);
+    --ai-ink-3: var(--muted-foreground);
+    --ai-ink-4: var(--placeholder);
+    --ai-line: var(--border);
+    --ai-line-2: var(--input);
+    --ai-edge: var(--border);
+    --ai-line-solid: var(--border);
+    --ai-accent: var(--primary);
+    --ai-on-accent: var(--primary-foreground);
+    --ai-hover: var(--accent);
+    --ai-good: var(--success);
+    --ai-good-soft: var(--muted);
+    --ai-good-ink: var(--foreground);
+    --ai-bad: var(--destructive);
+    --ai-bad-ink: var(--destructive);
+    --ai-warn: var(--warning);
+    --ai-warn-ink: var(--warning-foreground);
   }
 }
-
-/* `inline` so a utility reads the token itself (`var(--ai-surf)`), not a
-   theme copy computed on `:root`; `reference` so none of these is emitted as a
-   `:root` variable. */
 @theme inline reference {
   --color-ai-bg: var(--ai-bg);
   --color-ai-surf: var(--ai-surf);
@@ -157,14 +62,4 @@
 
   --tracking-tight-ui: -0.01em;
   --tracking-eyebrow: 0.08em;
-}
-
-/* The faint accent hatch on the head of a locked view; Tailwind has no class
-   for a repeating gradient. */
-@utility bg-hatch {
-  background-image: repeating-linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--ai-accent) 7%, transparent) 0 1px,
-    transparent 1px 9px
-  );
 }

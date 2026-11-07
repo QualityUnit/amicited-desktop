@@ -1,3 +1,6 @@
+import { WorkLogRow } from "./components/chat/WorkLog";
+import { ComposerPendingApprovalActions } from "./components/chat/ComposerPendingApprovalActions";
+import { Shield } from "lucide-react";
 import { Globe } from "lucide-react";
 import { Popover, PopoverTrigger, PopoverPopup } from "./components/ui/popover";
 import { whatYouAreMissing } from "@amicited/cloud-client/upsell";
@@ -428,30 +431,37 @@ export function MarketingApprovalCard({
     /* Preserve supplied target. */
   }
   return (
-    <article className="am-tool-card am-approval" aria-label="Marketing approval">
-      <header>
-        <strong>{title}</strong>
-        <small className="am-status-pill">Needs your OK</small>
-      </header>
-      <p>
-        Run {title.toLowerCase()}
-        {site ? ` on ${site}` : ""}? It's free and runs on your computer.
-      </p>
-      <div className="am-actions">
-        <MarketingButton
-          variant="default"
-          disabled={disabled}
-          onClick={() => void onRespond?.(approval.requestId, "accept")}
-        >
-          Allow
-        </MarketingButton>
-        <MarketingButton
-          disabled={disabled}
-          onClick={() => void onRespond?.(approval.requestId, "decline")}
-        >
-          Don't allow
-        </MarketingButton>
+    <WorkLogRow
+      role="group"
+      aria-label="Marketing approval"
+      wrapLabel
+      icon={<Shield className="size-4 text-icon-muted" />}
+      label={
+        <>
+          Run {title.toLowerCase()}
+          {site ? ` on ${site}` : ""}? It's free and runs on your computer.
+        </>
+      }
+    >
+      <div className="ms-7.5 flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-warning">Needs your OK</span>
+        {onRespond && (
+          <ComposerPendingApprovalActions
+            presentation="inline"
+            requestId={approval.requestId}
+            canRespond={!disabled}
+            disabled={disabled}
+            isResponding={false}
+            options={[
+              { decision: "accept", label: "Allow" },
+              { decision: "decline", label: "Don't allow" },
+            ]}
+            onRespondToApproval={async (id, decision) => {
+              if (decision === "accept" || decision === "decline") await onRespond(id, decision);
+            }}
+          />
+        )}
       </div>
-    </article>
+    </WorkLogRow>
   );
 }

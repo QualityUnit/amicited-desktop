@@ -1551,9 +1551,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.0(react@19.3.0)
-      tailwind-merge:
-        specifier: ^3.4.0
-        version: 3.6.0
     devDependencies:
       '@types/node':
         specifier: 24.12.4

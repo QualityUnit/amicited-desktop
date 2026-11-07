@@ -1,3 +1,25 @@
+import { resolveWorkingStartedAt } from "./components/Sidebar.logic";
+import { formatWorkingDurationLabel } from "@t3tools/client-runtime/state/models";
+import { tickTextContent } from "./lib/tickTextContent";
+import { Wrench, Sparkles, Settings } from "lucide-react";
+import { WorkLogButton, WorkLogDetails } from "./components/chat/WorkLog";
+import { Hammer } from "lucide-react";
+import { SidebarChromeHeader } from "./components/sidebar/SidebarChrome";
+import {
+  SidebarThreadHeader,
+  SidebarHeaderIconButton,
+} from "./components/sidebar/SidebarThreadHeader";
+import {
+  SidebarFooter,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarProvider,
+} from "./components/ui/sidebar";
+import { AmICitedMark } from "@amicited/ui-marketing";
+import { Archive } from "lucide-react";
+import { useRef } from "react";
+import { RelativeTime } from "./components/RelativeTime";
 import { MoreHorizontal } from "lucide-react";
 import { useArchivedThreadSnapshots } from "./lib/archivedThreadsState";
 import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
@@ -72,24 +94,24 @@ const KitButton = ({
 }: ComponentProps<typeof MarketingButton>) => (
   <Button
     type={type}
-    size="amicited"
+    size="sm"
     variant={
       variant === "agent"
-        ? "amicited-agent"
+        ? "warning-outline"
         : variant === "default"
-          ? "amicited-primary"
+          ? "default"
           : variant === "row"
-            ? "amicited-row"
+            ? "ghost"
             : variant === "link"
-              ? "amicited-link"
-              : "amicited-secondary"
+              ? "ghost-muted"
+              : "outline"
     }
     data-am-variant={variant}
     {...props}
   />
 );
 const KitInput = ({ size: _size, ...props }: ComponentProps<"input">) => (
-  <Input nativeInput size="amicited" {...props} />
+  <Input nativeInput size="sm" {...props} />
 );
 function KitTooltip({ children, label }: { children: ReactNode; label: string }) {
   const [open, setOpen] = useState(false);
@@ -120,7 +142,22 @@ function KitMenu({ label, children }: { label: ReactNode; children: ReactNode })
     </Menu>
   );
 }
+function KitWorkDisclosure({ label, children }: { label: ReactNode; children: ReactNode }) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <>
+      <WorkLogButton
+        aria-expanded={expanded}
+        icon={<Hammer className="size-4 text-icon-muted" />}
+        label={label}
+        onClick={() => setExpanded(!expanded)}
+      />
+      {expanded && <WorkLogDetails>{children}</WorkLogDetails>}
+    </>
+  );
+}
 const marketingUi = {
+  WorkDisclosure: KitWorkDisclosure,
   Menu: KitMenu,
   Button: KitButton,
   Input: KitInput,
@@ -147,45 +184,86 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <MarketingShell
-        history={<MarketingHistory archived={archived} setArchived={setArchived} />}
-        mode={mode}
-        taskView={taskTarget !== null}
-        path={path}
-        hash={hash}
-        navigate={(path) => {
-          setArchived(false);
-          void navigate({ to: path });
-        }}
-      >
-        {archived ? (
-          <div className="am-secondary-page">
-            <h1>Archived chats</h1>
-            <p>Archived chats stay here until you restore or delete them.</p>
-          </div>
-        ) : path === "/marketing-settings" ? (
-          <CloudPage />
-        ) : path === "/settings/general" ? (
-          <MarketingSettings />
-        ) : path.startsWith("/settings") ? (
-          <MarketingSettings />
-        ) : path === "/usage" ? (
-          <div className="am-page">
-            <h1>Your AI plan usage</h1>
-            <p>
-              These limits come from your AI subscriptions. Local website checks do not use your AI
-              allowance.
-            </p>
-            <section className="am-card">
-              <MarketingSubscriptions usageLink={false} />
-            </section>
-          </div>
-        ) : ["/pull-requests", "/source-control"].includes(path) ? (
-          <MarketingHome />
-        ) : (
-          children
-        )}
-      </MarketingShell>
+      <SidebarProvider>
+        <MarketingShell
+          footer={
+            <SidebarFooter>
+              <SidebarMenu className="flex-row">
+                {(
+                  [
+                    ["Settings", "/settings/general", Settings],
+                    ["Tools", "/tools", Wrench],
+                    ["AmICited", "/marketing-settings", Sparkles],
+                  ] as const
+                ).map(([label, href, Icon]) => (
+                  <SidebarMenuItem key={label}>
+                    <KitTooltip label={label}>
+                      <SidebarMenuButton
+                        size="icon"
+                        render={<a href={href} />}
+                        aria-label={label}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void navigate({ to: href });
+                        }}
+                      >
+                        <Icon />
+                      </SidebarMenuButton>
+                    </KitTooltip>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarFooter>
+          }
+          brandHeader={
+            <SidebarChromeHeader
+              isElectron={false}
+              brand={
+                <span className="am-wordmark">
+                  <AmICitedMark />
+                </span>
+              }
+            />
+          }
+          history={<MarketingHistory archived={archived} setArchived={setArchived} />}
+          mode={mode}
+          taskView={taskTarget !== null}
+          path={path}
+          hash={hash}
+          navigate={(path) => {
+            setArchived(false);
+            void navigate({ to: path });
+          }}
+        >
+          {archived ? (
+            <div className="am-secondary-page">
+              <h1>Archived chats</h1>
+              <p>Archived chats stay here until you restore or delete them.</p>
+            </div>
+          ) : path === "/marketing-settings" ? (
+            <CloudPage />
+          ) : path === "/settings/general" ? (
+            <MarketingSettings />
+          ) : path.startsWith("/settings") ? (
+            <MarketingSettings />
+          ) : path === "/usage" ? (
+            <div className="am-page">
+              <h1>Your AI plan usage</h1>
+              <p>
+                These limits come from your AI subscriptions. Local website checks do not use your
+                AI allowance.
+              </p>
+              <section className="am-card">
+                <MarketingSubscriptions usageLink={false} />
+              </section>
+            </div>
+          ) : ["/pull-requests", "/source-control"].includes(path) ? (
+            <MarketingHome />
+          ) : (
+            children
+          )}
+        </MarketingShell>
+      </SidebarProvider>
     </MarketingUiContext>
   ) : (
     children
@@ -564,6 +642,7 @@ function MarketingHistory({
     : activeThreads.filter((thread) => !thread.archivedAt);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const path = useLocation({ select: (location) => location.pathname });
   const { archiveThread, unarchiveThread, confirmAndDeleteThread } = useThreadActions();
   const act = async (operation: Promise<{ _tag: string }>) => {
@@ -577,21 +656,36 @@ function MarketingHistory({
   const [today] = useState(() => new Date().toDateString());
   return (
     <div className="am-flat-history">
-      <MarketingButton
-        type="button"
-        className="am-archive-toggle"
-        onClick={() => {
-          setArchived(!archived);
-          void navigate({ to: "/home" });
-        }}
-      >
-        {archived ? "Back to chats" : "Archived"}
-      </MarketingButton>
-      <Input
-        aria-label="Search chats"
-        placeholder="Search chats"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+      <SidebarThreadHeader
+        hasProjects
+        projectScope={
+          <SidebarHeaderIconButton
+            label={archived ? "Back to chats" : "Archived"}
+            onClick={() => {
+              setArchived(!archived);
+              void navigate({ to: "/home" });
+            }}
+          >
+            <Archive />
+          </SidebarHeaderIconButton>
+        }
+        onNewProject={() => {}}
+        onNewThread={() => void navigate({ to: "/new" })}
+        newThreadDisabled={false}
+        newThreadShortcutLabel={null}
+        newThreadInProjectShortcutLabel={null}
+        showNewThreadInProjectHint={false}
+        searchInputRef={searchInputRef}
+        searchQuery={search}
+        onSearchQueryChange={setSearch}
+        onSearchKeyDown={() => {}}
+        isSearching={Boolean(search)}
+        searchResultCount={0}
+        activeSearchResultIndex={0}
+        onClearSearch={() => setSearch("")}
+        newThreadLabel="New chat"
+        searchLabel="Search chats"
+        hideNewProject
       />
       {!threads.length && (
         <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
@@ -761,9 +855,23 @@ function MarketingHistoryStatus({
   thread: ReturnType<typeof useThreadShells>[number];
 }) {
   const status = marketingHistoryStatus(thread);
-  return status === "Done" ? null : (
+  return (
     <small className="am-history-status" data-status={status}>
-      <span aria-hidden="true">●</span> {status}
+      {status !== "Done" && (
+        <>
+          <span aria-hidden="true">●</span> {status}{" "}
+          {status === "Working" && (
+            <span
+              ref={tickTextContent((now) => {
+                const started = resolveWorkingStartedAt(thread);
+                return started ? formatWorkingDurationLabel(now - Date.parse(started)) : "";
+              }, true)}
+            />
+          )}{" "}
+          ·{" "}
+        </>
+      )}
+      <RelativeTime timestamp={thread.updatedAt} />
     </small>
   );
 }

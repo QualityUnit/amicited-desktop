@@ -1,7 +1,7 @@
 import type { ToolResult } from "@amicited/tools-core";
 import { isUsefulResult } from "@amicited/tools-core";
 import { resultTitle, rankedFindings } from "./experience.js";
-import { MarketingButton } from "./primitives.js";
+import { MarketingButton, MarketingWorkDisclosure } from "./primitives.js";
 export const marketingStarters = [
   "Audit my website for AI search",
   "Check whether ChatGPT and Claude mention my brand",
@@ -62,53 +62,67 @@ export function CompactMarketingResult({ result, open }: { result: ToolResult; o
   return (
     <div className="am-inline-result">
       <article aria-label="Marketing tool result" className="am-tool-card">
-        <header>
-          <strong>{resultTitle(result)}</strong>
-          <small className="am-status-pill">
-            {useful ? (output.status === "partial" ? "Partial" : "Complete") : "Couldn't check"}
-          </small>
-        </header>
-        {useful && (
-          <strong className="am-chat-figure">
-            {typeof output.score === "number"
-              ? `${output.score}/100`
-              : typeof summary.mentioned === "number"
-                ? `Mentioned in ${summary.mentioned} of ${summary.answered}`
-                : marketingPreview(result)}
-          </strong>
-        )}
-        {useful && result.tool === "seo.site.audit" && (
-          <p className="am-hint">
-            {String(output.coverage ?? "")} · Technical snapshot; doesn't measure AI citations
-          </p>
-        )}
-        {!useful && (
-          <p>
-            {result.error?.message ??
-              String(output.message ?? "Connect your assistant or try again.")}
-          </p>
-        )}
-        <ul>
-          {rankedFindings(result)
-            .slice(0, 3)
-            .map((f) => (
-              <li key={`${f.group}:${f.title}`}>
-                <span className={`am-finding-dot am-finding-${f.status}`} />
-                {f.title}
-              </li>
-            ))}
-        </ul>
-        <p className="am-hint">
-          {String(
-            record(result.input).url ??
-              record(result.input).website ??
-              record(result.input).domain ??
-              "",
-          )
-            .replace(/^https?:\/\//, "")
-            .replace(/\/$/, "")}
-        </p>
-        <MarketingButton onClick={open}>Open full result</MarketingButton>
+        <MarketingWorkDisclosure
+          label={
+            <>
+              Ran {resultTitle(result).toLowerCase()} ·{" "}
+              {typeof output.score === "number" ? `${output.score}/100 · ` : ""}
+              {useful ? (output.status === "partial" ? "Partial" : "Complete") : "Couldn't check"}
+            </>
+          }
+        >
+          <div className="am-work-summary">
+            <header>
+              <strong>{resultTitle(result)}</strong>
+              <small className="am-status-pill">
+                {useful ? (output.status === "partial" ? "Partial" : "Complete") : "Couldn't check"}
+              </small>
+            </header>
+            {useful && (
+              <strong className="am-chat-figure">
+                {typeof output.score === "number"
+                  ? `${output.score}/100`
+                  : typeof summary.mentioned === "number"
+                    ? `Mentioned in ${summary.mentioned} of ${summary.answered}`
+                    : marketingPreview(result)}
+              </strong>
+            )}
+            {useful && result.tool === "seo.site.audit" && (
+              <p className="am-hint">
+                {String(output.coverage ?? "")} · Technical snapshot; doesn't measure AI citations
+              </p>
+            )}
+            {!useful && (
+              <p>
+                {result.error?.message ??
+                  String(output.message ?? "Connect your assistant or try again.")}
+              </p>
+            )}
+            <ul>
+              {rankedFindings(result)
+                .slice(0, 3)
+                .map((f) => (
+                  <li key={`${f.group}:${f.title}`}>
+                    <span className={`am-finding-dot am-finding-${f.status}`} />
+                    {f.title}
+                  </li>
+                ))}
+            </ul>
+            <p className="am-hint">
+              {String(
+                record(result.input).url ??
+                  record(result.input).website ??
+                  record(result.input).domain ??
+                  "",
+              )
+                .replace(/^https?:\/\//, "")
+                .replace(/\/$/, "")}
+            </p>
+            <MarketingButton variant="link" onClick={open}>
+              Open full result
+            </MarketingButton>
+          </div>
+        </MarketingWorkDisclosure>
       </article>
     </div>
   );

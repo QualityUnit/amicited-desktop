@@ -56,7 +56,7 @@ export function AmicitedUpsellCard({
         <Button variant="default" onClick={() => openExternal(SIGNUP_URL)}>
           Start 7-day free trial
         </Button>
-        <Button variant="outline" onClick={onConnect}>
+        <Button variant="link" onClick={onConnect}>
           I already have AmICited
         </Button>
         <Button

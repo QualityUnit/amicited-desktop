@@ -2,7 +2,6 @@ import { resultTitle } from "./experience.js";
 import {
   PanelLeftClose,
   PanelLeftOpen,
-  SquarePen,
   Wrench,
   Sparkles,
   Settings,
@@ -18,6 +17,8 @@ export function MarketingShell({
   navigate,
   mode = "marketer",
   history,
+  brandHeader,
+  footer,
 }: {
   children: ReactNode;
   path: string;
@@ -27,6 +28,8 @@ export function MarketingShell({
   taskView?: boolean;
   connectionStatus?: ReactNode;
   history?: ReactNode;
+  brandHeader?: ReactNode;
+  footer?: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("amicited.rail-collapsed") === "true",
@@ -40,8 +43,9 @@ export function MarketingShell({
     >
       <aside className="am-chat-sidebar" aria-label="Chat sidebar">
         <div className="am-chat-brand">
-          <AmICitedMark />
+          {brandHeader ?? <AmICitedMark />}
           <MarketingButton
+            variant="link"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             onClick={() => {
               setCollapsed(!collapsed);
@@ -51,10 +55,6 @@ export function MarketingShell({
             {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </MarketingButton>
         </div>
-        <MarketingButton variant="default" aria-label="New chat" onClick={() => navigate("/new")}>
-          <SquarePen size={16} />
-          {!collapsed && "New chat"}
-        </MarketingButton>
         <nav aria-label="Chat history" className="am-chat-history">
           {collapsed ? (
             <MarketingTooltip label="Chat history">
@@ -66,29 +66,32 @@ export function MarketingShell({
             history
           )}
         </nav>
-        <nav aria-label="Workspace">
-          {(
-            [
-              ["Tools", "/tools", Wrench],
-              ["AmICited", "/marketing-settings", Sparkles],
-              ["Settings", "/settings/general", Settings],
-            ] as const
-          ).map(([label, href, Icon]) => (
-            <a
-              key={String(href)}
-              aria-label={String(label)}
-              href={String(href)}
-              aria-current={path.startsWith(String(href)) ? "page" : undefined}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(String(href));
-              }}
-            >
-              {typeof Icon !== "string" && Icon && <Icon size={16} />}
-              {!collapsed && String(label)}
-            </a>
-          ))}
-        </nav>
+        {footer ?? (
+          <nav aria-label="Workspace">
+            {(
+              [
+                ["Tools", "/tools", Wrench],
+                ["AmICited", "/marketing-settings", Sparkles],
+                ["Settings", "/settings/general", Settings],
+              ] as const
+            ).map(([label, href, Icon]) => (
+              <MarketingTooltip key={label} label={label}>
+                <a
+                  key={String(href)}
+                  aria-label={String(label)}
+                  href={String(href)}
+                  aria-current={path.startsWith(String(href)) ? "page" : undefined}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate(String(href));
+                  }}
+                >
+                  {typeof Icon !== "string" && Icon && <Icon size={16} />}
+                </a>
+              </MarketingTooltip>
+            ))}
+          </nav>
+        )}
       </aside>
       <main className="am-chat-main">
         {["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>

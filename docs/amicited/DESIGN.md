@@ -1,23 +1,22 @@
 # Marketer design
 
-AmICited Desktop opens into T3 Code's chat, using the upstream draft hero,
-composer, streaming transcript, approval flow and thread persistence. There is
-no dashboard or website setup wall. An implicit workspace holds marketer chats;
-the sidebar mounts T3’s existing searchable thread history, including status, relative time and thread actions, beside New chat, Tools, AmICited and Settings.
+The marketer UI follows T3 Code’s design system. AmICited supplies the name and
+mark; it does not supply a second theme. Fonts, colours, control variants, radii,
+spacing and light/dark surfaces come from T3, including its near-black dark theme.
+Developer mode retains the upstream presentation.
 
-The marketer shell scopes Signal Blue, gray surfaces and hairline borders onto
-T3's existing components. Bundled Inter supplies interface and chat text; Geist
-supplies tabular result figures. The bundled Geist and Fraunces faces remain
-available. Developer mode mounts the upstream shell without marketer tokens.
-Light and dark themes share the same density and layout.
+Marketer navigation reuses T3’s sidebar brand chrome and search row. Chat history
+uses shell summaries, preserving rename, archive, restore and confirmed deletion
+without loading each conversation. Footer destinations use quiet icon controls.
+Project grouping and developer controls stay hidden in marketer mode.
 
-Four starters send when an assistant and website are ready. The website chip opens an inline editor; the first message supplies website context separately from the user’s text. Subscription connection stays alongside the preserved prompt.
-Marketing MCP results render as compact cards even when T3 folds the activity
-log. The full result links back to the chat; Tools return short editable questions to the originating chat. Failed checks never receive a success figure.
+The upstream breadcrumb, draft heading, composer and transcript supply the chat.
+Website and subscription controls and four quiet starter suggestions sit below
+the composer. Marketing checks use expandable T3 work rows, compact summaries
+and links to the full result. Approval uses T3’s work row and permission actions
+with plain-language copy. Errors and coverage limitations remain explicit.
 
-The shared first-win promotion gate controls the inline trial offer: session
-frequency, snooze, reversible hiding and connected status apply to the compact offer after the final assistant response. Secondary tool pages do not repeat offers. Local tools never require an AmICited account.
-
-The evidence harness uses a controlled, free Replay marketing scenario through
-the real provider pipeline. Reference screens use developer mode in the same
-build. Chromium and isolated Electron capture at 2× and record loaded fonts.
+Secondary pages use constrained settings-style sections and list rows. Numbers
+use the interface font with tabular numerals. The inline AmICited offer keeps
+the existing first-win gate, session frequency, snooze and hiding preferences;
+local tools never require an account.
