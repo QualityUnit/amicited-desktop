@@ -701,6 +701,16 @@ try {
   await NodeFSP.writeFile(NodePath.join(out, "browser-fonts.json"), JSON.stringify(fonts, null, 2));
   await NodeFSP.rm(NodePath.join(out, "journey-error.png"), { force: true });
   console.log(out);
+} catch (error) {
+  const failedPage = browser?.contexts()[0]?.pages()[0];
+  if (failedPage) {
+    await failedPage.screenshot({ path: NodePath.join(out, "journey-error.png") });
+    await NodeFSP.writeFile(
+      NodePath.join(out, "journey-error.txt"),
+      await failedPage.locator("body").innerText(),
+    );
+  }
+  throw error;
 } finally {
   await browser?.close();
   runner.kill("SIGTERM");
