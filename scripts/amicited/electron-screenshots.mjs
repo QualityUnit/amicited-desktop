@@ -182,7 +182,18 @@ try {
       return Object.fromEntries(
         Object.entries(selectors).map(([name, selector]) => {
           const elements = document.querySelectorAll(selector);
-          const el = name === "header" ? elements[elements.length - 1] : elements[0];
+          let el =
+            name === "header"
+              ? elements[elements.length - 1]
+              : Array.from(elements).find((element) => element.getBoundingClientRect().width > 0);
+          if (name === "collapseToggle") el = document.querySelector(".am-sidebar-toggle") ?? el;
+          if (name === "brandHeader" && !document.querySelector(".am-chat-brand"))
+            el = document.querySelector('a[aria-label="T3 Code home"]')?.parentElement
+              ?.parentElement?.parentElement;
+          if (name === "contextLine" && !el)
+            el = Array.from(document.querySelectorAll("button")).find((button) =>
+              button.textContent?.includes("Full access"),
+            );
           if (!el) return [name, null];
           const style = getComputedStyle(el);
           return [
@@ -355,7 +366,17 @@ try {
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.reload();
   await page.getByTestId("composer-editor").waitFor();
-  await page.locator("[data-thread-find-text] p").first().waitFor();
+  await page.evaluate(() => window.t3dev.replay("showcase"));
+  await page
+    .getByRole("button", { name: /Allow|Approve/, exact: false })
+    .first()
+    .waitFor();
+  await page
+    .getByRole("button", { name: /Allow|Approve/, exact: false })
+    .first()
+    .click();
+  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+  await page.locator('[class~="group/timeline-row"]').first().waitFor();
   await capture("reference-t3-turn");
   NodeFS.writeFileSync(
     NodePath.join(out, "style-parity.json"),

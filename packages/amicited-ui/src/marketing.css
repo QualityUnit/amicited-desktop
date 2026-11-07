@@ -88,15 +88,15 @@
     align-items: center;
     gap: 4px;
   }
-  .am-history-row > button:last-child:not(:first-child) {
+  .am-history-actions {
     position: absolute;
     right: 4px;
     top: 6px;
     opacity: 0;
   }
-  .am-history-row:hover > button:last-child,
-  .am-history-row:focus-within > button:last-child,
-  .am-history-row > button[data-popup-open] {
+  .am-history-row:hover .am-history-actions,
+  .am-history-row:focus-within .am-history-actions,
+  .am-history-actions:has([data-popup-open]) {
     opacity: 1;
   }
   .am-history-row:hover > button:first-child > span {

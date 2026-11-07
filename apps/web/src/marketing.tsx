@@ -874,41 +874,46 @@ function MarketingHistory({
                           {thread.title === "New thread" ? "New chat" : thread.title}
                         </TooltipPopup>
                       </Tooltip>
-                      <Menu>
-                        <MenuTrigger
-                          aria-label={`Chat actions for ${thread.title}`}
-                          render={<Button size="icon-xs" variant="ghost" />}
-                        >
-                          <MoreHorizontal size={16} />
-                        </MenuTrigger>
-                        <MenuPopup data-amicited-tokens="" data-amicited-popup="">
-                          <MenuItem
-                            onClick={() => {
-                              setTitle(thread.title);
-                              setRenaming(key);
-                            }}
+                      <div className="am-history-actions">
+                        <Menu>
+                          <MenuTrigger
+                            aria-label={`Chat actions for ${thread.title}`}
+                            render={<Button size="icon-xs" variant="ghost" />}
                           >
-                            Rename
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() =>
-                              void act(archived ? unarchiveThread(ref) : archiveThread(ref))
-                            }
-                          >
-                            {archived ? "Restore" : "Archive"}
-                          </MenuItem>
-                          <MenuItem
-                            variant="destructive"
-                            onClick={() =>
-                              void act(
-                                confirmAndDeleteThread(ref, { forceConfirm: true, marketer: true }),
-                              )
-                            }
-                          >
-                            Delete
-                          </MenuItem>
-                        </MenuPopup>
-                      </Menu>
+                            <MoreHorizontal size={16} />
+                          </MenuTrigger>
+                          <MenuPopup data-amicited-tokens="" data-amicited-popup="">
+                            <MenuItem
+                              onClick={() => {
+                                setTitle(thread.title);
+                                setRenaming(key);
+                              }}
+                            >
+                              Rename
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() =>
+                                void act(archived ? unarchiveThread(ref) : archiveThread(ref))
+                              }
+                            >
+                              {archived ? "Restore" : "Archive"}
+                            </MenuItem>
+                            <MenuItem
+                              variant="destructive"
+                              onClick={() =>
+                                void act(
+                                  confirmAndDeleteThread(ref, {
+                                    forceConfirm: true,
+                                    marketer: true,
+                                  }),
+                                )
+                              }
+                            >
+                              Delete
+                            </MenuItem>
+                          </MenuPopup>
+                        </Menu>
+                      </div>
                     </>
                   )}
                 </div>
