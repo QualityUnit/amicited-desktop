@@ -57,6 +57,7 @@ import {
 import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
 import {
+  useConnectedEnvironmentIds,
   useEnvironmentProviders,
   usePrimaryEnvironment,
   usePrimaryEnvironmentId,
@@ -540,8 +541,8 @@ export function MarketingNewTask() {
 function MarketingHistory() {
   const activeThreads = useThreadShells();
   const [archived, setArchived] = useState(false);
-  const environmentId = usePrimaryEnvironmentId();
-  const { snapshots } = useArchivedThreadSnapshots(environmentId ? [environmentId] : []);
+  const environmentIds = useConnectedEnvironmentIds();
+  const { snapshots } = useArchivedThreadSnapshots(environmentIds);
   const threads = archived
     ? snapshots.flatMap(({ environmentId, snapshot }) =>
         snapshot.threads.map((thread) => presentThreadShell(environmentId, thread)),
