@@ -356,3 +356,6 @@ and `apps/server/src/orchestration-v2/ProjectionStore.ts` expose one optional
 marketing-check failure flag on shell rows without loading chat items in history.
 `evals/mcp-tool-use/cases/marketing.ndjson` exercises direct audit selection and
 preservation of the tool's evidence limits using the existing evaluator.
+`apps/server/src/provider/agentContextBudget.json` records the measured marketing
+catalog/instruction growth; its normal CI budget label still applies.
+`apps/web/src/amicited-cloud.browser.test.tsx` follows the marketer details label.
