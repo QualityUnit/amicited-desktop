@@ -91,7 +91,7 @@ try {
   const free = await fixtureClient.status();
   const policy = await fixtureClient.toolPolicy("free_site_health_get");
   if (policy.needsApproval) throw new Error("Fixture read unexpectedly needs approval");
-  const result = await fixtureClient.call("free_site_health_get", { report_id: "fixture" });
+  const result = await fixtureClient.call("free_site_health_get", { run_id: "fixture" });
   await fixtureClient.call("paid_success");
   cloudFixtures = { free, full: await fixtureClient.status(), result, upgrade };
 } finally {
@@ -407,6 +407,14 @@ try {
     await page.getByRole("button", { name: "Open full result" }).click();
     await page.getByRole("region", { name: "Tool result" }).waitFor();
     await capture("04-full-result");
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing-cloud",
+      ),
+    );
+    await page.getByText(/The free site health check is complete/).waitFor();
+    await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
+    await capture("03e-cloud-site-health");
     await page.goto(marketingChatUrl);
     await page
       .getByRole("article", { name: "Marketing tool result" })
@@ -528,90 +536,24 @@ try {
       if (path === "/marketing-settings") {
         for (const state of ["waiting", "free", "upgrade", "full"]) {
           await page.evaluate(
-            async ({ state, fixtures, uiModule, marketingModule }) => {
-              const reactModule = await import(String("/node_modules/.vite/deps/react.js"));
-              const React = reactModule.default ?? reactModule;
-              const domModule = await import(
-                String("/node_modules/.vite/deps/react-dom_client.js")
+            async ({ state, fixtures }) => {
+              window.dispatchEvent(
+                new CustomEvent("amicited-cloud-evidence", {
+                  detail:
+                    state === "waiting"
+                      ? { state: "connecting" }
+                      : state === "full"
+                        ? fixtures.full
+                        : fixtures.free,
+                }),
               );
-              const { createRoot } = domModule.default ?? domModule;
-              const { AmicitedConnectPanel } = await import(String(uiModule));
-              const { CloudToolResultCard } = await import(String(marketingModule));
-              const { Button } = await import(String("/src/components/ui/button.tsx"));
-              const { Input } = await import(String("/src/components/ui/input.tsx"));
-              const host = document.createElement("div");
-              host.id = "cloud-evidence";
-              host.setAttribute("data-amicited-tokens", "");
-              Object.assign(host.style, {
-                position: "fixed",
-                inset: "90px 40px 80px 280px",
-                zIndex: "10000",
-                background: "var(--background)",
-                padding: "32px",
-                overflow: "auto",
-              });
-              document.body.append(host);
-              const root = createRoot(host);
-              const connection =
-                state === "waiting"
-                  ? { state: "connecting" }
-                  : state === "full"
-                    ? fixtures.full
-                    : fixtures.free;
-              root.render(
-                React.createElement(
-                  "div",
-                  {},
-                  React.createElement(
-                    "p",
-                    {},
-                    "Controlled MCP fixture — connection and result presentation",
-                  ),
-                  React.createElement(AmicitedConnectPanel, {
-                    connection,
-                    ui: { Button, Input },
-                    actions: {
-                      connectOAuth: async () => connection,
-                      connectApiKey: async () => connection,
-                      disconnect: async () => ({ state: "disconnected" }),
-                    },
-                    onChange: () => {},
-                    openExternal: () => {},
-                  }),
-                  ...(state === "free" || state === "upgrade"
-                    ? [
-                        React.createElement(CloudToolResultCard, {
-                          onStartTrial: () => {},
-                          cloud: {
-                            tool: state === "free" ? "free_site_health_get" : "paid_refusal",
-                            result: state === "free" ? fixtures.result : fixtures.upgrade,
-                          },
-                        }),
-                      ]
-                    : []),
-                ),
-              );
-              (window as unknown as { disposeCloudEvidence(): void }).disposeCloudEvidence = () => {
-                root.unmount();
-                host.remove();
-              };
             },
-            {
-              state,
-              fixtures: cloudFixtures,
-              uiModule: "/@fs" + NodePath.resolve("packages/amicited-ui-cloud/src/index.tsx"),
-              marketingModule: "/@fs" + NodePath.resolve("packages/amicited-ui/src/index.tsx"),
-            },
+            { state, fixtures: cloudFixtures },
           );
-          await page
-            .getByText("Controlled MCP fixture — connection and result presentation")
-            .waitFor();
           if (state === "waiting")
             await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
+          else await page.getByText(/Connected to Your AmICited workspace/).waitFor();
           await capture("07-cloud-" + state);
-          await page.evaluate(() =>
-            (window as unknown as { disposeCloudEvidence(): void }).disposeCloudEvidence(),
-          );
         }
       }
       if (path === "/tools") {

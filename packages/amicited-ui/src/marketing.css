@@ -388,3 +388,12 @@
 .am-chat-collapsed [data-slot="sidebar-footer"] {
   padding: 8px;
 }
+
+.am-card [data-slot="settings-row"] {
+  border-radius: 0;
+}
+
+.am-chat-brand button[aria-label="Go back"],
+.am-chat-brand button[aria-label="Go forward"] {
+  display: none;
+}

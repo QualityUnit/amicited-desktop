@@ -52,7 +52,9 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
           approved: true,
         })
         .pipe(Stream.unwrap, Stream.runCollect);
-      expect(write.at(-1)?.result).toMatchObject({ code: "capability_denied" });
+      expect(write.at(-1)?.result).toMatchObject({
+        result: { structuredContent: { code: "capability_denied" } },
+      });
       const pending = yield* toolkit
         .handle("amicited_cloud_call", {
           tool: "free_site_health_start",
@@ -60,7 +62,9 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
           approved: false,
         })
         .pipe(Stream.unwrap, Stream.runCollect);
-      expect(pending.at(-1)?.result).toMatchObject({ kind: "approval_required" });
+      expect(pending.at(-1)?.result).toMatchObject({
+        result: { structuredContent: { code: "capability_denied" } },
+      });
       yield* toolkit
         .handle("amicited_cloud_call", {
           tool: "free_site_health_get",

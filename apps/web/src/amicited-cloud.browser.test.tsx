@@ -33,7 +33,7 @@ it("offers a successful result once, persists Not now, and starts the shared OAu
       onConnect={connect}
     />,
   );
-  await screen.getByRole("button", { name: "Start 7-day free trial" }).click();
+  await screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
   expect(connect).toHaveBeenCalledOnce();
   expect(open).not.toHaveBeenCalled();
   await screen.getByRole("button", { name: "Not now", exact: true }).click();
@@ -123,14 +123,14 @@ it.each([
           .toBeVisible();
         await screen.getByRole("button", { name: "Daily prompt and citation tracking →" }).click();
         await expect
-          .element(screen.getByRole("button", { name: "Start 7-day free trial" }))
+          .element(screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }))
           .toBeVisible();
       } else {
         await expect
           .element(screen.getByRole("heading", { name: "Works better with AmICited" }))
           .not.toBeInTheDocument();
         await expect
-          .element(screen.getByRole("button", { name: "Start 7-day free trial" }))
+          .element(screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }))
           .not.toBeInTheDocument();
       }
     } finally {

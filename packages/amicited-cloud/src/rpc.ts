@@ -17,6 +17,14 @@ export const CloudConnection = Schema.Union([
   }),
 ]);
 export const cloudRpcs = [
+  Rpc.make("amicited.cloud.resetAccess", { success: CloudConnection }),
+  Rpc.make("amicited.cloud.answerApproval", {
+    payload: {
+      requestId: Schema.String,
+      decision: Schema.Literals(["decline", "accept", "acceptForSession"]),
+    },
+    success: Schema.Unknown,
+  }),
   Rpc.make("amicited.cloud.status", { success: CloudConnection }),
   Rpc.make("amicited.cloud.connectOAuth", { success: CloudConnection }),
   Rpc.make("amicited.cloud.connectApiKey", {

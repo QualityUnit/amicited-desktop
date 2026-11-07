@@ -682,7 +682,7 @@ export function ComposerPickerFooter(props: {
   const marketer = useWorkspaceMode() === "marketer";
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border/70 bg-muted/40 px-3 py-2">
-      {props.traits ? <SpeedControl traits={props.traits} /> : null}
+      {!marketer && props.traits ? <SpeedControl traits={props.traits} /> : null}
       {!marketer && props.traits ? <UltracodeControl traits={props.traits} /> : null}
       {!marketer && (
         <PermissionsMenu

@@ -290,7 +290,7 @@ export function marketingSignInError(message: string): boolean {
 
 function marketingTarget(input: unknown) {
   const r = record(input);
-  const target = r.url ?? r.website ?? r.domain;
+  const target = r.url ?? r.website ?? r.domain ?? r.target;
   if (typeof target !== "string" || !target) return "";
   try {
     return ` on ${new URL(target.includes("://") ? target : `https://${target}`).hostname}`;
@@ -306,20 +306,71 @@ export function CloudToolResultCard({
   cloud: { tool: string; result: unknown };
   onStartTrial(): void;
 }) {
-  const result = cloud.result as {
-    structuredContent?: { kind?: string; message?: string };
-    content?: { text?: string }[];
+  const result = record(cloud.result);
+  const structured = record(result.structuredContent);
+  let data = structured;
+  if (!result.structuredContent && Array.isArray(result.content)) {
+    for (const part of result.content) {
+      const text = record(part).text;
+      if (typeof text === "string") {
+        try {
+          data = record(JSON.parse(text));
+        } catch {
+          data = { message: text };
+        }
+        break;
+      }
+    }
+  }
+  const discovery = ["list_toolsets", "search_tools", "describe_tool"].includes(cloud.tool);
+  const names: Record<string, string> = {
+    site_health: "site health",
+    brand_visibility: "brand visibility",
+    query_fanout: "related searches",
+    llms_txt: "AI website guide",
+    watermark_detection: "text watermarks",
+    watermark_removal: "text cleanup",
   };
-  const upgrade = result?.structuredContent?.kind === "amicited-upgrade";
+  const base = cloud.tool.replace(/^free_/, "").replace(/_(start|get)$/, "");
+  const report = record(data.report);
+  const score = report.score ?? data.score;
+  const fixes = Array.isArray(report.fixes)
+    ? report.fixes
+        .map((fix) => record(fix).title)
+        .filter((title): title is string => typeof title === "string")
+        .slice(0, 2)
+        .join("; ")
+    : undefined;
+  const title = discovery
+    ? "Looked up AmICited tools"
+    : `${result.isError ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(data)}`;
+  const summary =
+    [
+      data.message,
+      data.error,
+      data.summary,
+      typeof score === "number" ? `Score: ${score}/100` : undefined,
+      fixes,
+      data.status,
+    ]
+      .filter((v): v is string => typeof v === "string")
+      .slice(0, 3)
+      .join(" · ") ||
+    (discovery ? "Found tools and their required inputs." : "AmICited returned the check results.");
   return (
     <article className="am-tool-card" aria-label="AmICited tool result">
-      <p>{cloud.tool.replaceAll("_", " ")}</p>
-      <p>
-        {upgrade
-          ? result.structuredContent?.message
-          : result?.content?.map((part) => part.text ?? "").join("\n")}
-      </p>
-      {upgrade && <MarketingButton onClick={onStartTrial}>Start 7-day free trial</MarketingButton>}
+      <MarketingWorkDisclosure label={title}>
+        <details>
+          <summary>Technical details</summary>
+          <pre>{JSON.stringify(cloud.result, null, 2)}</pre>
+        </details>
+      </MarketingWorkDisclosure>
+      <p>{summary}</p>
+      {structured.kind === "amicited-upgrade" && (
+        <MarketingButton variant="outline" onClick={onStartTrial}>
+          Start 7-day free trial
+        </MarketingButton>
+      )}
     </article>
   );
 }

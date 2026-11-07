@@ -1459,7 +1459,7 @@ export function deriveMessagesTimelineRows(input: {
     ? timelineEntries.flatMap((entry) => {
         const payload = entry.kind === "work" ? entry.entry.structuredPayload : undefined;
         return payload?.type === "dynamic_tool" &&
-          payload.toolName?.toLowerCase().includes("marketing_tools_run") &&
+          /marketing_tools_run|amicited_cloud_/.test(payload.toolName?.toLowerCase() ?? "") &&
           payload.runId
           ? [payload.runId]
           : [];
@@ -1930,15 +1930,17 @@ export function deriveMessagesTimelineRows(input: {
             ...(visibleGroupedEntries.some(
               (entry) =>
                 entry.structuredPayload?.type === "dynamic_tool" &&
-                entry.structuredPayload.toolName?.toLowerCase().includes("marketing_tools_"),
+                /marketing_tools_|amicited_cloud_/.test(
+                  entry.structuredPayload.toolName?.toLowerCase() ?? "",
+                ),
             )
               ? {
                   marketingEntries: visibleGroupedEntries.filter(
                     (entry) =>
                       entry.structuredPayload?.type === "dynamic_tool" &&
-                      entry.structuredPayload.toolName
-                        ?.toLowerCase()
-                        .includes("marketing_tools_run"),
+                      /marketing_tools_run|amicited_cloud_/.test(
+                        entry.structuredPayload.toolName?.toLowerCase() ?? "",
+                      ),
                   ),
                 }
               : {}),

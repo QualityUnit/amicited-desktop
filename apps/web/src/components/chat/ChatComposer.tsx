@@ -3668,7 +3668,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                           });
                       }}
                     >
-                      <span aria-hidden="true">↗</span>
+                      <span aria-hidden="true">→</span>
                       {prompt}
                     </Button>
                   ))}

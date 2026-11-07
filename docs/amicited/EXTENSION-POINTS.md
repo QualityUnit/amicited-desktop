@@ -411,3 +411,21 @@ Wave 30 keeps existing cloud RPC and toolkit seams and adds:
 - `apps/server/src/provider/AgentContextBudget.test.ts` and `agentContextBudget.json`: measure the real discovery/call proxy declarations.
 - `apps/web/src/amicited-cloud.browser.test.tsx`: exercises shared connect and cancellation without stale completion.
 - `scripts/amicited/journey-screenshots.ts`: isolated MCP fixture captures alongside the existing journey.
+
+## Cloud approvals and readable results
+
+- `apps/server/src/ws.ts`, `packages/contracts/src/clientRpcPermissions.ts` and `apps/server/src/observability/RpcInstrumentation.ts`: settings-authorized cloud approval answers and access invalidation; agents cannot answer these through the cloud proxy.
+- `apps/server/src/amicited/CloudToolkit.ts`: delegates approval to app-owned pending requests; ignores model approval flags.
+- `apps/web/src/components/chat/MessagesTimeline.logic.ts`: includes cloud calls in compact results outside collapsed work groups.
+- `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: folds discovery into one compact result.
+- `apps/server/scripts/dev-replay-agent.ts`: adds the controlled cloud site-health scenario.
+- `apps/web/src/components/chat/ChatComposer.tsx`: starter arrows indicate an in-app action.
+- `apps/web/src/components/chat/MessagesTimeline.logic.test.ts`: covers cloud results in the existing completed-turn folding case.
+
+Approvals currently live in the cloud service session. Disconnect clears requests
+and free-check grants. Server restart invalidates pending approvals. The card
+reuses upstream approval actions, but is not a provider runtime approval request;
+its accepted result is browser-local until the agent retrieves the cached result.
+
+- `scripts/amicited/electron-screenshots.mjs`: disables the viewport resize overlay and compares matching sidebar title elements.
+- `apps/web/src/marketingOffer.browser.test.tsx`: supplies the additional cloud adapter exports in the existing isolated mock.

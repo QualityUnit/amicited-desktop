@@ -1,6 +1,11 @@
 import { useThreadVisibleTurnItems, useThreadShell } from "../../state/entities";
 import { MarketingTranscriptCard } from "../../marketingChat";
-import { useWorkspaceMode, marketingToolResult, resultTitle } from "@amicited/ui-marketing";
+import {
+  useWorkspaceMode,
+  marketingToolResult,
+  resultTitle,
+  cloudToolResult,
+} from "@amicited/ui-marketing";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogButton, WorkLogList, WorkLogRow } from "./WorkLog";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
@@ -638,14 +643,40 @@ export function WorkGroupToggleTimelineRow({
         ? entry.structuredPayload.output
         : entry.toolData,
     );
-    return result ? [resultTitle(result)] : [];
+    const cloud = cloudToolResult(
+      entry.structuredPayload?.type === "dynamic_tool"
+        ? entry.structuredPayload.output
+        : entry.toolData,
+    );
+    return result
+      ? [resultTitle(result)]
+      : cloud
+        ? [
+            ["list_toolsets", "search_tools", "describe_tool"].includes(cloud.tool)
+              ? "Looked up AmICited tools"
+              : "AmICited results",
+          ]
+        : [];
   });
   return (
     <>
       <WorkGroupHeader
         label={
           workspaceMode === "marketer" && row.marketingEntries !== undefined
-            ? [...new Set(marketingTitles)].join(", ") || "Marketing checks"
+            ? [...new Set(marketingTitles)].join(", ") ||
+              (row.marketingEntries?.some((entry) => {
+                const payload = entry.structuredPayload;
+                const input = payload?.type === "dynamic_tool" ? payload.input : undefined;
+                return (
+                  input !== null &&
+                  typeof input === "object" &&
+                  "tool" in input &&
+                  typeof input.tool === "string" &&
+                  input.tool.startsWith("free_site_health_")
+                );
+              })
+                ? "Site health check"
+                : "AmICited results")
             : row.summary
         }
         iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
@@ -657,16 +688,26 @@ export function WorkGroupToggleTimelineRow({
         onToggle={() => ctx.onToggleWorkGroup(row.groupId, row.id)}
       />
       {!row.expanded && workspaceMode === "marketer"
-        ? row.marketingEntries?.map((entry) => (
-            <MarketingTranscriptCard
-              key={entry.id}
-              output={undefined}
-              projectedItem={entry.projectedItem}
-              environmentId={ctx.activeThreadEnvironmentId}
-              source={ctx.turnItemSource?.detail}
-              status={entry.projectedItem?.item.status}
-            />
-          ))
+        ? row.marketingEntries
+            ?.filter((entry, index, entries) => {
+              const isDiscovery = (e: typeof entry) =>
+                /amicited_cloud_discover/.test(
+                  e.structuredPayload?.type === "dynamic_tool"
+                    ? (e.structuredPayload.toolName ?? "")
+                    : "",
+                );
+              return !isDiscovery(entry) || entries.findIndex(isDiscovery) === index;
+            })
+            .map((entry) => (
+              <MarketingTranscriptCard
+                key={entry.id}
+                output={undefined}
+                projectedItem={entry.projectedItem}
+                environmentId={ctx.activeThreadEnvironmentId}
+                source={ctx.turnItemSource?.detail}
+                status={entry.projectedItem?.item.status}
+              />
+            ))
         : null}
     </>
   );

@@ -90,6 +90,11 @@ export const SCENARIOS = [
     name: "Multi turn",
     file: `${FIXTURES}/multi_turn/registry_transcript.ndjson`,
   },
+  {
+    id: "marketing-cloud",
+    name: "AmICited free site health",
+    file: "../../../scripts/amicited/fixtures/cloud-site-health.ndjson",
+  },
 ] as const;
 
 // Session setup and vendor state stay out: they would replace the replay agent's own models.

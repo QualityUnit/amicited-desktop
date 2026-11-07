@@ -9,6 +9,7 @@ async function fixture() {
   let refreshed = false;
   const calls: string[] = [];
   let initializations = 0;
+  let listings = 0;
   const argumentsByTool: Record<string, unknown> = {};
   let origin = "";
   const server = NodeHttp.createServer(async (req, res) => {
@@ -77,7 +78,8 @@ async function fixture() {
         serverInfo: { name: "fixture", version: "1" },
       };
     }
-    if (rpc.method === "tools/list")
+    if (rpc.method === "tools/list") {
+      listings++;
       result = {
         tools: [
           {
@@ -98,6 +100,7 @@ async function fixture() {
           },
         ],
       };
+    }
     if (rpc.method === "tools/call") {
       argumentsByTool[rpc.params.name] = rpc.params.arguments;
       calls.push(rpc.params.name);
@@ -155,6 +158,9 @@ async function fixture() {
     },
     calls,
     argumentsByTool,
+    get listings() {
+      return listings;
+    },
     get initializations() {
       return initializations;
     },
@@ -202,11 +208,12 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   });
   expect((await fake.make().status()).state).toBe("connected");
   expect(await cloud.summary()).toMatchObject({ connection: { state: "connected" } });
-  await cloud.call("free_site_health_get", { report_id: "report-1" });
-  expect(fake.argumentsByTool.free_site_health_get).toEqual({ report_id: "report-1" });
+  await cloud.call("free_site_health_get", { run_id: "report-1" });
+  expect(fake.argumentsByTool.free_site_health_get).toEqual({ run_id: "report-1" });
   expect(await cloud.toolPolicy("free_site_health_get")).toEqual({ needsApproval: false });
   for (const name of ["free_site_health_start", "unknown_annotations", "contradictory"])
     expect(await cloud.toolPolicy(name)).toEqual({ needsApproval: true });
+  expect(fake.listings).toBe(1);
   expect(fake.initializations).toBe(2); // One restored client and the original reused session.
   expect(fake.calls.filter((name) => name === "list_toolsets")).toHaveLength(2);
   expect(fake.calls).not.toContain("list_domains");
@@ -270,4 +277,61 @@ it("disconnect cancels browser sign-in and ignores later callbacks", async () =>
   expect(await connecting).toEqual({ state: "disconnected" });
   await expect(fetch(redirect)).rejects.toThrow();
   expect(fake.stored).toBeUndefined();
+});
+
+it("preserves the connection and original tool failures, then runs free tools", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make();
+  await cloud.connectApiKey("test-key");
+  for (const [message, code] of [
+    ["Invalid arguments: url is required", "invalid_request"],
+    ["Hourly rate limit exceeded", "rate_limited"],
+    ["Insufficient credits", "no_credits"],
+    ["Missing scope amicited:write. Re-authenticate with this scope", "scope_missing"],
+    ["Domain not found", "not_found"],
+  ]) {
+    fake.refuse(message!);
+    expect(await cloud.call("free_site_health_start")).toMatchObject({
+      isError: true,
+      structuredContent: { code, message },
+    });
+    expect(await cloud.status()).toMatchObject({ state: "connected" });
+    fake.refuse("");
+    expect(await cloud.call("free_site_health_get", { run_id: "run-1" })).not.toHaveProperty(
+      "isError",
+      true,
+    );
+  }
+  await cloud.disconnect();
+});
+
+it("requires app-owned approval and grants only free checks in the same thread", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make();
+  await cloud.connectApiKey("test-key");
+  const pending = await cloud.requestCall("thread-1", "contradictory", {});
+  const requestId = (pending as { structuredContent: { requestId: string } }).structuredContent
+    .requestId;
+  expect(fake.calls).not.toContain("contradictory");
+  await cloud.answerApproval(requestId, "accept");
+  await expect(cloud.answerApproval(requestId, "accept")).rejects.toThrow("no longer pending");
+  expect(fake.calls.filter((name) => name === "contradictory")).toHaveLength(1);
+  const free = await cloud.requestCall("thread-1", "free_site_health_start", {
+    request: { target: "example.com" },
+  });
+  await cloud.answerApproval(
+    (free as { structuredContent: { requestId: string } }).structuredContent.requestId,
+    "acceptForSession",
+  );
+  await cloud.requestCall("thread-1", "free_site_health_start", {
+    request: { target: "other.example" },
+  });
+  expect(fake.calls.filter((name) => name === "free_site_health_start")).toHaveLength(2);
+  expect(await cloud.requestCall("thread-2", "free_site_health_start", {})).toMatchObject({
+    structuredContent: { kind: "amicited-approval" },
+  });
+  expect(await cloud.requestCall("thread-1", "unknown_annotations", { other: true })).toMatchObject(
+    { structuredContent: { kind: "amicited-approval" } },
+  );
+  await cloud.disconnect();
 });

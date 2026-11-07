@@ -4394,39 +4394,42 @@ it("refreshes folded marketing results when the tool completes without changing 
   expect(next.result[0]).toBe(nextRow);
 });
 
-it("keeps marketing cards in view while developer mode retains the completed-turn fold", () => {
-  const fixture = makeStreamingTimelineFixture();
-  const visibleTurnItems = fixture.visibleTurnItems.slice(0, 3).map((row) =>
-    row.item.type === "command_execution"
-      ? {
-          ...row,
-          item: {
-            ...row.item,
-            type: "dynamic_tool" as const,
-            status: "completed" as const,
-            toolName: "marketing_tools_run",
-            input: { name: "seo.site.audit" },
-            output: { score: 41 },
-          },
-        }
-      : row,
-  );
-  const timelineEntries = deriveTimelineEntriesFromVisibleTurnItems({
-    visibleTurnItems,
-    optimisticMessages: [],
-  });
-  const input = {
-    timelineEntries,
-    isWorking: false,
-    turnDiffSummaries: [],
-    supportsConversationRollback: false,
-  };
-  expect(deriveMessagesTimelineRows(input).some((row) => row.kind === "turn-fold")).toBe(true);
-  const marketer = deriveMessagesTimelineRows({ ...input, keepMarketingResults: true });
-  expect(marketer.some((row) => row.kind === "turn-fold")).toBe(false);
-  expect(
-    marketer
-      .flatMap((row) => (row.kind === "work" ? row.groupedEntries : []))
-      .some((entry) => entry.structuredPayload?.type === "dynamic_tool"),
-  ).toBe(true);
-});
+it.each(["marketing_tools_run", "amicited_cloud_discover", "amicited_cloud_call"])(
+  "keeps %s cards in view while developer mode retains the completed-turn fold",
+  (toolName) => {
+    const fixture = makeStreamingTimelineFixture();
+    const visibleTurnItems = fixture.visibleTurnItems.slice(0, 3).map((row) =>
+      row.item.type === "command_execution"
+        ? {
+            ...row,
+            item: {
+              ...row.item,
+              type: "dynamic_tool" as const,
+              status: "completed" as const,
+              toolName,
+              input: { name: "seo.site.audit" },
+              output: { score: 41 },
+            },
+          }
+        : row,
+    );
+    const timelineEntries = deriveTimelineEntriesFromVisibleTurnItems({
+      visibleTurnItems,
+      optimisticMessages: [],
+    });
+    const input = {
+      timelineEntries,
+      isWorking: false,
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
+    };
+    expect(deriveMessagesTimelineRows(input).some((row) => row.kind === "turn-fold")).toBe(true);
+    const marketer = deriveMessagesTimelineRows({ ...input, keepMarketingResults: true });
+    expect(marketer.some((row) => row.kind === "turn-fold")).toBe(false);
+    expect(
+      marketer
+        .flatMap((row) => (row.kind === "work" ? row.groupedEntries : []))
+        .some((entry) => entry.structuredPayload?.type === "dynamic_tool"),
+    ).toBe(true);
+  },
+);

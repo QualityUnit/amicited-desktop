@@ -131,3 +131,9 @@ credential. Status is cached for 30 seconds; it never probes a paid tool. The
 summary no longer calls analytics without a prompt or requests an unspecified
 report. Production OAuth boundary evidence is redacted and stops before login;
 account-backed verification still belongs to the owner.
+
+Cloud tool-level errors preserve the connected session and carry the server's
+message with a typed failure code. Transport/authentication errors use connection
+recovery. Tool annotations are cached for the credential session, and an unknown
+name refreshes the catalogue. Subscription navigation and window focus invalidate
+cached plan access without probing a paid endpoint.

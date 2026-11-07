@@ -6,7 +6,7 @@ import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.t
 import { AmicitedCloud } from "./Cloud.ts";
 import * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../mcp/McpToolAccess.ts";
-import { readCaller } from "../mcp/threadAccess.ts";
+import { readCaller, assertLiveCaller } from "../mcp/threadAccess.ts";
 const shared = {
   success: Schema.Unknown,
   failure: OrchestratorMcpFailure,
@@ -30,11 +30,11 @@ export const CloudToolkit = Toolkit.make(
   Tool.make("amicited_cloud_call", {
     ...shared,
     description:
-      "Call a real AmICited tool by name with its advertised arguments, including free_* tools. Server annotations decide whether approval is required. First call with approved=false. If approval is required, explain the action and cost and obtain the user's approval before repeating with approved=true. A trial or paid-tool refusal leaves free tools available.",
+      "Call a real AmICited tool by name with its advertised arguments, including free_* tools. Server annotations decide whether approval is required. The app shows an approval card for external writes and all paid tools, which use workspace credits. Only the user can approve; model-supplied approval is ignored. A trial or paid-tool refusal leaves free tools available.",
     parameters: Schema.Struct({
       tool: Schema.String,
       arguments: Schema.Record(Schema.String, Schema.Unknown),
-      approved: Schema.Boolean,
+      approved: Schema.optionalKey(Schema.Boolean),
     }),
   }),
 );
@@ -57,12 +57,32 @@ const call = Effect.fn("AmicitedCloud.proxy")(function* (
 const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
   tool: string;
   arguments: Record<string, unknown>;
-  approved: boolean;
+  approved?: boolean;
 }) {
-  yield* readCaller();
+  const caller = yield* readCaller();
+  yield* assertLiveCaller(caller);
   const cloud = yield* AmicitedCloud;
-  const policy = yield* Effect.tryPromise({
-    try: () => cloud.toolPolicy(params.tool),
+  if (!caller.scope.thread)
+    return yield* new OrchestratorMcpFailure({
+      code: "capability_denied",
+      message: "Run AmICited actions from a thread so the user can approve them.",
+    });
+  const result = yield* Effect.tryPromise({
+    try: async () => {
+      const policy = await cloud.toolPolicy(params.tool);
+      if (
+        caller.scope.client?.access === "read-only" &&
+        (policy.needsApproval || !params.tool.startsWith("free_"))
+      )
+        return {
+          isError: true,
+          structuredContent: {
+            code: "capability_denied",
+            message: "This client can only read free AmICited results.",
+          },
+        };
+      return cloud.requestCall(caller.scope.thread!.threadId, params.tool, params.arguments);
+    },
     catch: () =>
       new OrchestratorMcpFailure({
         code: "provider_unavailable",
@@ -70,21 +90,9 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
           "Could not check this AmICited tool. Check your connection and discover its name first.",
       }),
   });
-  if (policy.needsApproval && !params.approved)
-    return {
-      kind: "approval_required",
-      tool: params.tool,
-      message: "Ask the user to approve this action and its cost before running it.",
-    };
-  return yield* call(params.tool, params.arguments);
+  return { kind: "amicited-cloud-result", tool: params.tool, result };
 });
 export const layer = McpToolAccess.toLayer(CloudToolkit, {
   amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) => call(tool, args)),
-  amicited_cloud_call: McpToolAccess.either(
-    (params) => params.approved,
-    McpToolAccess.writesEnvironment((params, check) =>
-      check.pipe(Effect.andThen(guardedCall(params))),
-    ),
-    McpToolAccess.reads(guardedCall),
-  ),
+  amicited_cloud_call: McpToolAccess.reads(guardedCall),
 });

@@ -1,4 +1,3 @@
-import { createLocalApi } from "./localApi";
 import { WorkLogRow } from "./components/chat/WorkLog";
 import { ComposerPendingApprovalActions } from "./components/chat/ComposerPendingApprovalActions";
 import { Shield } from "lucide-react";
@@ -16,6 +15,7 @@ import {
   shouldResumeMarketingDraft,
 } from "./marketingContext";
 import { useThreadVisibleTurnItems, useThreadShell } from "./state/entities";
+import { CloudApproval, openCloudSubscription } from "./rpc/amicitedCloud";
 import { CloudFooter } from "./rpc/amicitedCloud";
 import type { ScopedThreadRef, RunId } from "@t3tools/contracts";
 import { resolveAppModelSelectionState } from "./modelSelection";
@@ -243,15 +243,22 @@ export function MarketingTranscriptCard({
     return null;
   if (marketingSubcheckCovered(projectedItem, visible)) return null;
   const cloud = cloudToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
-  if (cloud)
-    return (
-      <CloudToolResultCard
-        cloud={cloud}
-        onStartTrial={() =>
-          void createLocalApi().shell.openExternal("https://app.flowhunt.io/amicited/subscription")
-        }
-      />
-    );
+  if (
+    cloud &&
+    typeof cloud.result === "object" &&
+    cloud.result !== null &&
+    "structuredContent" in cloud.result
+  ) {
+    const data = cloud.result.structuredContent as {
+      kind?: string;
+      requestId: string;
+      message: string;
+      free: boolean;
+    };
+    if (data?.kind === "amicited-approval")
+      return <CloudApproval request={data} tool={cloud.tool} />;
+  }
+  if (cloud) return <CloudToolResultCard cloud={cloud} onStartTrial={openCloudSubscription} />;
   if (!result)
     return (
       <MarketingCallState

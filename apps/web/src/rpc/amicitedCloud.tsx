@@ -1,3 +1,6 @@
+import { CloudToolResultCard } from "@amicited/ui-marketing";
+import { ComposerPendingApprovalActions } from "../components/chat/ComposerPendingApprovalActions";
+import { RuntimeRequestId } from "@t3tools/contracts";
 import { Switch } from "../components/ui/switch";
 import { SettingsRow } from "../components/settings/settingsLayout";
 import { Badge } from "../components/ui/badge";
@@ -73,6 +76,70 @@ const connect = () => {
   marketingNavigate("/marketing-settings");
   window.dispatchEvent(new Event("amicited-connect"));
 };
+const resetAccess = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.cloud.resetAccess",
+  label: "cloud:reset-access",
+});
+export function openCloudSubscription() {
+  window.dispatchEvent(new Event("amicited-subscription-opened"));
+  for (const [id, value] of cloudConnections)
+    if (value.state === "connected") cloudConnections.set(id, { ...value, access: "unknown" });
+  cloudListeners.forEach((listener) => listener());
+  openExternal("https://app.flowhunt.io/amicited/subscription");
+}
+const approval = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.cloud.answerApproval",
+  label: "cloud:approval",
+});
+export function CloudApproval({
+  request,
+  tool,
+}: {
+  request: { requestId: string; message: string; free: boolean };
+  tool: string;
+}) {
+  const environmentId = usePrimaryEnvironmentId();
+  const answer = useAtomCommand(approval);
+  const allowed = useAtomValue(approval.permissionAtom(environmentId));
+  const [result, setResult] = useState<unknown>();
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState(false);
+  if (result !== undefined)
+    return <CloudToolResultCard cloud={{ tool, result }} onStartTrial={openCloudSubscription} />;
+  return (
+    <aside className="am-tool-card" aria-label="AmICited approval">
+      <p>{request.message}</p>
+      <ComposerPendingApprovalActions
+        requestId={RuntimeRequestId.make(request.requestId)}
+        isResponding={busy}
+        canRespond={allowed}
+        options={[
+          { decision: "decline", label: "Decline" },
+          { decision: "accept", label: "Approve" },
+          ...(request.free
+            ? [{ decision: "acceptForSession" as const, label: "Allow free AmICited checks" }]
+            : []),
+        ]}
+        onRespondToApproval={async (_, decision) => {
+          if (
+            !environmentId ||
+            (decision !== "accept" && decision !== "decline" && decision !== "acceptForSession")
+          )
+            return;
+          setBusy(true);
+          const response = await answer({
+            environmentId,
+            input: { requestId: request.requestId, decision },
+          });
+          setBusy(false);
+          if (response._tag === "Success") setResult(response.value);
+          else setFailure(true);
+        }}
+      />
+      {failure && <p role="alert">Could not answer this approval. Please try again.</p>}
+    </aside>
+  );
+}
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
   label: "cloud:status",
@@ -100,6 +167,7 @@ const subscribeCloud = (listener: () => void) => {
 function useCloud() {
   const environmentId = usePrimaryEnvironmentId();
   const read = useAtomCommand(status);
+  const reset = useAtomCommand(resetAccess);
   const readStatus = useEffectEvent(read);
   const connection = useSyncExternalStore(subscribeCloud, () =>
     environmentId ? (cloudConnections.get(environmentId) ?? null) : null,
@@ -110,6 +178,25 @@ function useCloud() {
     cloudListeners.forEach((listener) => listener());
   };
   const updateConnection = useEffectEvent(setConnection);
+  const resetOnFocus = useEffectEvent(async () => {
+    if (!environmentId || cloudConnections.get(environmentId)?.state !== "connected") return;
+    const r = await reset({ environmentId, input: undefined });
+    if (r._tag === "Success") updateConnection(r.value);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A trial can start in the external browser while the app is unfocused.
+  useEffect(() => {
+    const refresh = () => void resetOnFocus();
+    const evidence = (event: Event) => updateConnection((event as CustomEvent<Connection>).detail);
+    if (import.meta.env.DEV) window.addEventListener("amicited-cloud-evidence", evidence);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("amicited-subscription-opened", refresh);
+    return () => {
+      window.removeEventListener("amicited-cloud-evidence", evidence);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("amicited-subscription-opened", refresh);
+    };
+  }, []);
+
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read status from the destination environment on entry.
   useEffect(() => {
     if (!environmentId) return;
@@ -133,9 +220,21 @@ function useCloud() {
   return { environmentId, connection, setConnection };
 }
 export function CloudFooter({ result }: { result: WinResult }) {
-  const { connection } = useCloud();
+  const { environmentId, connection, setConnection } = useCloud();
+  const doOAuth = useAtomCommand(oauth);
+  const doDisconnect = useAtomCommand(disconnect);
+  const [started, setStarted] = useState(false);
   const [gate] = useState(() => createUpsellGate(localStorage, sessionStorage));
   if (!connection) return null;
+  if (started && connection.state === "connected")
+    return (
+      <aside className="am-cloud-card">
+        <p>Connected: free AmICited tools unlocked</p>
+        <CloudButton variant="outline" onClick={openCloudSubscription}>
+          Start 7-day free trial
+        </CloudButton>
+      </aside>
+    );
   return (
     <AmicitedUpsellCard
       result={result}
@@ -143,7 +242,29 @@ export function CloudFooter({ result }: { result: WinResult }) {
       connected={connection.state === "connected"}
       ui={ui}
       openExternal={openExternal}
-      onConnect={connect}
+      connection={connection}
+      onCancel={() => {
+        if (environmentId)
+          void doDisconnect({ environmentId, input: undefined }).then((r) => {
+            if (r._tag === "Success") setConnection(r.value);
+          });
+      }}
+      onConnect={() => {
+        if (!environmentId) return;
+        setStarted(true);
+        setConnection({ state: "connecting" });
+        void doOAuth({ environmentId, input: undefined }).then((r) =>
+          setConnection(
+            r._tag === "Success"
+              ? r.value
+              : {
+                  state: "error",
+                  kind: "network",
+                  message: "Could not connect AmICited. Please try again.",
+                },
+          ),
+        );
+      }}
     />
   );
 }
@@ -182,7 +303,9 @@ function CloudSettings() {
         <AmicitedConnectPanel
           connection={connection}
           ui={ui}
-          openExternal={openExternal}
+          openExternal={(url) =>
+            url.includes("/subscription") ? openCloudSubscription() : openExternal(url)
+          }
           onChange={setConnection}
           actions={{
             connectOAuth: async () => {
@@ -279,10 +402,7 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
           </p>
           <p>7-day trial, then EUR 120/month Pro, cancel anytime.</p>
           <CloudButton variant="default" onClick={connect}>
-            Start 7-day free trial
-          </CloudButton>{" "}
-          <CloudButton variant="link" onClick={connect}>
-            I already have AmICited
+            Connect AmICited (free)
           </CloudButton>{" "}
           <CloudButton variant="link" autoFocus onClick={() => setSelected(null)}>
             Close
@@ -298,7 +418,6 @@ export function CloudPage() {
   const [offersHidden, setOffersHidden] = useState(() =>
     createUpsellGate(localStorage, sessionStorage).hidden(),
   );
-  const { connection } = useCloud();
   return (
     <section className="am-card am-cloud-page">
       <p className="am-hint">
@@ -306,16 +425,6 @@ export function CloudPage() {
         llms.txt, site health and watermark detection. A 7-day trial or Pro adds daily prompt and
         citation tracking, competitors, SEO reports and audits.
       </p>
-      <div className="am-actions">
-        {promotionsAllowed(connection) && (
-          <MarketingButton variant="default" onClick={connect}>
-            Start 7-day free trial
-          </MarketingButton>
-        )}
-      </div>
-      {promotionsAllowed(connection) && (
-        <p className="am-hint">7-day trial, then EUR 120/month Pro, cancel anytime.</p>
-      )}
       <CloudSettings />
       <SettingsGroup>
         <SettingsRow

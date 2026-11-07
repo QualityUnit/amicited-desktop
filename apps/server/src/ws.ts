@@ -2013,6 +2013,9 @@ export const layerWsRpc = (
       );
       const handlers = ServerWsRpcGroup.of({
         // AmICited cloud: credentials stay inside the server.
+        "amicited.cloud.answerApproval": ({ requestId, decision }) =>
+          Effect.promise(() => cloud.answerApproval(requestId, decision)),
+        "amicited.cloud.resetAccess": () => Effect.sync(() => cloud.resetAccess()),
         "amicited.cloud.status": () => Effect.promise(() => cloud.status()),
         "amicited.cloud.summary": () => Effect.promise(() => cloud.summary()),
         "amicited.cloud.connectOAuth": () => Effect.promise(() => cloud.connectOAuth()),

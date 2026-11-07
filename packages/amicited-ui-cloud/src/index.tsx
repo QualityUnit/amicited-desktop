@@ -32,6 +32,8 @@ export function AmicitedUpsellCard({
   connected = false,
   ui: { Button },
   onConnect,
+  connection,
+  onCancel,
 }: {
   result: WinResult;
   gate: Gate;
@@ -39,6 +41,8 @@ export function AmicitedUpsellCard({
   ui: CloudUi;
   openExternal(url: string): void;
   onConnect(): void;
+  connection?: Connection;
+  onCancel?(): void;
 }) {
   const [visible, setVisible] = useState(false);
   const claimed = useRef(false);
@@ -52,19 +56,23 @@ export function AmicitedUpsellCard({
   }, [gate, result, connected]);
   const comparison = whatYouAreMissing(result);
   if (!visible || connected || !comparison) return null;
+  if (connection?.state === "connecting")
+    return (
+      <aside className="am-cloud-card">
+        <p>Waiting for you to finish in your browser…</p>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </aside>
+    );
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
       <p>{comparison.missing}</p>
+      {connection?.state === "error" && <p role="alert">{connection.message}</p>}
       <p className="am-hint">Optional 7-day trial, then EUR 120/month Pro for the full set.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={onConnect}>
-          Connect AmICited
-        </Button>
-        <Button variant="link" onClick={onConnect}>
-          Start 7-day free trial
-        </Button>
-        <Button variant="link" onClick={onConnect}>
-          I already have AmICited
+          Connect AmICited (free)
         </Button>
         <Button
           variant="link"
@@ -124,17 +132,29 @@ export function AmicitedConnectPanel({
                     ? "Full AmICited access is unlocked."
                     : connection.access === "free"
                       ? "Free AmICited tools are unlocked: brand visibility, query fan-out, llms.txt, site health and watermark detection."
-                      : "AmICited tools are connected. Your workspace plan determines which tools are available."
+                      : "Trial started? We'll confirm on your next AmICited check."
                   : "Your local tools always work without an account."
               }
               control={
-                <Button disabled={busy} onClick={() => void run(actions.disconnect)}>
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void run(actions.disconnect)}
+                >
                   Disconnect
                 </Button>
               }
             />
             {connection.access !== "full" && (
-              <Button onClick={() => openExternal(SUBSCRIPTION_URL)}>Start 7-day free trial</Button>
+              <Row
+                title="Full AmICited access"
+                description="Trial started? We’ll confirm on your next AmICited check."
+                control={
+                  <Button variant="outline" onClick={() => openExternal(SUBSCRIPTION_URL)}>
+                    Start 7-day free trial
+                  </Button>
+                }
+              />
             )}
           </>
         ) : (

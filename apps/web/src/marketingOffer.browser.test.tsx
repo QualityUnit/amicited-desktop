@@ -24,6 +24,8 @@ vi.mock("./rpc/amicitedCloud", async () => {
   const { shouldOfferUpsell } = await import("@amicited/cloud-client/upsell");
   return {
     CloudConnectedChip: () => null,
+    CloudApproval: () => null,
+    openCloudSubscription: () => {},
     CloudFooter: ({ result }: { result: { tool: string; status: string; output?: unknown } }) =>
       shouldOfferUpsell(result, { dismissed: state.dismissed }, false, 0, state.connected) ? (
         <aside aria-label="Cloud offer">{result.tool}</aside>

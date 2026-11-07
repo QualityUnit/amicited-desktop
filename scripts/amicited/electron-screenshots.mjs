@@ -130,6 +130,7 @@ try {
   page.setDefaultTimeout(120_000);
   await page.locator("[data-amicited-shell]").first().waitFor({ timeout: 120000 });
   const cdp = await context.newCDPSession(page);
+  await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 1344,
     height: 1016,
@@ -177,7 +178,7 @@ try {
           '.am-history-row:has([aria-current="page"]), [data-sidebar-row][aria-current="page"]',
         composerSurface: '[data-slot="composer-host"]',
         sidebarRow:
-          '[data-chat-history-link][aria-current="page"], [data-testid="sidebar-row-card"][aria-current="page"]',
+          '[data-chat-history-link][aria-current="page"] [data-marketing-history-title], [data-testid="sidebar-row-card"][aria-current="page"] span[aria-hidden].text-sm',
         headerLayout: '[aria-label="Task breadcrumb"], [aria-label="Thread breadcrumb"]',
         workLog:
           '.am-tool-card [data-slot="collapsible-trigger"] .text-secondary-label, [class~="group/timeline-row"] .text-secondary-label',

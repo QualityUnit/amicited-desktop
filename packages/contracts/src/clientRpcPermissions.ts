@@ -17,7 +17,9 @@ import { WS_METHODS } from "./rpc.ts";
 export const CLIENT_GUARDED_RPC_SCOPES = {
   "amicited.cloud.connectOAuth": AuthSettingsWriteScope,
   "amicited.cloud.connectApiKey": AuthSettingsWriteScope,
+  "amicited.cloud.resetAccess": AuthSettingsWriteScope,
   "amicited.cloud.disconnect": AuthSettingsWriteScope,
+  "amicited.cloud.answerApproval": AuthSettingsWriteScope,
   "amicited.tools.run": AuthOrchestrationOperateScope,
   [WS_METHODS.previewClose]: AuthPreviewOperateScope,
   // Stopping a server signals its processes, as closing a terminal does.

@@ -105,3 +105,10 @@ and AmICited branding; verification stops at the FlowHunt login without forms.
 The journey captures the shared settings connection surface and native model
 picker. Controlled component states are explicitly separate from account-backed
 production access; free discovery cannot establish a workspace plan.
+
+Wave 31 uses `.amicited-shots/r29/`. The `marketing-cloud` Replay scenario
+persists discover → free_site_health_start → free_site_health_get in the normal
+chat pipeline. It uses `request.target` for start and `run_id` for get. It is
+controlled Replay evidence, not production execution. Connection-state captures
+update the dev-only connection store and render the real Settings page; no
+standalone connection component is mounted over the page.

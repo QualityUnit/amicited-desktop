@@ -46,6 +46,38 @@ export const errorState = (error: unknown): Extract<Connection, { state: "error"
   };
   return { state: "error", kind, message: messages[kind] };
 };
+export type ToolFailureCode =
+  | "invalid_request"
+  | "rate_limited"
+  | "no_credits"
+  | "scope_missing"
+  | "not_found"
+  | "plan_required";
+export function toolFailure(message: string) {
+  const code: ToolFailureCode = /Pro plan|plan.*required|upgrade/i.test(message)
+    ? "plan_required"
+    : /scope|amicited:(?:read|write|spending)/i.test(message)
+      ? "scope_missing"
+      : /credit|balance/i.test(message)
+        ? "no_credits"
+        : /429|rate.limit|hourly.*limit/i.test(message)
+          ? "rate_limited"
+          : /not.found|does not exist|unknown (?:tool|domain)/i.test(message)
+            ? "not_found"
+            : "invalid_request";
+  return {
+    isError: true,
+    content: [{ type: "text", text: message }],
+    structuredContent: {
+      kind: code === "plan_required" ? "amicited-upgrade" : "amicited-tool-failure",
+      code,
+      message,
+      ...(code === "plan_required"
+        ? { action: "Start 7-day free trial", url: SUBSCRIPTION_URL }
+        : {}),
+    },
+  };
+}
 export class CloudClient {
   async connectionForRequest(request: string, offersAllowed: boolean, firstWin: boolean) {
     const connection = await this.status();
@@ -56,7 +88,7 @@ export class CloudClient {
         access: connection.access,
         tools: ["amicited_cloud_discover", "amicited_cloud_call"],
         instruction:
-          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. Approval is required unless the server marks a tool read-only and non-destructive. Never claim a tool ran unless its call succeeded.",
+          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. The app requests user approval for external writes and paid tools. Paid reads also use workspace credits; mention the cost before long read loops. Never claim a tool ran unless its call succeeded.",
       };
     if (!offersAllowed)
       return {
@@ -85,13 +117,79 @@ export class CloudClient {
     };
   }
 
+  private approvals = new Map<
+    string,
+    {
+      threadId: string;
+      tool: string;
+      args: Record<string, unknown>;
+      free: boolean;
+      result?: unknown;
+    }
+  >();
+  private freeGrants = new Set<string>();
+  async requestCall(threadId: string, tool: string, args: Record<string, unknown>) {
+    const policy = await this.toolPolicy(tool);
+    const free =
+      /^free_(?:brand_visibility|query_fanout|llms_txt|site_health|watermark_detection|watermark_removal)_(?:start|get)$/.test(
+        tool,
+      );
+    const matching = [...this.approvals.entries()].find(
+      ([, request]) =>
+        request.threadId === threadId &&
+        request.tool === tool &&
+        JSON.stringify(request.args) === JSON.stringify(args),
+    );
+    if (matching) {
+      if (matching[1].result !== undefined) {
+        this.approvals.delete(matching[0]);
+        return matching[1].result;
+      }
+      return this.approvalCard(matching[0], matching[1]);
+    }
+    if ((free && !policy.needsApproval) || (free && this.freeGrants.has(threadId)))
+      return this.call(tool, args);
+    const id = NodeCrypto.randomUUID();
+    const request = { threadId, tool, args, free };
+    this.approvals.set(id, request);
+    return this.approvalCard(id, request);
+  }
+  private approvalCard(id: string, request: { tool: string; free: boolean }) {
+    return {
+      structuredContent: {
+        kind: "amicited-approval",
+        requestId: id,
+        tool: request.tool,
+        free: request.free,
+        message: request.free
+          ? "Allow this free AmICited check? It sends your input to AmICited and costs no workspace credits."
+          : "Allow this AmICited action? It may change your workspace and uses workspace credits.",
+      },
+    };
+  }
+  async answerApproval(requestId: string, decision: "decline" | "accept" | "acceptForSession") {
+    const request = this.approvals.get(requestId);
+    if (!request || request.result !== undefined)
+      throw new Error("This approval is no longer pending.");
+    // Consume before awaiting to prevent double-clicks from executing twice.
+    request.result = {
+      isError: true,
+      content: [{ type: "text", text: "This action was declined or is already running." }],
+    };
+    if (decision === "decline") return request.result;
+    if (decision === "acceptForSession" && request.free) this.freeGrants.add(request.threadId);
+    request.result = await this.call(request.tool, request.args);
+    return request.result;
+  }
   private current: Connection = { state: "disconnected" };
   private generation = 0;
   private checkedAt = 0;
   private session: { key: string; client: Client } | undefined;
+  private policies = new Map<string, { needsApproval: boolean }>();
   private async closeSession() {
     const session = this.session;
     this.session = undefined;
+    this.policies.clear();
     await session?.client.close();
   }
   private cancelOAuth: (() => void) | undefined;
@@ -199,11 +297,21 @@ export class CloudClient {
   }
   private async invoke(client: Client, name: string, args: Record<string, unknown>) {
     const result = await client.callTool({ name, arguments: args });
-    if (result.isError) throw new Error(JSON.stringify(result.content));
+    if (result.isError)
+      return toolFailure(
+        (Array.isArray(result.content) ? result.content : [])
+          .flatMap((part: unknown) =>
+            typeof record(part).text === "string" ? [record(part).text] : [],
+          )
+          .join("\n"),
+      );
     return result;
   }
   private async validate(credential: Credential) {
-    await this.withClient(credential, (client) => this.invoke(client, "list_toolsets", {}));
+    const result = await this.withClient(credential, (client) =>
+      this.invoke(client, "list_toolsets", {}),
+    );
+    if (result.isError) throw new Error(JSON.stringify(result.content));
     this.checkedAt = Date.now();
     return {
       state: "connected",
@@ -242,6 +350,8 @@ export class CloudClient {
     });
   }
   async connectApiKey(apiKey: string): Promise<Connection> {
+    this.approvals.clear();
+    this.freeGrants.clear();
     if (this.current.state === "connecting") return this.current;
     return this.serial(async () => {
       this.current = { state: "connecting" };
@@ -258,6 +368,8 @@ export class CloudClient {
     });
   }
   async connectOAuth(): Promise<Connection> {
+    this.approvals.clear();
+    this.freeGrants.clear();
     if (this.current.state === "connecting") return this.current;
     this.current = { state: "connecting" };
     const generation = ++this.generation;
@@ -325,6 +437,8 @@ export class CloudClient {
   }
   async disconnect(): Promise<Connection> {
     ++this.generation;
+    this.approvals.clear();
+    this.freeGrants.clear();
     this.cancelOAuth?.();
     return this.serial(async () => {
       try {
@@ -346,6 +460,15 @@ export class CloudClient {
         const result = await this.withClient(credential, (client) =>
           this.invoke(client, name, args),
         );
+        if (result.isError) {
+          if (
+            "structuredContent" in result &&
+            record(result.structuredContent).code === "plan_required" &&
+            this.current.state === "connected"
+          )
+            this.current = { ...this.current, access: "free" };
+          return result;
+        }
         if (
           !name.startsWith("free_") &&
           !["list_toolsets", "search_tools", "describe_tool"].includes(name) &&
@@ -355,26 +478,6 @@ export class CloudClient {
         return result;
       } catch (error) {
         const failure = errorState(error);
-        if (failure.kind === "plan_required") {
-          if (this.current.state === "connected")
-            this.current = { ...this.current, access: "free" };
-          return {
-            isError: true,
-            content: [
-              {
-                type: "text",
-                text: "This tool needs a trial or paid AmICited plan. Your connection and free tools are still available.",
-              },
-            ],
-            structuredContent: {
-              kind: "amicited-upgrade",
-              message:
-                "This tool needs a trial or paid AmICited plan. Your free tools are still available.",
-              action: "Start 7-day free trial",
-              url: SUBSCRIPTION_URL,
-            },
-          };
-        }
         this.current = failure;
         // oxlint-disable-next-line preserve-caught-error -- Remote errors can contain credentials; expose only safe copy.
         throw new Error(this.current.message);
@@ -386,21 +489,28 @@ export class CloudClient {
       const credential = await this.credential();
       if (!credential) throw new Error("Connect AmICited in Settings first.");
       return this.withClient(credential, async (client) => {
+        const cached = this.policies.get(name);
+        if (cached) return cached;
         let cursor: string | undefined;
         do {
           const page = await client.listTools(cursor ? { cursor } : {});
-          const tool = page.tools.find((tool) => tool.name === name);
-          if (tool)
-            return {
+          for (const tool of page.tools)
+            this.policies.set(tool.name, {
               needsApproval:
                 tool.annotations?.readOnlyHint !== true ||
                 tool.annotations.destructiveHint !== false,
-            };
+            });
           cursor = page.nextCursor;
         } while (cursor);
+        const policy = this.policies.get(name);
+        if (policy) return policy;
         throw new Error("Could not find this AmICited tool. Discover its real name first.");
       });
     });
+  }
+  resetAccess() {
+    if (this.current.state === "connected") this.current = { ...this.current, access: "unknown" };
+    return this.current;
   }
   async summary() {
     return { connection: await this.status() };
