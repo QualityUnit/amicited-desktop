@@ -90,14 +90,14 @@ export function MarketingComposerContext({
     <div>
       <div className="am-composer-context">
         <Popover open={editingWebsite} onOpenChange={setEditingWebsite}>
-          <PopoverTrigger render={<MarketingButton variant="link" type="button" />}>
+          <PopoverTrigger render={<MarketingButton size="xs" variant="link" type="button" />}>
             <Globe size={14} />
             {brand?.website.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? "Add your website"}
           </PopoverTrigger>
           {editingWebsite && (
             <PopoverPopup
               align="start"
-              side="top"
+              side="bottom"
               width="md"
               aria-label="Website"
               data-amicited-tokens=""
@@ -115,6 +115,7 @@ export function MarketingComposerContext({
                 </label>
                 <div className="am-website-actions">
                   <MarketingButton
+                    size="xs"
                     variant="default"
                     type="button"
                     onClick={() => {
@@ -133,6 +134,7 @@ export function MarketingComposerContext({
                     Save website
                   </MarketingButton>
                   <MarketingButton
+                    size="xs"
                     variant="link"
                     type="button"
                     onClick={() => setEditingWebsite(false)}
@@ -147,6 +149,7 @@ export function MarketingComposerContext({
         </Popover>
         {ready ? (
           <MarketingButton
+            size="xs"
             variant="link"
             type="button"
             onClick={() => {
@@ -161,6 +164,7 @@ export function MarketingComposerContext({
         ) : (
           <>
             <MarketingButton
+              size="xs"
               variant="link"
               type="button"
               onClick={() => {
@@ -172,6 +176,7 @@ export function MarketingComposerContext({
               Connect Claude
             </MarketingButton>
             <MarketingButton
+              size="xs"
               variant="link"
               type="button"
               onClick={() => {

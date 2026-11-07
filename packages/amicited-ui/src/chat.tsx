@@ -1,7 +1,7 @@
 import type { ToolResult } from "@amicited/tools-core";
 import { isUsefulResult } from "@amicited/tools-core";
 import { resultTitle, rankedFindings } from "./experience.js";
-import { MarketingButton, MarketingWorkDisclosure } from "./primitives.js";
+import { MarketingButton, MarketingWorkDisclosure, MarketingIcon } from "./primitives.js";
 export const marketingStarters = [
   "Audit my website for AI search",
   "Check whether ChatGPT and Claude mention my brand",
@@ -70,10 +70,12 @@ export function CompactMarketingResult({
     <div className="am-inline-result">
       <article aria-label="Marketing tool result" className="am-tool-card">
         <MarketingWorkDisclosure
+          defaultOpen
           label={
             <>
               {useful ? "Ran" : "Couldn't check"} {resultTitle(result).toLowerCase()}
-              {marketingTarget(result.input)} ·{" "}
+              {marketingTarget(result.input)}
+              {useful ? " · " : ""}
               {typeof output.score === "number" ? `${output.score}/100 · ` : ""}
               {useful ? (output.status === "partial" ? "Partial" : "Complete") : ""}
             </>
@@ -177,6 +179,7 @@ export function MarketingCallState({
   return (
     <article className="am-tool-card" aria-label="Marketing tool result" data-state={state}>
       <MarketingWorkDisclosure
+        defaultOpen
         pending={state === "pending"}
         label={`${state === "pending" ? "Running" : state === "cancelled" ? "Stopped" : "Couldn't check"} ${title}${marketingTarget(record(input).input)}${state === "pending" ? "…" : ""}`}
       >
@@ -193,9 +196,13 @@ export function MarketingCallState({
                 ? "This check was stopped. You can ask your assistant to try again."
                 : marketingErrorText(output)}
             </p>
-            <MarketingWorkDisclosure label="Show details">
+            <details className="am-technical-details">
+              <summary>
+                <MarketingIcon name="right" />
+                Technical details
+              </summary>
               <pre>{typeof output === "string" ? output : JSON.stringify(output, null, 2)}</pre>
-            </MarketingWorkDisclosure>
+            </details>
           </>
         )}
       </MarketingWorkDisclosure>

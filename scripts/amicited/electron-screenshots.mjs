@@ -166,11 +166,16 @@ try {
         header: '[data-slot="workspace-breadcrumb-text"]',
         composer: '[data-testid="composer-editor"]',
         timeline: "[data-thread-find-text] p",
+        brandHeader: '.am-chat-brand, [data-slot="sidebar"] > div > div:first-child',
+        contextLine: '.am-composer-context button, [data-slot="composer-context-strip"] button',
+        selectionBounds:
+          '.am-history-row:has([aria-current="page"]), [data-sidebar-row][aria-current="page"]',
         composerSurface: '[data-slot="composer-host"]',
         sidebarRow:
           '[data-chat-history-link][aria-current="page"], [data-testid="sidebar-row-card"][aria-current="page"]',
         headerLayout: '[aria-label="Task breadcrumb"], [aria-label="Thread breadcrumb"]',
-        workLog: '.am-tool-card [data-slot="collapsible-trigger"], .group\\/timeline-row',
+        workLog:
+          '.am-tool-card [data-slot="collapsible-trigger"], button[class~="group/timeline-row"]',
       };
       return Object.fromEntries(
         Object.entries(selectors).map(([name, selector]) => {
@@ -182,6 +187,9 @@ try {
             name,
             Object.fromEntries(
               [
+                "backgroundColor",
+                "translate",
+                "transform",
                 "fontFamily",
                 "fontSize",
                 "color",
@@ -202,6 +210,10 @@ try {
     });
   }
   async function capture(name) {
+    await page.waitForURL((url) => !url.hash.includes("/draft/"));
+    await page
+      .locator('.am-history-row:has([aria-current="page"]) [data-status="Working"]')
+      .waitFor({ state: "hidden" });
     const intendedRoute = page.url();
     for (const theme of ["light", "dark"]) {
       await page.evaluate(
@@ -237,12 +249,28 @@ try {
   }
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
   await capture("empty-chat");
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "amicited.brand",
+      JSON.stringify({ website: "https://example.com", name: "Example" }),
+    );
+  });
+  await page.reload();
+  await page.getByTestId("composer-editor").waitFor();
   await page.evaluate(() => window.t3dev.replay("marketing"));
   await page.getByRole("article", { name: "Marketing tool result" }).waitFor({ timeout: 120000 });
   await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
   await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
   const marketingTurnUrl = page.url();
   await capture("tool-card-turn");
+  await page.evaluate(() => window.t3dev.replay("marketing-failed"));
+  await page
+    .getByText("Could not check: the website did not respond. Try again later.", { exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+  await capture("failed-tool");
+  await page.goto(marketingTurnUrl);
+  await page.getByRole("button", { name: "Open full result" }).waitFor();
   await page.getByRole("button", { name: "Open full result" }).click();
   await page.getByRole("button", { name: "Ask AI about this" }).click();
   await page.getByTestId("composer-editor").waitFor();

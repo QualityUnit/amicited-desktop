@@ -307,8 +307,8 @@ it("renders an inspectable failure and readable dark tool surfaces", async () =>
     await expect
       .element(screen.getByText("Permission refused", { exact: true }).first())
       .toBeVisible();
-    await screen.getByText("Show details").click();
-    await screen.getByText("Show details").click();
+    expect(document.querySelector(".am-technical-details")?.hasAttribute("open")).toBe(false);
+    await screen.getByText("Technical details").click();
     await expect
       .element(screen.getByText("Permission refused", { exact: true }).last())
       .toBeVisible();

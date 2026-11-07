@@ -2,7 +2,7 @@ import { ToggleGroup, Toggle } from "./components/ui/toggle-group";
 import { SettingsGroup } from "./components/settings/SettingsGroup";
 import { SettingsRow } from "./components/settings/settingsLayout";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "./components/ui/collapsible";
-import { ChevronRight, PlugZap } from "lucide-react";
+import { ChevronRight, PlugZap, CircleAlert, CircleHelp } from "lucide-react";
 import { ActivityShimmerOverlay } from "./components/chat/TimelineRowParts";
 import {
   WorkspaceBreadcrumb,
@@ -102,11 +102,12 @@ import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 const KitButton = ({
   variant = "outline",
   type = "submit",
+  size = "sm",
   ...props
 }: ComponentProps<typeof MarketingButton>) => (
   <Button
     type={type}
-    size="sm"
+    size={size}
     variant={
       variant === "header"
         ? "media-navigation"
@@ -160,12 +161,14 @@ function KitWorkDisclosure({
   label,
   children,
   pending,
+  defaultOpen = false,
 }: {
   label: ReactNode;
   children: ReactNode;
   pending?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(defaultOpen);
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <CollapsibleTrigger
@@ -303,13 +306,14 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             <SidebarChromeHeader
               isElectron={false}
               brand={
-                <span className="am-wordmark">
+                <span className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium">
                   <AmICitedMark />
                 </span>
               }
             />
           }
           history={<MarketingHistory archived={archived} setArchived={setArchived} />}
+          headerTitle={archived ? "Archived chats" : undefined}
           mode={mode}
           taskView={taskTarget !== null}
           path={path}
@@ -320,10 +324,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           }}
         >
           {archived ? (
-            <div className="am-secondary-page">
-              <KitBreadcrumb>Archived chats</KitBreadcrumb>
-              <p>Archived chats stay here until you restore or delete them.</p>
-            </div>
+            <MarketingArchive />
           ) : path === "/marketing-settings" ? (
             <CloudPage />
           ) : path === "/settings/general" ? (
@@ -717,13 +718,7 @@ function MarketingHistory({
   setArchived: (value: boolean) => void;
 }) {
   const activeThreads = useThreadShells();
-  const environmentIds = useConnectedEnvironmentIds();
-  const { snapshots } = useArchivedThreadSnapshots(environmentIds);
-  const threads = archived
-    ? snapshots.flatMap(({ environmentId, snapshot }) =>
-        snapshot.threads.map((thread) => presentThreadShell(environmentId, thread)),
-      )
-    : activeThreads.filter((thread) => !thread.archivedAt);
+  const threads = activeThreads.filter((thread) => !thread.archivedAt);
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -820,8 +815,8 @@ function MarketingHistory({
                         <TooltipTrigger
                           render={
                             <SidebarMenuButton
-                              size="lg"
-                              className="h-auto flex-col items-stretch"
+                              size="thread"
+                              variant="thread"
                               isActive={
                                 decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
                               }
@@ -866,10 +861,12 @@ function MarketingHistory({
                                 });
                               }}
                             >
-                              <MarketingHistoryStatus thread={thread} />
-                              <span>
-                                {thread.title === "New thread" ? "New chat" : thread.title}
-                              </span>
+                              <div className="flex w-full flex-col gap-1 px-2.5 py-1.5">
+                                <MarketingHistoryStatus thread={thread} />
+                                <span className="truncate">
+                                  {thread.title === "New thread" ? "New chat" : thread.title}
+                                </span>
+                              </div>
                             </SidebarMenuButton>
                           }
                         />
@@ -877,15 +874,6 @@ function MarketingHistory({
                           {thread.title === "New thread" ? "New chat" : thread.title}
                         </TooltipPopup>
                       </Tooltip>
-                      {archived && (
-                        <MarketingButton
-                          variant="link"
-                          className="am-restore-chat"
-                          onClick={() => void act(unarchiveThread(ref))}
-                        >
-                          Restore
-                        </MarketingButton>
-                      )}
                       <Menu>
                         <MenuTrigger
                           aria-label={`Chat actions for ${thread.title}`}
@@ -941,22 +929,85 @@ function MarketingHistoryStatus({
   const status = marketingHistoryStatus(thread);
   return (
     <small className="am-history-status" data-status={status}>
-      <span className="flex items-center gap-1">
-        {status === "Working" && <CircleDashed size={12} />} {status === "Done" ? "Chat" : status}
+      <span
+        className={`flex items-center gap-1 ${status === "Working" ? "text-info-foreground" : status === "Needs your OK" ? "text-warning-foreground" : status === "Couldn't check" || status === "Sign in needed" ? "text-error-foreground" : ""}`}
+      >
+        {status === "Working" ? (
+          <CircleDashed size={12} />
+        ) : status === "Needs your OK" ? (
+          <CircleHelp size={12} />
+        ) : status === "Couldn't check" || status === "Sign in needed" ? (
+          <CircleAlert size={12} />
+        ) : null}
+        {status !== "Done" && status}
+        {status === "Working" && (
+          <span
+            ref={tickTextContent((now) => {
+              const started = resolveWorkingStartedAt(thread);
+              return started ? formatWorkingDurationLabel(now - Date.parse(started)) : "";
+            }, true)}
+          />
+        )}
       </span>
-      {status === "Working" && (
-        <>
-          {status === "Working" && (
-            <span
-              ref={tickTextContent((now) => {
-                const started = resolveWorkingStartedAt(thread);
-                return started ? formatWorkingDurationLabel(now - Date.parse(started)) : "";
-              }, true)}
-            />
-          )}{" "}
-        </>
-      )}
-      <RelativeTime timestamp={thread.updatedAt} />
+      {status !== "Working" && <RelativeTime timestamp={thread.updatedAt} />}
     </small>
+  );
+}
+
+function MarketingArchive() {
+  const environmentIds = useConnectedEnvironmentIds();
+  const { snapshots } = useArchivedThreadSnapshots(environmentIds);
+  const { unarchiveThread, confirmAndDeleteThread } = useThreadActions();
+  const threads = snapshots.flatMap(({ environmentId, snapshot }) =>
+    snapshot.threads.map((thread) => presentThreadShell(environmentId, thread)),
+  );
+  const act = async (operation: Promise<{ _tag: string }>) => {
+    if ((await operation)._tag === "Failure")
+      toastManager.add({ type: "error", title: "Could not update chat. Please try again." });
+  };
+  return (
+    <>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Archived chats stay here until you restore or delete them.
+      </p>
+      {threads.length ? (
+        <SettingsGroup>
+          {threads.map((thread) => {
+            const ref = scopeThreadRef(thread.environmentId, thread.id);
+            return (
+              <SettingsRow
+                key={thread.environmentId + thread.id}
+                title={thread.title}
+                description={<RelativeTime timestamp={thread.updatedAt} />}
+                control={
+                  <div className="flex gap-2">
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => void act(unarchiveThread(ref))}
+                    >
+                      Restore
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() =>
+                        void act(
+                          confirmAndDeleteThread(ref, { forceConfirm: true, marketer: true }),
+                        )
+                      }
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                }
+              />
+            );
+          })}
+        </SettingsGroup>
+      ) : (
+        <p>No archived chats</p>
+      )}
+    </>
   );
 }

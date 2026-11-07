@@ -158,12 +158,16 @@ try {
         (dark) => document.documentElement.classList.contains("dark") === dark,
         theme === "dark",
       );
-      if (name === "09-failed-tool")
+      if (name === "09-failed-tool") {
+        await page
+          .locator('.am-history-row:has([aria-current="page"]) [data-status="Couldn\'t check"]')
+          .waitFor();
         await page
           .getByText("Could not check: the website did not respond. Try again later.", {
             exact: true,
           })
           .waitFor();
+      }
       if (name === "12-sign-in-recovery" || name === "12b-sidebar-statuses") {
         await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
         await page.locator('.am-history-status[data-status="Sign in needed"]').first().waitFor();
@@ -338,20 +342,9 @@ try {
     await page.waitForURL(/\/draft\//);
     await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
     await page.getByRole("button", { name: "Archived", exact: true }).click();
-    await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .first()
-      .waitFor();
+    await page.getByRole("button", { name: "Restore", exact: true }).waitFor();
     await capture("05d-archived");
-    await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .first()
-      .click();
-    await page.getByRole("menuitem", { name: "Restore", exact: true }).click();
-    await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .first()
-      .waitFor({ state: "hidden" });
+    await page.getByRole("button", { name: "Restore", exact: true }).click();
     await page.getByText("No archived chats", { exact: true }).waitFor();
     await capture("05e-archived-empty");
     await page.getByRole("button", { name: "Back to chats", exact: true }).click();

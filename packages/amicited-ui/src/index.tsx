@@ -332,10 +332,9 @@ export function MarketingSettings({
                 />
               }
             />
-            <MarketingSettingsRow
-              title={message || "Save your website and brand"}
-              control={<MarketingButton variant="default">Save</MarketingButton>}
-            />
+            <div className="am-website-actions">
+              <MarketingButton variant="default">Save</MarketingButton>
+            </div>
             <p role="status">{message}</p>
           </form>
         </MarketingSettingsGroup>

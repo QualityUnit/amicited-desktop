@@ -37,12 +37,12 @@ export function BrandFavicon({ website, name }: { website?: string | undefined; 
 }
 export function AmICitedMark() {
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <svg aria-hidden="true" width="30" height="30" viewBox="0 0 32 32">
-        <rect width="32" height="32" rx="9" fill="var(--ai-accent)" />
+    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 32 32">
+        <rect width="32" height="32" rx="9" fill="currentColor" />
         <path
           d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
-          stroke="white"
+          stroke="var(--sidebar)"
           strokeWidth="3"
           strokeLinecap="round"
         />

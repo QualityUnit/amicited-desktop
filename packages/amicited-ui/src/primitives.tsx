@@ -44,6 +44,7 @@ import {
   type ReactNode,
 } from "react";
 export type MarketingButtonProps = ComponentProps<"button"> & {
+  size?: "xs" | "sm";
   variant?: "header" | "agent" | "default" | "outline" | "secondary" | "link" | "row";
 };
 type Primitives = {
@@ -59,6 +60,7 @@ type Primitives = {
     label: ReactNode;
     children: ReactNode;
     pending?: boolean | undefined;
+    defaultOpen?: boolean | undefined;
   }>;
   Menu?: ComponentType<{ label: ReactNode; children: ReactNode }>;
   Tooltip?: ComponentType<{ children: ReactNode; label: string }>;
@@ -215,15 +217,17 @@ export function MarketingWorkDisclosure({
   label,
   children,
   pending,
+  defaultOpen = false,
 }: {
   label: ReactNode;
   children: ReactNode;
   pending?: boolean | undefined;
+  defaultOpen?: boolean | undefined;
 }) {
   const { WorkDisclosure } = useContext(MarketingUiContext);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   return WorkDisclosure ? (
-    <WorkDisclosure label={label} pending={pending}>
+    <WorkDisclosure label={label} pending={pending} defaultOpen={defaultOpen}>
       {children}
     </WorkDisclosure>
   ) : (

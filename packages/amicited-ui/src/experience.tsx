@@ -1,5 +1,5 @@
+import { MarketingIcon } from "./primitives.js";
 /* oxlint-disable t3code/no-em-dash-copy -- AmICited uses an em dash as its missing-value placeholder. */
-import { MarketingWorkDisclosure } from "./primitives.js";
 import { MarketingButton } from "./primitives.js";
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { isUsefulResult, type ToolResult } from "@amicited/tools-core";
@@ -292,9 +292,30 @@ export function MarketingResult({
           <ResultValue value={result.output} />
         )}
         {findings.length > 0 && (
-          <MarketingWorkDisclosure label="All check details">
-            <ResultValue value={result.output} />
-          </MarketingWorkDisclosure>
+          <details>
+            <summary>
+              <MarketingIcon name="right" />
+              All check details
+            </summary>
+            <dl>
+              {findings.map((finding) => (
+                <div className="am-finding" key={`${finding.group}:${finding.title}`}>
+                  <dt>{finding.title}</dt>
+                  <dd>
+                    {
+                      {
+                        fail: "Needs attention",
+                        warn: "Improve",
+                        pass: "Passing",
+                        unknown: "Couldn't check",
+                      }[finding.status]
+                    }
+                    {finding.evidence ? ` · ${finding.evidence}` : ""}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </details>
         )}
         <div className="am-actions">
           {retry && <MarketingButton onClick={retry}>Edit inputs</MarketingButton>}

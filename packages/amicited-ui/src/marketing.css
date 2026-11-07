@@ -14,41 +14,9 @@
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--sidebar-border);
+    box-shadow: inset -1px 0 var(--sidebar-border);
     background: var(--sidebar);
     color: var(--sidebar-foreground);
-  }
-  .am-chat-brand {
-    position: relative;
-    height: var(--workspace-topbar-height);
-    flex-shrink: 0;
-  }
-  .am-chat-brand > div {
-    width: 100%;
-  }
-  .am-chat-brand > button {
-    position: absolute;
-    left: 12px;
-    top: 12px;
-    z-index: 20;
-    padding: 0;
-    width: 24px;
-    height: 24px;
-  }
-  .am-chat-brand > span {
-    margin-left: 52px;
-    padding-top: 12px;
-  }
-  .am-chat-brand svg {
-    width: 18px;
-    height: 18px;
-  }
-  .am-chat-brand strong {
-    font-size: 14px;
-    font-weight: 500;
-  }
-  .am-chat-brand [data-slot] {
-    flex-shrink: 0;
   }
   .am-chat-history {
     flex: 1;
@@ -85,7 +53,7 @@
   .am-chat-collapsed .am-chat-sidebar {
     width: 48px;
   }
-  .am-chat-collapsed .am-chat-brand > div,
+  .am-chat-collapsed .am-chat-brand > div:not(.am-sidebar-toggle),
   .am-chat-collapsed .am-chat-brand > span {
     visibility: hidden;
   }
@@ -104,28 +72,9 @@
     position: relative;
     display: flex;
     align-items: center;
-    border-radius: var(--radius-md);
     margin-top: 2px;
   }
-  .am-history-row:hover {
-    background: var(--sidebar-row-hover);
-  }
-  .am-history-row[data-selected="true"] {
-    background: var(--sidebar-row-active);
-  }
-  .am-history-row > button:first-child {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    width: 100%;
-    min-width: 0;
-    padding: 8px;
-    text-align: left;
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 20px;
-  }
+
   .am-history-row > button:first-child > span {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -134,14 +83,10 @@
   .am-history-status {
     color: var(--sidebar-muted-foreground);
     font-size: 12px;
-  }
-  .am-history-status[data-status="Couldn't check"],
-  .am-history-status[data-status="Sign in needed"] {
-    color: var(--warning-foreground);
-  }
-  .am-history-status[data-status="Needs your OK"],
-  .am-history-status[data-status="Working"] {
-    color: var(--primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
   }
   .am-history-row > button:last-child:not(:first-child) {
     position: absolute;
@@ -157,21 +102,15 @@
   .am-history-row:hover > button:first-child > span {
     padding-right: 24px;
   }
-  .am-history-row .am-restore-chat {
-    position: absolute;
-    right: 28px;
-    font-size: 11px;
-  }
-  .am-history-row:has(.am-restore-chat) > button:first-child {
-    padding-right: 75px;
-  }
   .am-starters {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
-    gap: 4px 12px;
-    margin: 12px auto;
+    justify-content: flex-start;
+    gap: 2px;
+    margin: 8px 0;
     max-width: 640px;
+    flex-direction: column;
+    align-items: flex-start;
   }
   .am-starters button {
     padding: 4px 8px;
@@ -179,6 +118,7 @@
     border-radius: var(--radius-md);
     font-size: 12px;
     cursor: pointer;
+    text-align: left;
   }
   .am-starters button:hover {
     background: var(--accent);
@@ -189,19 +129,9 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 4px;
-    padding: 4px 8px;
+    padding: 0;
     font-size: 12px;
     color: var(--muted-foreground);
-  }
-  .am-composer-context button {
-    border-color: transparent;
-    background: transparent;
-    box-shadow: none;
-    font-weight: 400;
-    color: var(--muted-foreground);
-  }
-  .am-composer-context button::before {
-    box-shadow: none;
   }
   .am-page-header {
     display: flex;
@@ -264,28 +194,17 @@
   .am-pack-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 4px;
     margin: 16px 0;
     font-size: 14px;
     color: var(--muted-foreground);
-  }
-  .am-pack-tabs a[aria-current] {
-    color: var(--foreground);
-  }
-  .am-tool-grid {
-    display: flex;
-    flex-direction: column;
-  }
-  .am-tool-grid > a {
-    padding: 12px 0;
-    border-bottom: 1px solid var(--border);
-  }
-  .am-tool-grid > a:hover {
-    background: var(--accent);
+    border-radius: var(--radius-lg);
+    background: var(--muted);
+    padding: 4px;
+    width: fit-content;
   }
   .am-tool-card {
     width: 100%;
-    max-width: 640px;
     padding: 8px 0;
     margin: 8px 0;
     font-size: 14px;
@@ -301,6 +220,9 @@
   .am-tool-card ul {
     padding-left: 18px;
     margin: 8px 0;
+    list-style: disc;
+    color: var(--muted-foreground);
+    font-size: 12px;
   }
   .am-tool-card li {
     margin: 4px 0;
@@ -317,53 +239,21 @@
   .am-inline-result {
     margin: 8px 0;
   }
-  .am-work-row {
-    color: var(--muted-foreground);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 0;
-  }
-  .am-work-row svg {
-    display: inline;
-    margin-right: 8px;
-    width: 16px;
-    height: 16px;
-  }
   .am-work-summary {
     padding: 4px 0;
   }
-  .am-status-pill {
-    font-size: 12px;
-    color: var(--muted-foreground);
-  }
-  .am-finding-dot {
-    display: inline-block;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--muted-foreground);
-    margin-right: 8px;
-  }
-  .am-finding-fail {
-    background: var(--destructive);
-  }
-  .am-finding-warn {
-    background: var(--warning);
-  }
-  .am-approval,
   .am-tool-card[aria-label="Assistant sign in"] {
     border: 1px solid var(--border);
     background: var(--muted);
     border-radius: var(--radius-lg);
     padding: 12px;
   }
-  .am-approval p,
   .am-tool-card[aria-label="Assistant sign in"] p {
     margin: 8px 0;
   }
   .am-result-findings {
     display: grid;
-    gap: 16px;
+    gap: 8px;
     margin: 16px 0;
   }
   .am-result-findings article {
@@ -380,8 +270,9 @@
     overflow-wrap: anywhere;
   }
   .am-website-editor label {
-    display: block;
+    display: grid;
     margin-bottom: 12px;
+    gap: 8px;
   }
   .am-website-actions {
     display: flex;
@@ -402,26 +293,99 @@
   .am-report-list {
     padding-left: 20px;
   }
-}
 
-.am-chat-brand > div > div > div > .am-wordmark {
-  margin-left: 52px;
-  color: white;
-}
-.am-composer-context button {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-.am-composer-context button::before {
-  box-shadow: none;
-}
-
-.am-chat-brand > button {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 20;
+  .am-tool-frame {
+    margin-top: 16px;
+  }
+  .am-tool-list > a {
+    display: block;
+    border-radius: inherit;
+    outline-offset: 2px;
+  }
+  .am-card,
+  .am-cloud-card {
+    border-top: 0;
+  }
+  .am-card h2 {
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .am-setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 16px;
+  }
+  .am-website-editor {
+    padding: 4px;
+    font-size: 14px;
+  }
+  .am-finding {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr);
+    gap: 24px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .am-work-summary > button {
+    padding-inline: 0;
+  }
+  [data-amicited-tokens] summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+  }
+  [data-amicited-tokens] summary::-webkit-details-marker {
+    display: none;
+  }
+  .am-result-links {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .am-result-links > button {
+    padding-inline: 0;
+  }
+  .am-chat-brand {
+    position: relative;
+    height: var(--workspace-topbar-height);
+    flex-shrink: 0;
+  }
+  .am-sidebar-toggle {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    translate: 0 -50%;
+    z-index: 20;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+  }
+  .am-tool-list > a:hover,
+  .am-tool-list > a:focus-visible {
+    background: var(--accent);
+    outline-color: var(--ring);
+  }
+  .am-page > .am-hint {
+    margin-top: 12px;
+  }
+  .am-technical-details {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  details[open] > summary > svg {
+    rotate: 90deg;
+  }
+  .am-technical-details pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+  .am-card form > * + * {
+    border-top: 1px solid var(--border);
+  }
 }
 
 .am-chat-collapsed [data-slot="sidebar-menu"] {
@@ -430,118 +394,4 @@
 }
 .am-chat-collapsed [data-slot="sidebar-footer"] {
   padding: 8px;
-}
-.am-chat-brand > button {
-  transform: none;
-}
-.am-starters {
-  flex-direction: column;
-  align-items: flex-start;
-  margin: 8px 0;
-  gap: 2px;
-}
-.am-starters button {
-  text-align: left;
-}
-.am-composer-context {
-  padding: 0;
-}
-.am-pack-tabs {
-  gap: 4px;
-  border-radius: var(--radius-lg);
-  background: var(--muted);
-  padding: 4px;
-  width: fit-content;
-}
-.am-pack-tabs a[aria-current] {
-  background: var(--background);
-  border-radius: var(--radius-md);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
-}
-.am-tool-frame {
-  margin-top: 16px;
-}
-.am-tool-list > a {
-  display: block;
-}
-.am-card,
-.am-cloud-card {
-  border-top: 0;
-}
-.am-card h2 {
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-.am-setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 16px;
-}
-.am-website-editor {
-  padding: 4px;
-  font-size: 14px;
-}
-.am-website-editor label {
-  display: grid;
-  gap: 8px;
-}
-.am-finding {
-  display: grid;
-  grid-template-columns: minmax(120px, 1fr) minmax(0, 2fr);
-  gap: 24px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.am-result-findings {
-  gap: 8px;
-}
-.am-tool-card ul {
-  list-style: disc;
-}
-.am-work-summary > button {
-  padding-inline: 0;
-}
-.am-history-status {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 4px;
-}
-.am-history-row > button:first-child {
-  flex: 1;
-}
-.am-history-row .am-restore-chat {
-  position: static;
-  flex-shrink: 0;
-}
-.am-history-row:has(.am-restore-chat) > button:first-child {
-  padding-right: 8px;
-}
-[data-amicited-tokens] summary {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  list-style: none;
-}
-[data-amicited-tokens] summary::-webkit-details-marker {
-  display: none;
-}
-.am-status-neutral {
-  display: inline-flex;
-  padding: 2px 8px;
-  background: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  font-size: 12px;
-}
-
-.am-result-links {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.am-result-links > button {
-  padding-inline: 0;
 }

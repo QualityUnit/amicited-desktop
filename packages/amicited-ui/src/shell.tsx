@@ -11,6 +11,7 @@ export function MarketingShell({
   history,
   brandHeader,
   footer,
+  headerTitle,
 }: {
   children: ReactNode;
   path: string;
@@ -22,6 +23,7 @@ export function MarketingShell({
   history?: ReactNode;
   brandHeader?: ReactNode;
   footer?: ReactNode;
+  headerTitle?: string | undefined;
 }) {
   const { Breadcrumb } = useContext(MarketingUiContext);
   const [collapsed, setCollapsed] = useState(
@@ -37,16 +39,18 @@ export function MarketingShell({
       <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
         <div className="am-chat-brand">
           {brandHeader ?? <AmICitedMark />}
-          <MarketingButton
-            variant={collapsed ? "row" : "header"}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => {
-              setCollapsed(!collapsed);
-              localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
-            }}
-          >
-            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </MarketingButton>
+          <div className="am-sidebar-toggle">
+            <MarketingButton
+              variant="row"
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => {
+                setCollapsed(!collapsed);
+                localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
+              }}
+            >
+              {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </MarketingButton>
+          </div>
         </div>
         <nav aria-label="Chat history" className="am-chat-history">
           {collapsed ? (
@@ -87,22 +91,24 @@ export function MarketingShell({
         )}
       </aside>
       <main className="am-chat-main">
-        {["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
+        {headerTitle ||
+        ["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
           path.startsWith(prefix),
         ) ? (
           <>
             <MarketingHeader className="am-page-header">
               {Breadcrumb ? (
                 <Breadcrumb>
-                  {path.startsWith("/tools")
-                    ? path === "/tools"
-                      ? "Tools"
-                      : path.endsWith("/result")
-                        ? "Result"
-                        : resultTitle({ tool: decodeURIComponent(path.split("/").at(-1) ?? "") })
-                    : path === "/marketing-settings"
-                      ? "AmICited"
-                      : "Settings"}
+                  {headerTitle ??
+                    (path.startsWith("/tools")
+                      ? path === "/tools"
+                        ? "Tools"
+                        : path.endsWith("/result")
+                          ? "Result"
+                          : resultTitle({ tool: decodeURIComponent(path.split("/").at(-1) ?? "") })
+                      : path === "/marketing-settings"
+                        ? "AmICited"
+                        : "Settings")}
                 </Breadcrumb>
               ) : (
                 <span>

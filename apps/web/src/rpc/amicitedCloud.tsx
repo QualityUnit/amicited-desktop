@@ -1,3 +1,4 @@
+import { Switch } from "../components/ui/switch";
 import { SettingsRow } from "../components/settings/settingsLayout";
 import { Badge } from "../components/ui/badge";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../components/ui/collapsible";
@@ -48,7 +49,20 @@ const ui = {
   Button: CloudButton,
   Input,
   Disclosure: CloudDisclosure,
-  Row: SettingsRow,
+  Row: ({ title, ...props }: ComponentProps<typeof SettingsRow>) => (
+    <SettingsRow
+      {...props}
+      title={
+        title === "Connection" ? (
+          <span className="flex items-center gap-2">
+            Connection <Badge variant="secondary">Not connected</Badge>
+          </span>
+        ) : (
+          title
+        )
+      }
+    />
+  ),
   Group: SettingsGroup,
 };
 const openExternal = (url: string) => {
@@ -263,9 +277,6 @@ export function CloudPage() {
         subtitle="See who cites you across AI assistants. Track changes every day against your competitors."
         actions={
           <div className="am-actions">
-            <Badge variant="secondary">
-              {connection?.state === "connected" ? "Connected" : "Not connected"}
-            </Badge>
             {promotionsAllowed(connection) && (
               <MarketingButton variant="default" onClick={() => openExternal(SIGNUP_URL)}>
                 Start 7-day free trial
@@ -278,29 +289,32 @@ export function CloudPage() {
         <p className="am-hint">7-day trial, then EUR 120/month Pro, cancel anytime.</p>
       )}
       <CloudSettings />
-      <footer className="am-preferences-footer">
-        <MarketingButton
-          variant="link"
-          onClick={() => {
-            if (offersHidden) {
-              createUpsellGate(localStorage, sessionStorage).restore();
-              setOffersHidden(false);
-              setHideMessage("Trial offers are enabled.");
-              return;
-            }
-            const saved = createUpsellGate(localStorage, sessionStorage).dismiss();
-            if (saved) setOffersHidden(true);
-            setHideMessage(
-              saved
-                ? "Trial offers are permanently hidden."
-                : "Could not save your choice. Please try again.",
-            );
-          }}
-        >
-          {offersHidden ? "Show trial offers again" : "Permanently hide trial offers"}
-        </MarketingButton>
-        <p role="status">{hideMessage}</p>
-      </footer>
+      <SettingsGroup>
+        <SettingsRow
+          title="Hide trial offers"
+          control={
+            <Switch
+              checked={offersHidden}
+              onCheckedChange={() => {
+                if (offersHidden) {
+                  createUpsellGate(localStorage, sessionStorage).restore();
+                  setOffersHidden(false);
+                  setHideMessage("Trial offers are enabled.");
+                  return;
+                }
+                const saved = createUpsellGate(localStorage, sessionStorage).dismiss();
+                if (saved) setOffersHidden(true);
+                setHideMessage(
+                  saved
+                    ? "Trial offers are permanently hidden."
+                    : "Could not save your choice. Please try again.",
+                );
+              }}
+            />
+          }
+        />
+      </SettingsGroup>
+      <p role="status">{hideMessage}</p>
     </section>
   );
 }
