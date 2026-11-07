@@ -300,6 +300,8 @@ try {
       .first()
       .click();
     await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
+    await page.waitForURL(/\/draft\//);
+    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
     await page.getByRole("button", { name: "Archived", exact: true }).click();
     await page
       .getByRole("button", { name: /Chat actions for/ })
@@ -311,6 +313,10 @@ try {
       .first()
       .click();
     await page.getByRole("menuitem", { name: "Restore", exact: true }).click();
+    await page
+      .getByRole("button", { name: /Chat actions for/ })
+      .first()
+      .waitFor({ state: "hidden" });
     await page.getByRole("button", { name: "Back to chats", exact: true }).click();
     await page
       .getByRole("button", { name: /Chat actions for/ })
