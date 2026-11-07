@@ -210,7 +210,7 @@ detour in session storage. No provider credentials are stored in the browser.
 
 There is no upstream Card component in this checkout; marketer cards and section
 heads remain semantic containers. Existing Switch, task composer and provider
-connection primitives inherit the scoped tokens. No upstream UI-kit file changes.
+connection primitives inherit T3’s tokens. No upstream UI-kit variants remain.
 
 ## Marketer task handoff and copy
 
@@ -260,7 +260,6 @@ No server, provider, transport or upstream UI primitive changed.
 
 - `apps/web/src/amicited-cloud.browser.test.tsx`: loads the real Tailwind stylesheet for shell/token assertions.
 - `apps/web/src/index.css`: imports the scoped cloud token stylesheet and registers the marketing component/evidence sources with Tailwind.
-- `packages/amicited-ui/package.json` and `pnpm-lock.yaml`: use the existing workspace version of tailwind-merge for the ported class expressions.
 - `scripts/amicited/journey-screenshots.ts`: captures at deviceScaleFactor 2 and calls the font/computed-style evidence writer.
 
 All component and typography changes remain in `@amicited/ui-marketing`.
@@ -268,13 +267,11 @@ The existing cloud and web adapters retain their behavior and free-tool gating.
 
 ## Wave 14 control variants
 
-- `apps/web/src/components/ui/button.tsx`: adds self-contained AmICited variants and size as literal class strings; no fork-package imports.
-- `apps/web/src/components/ui/input.tsx`: adds an AmICited size for the existing native-input adapter, retaining the kit field wrapper.
 - `apps/web/src/marketing.tsx`: injects the existing kit primitives/tooltips and command palette callback; keeps assistant-enable error handling compatible with React Compiler.
 - `apps/web/src/routes/_chat.tasks.tsx`: adds a compact list heading and opening affordance.
 - `apps/web/src/rpc/amicitedCloud.tsx`: selects the dedicated variable-height promotional row layout.
 
-These are marketer-only variants. The upstream variants, provider adapters,
+The marketer adapter uses upstream variants. Provider adapters,
 contracts and mobile UI retain their existing behavior. Marketer navigation and
 results share their web/desktop entry points, including local and remote RPC.
 
