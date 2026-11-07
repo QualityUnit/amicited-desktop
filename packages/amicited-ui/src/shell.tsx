@@ -41,7 +41,9 @@ export function MarketingShell({
           {brandHeader ?? <AmICitedMark />}
           <div className="am-sidebar-toggle">
             <MarketingButton
-              variant="row"
+              size="icon-sm"
+              variant="header"
+              className="relative top-auto translate-y-0"
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
               onClick={() => {
                 setCollapsed(!collapsed);

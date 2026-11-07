@@ -44,7 +44,7 @@ import {
   type ReactNode,
 } from "react";
 export type MarketingButtonProps = ComponentProps<"button"> & {
-  size?: "xs" | "sm";
+  size?: "xs" | "sm" | "icon-sm";
   variant?: "header" | "agent" | "default" | "outline" | "secondary" | "link" | "row";
 };
 type Primitives = {

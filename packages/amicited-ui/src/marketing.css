@@ -360,8 +360,8 @@
     translate: 0 -50%;
     z-index: 20;
     padding: 0;
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
   }
   .am-tool-list > a:hover,
   .am-tool-list > a:focus-visible {
