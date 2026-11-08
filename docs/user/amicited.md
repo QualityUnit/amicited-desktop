@@ -4,7 +4,8 @@
 
 Create a domain with New domain in the sidebar. Enter its website and optionally
 a brand name. Chats under that domain use its website for local checks. Chats
-without a domain remain in No domain.
+without a domain remain in No domain. To connect AmICited from one of those
+chats, create a domain first; the original conversation stays in No domain.
 
 Each domain has its own AmICited connection. Choose Connect AmICited beside the
 composer warning, or open Settings → Domains. Finish sign-in in your browser and

@@ -11,6 +11,13 @@ export interface Domain {
 export { normalizeDomain } from "./domainModel.ts";
 import { normalizeDomain } from "./domainModel.ts";
 
+const withoutDomainId = (domain: Domain) => ({
+  projectId: domain.projectId,
+  hostname: domain.hostname,
+  brand: domain.brand,
+  connectionRef: domain.connectionRef,
+});
+
 // Credentials and sessions are partitioned by project, including projects without metadata.
 export class DomainConnections {
   private threads = new Map<string, Set<string>>();
@@ -93,6 +100,26 @@ export class DomainConnections {
       return row;
     });
   }
+  prepareConnection(projectId: string) {
+    return this.serial(async () => {
+      const rows = (this.rows ??= await this.options.read());
+      const domain = rows.find((row) => row.projectId === projectId);
+      if (!domain) throw new Error("Add a domain before connecting AmICited.");
+      this.release(projectId);
+      const shared = rows.filter((row) => row.connectionRef === domain.connectionRef).length > 1;
+      const next = rows.map((row) =>
+        row.projectId === projectId
+          ? {
+              ...withoutDomainId(row),
+              connectionRef: shared ? NodeCrypto.randomUUID() : row.connectionRef,
+            }
+          : row,
+      );
+      await this.options.write(next);
+      this.rows = next;
+      return this.client(projectId);
+    });
+  }
   reuse(projectId: string, sourceProjectId: string) {
     return this.serial(async () => {
       const rows = (this.rows ??= await this.options.read());
@@ -110,7 +137,9 @@ export class DomainConnections {
         if (disconnected.state === "error") throw new Error(disconnected.message);
       }
       const next = rows.map((row) =>
-        row.projectId === projectId ? { ...row, connectionRef: source.connectionRef } : row,
+        row.projectId === projectId
+          ? { ...withoutDomainId(row), connectionRef: source.connectionRef }
+          : row,
       );
       await this.options.write(next);
       this.rows = next;
@@ -124,14 +153,22 @@ export class DomainConnections {
       if (row && rows.filter((other) => other.connectionRef === row.connectionRef).length > 1) {
         const next = rows.map((other) =>
           other.projectId === projectId
-            ? { ...other, connectionRef: NodeCrypto.randomUUID() }
+            ? { ...withoutDomainId(other), connectionRef: NodeCrypto.randomUUID() }
             : other,
         );
         await this.options.write(next);
         this.rows = next;
         return this.client(projectId).status();
       }
-      return this.client(projectId).disconnect();
+      const result = await this.client(projectId).disconnect();
+      if (row && result.state !== "error") {
+        const next = rows.map((other) =>
+          other.projectId === projectId ? withoutDomainId(other) : other,
+        );
+        await this.options.write(next);
+        this.rows = next;
+      }
+      return result;
     });
   }
   forget(projectId: string) {

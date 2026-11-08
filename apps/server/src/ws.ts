@@ -2058,8 +2058,11 @@ export const layerWsRpc = (
           Effect.tryPromise({
             try: async () => {
               await cloud.domains?.list();
-              const client = cloud.forProject(projectId);
-              return apiKey
+              const client =
+                (apiKey || action === "oauth") && cloud.domains
+                  ? await cloud.domains.prepareConnection(projectId)
+                  : cloud.forProject(projectId);
+              const result = await (apiKey
                 ? client.connectApiKey(apiKey)
                 : action === "oauth"
                   ? client.connectOAuth()
@@ -2067,7 +2070,10 @@ export const layerWsRpc = (
                     ? cloud.domains
                       ? cloud.domains.disconnect(projectId)
                       : client.disconnect()
-                    : client.status();
+                    : client.status());
+              return client === cloud.forProject(projectId)
+                ? result
+                : cloud.forProject(projectId).status();
             },
             catch: () =>
               new DomainFailure({

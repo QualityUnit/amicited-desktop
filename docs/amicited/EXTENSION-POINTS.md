@@ -471,7 +471,9 @@ from being migrated again. Metadata and local tools remain available if the
 keyring is unavailable. Explicit account reuse shares a server-side credential reference
 to avoid copying rotating OAuth refresh tokens. Disconnecting one shared domain
 detaches it without revoking the other domain's credential. Grants and pending
-approvals for that domain's bound threads are released.
+approvals for that domain's bound threads are released. Starting a different
+connection detaches a shared account first and clears the cached remote domain
+ID. Chats without a registered domain create one before connecting.
 
 Free discovery does not expose a workspace-domain list. Matching is learned
 from a user-approved `list_domains` result, without an extra paid status probe.

@@ -136,6 +136,15 @@ it("sends each domain's own bearer credential and keeps account reuse reversible
     await f.domains.disconnect("b");
     expect(await f.domains.client("b").status()).toEqual({ state: "disconnected" });
     expect((await f.domains.client("a").status()).state).toBe("connected");
+    await f.domains.reuse("b", "a");
+    await f.domains.rememberDomain("b", { domains: [{ id: "old-id", domain: "b.example" }] });
+    const source = f.domains.client("a");
+    const replacement = await f.domains.prepareConnection("b");
+    expect(replacement).not.toBe(source);
+    expect(
+      (await f.domains.metadata()).find((row) => row.projectId === "b")?.domainId,
+    ).toBeUndefined();
+    expect((await source.status()).state).toBe("connected");
   } finally {
     await Promise.all(f.domains.allClients().map((client) => client.close()));
     await new Promise<void>((resolve, reject) =>
@@ -219,4 +228,16 @@ it("does not move a developer connection after the one-time migration and restar
   await restarted.list();
   expect(f.secrets.get("legacy")).toBe(JSON.stringify({ apiKey: "developer-account" }));
   expect(f.secrets.get("a")).toBe(JSON.stringify({ apiKey: "original" }));
+});
+it("requires a registered domain before connecting and clears account-specific domain ids", async () => {
+  const f = fixture();
+  await expect(f.domains.prepareConnection("scratch")).rejects.toThrow("Add a domain");
+  await f.domains.register("a", "a.example");
+  await f.domains.rememberDomain("a", { domains: [{ id: "old-account-id", domain: "a.example" }] });
+  expect((await f.domains.metadata())[0]?.domainId).toBe("old-account-id");
+  await f.domains.prepareConnection("a");
+  expect((await f.domains.metadata())[0]?.domainId).toBeUndefined();
+  await f.domains.rememberDomain("a", { domains: [{ id: "another-id", domain: "a.example" }] });
+  await f.domains.disconnect("a");
+  expect((await f.domains.metadata())[0]?.domainId).toBeUndefined();
 });

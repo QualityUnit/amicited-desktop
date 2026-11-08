@@ -1,3 +1,4 @@
+import { CloudFooter } from "./rpc/amicitedCloud";
 import "./index.css";
 import { page } from "vite-plus/test/browser";
 import { expect, it, vi } from "vite-plus/test";
@@ -127,4 +128,40 @@ it("normalizes a new domain and retries metadata saving without creating a secon
     { label: "domains:save", projectId: "created-domain", website: "acme.com" },
     { label: "domains:save", projectId: "created-domain", website: "acme.com" },
   ]);
+});
+
+it("creates a domain before connecting a chat that has no domain", async () => {
+  state.requests.length = 0;
+  state.failSave = false;
+  const key = "amicited.cloud.upsell";
+  const previous = localStorage.getItem(key);
+  const previousSession = sessionStorage.getItem(key);
+  localStorage.removeItem(key);
+  sessionStorage.removeItem(key);
+  try {
+    await using screen = await render(
+      <CloudFooter
+        result={{
+          id: "no-domain",
+          tool: "seo.site.audit",
+          status: "success",
+          output: { score: 75 },
+        }}
+      />,
+    );
+    await screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
+    await expect
+      .element(page.getByRole("dialog", { name: "New domain", exact: true }))
+      .toBeVisible();
+    expect(
+      state.requests.some(
+        (request) => request.label === "cloud:oauth" || request.label === "domains:connection",
+      ),
+    ).toBe(false);
+  } finally {
+    if (previous === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, previous);
+    if (previousSession === null) sessionStorage.removeItem(key);
+    else sessionStorage.setItem(key, previousSession);
+  }
 });

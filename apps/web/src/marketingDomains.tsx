@@ -94,11 +94,13 @@ export function useDomains(destination?: EnvironmentId | null) {
 export function NewDomainDialog({
   open,
   onOpenChange,
+  destination,
 }: {
+  destination?: EnvironmentId | null | undefined;
   open: boolean;
   onOpenChange(value: boolean): void;
 }) {
-  const { environmentId, refresh } = useDomains();
+  const { environmentId, refresh } = useDomains(destination);
   const create = useAtomCommand(projectEnvironment.createNew);
   const register = useAtomCommand(save);
   const canCreate = useAtomValue(projectEnvironment.createNew.permissionAtom(environmentId));

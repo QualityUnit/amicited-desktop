@@ -1,4 +1,9 @@
-import { DomainsSettings, useDomainConnection } from "../marketingDomains";
+import {
+  DomainsSettings,
+  NewDomainDialog,
+  useDomains,
+  useDomainConnection,
+} from "../marketingDomains";
 import { useThreadRouteRef } from "../hooks/useThreadRouteTarget";
 import { useThreadShell } from "../state/entities";
 export {
@@ -65,10 +70,6 @@ export function openCloudSubscription(
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
   label: "cloud:status",
-});
-const oauth = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.cloud.connectOAuth",
-  label: "cloud:oauth",
 });
 const disconnect = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.disconnect",
@@ -168,7 +169,8 @@ export function CloudFooter({
   destination?: import("@t3tools/contracts").EnvironmentId | undefined;
 }) {
   const { environmentId, projectId, domain, connection, setConnection } = useCloud(destination);
-  const doOAuth = useAtomCommand(oauth);
+  const domains = useDomains(environmentId);
+  const [domainSetupOpen, setDomainSetupOpen] = useState(false);
   const doDisconnect = useAtomCommand(disconnect);
 
   const [gate] = useState(() => createUpsellGate(localStorage, sessionStorage));
@@ -199,43 +201,38 @@ export function CloudFooter({
       </aside>
     );
   return (
-    <AmicitedUpsellCard
-      result={result}
-      gate={gate}
-      connected={false}
-      ui={ui}
-      openExternal={openExternal}
-      connection={connection}
-      onCancel={() => {
-        if (projectId) {
-          void domain.update("disconnect");
-          return;
-        }
-        if (environmentId)
-          void doDisconnect({ environmentId, input: undefined }).then((r) => {
-            if (r._tag === "Success") setConnection(r.value);
-          });
-      }}
-      onConnect={() => {
-        if (projectId) {
+    <>
+      <NewDomainDialog
+        open={domainSetupOpen}
+        onOpenChange={setDomainSetupOpen}
+        destination={environmentId}
+      />
+      <AmicitedUpsellCard
+        result={result}
+        gate={gate}
+        connected={false}
+        ui={ui}
+        openExternal={openExternal}
+        connection={connection}
+        onCancel={() => {
+          if (projectId) {
+            void domain.update("disconnect");
+            return;
+          }
+          if (environmentId)
+            void doDisconnect({ environmentId, input: undefined }).then((r) => {
+              if (r._tag === "Success") setConnection(r.value);
+            });
+        }}
+        onConnect={() => {
+          if (!projectId || !domains.rows.some((row) => row.projectId === projectId)) {
+            setDomainSetupOpen(true);
+            return;
+          }
           void domain.update("oauth");
-          return;
-        }
-        if (!environmentId) return;
-        setConnection({ state: "connecting" });
-        void doOAuth({ environmentId, input: undefined }).then((r) =>
-          setConnection(
-            r._tag === "Success"
-              ? r.value
-              : {
-                  state: "error",
-                  kind: "network",
-                  message: "Could not connect AmICited. Please try again.",
-                },
-          ),
-        );
-      }}
-    />
+        }}
+      />
+    </>
   );
 }
 function CloudSettings() {
