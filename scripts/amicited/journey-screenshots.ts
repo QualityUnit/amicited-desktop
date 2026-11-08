@@ -506,6 +506,11 @@ try {
     );
     await page.reload();
     await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+    await page
+      .locator(".am-chat-history")
+      .getByText("example.com", { exact: true })
+      .first()
+      .waitFor();
     await capture("02-empty-chat");
     await page.locator("[data-chat-provider-model-picker]").last().click();
     await page.getByPlaceholder("Search models...").waitFor();
@@ -516,12 +521,7 @@ try {
     await capture("02c-website-popover");
     await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
     await page.getByRole("button", { name: "Collapse sidebar" }).click();
-    for (const label of ["Settings", "Tools", "AmICited"]) {
-      const button = page.getByRole("link", { name: label, exact: true });
-      await button.waitFor({ state: "visible" });
-      const box = await button.boundingBox();
-      if (!box || box.x + box.width > 48) throw new Error(`Collapsed footer hides ${label}`);
-    }
+    await page.locator(".am-chat-sidebar").waitFor({ state: "hidden" });
     await capture("02d-collapsed-sidebar");
     await page.getByRole("button", { name: "Expand sidebar" }).click();
     await waitForOperate();
@@ -589,6 +589,7 @@ try {
     await capture("03j-connect-waiting-live");
     await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
     await page.goto(url + "/marketing-settings");
+    await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
     await page.getByText("Use an API key instead", { exact: true }).click();
     await page.getByLabel("Workspace API key").fill("capture-only");
     await page.getByRole("button", { name: "Connect with key", exact: true }).click();
@@ -767,7 +768,7 @@ try {
       if (path === "/marketing-settings") {
         const disconnect = page.getByRole("button", { name: "Disconnect", exact: true });
         if (await disconnect.count()) await disconnect.click();
-        await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
+        await page.getByRole("button", { name: "Connect", exact: true }).first().waitFor();
       }
       if (path === "/settings/general")
         await page.getByRole("heading", { name: "Domains", exact: true }).waitFor();

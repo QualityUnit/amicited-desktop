@@ -1,3 +1,4 @@
+import { useDomains } from "../../marketingDomains";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   AuthOrchestrationOperateScope,
@@ -86,6 +87,8 @@ export const ChatHeader = memo(function ChatHeader({
   onFindInThread,
 }: ChatHeaderProps) {
   const marketer = useWorkspaceMode() === "marketer";
+  const { rows: domains } = useDomains(activeThreadEnvironmentId);
+  const domain = domains.find((row) => row.projectId === activeProject?.id);
   const shownTitle =
     marketer && activeThreadTitle === "New thread" ? "New chat" : activeThreadTitle;
   const activeProjectName = activeProject?.isScratch
@@ -304,7 +307,7 @@ export const ChatHeader = memo(function ChatHeader({
         {marketer && (
           <>
             <WorkspaceBreadcrumbItem>
-              <WorkspaceBreadcrumbText>Your workspace</WorkspaceBreadcrumbText>
+              <WorkspaceBreadcrumbText>{domain?.hostname ?? "No domain"}</WorkspaceBreadcrumbText>
             </WorkspaceBreadcrumbItem>
             <WorkspaceBreadcrumbSeparator />
           </>

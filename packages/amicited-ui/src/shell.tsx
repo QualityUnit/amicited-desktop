@@ -51,22 +51,6 @@ export function MarketingShell({
       <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
         <div className={`am-chat-brand ${desktop ? "drag-region" : ""}`}>
           {brandHeader ?? <AmICitedMark />}
-          {sidebar?.control ?? (
-            <div className="am-sidebar-toggle">
-              <MarketingButton
-                size="icon-sm"
-                variant={collapsed ? "row" : "header"}
-                className="relative top-auto translate-y-0"
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                onClick={() => {
-                  setCollapsed(!collapsed);
-                  localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
-                }}
-              >
-                {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-              </MarketingButton>
-            </div>
-          )}
         </div>
         <nav aria-label="Chat history" className="am-chat-history">
           {collapsed ? (
@@ -149,6 +133,22 @@ export function MarketingShell({
           children
         )}
       </main>
+      {sidebar?.control ?? (
+        <div className="am-sidebar-toggle">
+          <MarketingButton
+            size="icon-sm"
+            variant={collapsed ? "row" : "header"}
+            className="relative top-auto translate-y-0"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => {
+              setCollapsed(!collapsed);
+              localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
+            }}
+          >
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </MarketingButton>
+        </div>
+      )}
     </div>
   );
 }

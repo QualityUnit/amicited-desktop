@@ -1,4 +1,3 @@
-import { AmicitedCloud } from "../amicited/Cloud.ts";
 import {
   CommandId,
   type OrchestrationProjectShell,
@@ -35,6 +34,13 @@ import { planThreadDeletion } from "../orchestration-v2/ThreadDeletion.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as ProjectEnrichmentService from "./ProjectEnrichmentService.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
+
+export class ProjectLifecycle extends Context.Service<
+  ProjectLifecycle,
+  {
+    readonly onProjectDeleted: (projectId: ProjectId) => Effect.Effect<void>;
+  }
+>()("t3/project/ProjectService/ProjectLifecycle") {}
 
 export interface ProjectCreateInput extends ProjectCreatePayload {
   readonly commandId: CommandId;
@@ -517,12 +523,9 @@ export const make = Effect.gen(function* () {
       if (isFirstDelete) {
         yield* clearProjectSettingsOverrides(projectId);
       }
-      const cloud = yield* Effect.serviceOption(AmicitedCloud);
-      if (Option.isSome(cloud) && cloud.value.domains) {
-        const domains = cloud.value.domains;
-        yield* Effect.promise(() => domains.forget(projectId)).pipe(
-          Effect.ignoreCause({ log: true }),
-        );
+      const lifecycle = yield* Effect.serviceOption(ProjectLifecycle);
+      if (Option.isSome(lifecycle)) {
+        yield* lifecycle.value.onProjectDeleted(projectId).pipe(Effect.ignoreCause({ log: true }));
       }
       yield* projectEnrichment.invalidate([existing.value.workspaceRoot]);
       return yield* readCommitted(projectId);

@@ -84,8 +84,22 @@ export function toolFailure(message: string) {
 }
 export class CloudClient {
   domains?: DomainConnections;
+  private unassigned?: CloudClient;
   forProject(projectId: string | undefined): CloudClient {
-    return projectId && this.domains ? this.domains.client(projectId) : this;
+    if (!this.domains) return this;
+    if (projectId) return this.domains.client(projectId);
+    return (this.unassigned ??= new CloudClient({
+      secrets: {
+        read: async () => undefined,
+        write: async () => {
+          throw new Error("Create a domain before connecting AmICited.");
+        },
+        clear: async () => {},
+      },
+      openExternal: async () => {
+        throw new Error("Create a domain before connecting AmICited.");
+      },
+    }));
   }
   notifyApprovals() {
     this.approvalListeners.forEach((listener) => listener());

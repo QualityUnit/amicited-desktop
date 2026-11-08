@@ -1,3 +1,5 @@
+import { useSubscriptionRefresh, openCloudSubscription } from "./amicitedSubscription";
+import { CloudDisclosure } from "./rpc/amicitedApprovals";
 import { useAtomValue } from "@effect/atom-react";
 import { SidebarProjectFolderHeader } from "./components/sidebar/SidebarProjectFolderHeader";
 import type { SidebarProjectSnapshot } from "./sidebarProjectGrouping";
@@ -184,7 +186,7 @@ export function NewDomainDialog({
                 autoFocus
                 value={website}
                 onChange={(event) => setWebsite(event.target.value)}
-                placeholder="acme.com"
+                placeholder="example.com"
               />
             </label>
             <label>
@@ -278,9 +280,8 @@ export function DomainConnection({
         connections.get(`${destination}:${row.projectId}`)?.state === "connected",
     ),
   );
-  const sourceConnection = useSyncExternalStore(subscribe, () =>
-    source ? connections.get(`${destination}:${source.projectId}`) : undefined,
-  );
+  useSubscriptionRefresh(destination, domain.projectId, setConnection);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const connected = connection?.state === "connected";
   const command = useAtomCommand(connectionCommand);
   const [chooseAccount, setChooseAccount] = useState(false);
@@ -304,6 +305,7 @@ export function DomainConnection({
             <DialogPanel>
               {source && (
                 <Button
+                  variant="outline"
                   onClick={() => {
                     void reuse({
                       environmentId: destination,
@@ -322,11 +324,7 @@ export function DomainConnection({
                     });
                   }}
                 >
-                  Use the same AmICited account (
-                  {sourceConnection?.state === "connected"
-                    ? sourceConnection.workspace
-                    : "connected workspace"}
-                  )
+                  Use the account connected to {source.hostname}
                 </Button>
               )}
               <Button
@@ -344,81 +342,124 @@ export function DomainConnection({
       </>
     );
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <span>
-        {quiet
-          ? `AmICited isn't connected for ${domain.hostname}. Free local tools still work.`
-          : connected
-            ? "AmICited connected"
+    <>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span
+            className={
+              connected
+                ? "size-1.5 rounded-full bg-success-foreground"
+                : "size-1.5 rounded-full bg-muted-foreground"
+            }
+          />
+          {connected
+            ? "Connected"
             : connection?.state === "connecting"
               ? "Connecting…"
-              : "AmICited not connected"}
-      </span>
-      {!connected && source && (
-        <Button
-          size="xs"
-          variant="ghost"
-          disabled={!canReuse}
-          onClick={() => {
-            void reuse({
-              environmentId: destination,
-              input: { projectId: domain.projectId, sourceProjectId: source.projectId },
-            }).then(async (result) => {
-              if (result._tag === "Success") {
-                setConnection(result.value);
-                await refresh();
-              }
-            });
-          }}
-        >
-          Use the same AmICited account (
-          {sourceConnection?.state === "connected"
-            ? sourceConnection.workspace
-            : "connected workspace"}
-          )
-        </Button>
-      )}
-      {connection && (
-        <fieldset disabled={!canConnect}>
-          <AmicitedConnectPanel
-            connection={connection}
-            connectLabel={source ? "Connect a different account" : "Connect with AmICited"}
-            ui={{ Button, Input }}
-            onChange={setConnection}
-            openExternal={(url) => void createLocalApi().shell.openExternal(url)}
-            actions={{
-              connectOAuth: async () => {
-                const result = await command({
-                  environmentId: destination,
-                  input: { projectId: domain.projectId, action: "oauth" },
-                });
-                if (result._tag !== "Success") throw new Error("Connection failed");
-                return result.value;
-              },
-              connectApiKey: async (apiKey) => {
-                const result = await command({
-                  environmentId: destination,
-                  input: { projectId: domain.projectId, action: "oauth", apiKey },
-                });
-                if (result._tag !== "Success") throw new Error("Connection failed");
-                return result.value;
-              },
-              disconnect: async () => {
-                const result = await command({
-                  environmentId: destination,
-                  input: { projectId: domain.projectId, action: "disconnect" },
-                });
-                if (result._tag !== "Success") throw new Error("Disconnect failed");
-                return result.value;
-              },
+              : "Not connected"}
+        </span>
+        {connected ? (
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={!canConnect}
+            onClick={() => void update("disconnect")}
+          >
+            Disconnect
+          </Button>
+        ) : source ? (
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={!canReuse}
+            onClick={() => {
+              void reuse({
+                environmentId: destination,
+                input: { projectId: domain.projectId, sourceProjectId: source.projectId },
+              }).then(async (result) => {
+                if (result._tag === "Success") {
+                  setConnection(result.value);
+                  await refresh();
+                } else
+                  setConnection({
+                    state: "error",
+                    kind: "network",
+                    message: "Could not use that account. Please try again.",
+                  });
+              });
             }}
-          />
-        </fieldset>
-      )}
-      {connection?.state === "error" && <span role="alert">{connection.message}</span>}
-    </div>
+          >
+            Use the account connected to {source.hostname}
+          </Button>
+        ) : (
+          <Button size="xs" disabled={!canConnect} onClick={() => setDetailsOpen(true)}>
+            Connect
+          </Button>
+        )}
+        <Button size="xs" variant="outline" onClick={() => setDetailsOpen(true)}>
+          Connection details
+        </Button>
+      </div>
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogPopup>
+          <DialogHeader>
+            <DialogTitle>AmICited for {domain.hostname}</DialogTitle>
+          </DialogHeader>
+          <DialogPanel>
+            {connection && (
+              <fieldset disabled={!canConnect}>
+                <AmicitedConnectPanel
+                  connection={connection}
+                  connectLabel={source ? "Connect a different account" : "Connect with AmICited"}
+                  ui={{
+                    Button,
+                    Input,
+                    Row: SettingsRow,
+                    Group: SettingsGroup,
+                    Disclosure: CloudDisclosure,
+                  }}
+                  onChange={setConnection}
+                  openExternal={(url) => {
+                    if (url === "https://app.flowhunt.io/amicited/subscription")
+                      openCloudSubscription(destination, domain.projectId);
+                    else void createLocalApi().shell.openExternal(url);
+                  }}
+                  actions={{
+                    connectOAuth: async () => {
+                      const result = await command({
+                        environmentId: destination,
+                        input: { projectId: domain.projectId, action: "oauth" },
+                      });
+                      if (result._tag !== "Success") throw new Error("Connection failed");
+                      return result.value;
+                    },
+                    connectApiKey: async (apiKey) => {
+                      const result = await command({
+                        environmentId: destination,
+                        input: { projectId: domain.projectId, action: "oauth", apiKey },
+                      });
+                      if (result._tag !== "Success") throw new Error("Connection failed");
+                      return result.value;
+                    },
+                    disconnect: async () => {
+                      const result = await command({
+                        environmentId: destination,
+                        input: { projectId: domain.projectId, action: "disconnect" },
+                      });
+                      if (result._tag !== "Success") throw new Error("Disconnect failed");
+                      return result.value;
+                    },
+                  }}
+                />
+              </fieldset>
+            )}
+          </DialogPanel>
+        </DialogPopup>
+      </Dialog>
+    </>
   );
 }
+
 export function DomainsSettings() {
   const { rows, environmentId } = useDomains();
   const projects = useProjects();
@@ -440,9 +481,9 @@ export function DomainsSettings() {
               description={domain.brand}
               control={
                 environmentId ? (
-                  <div>
-                    <DomainProjectActions domain={domain} destination={environmentId} />
+                  <div className="flex items-center gap-2">
                     <DomainConnection domain={domain} destination={environmentId} />
+                    <DomainProjectActions domain={domain} destination={environmentId} />
                   </div>
                 ) : null
               }
@@ -462,12 +503,10 @@ function DomainStatusDot({ domain, destination }: { domain: Domain; destination:
       }
       className={
         connection?.state === "connected"
-          ? "text-success-foreground"
-          : "text-sidebar-muted-foreground"
+          ? "size-1.5 rounded-full bg-success-foreground"
+          : "size-1.5 rounded-full bg-sidebar-muted-foreground"
       }
-    >
-      ●
-    </span>
+    />
   );
 }
 
@@ -486,17 +525,24 @@ export function DomainMigration() {
       const brand = readBrand();
       if (!brand) return;
       const domain = normalizeDomain(brand.website, brand.name);
-      const created = await create({ environmentId, input: { name: domain.hostname } });
-      if (created._tag !== "Success") throw new Error("Could not migrate your saved website.");
+      const retryKey = `amicited.domain-migration.${environmentId}.${domain.hostname}`;
+      let projectId = localStorage.getItem(retryKey);
+      if (!projectId) {
+        const created = await create({ environmentId, input: { name: domain.hostname } });
+        if (created._tag !== "Success") throw new Error("Could not migrate your saved website.");
+        projectId = created.value.projectId;
+        localStorage.setItem(retryKey, projectId);
+      }
       const saved = await register({
         environmentId,
         input: {
-          projectId: created.value.projectId,
+          projectId,
           website: domain.hostname,
           brand: domain.brand,
         },
       });
       if (saved._tag !== "Success") throw new Error("Could not save your first domain.");
+      localStorage.removeItem(retryKey);
       localStorage.removeItem("amicited.brand");
       await refresh();
     };

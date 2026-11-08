@@ -456,8 +456,9 @@ existing named-project service under the environment's T3 home. No patch files.
 - `apps/web/src/components/AppSidebarLayout.tsx`: exports the existing sidebar control with optional marketer action labels; keyboard/menu behavior is shared.
 - `apps/web/src/components/sidebar/SidebarThreadHeader.tsx`: optional new-project label, keeping the upstream icon and tooltip.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: optional connection status, actions and New chat label; marketer groups use the upstream project snapshot builder and folder header.
-- `apps/web/src/components/DevReplayHost.tsx`: marketer captures prefer the current domain over the implicit scratch project.
-- `apps/server/src/project/ProjectService.ts`: optional domain cleanup after the existing project deletion commits, shared by UI and MCP callers.
+- `apps/web/src/components/DevReplayHost.tsx`: marketer captures prefer the current registered domain over the implicit scratch project.
+- `apps/server/src/project/ProjectService.ts`: optional onProjectDeleted lifecycle hook after the existing project deletion commits, shared by UI and MCP callers.
+- `apps/server/src/server.ts`: provides the AmICited domain cleanup implementation through the project lifecycle hook.
 - `apps/web/src/components/chat/{ChatComposer.tsx,useComposerSend.ts}` and `marketingChat.tsx`: thread project determines the website context and connection warning.
 - `apps/server/src/amicited/{Cloud.ts,CloudToolkit.ts}` and `mcp/toolkits/marketing/handlers.ts`: project-scoped keyring clients and connection-tool status; approvals aggregate through the existing stream.
 - `apps/server/src/ws.ts`: domain metadata and connection RPC forwarding, with existing-project validation.
@@ -477,3 +478,7 @@ ID. Chats without a registered domain create one before connecting.
 
 Free discovery does not expose a workspace-domain list. Matching is learned
 from a user-approved `list_domains` result, without an extra paid status probe.
+
+- `apps/web/src/components/CommandPalette.tsx`: marketer Tools and AmICited navigation actions alongside the existing Settings action.
+
+- `apps/web/src/components/chat/ChatHeader.tsx`: marketer breadcrumb uses the thread domain hostname.

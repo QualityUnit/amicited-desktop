@@ -736,6 +736,7 @@ const layerRuntimeCoreDependencies = layerRuntimeCoreDependenciesBase.pipe(
 );
 
 const layerRuntimeDependencies = layerRuntimeCoreDependencies.pipe(
+  Layer.provideMerge(AmicitedCloud.projectLifecycleLayer),
   // AmICited cloud shared by RPC and the authenticated agent proxy.
   Layer.provideMerge(AmicitedCloud.layer.pipe(Layer.provide(ExternalLauncher.layer))),
   Layer.provideMerge(layerUsage),

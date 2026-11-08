@@ -219,7 +219,7 @@ it("keeps chat history and secondary navigation available when collapsed", async
     await screen.getByRole("button", { name: "Expand sidebar" }).click();
     await expect.element(screen.getByRole("link", { name: "Campaign audit" })).toBeVisible();
     await screen.getByRole("button", { name: "Collapse sidebar" }).click();
-    await screen.getByRole("button", { name: "Chat history" }).click();
+    await screen.getByRole("button", { name: "Expand sidebar" }).click();
     await expect.element(screen.getByRole("link", { name: "Campaign audit" })).toBeVisible();
     await screen.getByRole("link", { name: "Tools", exact: true }).click();
     expect(navigate).toHaveBeenCalledWith("/tools");
@@ -408,12 +408,18 @@ it("shows domain connection warnings without blocking chat, and remembers dismis
       />,
     );
     await expect
-      .element(
-        screen.getByText("AmICited isn't connected for acme.com. Free local tools still work."),
-      )
+      .element(screen.getByText("AmICited isn’t connected. Free local tools still work."))
       .toBeVisible();
     await screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
     expect(connect).toHaveBeenCalledOnce();
+    createUpsellGate(localStorage, sessionStorage).snooze(4102444800000);
+    await expect
+      .element(screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }))
+      .not.toBeInTheDocument();
+    createUpsellGate(localStorage, sessionStorage).restore();
+    await expect
+      .element(screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }))
+      .toBeVisible();
     await screen.getByRole("button", { name: "Dismiss AmICited warning for acme.com" }).click();
     expect(localStorage.getItem(key)).toBe("hidden");
     await expect
@@ -450,10 +456,27 @@ it("uses the upstream sidebar state for clicks, history and its keyboard shortcu
     </SidebarProvider>,
   );
   await screen.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  const toggle = document.querySelector<HTMLButtonElement>('[aria-label="Expand sidebar"]')!;
+  const rect = toggle.getBoundingClientRect();
+  expect(
+    toggle.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)),
+  ).toBe(true);
+  const laterDragRegions = [...document.querySelectorAll<HTMLElement>("*")].filter((element) => {
+    if (!(toggle.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+    if (getComputedStyle(element).getPropertyValue("-webkit-app-region") !== "drag") return false;
+    const region = element.getBoundingClientRect();
+    return (
+      region.left < rect.right &&
+      region.right > rect.left &&
+      region.top < rect.bottom &&
+      region.bottom > rect.top
+    );
+  });
+  expect(laterDragRegions).toEqual([]);
   await screen.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await expect.element(screen.getByText("Domain chats")).toBeVisible();
   await screen.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
-  await screen.getByRole("button", { name: "Chat history", exact: true }).click();
+  await screen.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await expect.element(screen.getByText("Domain chats")).toBeVisible();
   await userEvent.keyboard("{Meta>}b{/Meta}");
   await expect

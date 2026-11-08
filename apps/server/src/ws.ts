@@ -2087,7 +2087,8 @@ export const layerWsRpc = (
             catch: () =>
               new CloudApprovalExpired({ message: "This approval is no longer pending." }),
           }),
-        "amicited.cloud.resetAccess": () => Effect.sync(() => cloud.resetAccess()),
+        "amicited.cloud.resetAccess": ({ projectId }) =>
+          Effect.sync(() => cloud.forProject(projectId).resetAccess()),
         "amicited.cloud.subscribeApprovals": () =>
           Stream.callback<ReturnType<typeof cloud.pendingApprovals>>((queue) =>
             Effect.acquireRelease(

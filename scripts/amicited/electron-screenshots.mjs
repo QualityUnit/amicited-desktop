@@ -298,11 +298,45 @@ try {
   if (collapsedInset.left !== marketerInset.left || collapsedInset.right > 1344)
     throw new Error("Collapsed rail overlaps the native controls or clips its toggle");
   await capture("collapsed-native-controls");
+  const collapseProof = await page.evaluate(() => {
+    const toggle = document.querySelector('[aria-label="Expand sidebar"]');
+    const rect = toggle.getBoundingClientRect();
+    const topmost = toggle.contains(
+      document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2),
+    );
+    const laterDragRegions = [...document.querySelectorAll("*")]
+      .filter((element) => {
+        if (!(toggle.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING))
+          return false;
+        if (getComputedStyle(element).getPropertyValue("-webkit-app-region") !== "drag")
+          return false;
+        const region = element.getBoundingClientRect();
+        return (
+          region.left < rect.right &&
+          region.right > rect.left &&
+          region.top < rect.bottom &&
+          region.bottom > rect.top
+        );
+      })
+      .map((element) => element.className);
+    return { topmost, laterDragRegions };
+  });
+  if (!collapseProof.topmost || collapseProof.laterDragRegions.length)
+    throw new Error("Sidebar control is covered by a later drag region");
+  NodeFS.writeFileSync(
+    NodePath.join(out, "collapse-result.json"),
+    JSON.stringify({
+      clickMethod: "Playwright CDP with structural native hit-region regression",
+      osClickLimitation:
+        "cliclick reports Accessibility privileges not enabled. OS click proof unavailable.",
+      ...collapseProof,
+    }),
+  );
   await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await page.getByRole("button", { name: "Collapse sidebar", exact: true }).waitFor();
   await capture("expanded-after-click");
   await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
-  await page.getByRole("button", { name: "Chat history", exact: true }).click();
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
   await page.getByRole("button", { name: "Collapse sidebar", exact: true }).waitFor();
   await page.keyboard.press("Meta+b");
   await page.getByRole("button", { name: "Expand sidebar", exact: true }).waitFor();
@@ -394,6 +428,7 @@ try {
   await page.getByRole("switch", { name: "Developer features" }).waitFor();
   await capture("settings");
   await page.getByRole("link", { name: "AmICited", exact: true }).click();
+  await page.getByRole("button", { name: "Connection details" }).first().click();
   await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
   for (const state of ["waiting", "free", "upgrade"]) {
     await page.evaluate((state) => {
@@ -568,6 +603,7 @@ try {
       });
     });
     void launched.catch(() => {});
+    await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
     await page.getByRole("button", { name: "Connect with AmICited", exact: true }).click();
     await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
     await capture("production-oauth-waiting");

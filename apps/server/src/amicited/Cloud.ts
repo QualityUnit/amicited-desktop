@@ -1,3 +1,4 @@
+import { ProjectLifecycle } from "../project/ProjectService.ts";
 import * as Schema from "effect/Schema";
 import { DomainRecord } from "@amicited/cloud-client/rpc";
 import { DomainConnections } from "@amicited/cloud-client/domains";
@@ -100,5 +101,19 @@ export const layer = Layer.effect(
     });
     yield* Effect.addFinalizer(() => Effect.promise(() => cloud.close()));
     return cloud;
+  }),
+);
+
+export const projectLifecycleLayer = Layer.effect(
+  ProjectLifecycle,
+  Effect.gen(function* () {
+    const cloud = yield* AmicitedCloud;
+    return {
+      onProjectDeleted: Effect.fn("AmicitedCloud.onProjectDeleted")(function* (
+        projectId: import("@t3tools/contracts").ProjectId,
+      ) {
+        if (cloud.domains) yield* Effect.promise(() => cloud.domains!.forget(projectId));
+      }),
+    };
   }),
 );

@@ -77,7 +77,10 @@ export const cloudRpcs = [
   Rpc.make("amicited.cloud.pendingApprovals", {
     success: Schema.Array(PendingApproval),
   }),
-  Rpc.make("amicited.cloud.resetAccess", { success: CloudConnection }),
+  Rpc.make("amicited.cloud.resetAccess", {
+    payload: { projectId: Schema.optionalKey(Schema.String) },
+    success: CloudConnection,
+  }),
   Rpc.make("amicited.cloud.answerApproval", {
     payload: {
       requestId: Schema.String,

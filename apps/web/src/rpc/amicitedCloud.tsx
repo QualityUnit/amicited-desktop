@@ -56,17 +56,8 @@ const connect = () => {
   marketingNavigate("/marketing-settings");
   window.dispatchEvent(new Event("amicited-connect"));
 };
-const resetAccess = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.cloud.resetAccess",
-  label: "cloud:reset-access",
-});
-export function openCloudSubscription(
-  environmentId?: import("@t3tools/contracts").EnvironmentId | null,
-) {
-  window.dispatchEvent(new Event("amicited-subscription-opened"));
-  subscriptionPending = environmentId ?? undefined;
-  openExternal("https://app.flowhunt.io/amicited/subscription");
-}
+export { openCloudSubscription } from "../amicitedSubscription";
+import { openCloudSubscription, useSubscriptionRefresh } from "../amicitedSubscription";
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
   label: "cloud:status",
@@ -83,14 +74,6 @@ const subscribeCloud = (listener: () => void) => {
     cloudListeners.delete(listener);
   };
 };
-let subscriptionPending: string | undefined;
-const focusRefreshers = new Map<string, Set<() => void>>();
-const refreshSubscription = () => {
-  if (!subscriptionPending) return;
-  const refresh = focusRefreshers.get(subscriptionPending)?.values().next().value;
-  subscriptionPending = undefined;
-  refresh?.();
-};
 function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
@@ -99,7 +82,6 @@ function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
   const projectId = shell?.projectId;
   const domain = useDomainConnection(environmentId, projectId);
   const read = useAtomCommand(status);
-  const reset = useAtomCommand(resetAccess);
   const readStatus = useEffectEvent(read);
   const connection = useSyncExternalStore(subscribeCloud, () =>
     environmentId ? (cloudConnections.get(environmentId) ?? null) : null,
@@ -110,28 +92,10 @@ function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
     cloudListeners.forEach((listener) => listener());
   };
   const updateConnection = useEffectEvent(setConnection);
-  const resetOnFocus = useEffectEvent(async () => {
-    if (!environmentId || cloudConnections.get(environmentId)?.state !== "connected") return;
-    const r = await reset({ environmentId, input: undefined });
-    if (r._tag === "Success") updateConnection(r.value);
+  useSubscriptionRefresh(environmentId, projectId, (value) => {
+    if (projectId) domain.setConnection(value);
+    else setConnection(value);
   });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A trial can start in the external browser while the app is unfocused.
-  useEffect(() => {
-    if (!environmentId) return;
-    const refresh = () => void resetOnFocus();
-    const evidence = (event: Event) => updateConnection((event as CustomEvent<Connection>).detail);
-    if (import.meta.env.DEV) window.addEventListener("amicited-cloud-evidence", evidence);
-    if (focusRefreshers.size === 0) window.addEventListener("focus", refreshSubscription);
-    const refreshers = focusRefreshers.get(environmentId) ?? new Set<() => void>();
-    refreshers.add(refresh);
-    focusRefreshers.set(environmentId, refreshers);
-    return () => {
-      window.removeEventListener("amicited-cloud-evidence", evidence);
-      refreshers.delete(refresh);
-      if (!refreshers.size) focusRefreshers.delete(environmentId);
-      if (focusRefreshers.size === 0) window.removeEventListener("focus", refreshSubscription);
-    };
-  }, [environmentId]);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read status from the destination environment on entry.
   useEffect(() => {
@@ -194,7 +158,10 @@ export function CloudFooter({
           </span>
         )}
         {connection.access !== "full" && showTrial && (
-          <CloudButton variant="outline" onClick={() => openCloudSubscription(environmentId)}>
+          <CloudButton
+            variant="outline"
+            onClick={() => openCloudSubscription(environmentId, projectId)}
+          >
             Start 7-day free trial
           </CloudButton>
         )}

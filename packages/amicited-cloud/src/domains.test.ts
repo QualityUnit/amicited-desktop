@@ -60,6 +60,9 @@ it("moves the legacy connection only to the first domain and survives a restart"
   const f = fixture();
   const credential = JSON.stringify({ apiKey: "legacy-key" });
   f.secrets.set("legacy", credential);
+  const root = new CloudClient({ secrets: f.storage("legacy"), openExternal: async () => {} });
+  root.domains = f.domains;
+  expect(await root.forProject(undefined).status()).toEqual({ state: "disconnected" });
   await Promise.all([f.domains.register("a", "a.example"), f.domains.register("b", "b.example")]);
   expect(f.secrets.get("a")).toBe(credential);
   expect(f.secrets.has("legacy")).toBe(false);
@@ -75,18 +78,20 @@ it("remembers a domain id only from the matching domain's approved discovery res
       {
         text: JSON.stringify({
           domains: [
-            { domain_id: "remote-b", domain: "b.example" },
-            { domain_id: "remote-a", domain: "a.example" },
+            { domain_id: "remote-b", domain_name: "b.example" },
+            { domain_id: "remote-a", domain_name: "a.example" },
           ],
         }),
       },
     ],
   });
+  await f.domains.rememberDomain("b", { name: "b.example", id: "unrelated" });
   expect((await f.domains.list()).map((row) => row.domainId)).toEqual(["remote-a", undefined]);
 });
 
 it("sends each domain's own bearer credential and keeps account reuse reversible", async () => {
   const calls: Array<{ tool: string; authorization: string | undefined }> = [];
+  let refuse = false;
   const server = NodeHttp.createServer(async (request, response) => {
     if (request.method !== "POST") {
       response.writeHead(405).end();
@@ -109,7 +114,10 @@ it("sends each domain's own bearer credential and keeps account reuse reversible
     if (rpc.method === "tools/list") result = { tools: [] };
     if (rpc.method === "tools/call") {
       calls.push({ tool: rpc.params.name, authorization: request.headers.authorization });
-      result = { content: [{ type: "text", text: "{}" }] };
+      result = {
+        content: [{ type: "text", text: refuse ? "Pro plan required" : "{}" }],
+        ...(refuse ? { isError: true } : {}),
+      };
     }
     response
       .writeHead(200, { "Content-Type": "application/json" })
@@ -130,6 +138,32 @@ it("sends each domain's own bearer credential and keeps account reuse reversible
       { tool: "probe-a", authorization: "Bearer key-a" },
       { tool: "probe-b", authorization: "Bearer key-b" },
     ]);
+    const root = new CloudClient({ secrets: f.storage("legacy"), openExternal: async () => {} });
+    root.domains = f.domains;
+    const a = root.forProject("a");
+    a.toolPolicy = async () => ({ needsApproval: false, destructive: false });
+    const waiting = Promise.withResolvers<void>();
+    const stop = a.subscribeApprovals(() => {
+      if (a.pendingApprovals().length) waiting.resolve();
+    });
+    const first = a.requestCall("thread-a", "paid-read", {});
+    await waiting.promise;
+    await a.answerApproval(a.pendingApprovals()[0]!.requestId, "acceptForSession");
+    await first;
+    stop();
+    refuse = true;
+    await a.call("paid-read");
+    expect(await a.requestCall("thread-a", "paid-read", {})).toMatchObject({
+      structuredContent: { code: "plan_required" },
+    });
+    refuse = false;
+    root.forProject("a").resetAccess();
+    expect(await a.requestCall("thread-a", "paid-read", {})).not.toHaveProperty("isError", true);
+    expect(await a.status()).toMatchObject({ state: "connected", access: "full" });
+    expect(await root.forProject("b").status()).toMatchObject({
+      state: "connected",
+      access: "full",
+    });
     await f.domains.reuse("b", "a");
     expect(f.secrets.has("b")).toBe(false);
     expect(f.domains.client("b")).toBe(f.domains.client("a"));
@@ -137,7 +171,9 @@ it("sends each domain's own bearer credential and keeps account reuse reversible
     expect(await f.domains.client("b").status()).toEqual({ state: "disconnected" });
     expect((await f.domains.client("a").status()).state).toBe("connected");
     await f.domains.reuse("b", "a");
-    await f.domains.rememberDomain("b", { domains: [{ id: "old-id", domain: "b.example" }] });
+    await f.domains.rememberDomain("b", {
+      domains: [{ domain_id: "old-id", domain_name: "b.example" }],
+    });
     const source = f.domains.client("a");
     const replacement = await f.domains.prepareConnection("b");
     expect(replacement).not.toBe(source);
@@ -233,11 +269,15 @@ it("requires a registered domain before connecting and clears account-specific d
   const f = fixture();
   await expect(f.domains.prepareConnection("scratch")).rejects.toThrow("Add a domain");
   await f.domains.register("a", "a.example");
-  await f.domains.rememberDomain("a", { domains: [{ id: "old-account-id", domain: "a.example" }] });
+  await f.domains.rememberDomain("a", {
+    domains: [{ domain_id: "old-account-id", domain_name: "a.example" }],
+  });
   expect((await f.domains.metadata())[0]?.domainId).toBe("old-account-id");
   await f.domains.prepareConnection("a");
   expect((await f.domains.metadata())[0]?.domainId).toBeUndefined();
-  await f.domains.rememberDomain("a", { domains: [{ id: "another-id", domain: "a.example" }] });
+  await f.domains.rememberDomain("a", {
+    domains: [{ domain_id: "another-id", domain_name: "a.example" }],
+  });
   await f.domains.disconnect("a");
   expect((await f.domains.metadata())[0]?.domainId).toBeUndefined();
 });

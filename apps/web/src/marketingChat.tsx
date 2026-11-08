@@ -280,7 +280,7 @@ export function MarketingTranscriptCard({
                 ? projectedItem.item.input
                 : cloud.arguments,
         }}
-        onStartTrial={() => openCloudSubscription(environmentId)}
+        onStartTrial={() => openCloudSubscription(environmentId, shell?.projectId)}
       />
     );
   if (

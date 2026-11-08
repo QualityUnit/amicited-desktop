@@ -199,8 +199,8 @@ export class DomainConnections {
         }
         if (!value || typeof value !== "object") return;
         const row = value as Record<string, unknown>;
-        const name = row.domain ?? row.domain_name ?? row.name;
-        const id = row.domain_id ?? row.id;
+        const name = row.domain_name;
+        const id = row.domain_id;
         if (typeof name === "string" && typeof id === "string") {
           try {
             if (normalizeDomain(name).hostname === domain.hostname) domainId = id;

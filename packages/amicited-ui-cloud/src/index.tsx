@@ -2,6 +2,7 @@ import "./cloud.css";
 import {
   useEffect,
   useRef,
+  useSyncExternalStore,
   useState,
   type ComponentType,
   type ReactNode,
@@ -9,7 +10,13 @@ import {
   type InputHTMLAttributes,
 } from "react";
 import { DOCS_URL, SUBSCRIPTION_URL, type Connection } from "@amicited/cloud-client/model";
-import { createUpsellGate, whatYouAreMissing, type WinResult } from "@amicited/cloud-client/upsell";
+import {
+  subscribePromotions,
+  promotionRevision,
+  createUpsellGate,
+  whatYouAreMissing,
+  type WinResult,
+} from "@amicited/cloud-client/upsell";
 
 export interface CloudUi {
   Row?: ComponentType<{ title: ReactNode; description?: ReactNode; control?: ReactNode }>;
@@ -57,8 +64,22 @@ export function AmicitedUpsellCard({
       setVisible(true);
     }
   }, [gate, result, connected]);
+  const [now] = useState(() => Date.now());
+  const revision = useSyncExternalStore(subscribePromotions, promotionRevision, promotionRevision);
+  const allowed = revision >= 0 && gate.eligible(true, now, connected);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Coordinate mounted contextual offers with the composer warning.
+  useEffect(() => {
+    if (!visible || connected || !allowed) return;
+    const token = Symbol();
+    activeOffers.add(token);
+    offerListeners.forEach((listener) => listener());
+    return () => {
+      activeOffers.delete(token);
+      offerListeners.forEach((listener) => listener());
+    };
+  }, [visible, connected, allowed]);
   const comparison = whatYouAreMissing(result);
-  if (!visible || connected || !comparison) return null;
+  if (!visible || connected || !allowed || !comparison) return null;
   if (connection?.state === "connecting")
     return (
       <aside className="am-cloud-card">
@@ -345,16 +366,20 @@ export function DomainConnectionWarning({
   ui: Pick<CloudUi, "Button">;
 }) {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(storageKey) === "hidden");
-  const [allowed] = useState(() =>
-    createUpsellGate(localStorage, sessionStorage).eligible(true, Date.now()),
-  );
-  if (!connection || connection.state === "connected" || dismissed || !allowed) return null;
+  const [now] = useState(() => Date.now());
+  const revision = useSyncExternalStore(subscribePromotions, promotionRevision, promotionRevision);
+  const offerVisible = useSyncExternalStore(subscribeOffers, hasOffer, () => false);
+  const allowed =
+    revision >= 0 && createUpsellGate(localStorage, sessionStorage).eligible(true, now);
+  if (!connection || connection.state === "connected" || dismissed || !allowed || offerVisible)
+    return null;
   return (
     <aside className="am-cloud-actions">
+      <span aria-hidden="true">·</span>
       <span>
         {connection.state === "connecting"
           ? "Waiting for you to finish in your browser…"
-          : `AmICited isn't connected for ${hostname}. Free local tools still work.`}
+          : "AmICited isn’t connected. Free local tools still work."}
       </span>
       {connection.state === "connecting" ? (
         <Button type="button" size="xs" variant="link" disabled={!canConnect} onClick={onCancel}>
@@ -381,3 +406,13 @@ export function DomainConnectionWarning({
     </aside>
   );
 }
+
+const offerListeners = new Set<() => void>();
+const activeOffers = new Set<symbol>();
+const subscribeOffers = (listener: () => void) => {
+  offerListeners.add(listener);
+  return () => {
+    offerListeners.delete(listener);
+  };
+};
+const hasOffer = () => activeOffers.size > 0;

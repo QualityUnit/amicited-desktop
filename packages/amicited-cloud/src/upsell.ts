@@ -128,20 +128,37 @@ export function createUpsellGate(storage: PreferenceStorage, session: Preference
     snooze(now: number) {
       try {
         storage.setItem(key, JSON.stringify(snoozeUpsell(now)));
+        notifyPreferences();
       } catch {
         /* Storage may be disabled by the browser. */
       }
     },
     restore() {
       storage.setItem(key, "{}");
+      notifyPreferences();
     },
     dismiss() {
       try {
         storage.setItem(key, JSON.stringify(dismissUpsell()));
+        notifyPreferences();
         return true;
       } catch {
         return false;
       }
     },
   };
+}
+
+const preferenceListeners = new Set<() => void>();
+let preferenceRevision = 0;
+export const promotionRevision = () => preferenceRevision;
+export function subscribePromotions(listener: () => void) {
+  preferenceListeners.add(listener);
+  return () => {
+    preferenceListeners.delete(listener);
+  };
+}
+function notifyPreferences() {
+  preferenceRevision++;
+  preferenceListeners.forEach((listener) => listener());
 }

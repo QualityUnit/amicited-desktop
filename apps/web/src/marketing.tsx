@@ -62,7 +62,8 @@ import {
   saveMarketingReport,
   marketingHistoryStatus,
 } from "./marketingContext";
-import { useProjects, useThreadShells } from "./state/entities";
+import { useThreadRouteRef } from "./hooks/useThreadRouteTarget";
+import { useProjects, useThreadShell, useThreadShells } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -222,10 +223,14 @@ function KitWorkDisclosure({
   );
 }
 function KitBreadcrumb({ children }: { children: ReactNode }) {
+  const ref = useThreadRouteRef();
+  const thread = useThreadShell(ref);
+  const { rows } = useDomains(ref?.environmentId);
+  const domain = rows.find((row) => row.projectId === thread?.projectId);
   return (
     <WorkspaceBreadcrumb ariaLabel="Workspace">
       <WorkspaceBreadcrumbItem>
-        <WorkspaceBreadcrumbText>Your workspace</WorkspaceBreadcrumbText>
+        <WorkspaceBreadcrumbText>{domain?.hostname ?? "Your workspace"}</WorkspaceBreadcrumbText>
       </WorkspaceBreadcrumbItem>
       <WorkspaceBreadcrumbSeparator />
       <WorkspaceBreadcrumbItem current>
@@ -844,7 +849,7 @@ function MarketingHistory({
         searchLabel="Search chats"
       />
       <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
-      {!threads.length && (
+      {!threads.length && !domains.rows.length && (
         <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
       )}
       {[
@@ -968,11 +973,14 @@ function MarketingHistory({
                                 });
                               }}
                             >
-                              <div className="flex w-full flex-col gap-1 px-2.5 py-1.5">
-                                <MarketingHistoryStatus thread={thread} />
-                                <span data-marketing-history-title="" className="truncate">
+                              <div className="flex w-full items-center gap-2 px-2.5 py-1.5">
+                                <span
+                                  data-marketing-history-title=""
+                                  className="min-w-0 flex-1 truncate"
+                                >
                                   {thread.title === "New thread" ? "New chat" : thread.title}
                                 </span>
+                                <MarketingHistoryStatus thread={thread} />
                               </div>
                             </SidebarMenuButton>
                           }
@@ -1042,7 +1050,7 @@ function MarketingHistoryStatus({
   const status = approvals.some((request) => request.threadId === thread.id)
     ? "Needs your OK"
     : marketingHistoryStatus(thread);
-  const label = status === "Done" && !thread.latestRun ? "" : status;
+  const label = status === "Done" ? "" : status;
   const nowMinute = useNowMinute();
   const relative = formatRelativeTimeLabel(
     thread.latestUserMessageAt ?? thread.updatedAt,
@@ -1050,7 +1058,7 @@ function MarketingHistoryStatus({
   );
   const time = relative === "just now" ? "now" : relative.replace(/ ago$/, "");
   return (
-    <small className="am-history-status" data-status={status}>
+    <small className="am-history-status shrink-0" data-status={status}>
       <span className="min-w-0 flex-1" />
       <span
         className={`am-history-status-slot flex shrink-0 items-center gap-1 ${status === "Working" ? "text-info-foreground" : status === "Needs your OK" ? "text-warning-foreground" : status === "Couldn't check" || status === "Sign in needed" ? "text-error-foreground" : ""}`}

@@ -482,6 +482,11 @@ it("grants paid reads per chat, always asks for writes, and refuses known free a
     structuredContent: { code: "plan_required" },
   });
   expect(cloud.pendingApprovals()).toEqual([]);
+  fake.refuse("");
+  cloud.resetAccess();
+  cloud.toolPolicy = async () => ({ needsApproval: false, destructive: false });
+  expect(await cloud.requestCall("thread", "paid_read", {})).not.toHaveProperty("isError", true);
+  expect((await cloud.status()).state).toBe("connected");
   stop();
   await cloud.disconnect();
 });

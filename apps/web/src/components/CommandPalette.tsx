@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
 
@@ -397,6 +398,7 @@ function OpenCommandPaletteDialog(props: {
   ) => void;
   readonly initialContext: CommandPaletteReturnContext | undefined;
 }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const { openChildSearch, setOpen } = props;
@@ -1604,6 +1606,23 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
+  if (marketer) {
+    for (const [title, path] of [
+      ["Open Tools", "/tools"],
+      ["Open AmICited", "/marketing-settings"],
+    ] as const) {
+      actionItems.push({
+        kind: "action",
+        value: `action:${path}`,
+        title,
+        searchTerms: [title],
+        icon: <SettingsIcon className={ITEM_ICON_CLASS} />,
+        run: async () => {
+          await navigate({ to: path });
+        },
+      });
+    }
+  }
   actionItems.push({
     kind: "action",
     value: "action:settings",

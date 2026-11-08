@@ -1,4 +1,4 @@
-import { readDomain } from "../marketingDomains";
+import { useDomains } from "../marketingDomains";
 import { readWorkspaceMode } from "@amicited/ui-marketing";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
@@ -31,6 +31,7 @@ export function DevReplayHost() {
   const environmentId = usePrimaryEnvironmentId();
   const providers = useAtomValue(primaryServerProvidersAtom);
   const projects = useProjects();
+  const { rows: domains } = useDomains(environmentId);
   const target = resolveThreadRouteTarget(useParams({ strict: false }));
   const routeThread = useThreadShell(target?.kind === "server" ? target.threadRef : null);
   const startTurn = useOrchestrationCommand(threadEnvironment.startTurn, { reportFailure: false });
@@ -41,9 +42,16 @@ export function DevReplayHost() {
   const scenarios = replayProvider?.models ?? [];
   const environmentProjects = projects.filter((project) => project.environmentId === environmentId);
   const project =
-    environmentProjects.find((candidate) => candidate.id === routeThread?.projectId) ??
+    environmentProjects.find(
+      (candidate) =>
+        candidate.id === routeThread?.projectId &&
+        (readWorkspaceMode() !== "marketer" ||
+          domains.some((domain) => domain.projectId === candidate.id)),
+    ) ??
     (readWorkspaceMode() === "marketer"
-      ? environmentProjects.find((candidate) => readDomain(candidate.environmentId, candidate.id))
+      ? environmentProjects.find((candidate) =>
+          domains.some((domain) => domain.projectId === candidate.id),
+        )
       : undefined) ??
     environmentProjects[0];
 

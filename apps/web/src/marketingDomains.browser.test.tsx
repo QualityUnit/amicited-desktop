@@ -1,6 +1,6 @@
 import { CloudFooter } from "./rpc/amicitedCloud";
 import "./index.css";
-import { page } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 import { expect, it, vi } from "vite-plus/test";
 import { EnvironmentId } from "@t3tools/contracts";
 import type { Connection } from "@amicited/cloud-client/model";
@@ -8,6 +8,7 @@ import { render } from "../test/render";
 const state = vi.hoisted(() => ({
   connections: new Map<string, Connection>(),
   failSave: false,
+  emptyDomains: false,
   requests: [] as Array<{ label: string; projectId?: string; website?: string }>,
 }));
 vi.mock("@effect/atom-react", async (original) => ({
@@ -17,6 +18,11 @@ vi.mock("@effect/atom-react", async (original) => ({
 vi.mock("./state/environments", async (original) => ({
   ...(await original<typeof import("./state/environments")>()),
   usePrimaryEnvironmentId: () => "local",
+  usePrimaryEnvironment: () => null,
+}));
+vi.mock("./localApi", async (original) => ({
+  ...(await original<typeof import("./localApi")>()),
+  createLocalApi: () => ({ shell: { openExternal: async () => {} } }),
 }));
 vi.mock("./hooks/useHandleNewThread", () => ({ useNewThreadHandler: () => async () => {} }));
 vi.mock("./state/use-atom-command", () => ({
@@ -54,7 +60,7 @@ vi.mock("./state/use-atom-command", () => ({
       }
       const value =
         command.label === "domains:list"
-          ? ["a", "b"].map((projectId) => ({
+          ? (state.emptyDomains ? [] : ["a", "b"]).map((projectId) => ({
               projectId,
               hostname: `${projectId}.example`,
               brand: projectId,
@@ -78,7 +84,7 @@ vi.mock("./state/use-atom-command", () => ({
       return { _tag: "Success", value };
     },
 }));
-import { DomainConnection, NewDomainDialog } from "./marketingDomains";
+import { DomainMigration, DomainConnection, NewDomainDialog } from "./marketingDomains";
 it("offers account reuse immediately after another domain connects", async () => {
   state.connections.clear();
   state.requests.length = 0;
@@ -95,11 +101,18 @@ it("offers account reuse immediately after another domain connects", async () =>
       />
     </>,
   );
-  await screen.getByText("Use an API key instead", { exact: true }).first().click();
-  await screen.getByLabelText("Workspace API key").first().fill("fixture-a");
-  await screen.getByRole("button", { name: "Connect with key", exact: true }).first().click();
+  await screen.getByRole("button", { name: "Connect", exact: true }).first().click();
+  await page.getByText("Use an API key instead", { exact: true }).click();
+  await page.getByLabelText("Workspace API key").first().fill("fixture-a");
+  await page.getByRole("button", { name: "Connect with key", exact: true }).first().click();
+  await page.getByRole("button", { name: "Start 7-day free trial", exact: true }).click();
+  window.dispatchEvent(new Event("focus"));
+  await vi.waitFor(() =>
+    expect(state.requests).toContainEqual({ label: "cloud:reset-access", projectId: "a" }),
+  );
+  await userEvent.keyboard("{Escape}");
   const reuse = screen.getByRole("button", {
-    name: "Use the same AmICited account (Fixture workspace)",
+    name: "Use the account connected to a.example",
     exact: true,
   });
   await expect.element(reuse).toBeVisible();
@@ -163,5 +176,33 @@ it("creates a domain before connecting a chat that has no domain", async () => {
     else localStorage.setItem(key, previous);
     if (previousSession === null) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, previousSession);
+  }
+});
+
+it("reuses the saved migration project after a failed save and remount", async () => {
+  state.requests.length = 0;
+  state.failSave = true;
+  state.emptyDomains = true;
+  const key = "amicited.domain-migration.local.acme.com";
+  localStorage.removeItem(key);
+  localStorage.setItem("amicited.brand", JSON.stringify({ website: "acme.com", name: "Acme" }));
+  try {
+    {
+      await using _screen = await render(<DomainMigration />);
+      await vi.waitFor(() =>
+        expect(state.requests.some((r) => r.label === "domains:save")).toBe(true),
+      );
+      await vi.waitFor(() => expect(localStorage.getItem(key)).toBe("created-domain"));
+    }
+    await using _screen = await render(<DomainMigration />);
+    await vi.waitFor(() => expect(localStorage.getItem("amicited.brand")).toBeNull());
+    expect(
+      state.requests.filter((r) => r.label === "environment-data:projects:create-new"),
+    ).toHaveLength(1);
+    expect(state.requests.filter((r) => r.label === "domains:save")).toHaveLength(2);
+  } finally {
+    state.emptyDomains = false;
+    localStorage.removeItem("amicited.brand");
+    localStorage.removeItem(key);
   }
 });

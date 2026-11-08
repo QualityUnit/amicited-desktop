@@ -48,7 +48,7 @@
     overflow: auto;
   }
   .am-chat-collapsed .am-chat-sidebar {
-    width: 48px;
+    display: none;
   }
   .am-chat-collapsed .am-chat-brand > div:not(.am-sidebar-toggle):not([data-sidebar-control]),
   .am-chat-collapsed .am-chat-brand > span {

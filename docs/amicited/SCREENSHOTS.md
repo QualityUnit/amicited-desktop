@@ -139,3 +139,11 @@ the disconnected warning, and Settings → Domains. The same-account captures us
 an isolated loopback MCP fixture and test-only workspace keys; they do not imply
 production account access. Native title-bar clearance is measured in Electron;
 renderer captures omit the macOS traffic lights.
+
+Wave 37 uses `.amicited-shots/r35/`. Collapse hides the entire sidebar; its
+control renders after the main content to preserve Electron's native hit region.
+`collapse-result.json` identifies the click method and records the topmost-element
+and DOM-order drag-region checks. macOS Accessibility privileges are required
+for an OS click; CDP clicks alone do not prove native hit testing. Domains
+settings captures include compact disconnected, connected and account-reuse rows,
+with trial and API-key details in a native dialog.
