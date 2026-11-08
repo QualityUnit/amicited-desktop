@@ -39,6 +39,10 @@ vi.mock("../components/CustomSnoozeDialog", () => ({ requestCustomSnooze: vi.fn(
 vi.mock("../browser/useOpenLink", () => ({
   useOpenLink: () => async () => recordEffect("open-pr"),
 }));
+vi.mock("@amicited/ui-marketing/mode", async (original) => ({
+  ...(await original<typeof import("@amicited/ui-marketing/mode")>()),
+  readWorkspaceMode: () => "developer",
+}));
 vi.mock("react", () => ({
   useCallback: (callback: unknown) => callback,
   useMemo: (factory: () => unknown) => factory(),

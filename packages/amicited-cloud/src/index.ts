@@ -597,6 +597,7 @@ export class CloudClient {
     this.freeGrants.clear();
     this.readGrants.clear();
     if (this.current.state === "connecting") return this.current;
+    const previousConnection = this.current;
     this.current = { state: "connecting" };
     const generation = ++this.generation;
     const state = NodeCrypto.randomBytes(32).toString("base64url");
@@ -689,7 +690,25 @@ export class CloudClient {
         this.current = connected;
       });
     } catch (error) {
-      if (generation === this.generation) this.current = errorState(error);
+      if (generation === this.generation) {
+        this.current = errorState(error);
+        if (error instanceof OAuthCallbackError && previousConnection.state === "connected") {
+          try {
+            const stored = await this.credential();
+            if (stored) {
+              const connected = await this.validate(stored);
+              if (generation === this.generation)
+                this.current = {
+                  ...previousConnection,
+                  ...connected,
+                  access: previousConnection.access ?? "unknown",
+                };
+            }
+          } catch {
+            // Keep the callback failure when the previous credential no longer works.
+          }
+        }
+      }
     } finally {
       clearTimeout(timer);
       server.close();

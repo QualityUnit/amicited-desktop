@@ -4449,6 +4449,19 @@ it.each(["site/src/math.ts", "/fixture/site/src/math.ts"])(
     };
     expect(liveWorkEntryLabel(entry, "/fixture/site", true, true)).toBe("src/math.ts");
     expect(workEntryDisplayLabel(entry, "/fixture/site", true)).toBe("src/math.ts");
-    expect(workEntryDisplayLabel(entry, "/fixture/site", false)).toBe("site/src/math.ts");
+    expect(workEntryDisplayLabel(entry, "/fixture/site", false)).toBe(detail);
+    expect(
+      workEntryDisplayLabel(
+        {
+          id: entry.id,
+          createdAt: entry.createdAt,
+          label: entry.label,
+          tone: entry.tone,
+          detail: "A/B test ideas",
+        },
+        "/fixture/site",
+        true,
+      ),
+    ).toBe("A/B test ideas");
   },
 );

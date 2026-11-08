@@ -1,20 +1,12 @@
 import { resultTitle } from "./experience.js";
-import { PanelLeftClose, PanelLeftOpen, Wrench, PlugZap, Settings } from "lucide-react";
-import { useState, useContext, type ReactNode, type ComponentProps } from "react";
-import { AmICitedMark } from "./brand.js";
-import { MarketingUiContext, MarketingTooltip, MarketingButton } from "./primitives.js";
+import { useContext, type ReactNode, type ComponentProps } from "react";
+import { MarketingUiContext } from "./primitives.js";
 export function MarketingShell({
   children,
   path,
-  navigate,
   mode = "marketer",
-  history,
-  brandHeader,
-  footer,
   headerTitle,
   desktop,
-  sidebar,
-  externalSidebar = false,
 }: {
   children: ReactNode;
   path: string;
@@ -32,53 +24,9 @@ export function MarketingShell({
   sidebar?: { collapsed: boolean; toggle: () => void; expand: () => void; control: ReactNode };
 }) {
   const { Breadcrumb } = useContext(MarketingUiContext);
-  const [localCollapsed, setCollapsed] = useState(
-    () => localStorage.getItem("amicited.rail-collapsed") === "true",
-  );
-  const collapsed = sidebar?.collapsed ?? localCollapsed;
   if (mode === "developer") return children;
   return (
-    <div
-      data-amicited-shell=""
-      data-amicited-tokens=""
-      className={`am-chat-shell ${collapsed ? "am-chat-collapsed" : ""}`}
-    >
-      {!externalSidebar && (
-        <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
-          <div className={`am-chat-brand ${desktop ? "drag-region" : ""}`}>
-            {brandHeader ?? <AmICitedMark />}
-          </div>
-          <nav aria-label="Chat history" className="am-chat-history">
-            {history}
-          </nav>
-          {footer ?? (
-            <nav aria-label="Workspace">
-              {(
-                [
-                  ["Tools", "/tools", Wrench],
-                  ["AmICited", "/marketing-settings", PlugZap],
-                  ["Settings", "/settings/general", Settings],
-                ] as const
-              ).map(([label, href, Icon]) => (
-                <MarketingTooltip key={label} label={label}>
-                  <a
-                    key={String(href)}
-                    aria-label={String(label)}
-                    href={String(href)}
-                    aria-current={path.startsWith(String(href)) ? "page" : undefined}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigate(String(href));
-                    }}
-                  >
-                    {typeof Icon !== "string" && Icon && <Icon size={16} />}
-                  </a>
-                </MarketingTooltip>
-              ))}
-            </nav>
-          )}
-        </aside>
-      )}
+    <div data-amicited-shell="" data-amicited-tokens="" className="am-chat-shell">
       <main className="am-chat-main">
         {headerTitle ||
         ["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
@@ -122,24 +70,6 @@ export function MarketingShell({
           children
         )}
       </main>
-      {externalSidebar
-        ? null
-        : (sidebar?.control ?? (
-            <div className="am-sidebar-toggle">
-              <MarketingButton
-                size="icon-sm"
-                variant={collapsed ? "row" : "header"}
-                className="relative top-auto translate-y-0"
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-                onClick={() => {
-                  setCollapsed(!collapsed);
-                  localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
-                }}
-              >
-                {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-              </MarketingButton>
-            </div>
-          ))}
     </div>
   );
 }

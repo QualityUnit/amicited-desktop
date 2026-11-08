@@ -40,10 +40,11 @@ export function AmicitedUpsellCard({
   result,
   gate,
   connected = false,
-  ui: { Button },
+  ui: { Button, Disclosure = FallbackDisclosure },
   onConnect,
   connection,
   onCancel,
+  openExternal,
 }: {
   result: WinResult;
   gate: Gate;
@@ -92,7 +93,14 @@ export function AmicitedUpsellCard({
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
       <p>{comparison.missing}</p>
-      {connection?.state === "error" && <ConnectionError connection={connection} />}
+      {connection?.state === "error" && (
+        <ConnectionError
+          connection={connection}
+          Button={Button}
+          Disclosure={Disclosure}
+          openExternal={openExternal}
+        />
+      )}
       <p className="am-hint">Optional 7-day trial, then EUR 120/month Pro for the full set.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={onConnect}>
@@ -111,22 +119,31 @@ export function AmicitedUpsellCard({
     </aside>
   );
 }
-function ConnectionError({ connection }: { connection: Extract<Connection, { state: "error" }> }) {
+function ConnectionError({
+  connection,
+  Button,
+  Disclosure,
+  openExternal,
+}: {
+  connection: Extract<Connection, { state: "error" }>;
+  Button: CloudUi["Button"];
+  Disclosure: NonNullable<CloudUi["Disclosure"]>;
+  openExternal(url: string): void;
+}) {
   return (
     <div role="alert">
       <p>{connection.message}</p>
       {connection.actionUrl && (
-        <a href={connection.actionUrl} target="_blank" rel="noreferrer">
-          Open AmICited workspace
-        </a>
+        <Button variant="link" onClick={() => openExternal(connection.actionUrl!)}>
+          <span className="underline">Open AmICited workspace</span>
+        </Button>
       )}
       {connection.code && (
-        <details>
-          <summary>Sign-in details</summary>
-          <p>
+        <Disclosure label="Sign-in details">
+          <p className="text-xs text-muted-foreground">
             {connection.code}: {connection.description}
           </p>
-        </details>
+        </Disclosure>
       )}
     </div>
   );
@@ -217,8 +234,13 @@ export function AmicitedConnectPanel({
         ) : (
           <>
             {connection.state === "error" && (
-              <div role="alert">
-                <ConnectionError connection={connection} />
+              <div>
+                <ConnectionError
+                  connection={connection}
+                  Button={Button}
+                  Disclosure={Disclosure}
+                  openExternal={openExternal}
+                />
                 {connection.kind === "plan_required" && (
                   <Button
                     onClick={() => {
@@ -426,7 +448,14 @@ export function DomainConnectionWarning({
       >
         Dismiss
       </Button>
-      {connection.state === "error" && <ConnectionError connection={connection} />}
+      {connection.state === "error" && (
+        <ConnectionError
+          connection={connection}
+          Button={Button}
+          Disclosure={FallbackDisclosure}
+          openExternal={(url) => window.open(url, "_blank", "noopener,noreferrer")}
+        />
+      )}
     </aside>
   );
 }

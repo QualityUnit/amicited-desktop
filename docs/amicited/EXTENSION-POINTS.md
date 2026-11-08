@@ -529,11 +529,15 @@ Wave 39 site-file corrections:
 
 - `apps/web/src/components/AppSidebarLayout.tsx`: optional sidebar content and marketer control labels share the upstream resize rail, width persistence and native title-bar inset.
 - `apps/web/src/components/Sidebar.tsx`: optional domain folder renderer, new-domain callback and archive action retain upstream search, keyboard navigation, lifecycle menus and Working/Settled/Snoozed shelves.
-- `apps/web/src/components/sidebar/SidebarThreadRow.tsx`: marketer rows retain native metadata and context menus, map cloud approvals to Needs your OK, and accept a site-folder fallback or managed-folder location omission.
-- `apps/web/src/components/ChatView.tsx`: marketer chats mount the upstream thread details card and its header control; project scripts remain developer-only.
+- `apps/web/src/components/sidebar/SidebarThreadRow.tsx`: marketer rows retain native metadata and context menus, preserve marketer check/sign-in failures, map cloud approvals to Needs your OK, and accept a site-folder fallback or managed-folder location omission.
+- `apps/web/src/components/ChatView.tsx`: marketer chats mount the saved upstream details card and header control only for site folders or linked PRs; managed domains omit Git/editor controls.
 - `apps/web/src/components/threadActionMenu.logic.ts` and `hooks/useThreadActionMenu.ts`: linked threads offer Open pull request in both the sidebar and header menus.
 
 - `apps/web/src/components/{Sidebar,AppSidebarLayout}.browser.test.tsx` and `components/ui/sidebar.browser.test.tsx`: cover marketer lifecycle menus and shelves, drag limits and saved width after remount.
 - `apps/web/test/fakeEnvironment.ts`: optional shell metadata on test threads supports full-app PR and location fixtures without external calls.
 
 - `apps/web/src/components/chat/{ComposerFooterControls,ComposerModelEffort}.tsx` and `runtimeModeConfig.ts`: marketer composer and model picker expose upstream permissions with the Ask before acting label.
+- `apps/web/src/contextMenuFallback.ts`: supports the shared external-link menu icon.
+- `apps/web/src/components/chat/ThreadDetailsPanel.tsx`: marketer metadata rows retain location, branch, PR and Review while restricting Git/editor actions to Git site folders.
+- `apps/web/src/hooks/useThreadActionMenu.test.ts`: explicitly retains developer wording for the upstream menu permission fixture.
+- `apps/web/src/rpc/amicitedCloud.tsx`: cloud link actions use the native link button variant.

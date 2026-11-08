@@ -1,3 +1,4 @@
+import { readWorkspaceMode, marketerMenuItems } from "@amicited/ui-marketing/mode";
 import { useOpenLink } from "~/browser/useOpenLink";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/client-runtime/thread-pull-requests";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
@@ -158,7 +159,12 @@ export function useThreadActionMenu(input: {
         canShareWithGuest,
         canTurnIntoProject: canTurnThreadIntoProject(threadRef),
       });
-      const clicked = await settlePromise(() => api.contextMenu.show(items, position));
+      const clicked = await settlePromise(() =>
+        api.contextMenu.show(
+          readWorkspaceMode() === "marketer" ? marketerMenuItems(items) : items,
+          position,
+        ),
+      );
       if (clicked._tag === "Failure" || clicked.value === null) return;
       const action: ThreadActionMenuId = clicked.value;
       if (

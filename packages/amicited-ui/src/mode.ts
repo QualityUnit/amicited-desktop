@@ -6,3 +6,5 @@ export function readWorkspaceMode(): "marketer" | "developer" {
     return "marketer";
   }
 }
+
+export { marketerMenuItems } from "./menu.js";

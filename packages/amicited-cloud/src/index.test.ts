@@ -580,27 +580,39 @@ it.each([
   ["access_denied", "The user denied the request"],
   ["server_error", "Something went wrong"],
   ["unexpected_error", "Unexpected refusal <script>alert(1)</script>"],
-])("preserves OAuth callback %s and its description", async (code, description) => {
-  await using fake = await fixture();
-  const cloud = fake.make(async (value) => {
-    const authorize = new URL(value);
-    const callback = new URL(authorize.searchParams.get("redirect_uri")!);
-    callback.searchParams.set("state", authorize.searchParams.get("state")!);
-    callback.searchParams.set("error", code);
-    callback.searchParams.set("error_description", description);
-    const response = await fetch(callback);
-    expect(response.headers.get("content-type")).toContain("text/plain");
-    expect(await response.text()).toContain(description);
-  });
-  expect(await cloud.connectOAuth()).toMatchObject({
-    state: "error",
-    kind: "auth",
-    code,
-    description,
-  });
-  expect(await cloud.status()).toMatchObject({ code, description });
-  expect(fake.stored).toBeUndefined();
-});
+  ["access_denied", "The user denied the request", true],
+])(
+  "preserves OAuth callback %s and its description",
+  async (code, description, reconnect = false) => {
+    await using fake = await fixture();
+    const cloud = fake.make(async (value) => {
+      const authorize = new URL(value);
+      const callback = new URL(authorize.searchParams.get("redirect_uri")!);
+      callback.searchParams.set("state", authorize.searchParams.get("state")!);
+      callback.searchParams.set("error", code);
+      callback.searchParams.set("error_description", description);
+      const response = await fetch(callback);
+      expect(response.headers.get("content-type")).toContain("text/plain");
+      expect(await response.text()).toContain(description);
+    });
+    if (reconnect) {
+      expect(await cloud.connectApiKey("existing-key")).toMatchObject({ state: "connected" });
+      expect(await cloud.connectOAuth()).toMatchObject({ state: "connected" });
+      expect(await cloud.status()).toMatchObject({ state: "connected" });
+      expect(fake.stored).toContain("existing-key");
+      await cloud.disconnect();
+      return;
+    }
+    expect(await cloud.connectOAuth()).toMatchObject({
+      state: "error",
+      kind: "auth",
+      code,
+      description,
+    });
+    expect(await cloud.status()).toMatchObject({ code, description });
+    expect(fake.stored).toBeUndefined();
+  },
+);
 
 it("builds an authorization request satisfying FlowHunt resource, registration and PKCE checks", async () => {
   // FlowHunt mcp_resources.py:174-182 and oauth_services.py:62-74, 298-331.
