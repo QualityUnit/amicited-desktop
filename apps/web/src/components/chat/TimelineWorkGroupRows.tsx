@@ -639,6 +639,15 @@ export function WorkGroupToggleTimelineRow({
 }) {
   const workspaceMode = useWorkspaceMode();
   const ctx = use(TimelineRowCtx);
+  const cloudOnly =
+    workspaceMode === "marketer" &&
+    !row.expanded &&
+    row.marketingEntries?.length &&
+    row.marketingEntries.every(
+      (entry) =>
+        entry.structuredPayload?.type === "dynamic_tool" &&
+        entry.structuredPayload.toolName?.includes("amicited_cloud_"),
+    );
   const marketingTitles = row.marketingEntries?.flatMap((entry) => {
     const result = marketingToolResult(
       entry.structuredPayload?.type === "dynamic_tool"
@@ -662,20 +671,22 @@ export function WorkGroupToggleTimelineRow({
   });
   return (
     <>
-      <WorkGroupHeader
-        label={
-          workspaceMode === "marketer" && row.marketingEntries !== undefined
-            ? [...new Set(marketingTitles)].join(", ") || "AmICited results"
-            : row.summary
-        }
-        iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
-        toolIcon={row.toolIcon}
-        failed={row.hasFailure}
-        expanded={row.expanded}
-        createdAt={row.createdAt}
-        timestampFormat={ctx.timestampFormat}
-        onToggle={() => ctx.onToggleWorkGroup(row.groupId, row.id)}
-      />
+      {!cloudOnly && (
+        <WorkGroupHeader
+          label={
+            workspaceMode === "marketer" && row.marketingEntries !== undefined
+              ? [...new Set(marketingTitles)].join(", ") || "AmICited results"
+              : row.summary
+          }
+          iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
+          toolIcon={row.toolIcon}
+          failed={row.hasFailure}
+          expanded={row.expanded}
+          createdAt={row.createdAt}
+          timestampFormat={ctx.timestampFormat}
+          onToggle={() => ctx.onToggleWorkGroup(row.groupId, row.id)}
+        />
+      )}
       {!row.expanded && workspaceMode === "marketer"
         ? row.marketingEntries
             ?.filter((entry, index, entries) => {
