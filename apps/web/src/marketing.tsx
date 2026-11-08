@@ -300,7 +300,11 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                     key={String(label)}
                     size="icon"
                     aria-label={String(label)}
-                    onClick={() => void navigate({ to: String(href) })}
+                    render={<a href={String(href)} />}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void navigate({ to: String(href) });
+                    }}
                   >
                     {typeof Icon !== "string" && Icon && <Icon />}
                   </SidebarMenuButton>

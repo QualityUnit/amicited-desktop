@@ -4076,8 +4076,8 @@ export default function ChatView(props: ChatViewProps) {
           terminalAvailable={developerMode && activeProject !== null && canOperateTerminal}
           diffAvailable={developerMode && isServerThread && isGitRepo}
           filesAvailable={activeProject !== null}
-          pullRequestAvailable={developerMode && pullRequestSurfaceAvailable}
-          pullRequestsAvailable={developerMode && pullRequestsSurfaceAvailable}
+          pullRequestAvailable={pullRequestSurfaceAvailable}
+          pullRequestsAvailable={pullRequestsSurfaceAvailable}
           deviceAvailable={activeThreadRef !== null}
           sideChatAvailable={sideChat.available}
           sideChatDisabledReason={sideChatDisabledReason}
