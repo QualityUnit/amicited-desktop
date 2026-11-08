@@ -172,15 +172,15 @@ it("opens permissions directly from the context strip and applies a supported mo
   await expect
     .element(page.getByRole("menuitemradio", { name: "Auto", exact: true }))
     .not.toBeInTheDocument();
-  await userEvent.click(page.getByRole("menuitemradio", { name: "Supervised" }));
-  const trigger = screen.getByRole("button", { name: "Permissions: Supervised" });
+  await userEvent.click(page.getByRole("menuitemradio", { name: "Ask before acting" }));
+  const trigger = screen.getByRole("button", { name: "Permissions: Ask before acting" });
   await expect.element(trigger).toBeVisible();
   await expect
-    .element(page.getByRole("menuitemradio", { name: "Supervised" }))
+    .element(page.getByRole("menuitemradio", { name: "Ask before acting" }))
     .not.toBeInTheDocument();
   await userEvent.click(trigger);
   await expect
-    .element(page.getByRole("menuitemradio", { name: "Supervised" }))
+    .element(page.getByRole("menuitemradio", { name: "Ask before acting" }))
     .toHaveAttribute("aria-checked", "true");
   await userEvent.keyboard("{Escape}");
   await expect.element(trigger).toHaveFocus();
