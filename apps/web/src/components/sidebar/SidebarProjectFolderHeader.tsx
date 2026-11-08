@@ -65,7 +65,10 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
   return (
     <li
       data-testid="sidebar-project-folder"
-      className="group/project-folder relative mt-2 list-none first:mt-0"
+      className={cn(
+        "group/project-folder relative mt-2 list-none first:mt-0",
+        props.status && "flex items-center gap-1",
+      )}
     >
       <button
         type="button"
@@ -76,7 +79,10 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
           event.preventDefault();
           props.onContextMenu(group, { x: event.clientX, y: event.clientY });
         }}
-        className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-(--control-radius) px-(--sidebar-row-content-inset) text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className={cn(
+          props.status && "min-w-0 flex-1",
+          "flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-(--control-radius) px-(--sidebar-row-content-inset) text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        )}
       >
         <ProjectFavicon project={group} className="size-4 shrink-0" />
         <span
@@ -103,8 +109,12 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
           )}
         />
       </button>
-      {/* Sits over the count, which hides on hover, and left of the chevron. */}
-      <span className="absolute inset-y-0 right-6 flex items-center opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 pointer-coarse:opacity-100">
+      <span
+        className={cn(
+          "flex shrink-0 items-center gap-1 opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 group-focus-within/project-folder:opacity-100 pointer-coarse:opacity-100",
+          props.status ? "pr-1" : "absolute inset-y-0 right-6",
+        )}
+      >
         {props.actions}
         <Tooltip>
           <TooltipTrigger

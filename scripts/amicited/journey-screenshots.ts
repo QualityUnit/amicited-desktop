@@ -575,6 +575,15 @@ try {
     await capture("39-review-diff-open");
     await page.getByRole("button", { name: "Close review", exact: true }).click();
     await capture("39-review-diff-closed");
+    await page.mouse.move(800, 400);
+    await capture("41-domain-header-rest");
+    await page
+      .getByTestId("sidebar-project-folder")
+      .filter({ hasText: "site.example" })
+      .first()
+      .hover();
+    await capture("41-domain-header-hover");
+    await page.mouse.move(800, 400);
 
     await page.goto(url + "/settings/general");
     await page.getByText("Folder:", { exact: false }).first().waitFor();

@@ -194,6 +194,7 @@ export const layerFromProjectStore: Layer.Layer<
                   cloud.value,
                   input.thread.projectId,
                   input.thread.runtimeMode,
+                  cwd,
                 )
               : input.thread.runtimeMode,
             supportedRuntimeModes,

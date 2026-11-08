@@ -7,17 +7,30 @@ class SiteMetadataError extends Schema.TaggedError<SiteMetadataError>()("SiteMet
   cause: Schema.Defect(),
 }) {}
 
+const warned = new WeakSet<object>();
+
 export const resolveSiteRuntimeMode = Effect.fn("Amicited.resolveSiteRuntimeMode")(function* (
   cloud: Pick<CloudClient, "domains">,
   projectId: string,
   fallback: RuntimeMode,
+  cwd: string,
 ) {
   const rows = yield* Effect.tryPromise({
     try: () => cloud.domains?.metadata() ?? Promise.resolve([]),
     catch: (cause) => new SiteMetadataError({ cause }),
   }).pipe(Effect.catchTags({ SiteMetadataError: () => Effect.succeed(null) }));
-  // Unknown metadata must not let a connected site start without approval.
-  if (rows === null) return "approval-required" as const;
+  if (rows === null) {
+    if (!warned.has(cloud)) {
+      warned.add(cloud);
+      yield* Effect.logWarning(
+        "Domain registry unavailable; using independent site membership for runtime supervision.",
+      );
+    }
+    const site = yield* Effect.promise(
+      () => cloud.domains?.requiresSiteApproval(projectId, cwd) ?? Promise.resolve(false),
+    );
+    return site ? ("approval-required" as const) : fallback;
+  }
   return rows.some((row) => row.projectId === projectId && row.siteFiles)
     ? ("approval-required" as const)
     : fallback;

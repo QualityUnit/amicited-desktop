@@ -125,13 +125,21 @@ function workEntryReadRawPaths(entry: WorkLogEntry): readonly string[] {
   return collectToolFilePaths(workEntryToolDataRecord(entry));
 }
 
-function workEntryReadPaths(entry: WorkLogEntry, workspaceRoot: string | undefined): string[] {
+function workEntryReadPaths(
+  entry: WorkLogEntry,
+  workspaceRoot: string | undefined,
+  omitWorkspaceLabel: boolean,
+): string[] {
   return workEntryReadRawPaths(entry).map((filePath) =>
-    formatWorkspaceRelativePath(filePath, workspaceRoot),
+    formatWorkspaceRelativePath(filePath, workspaceRoot, omitWorkspaceLabel),
   );
 }
 
-export function workEntryDisplayLabel(entry: WorkLogEntry, workspaceRoot: string | undefined) {
+export function workEntryDisplayLabel(
+  entry: WorkLogEntry,
+  workspaceRoot: string | undefined,
+  omitWorkspaceLabel = false,
+) {
   if (entry.itemType === "system_notice") return entry.label;
   if (entry.itemType === "reasoning" || entry.tone === "thinking") {
     const thought = entry.detail?.trim().replace(/\s+/g, " ");
@@ -148,7 +156,8 @@ export function workEntryDisplayLabel(entry: WorkLogEntry, workspaceRoot: string
         : formatSearchToolLabel(workEntryToolDataRecord(entry));
     if (searchLabel) return searchLabel;
   }
-  const readPaths = action === "read" ? workEntryReadPaths(entry, workspaceRoot) : [];
+  const readPaths =
+    action === "read" ? workEntryReadPaths(entry, workspaceRoot, omitWorkspaceLabel) : [];
   if (action === "read" && readPaths[0]) {
     return formatReadToolLabel(readPaths[0], readPaths.length - 1);
   }
@@ -166,7 +175,7 @@ export function workEntryDisplayLabel(entry: WorkLogEntry, workspaceRoot: string
   }
   const [firstPath] = entry.changedFiles ?? [];
   if (firstPath) {
-    const path = formatWorkspaceRelativePath(firstPath, workspaceRoot);
+    const path = formatWorkspaceRelativePath(firstPath, workspaceRoot, omitWorkspaceLabel);
     return entry.changedFiles!.length === 1
       ? path
       : `${path} +${entry.changedFiles!.length - 1} more`;

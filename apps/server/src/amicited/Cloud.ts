@@ -14,6 +14,15 @@ import * as ExternalLauncher from "../process/externalLauncher.ts";
 
 const decodeDomains = Schema.decodeUnknownSync(Schema.Array(DomainRecord));
 
+const decodeMembership = Schema.decodeUnknownSync(
+  Schema.Array(
+    Schema.Struct({
+      projectId: Schema.String,
+      siteFiles: Schema.String,
+    }),
+  ),
+);
+
 export class AmicitedCloud extends Context.Service<AmicitedCloud, CloudClient>()(
   "t3/amicited/Cloud/AmicitedCloud",
 ) {}
@@ -75,15 +84,38 @@ export const layer = Layer.effect(
     });
     const run = Effect.runPromiseWith(context);
     const metadataPath = `${config.stateDir}/amicited-domains.json`;
+    const membershipPath = `${config.stateDir}/amicited-site-projects.json`;
+    let knownSites: readonly import("@amicited/cloud-client/domains").Domain[] = [];
+    const saveMembership = async (
+      rows: readonly import("@amicited/cloud-client/domains").Domain[],
+    ) => {
+      const members = rows
+        .filter((row) => row.siteFiles)
+        .map(({ projectId, siteFiles }) => ({ projectId, siteFiles }));
+      await run(fs.writeFileString(`${membershipPath}.tmp`, JSON.stringify(members)));
+      await run(fs.rename(`${membershipPath}.tmp`, membershipPath));
+    };
     cloud.domains = new DomainConnections({
-      read: async () =>
-        (await run(fs.exists(metadataPath)))
-          ? [...decodeDomains(JSON.parse(await run(fs.readFileString(metadataPath))))]
-          : [],
+      readSiteMembership: async () => [
+        ...decodeMembership(JSON.parse(await run(fs.readFileString(membershipPath)))),
+      ],
+      read: async () => {
+        if (!(await run(fs.exists(metadataPath)))) {
+          if (await run(fs.exists(membershipPath))) throw new Error("Domain registry is missing.");
+          return [];
+        }
+        const rows = [...decodeDomains(JSON.parse(await run(fs.readFileString(metadataPath))))];
+        await saveMembership(rows);
+        knownSites = rows;
+        return rows;
+      },
       write: async (rows) => {
+        await saveMembership([...knownSites, ...rows]);
         const temporary = `${metadataPath}.tmp`;
         await run(fs.writeFileString(temporary, JSON.stringify(rows)));
         await run(fs.rename(temporary, metadataPath));
+        knownSites = rows;
+        await saveMembership(rows);
       },
       secrets: (id) => secretsFor(`${account}:domain:${id}`),
       legacy: secretsFor(),

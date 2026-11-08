@@ -505,7 +505,7 @@ dependency-light readers so project creation does not import the domain UI recur
 
 Wave 39 site-file corrections:
 
-- `apps/server/src/orchestration-v2/RuntimePolicy.ts`: enforces domain supervision at provider execution, including queued turns and recovery; metadata failures use typed errors and require approval.
+- `apps/server/src/orchestration-v2/RuntimePolicy.ts`: enforces domain supervision at provider execution, including queued turns and recovery; metadata failures use independent site membership and managed-folder boundaries to preserve unrelated project modes.
 - `packages/client-runtime/src/state/threadRequests.ts`: carries the related file-change paths into pending approvals.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: prioritizes the hostname when a custom domain status is supplied.
 - `apps/web/src/components/ChatView.tsx`: renders upstream diff panels in marketer mode with an explicit Close control.
@@ -518,3 +518,8 @@ Wave 39 site-file corrections:
 
 - `apps/web/src/components/RightPanelTabs.tsx` and `components/chat/ChatRightPanel.tsx`: optional add-menu visibility for the marketer review panel.
 - `apps/server/src/orchestration-v2/RuntimePolicy.test.ts`: verifies site supervision and metadata failure at the runtime boundary.
+
+- `apps/web/src/filePathDisplay.ts`: optional workspace-label omission for marketer file rows and approvals, matching the review diff.
+- `apps/web/src/components/sidebar/SidebarProjectFolderHeader.browser.test.tsx`: verifies domain status icons and actions do not overlap across hover, focus, themes and long hostnames.
+
+- `apps/web/src/components/chat/MessagesTimeline.logic.ts`: optional folder-label omission for marketer work rows while retaining upstream label selection.

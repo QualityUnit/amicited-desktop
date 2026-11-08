@@ -83,7 +83,7 @@ export function AmicitedUpsellCard({
   if (connection?.state === "connecting")
     return (
       <aside className="am-cloud-card">
-        <p>Waiting for you to finish in your browser…</p>
+        <p className="text-sm text-muted-foreground">Waiting for you to finish in your browser…</p>
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
@@ -232,7 +232,7 @@ export function AmicitedConnectPanel({
               }
             />
             {pending && (
-              <div role="status">
+              <div role="status" className="text-sm text-muted-foreground">
                 Waiting for you to finish in your browser…{" "}
                 <Button variant="outline" onClick={() => void run(actions.disconnect)}>
                   Cancel

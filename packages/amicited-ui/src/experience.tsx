@@ -226,8 +226,8 @@ export function MarketingResult({
       <p className="am-hint">
         {String(record(result.input).url ?? record(result.input).website ?? "")
           .replace(/^https?:\/\//, "")
-          .replace(/\/$/, "")}{" "}
-        ·{" "}
+          .replace(/\/$/, "")}
+        {record(result.input).url || record(result.input).website ? " · " : ""}
         {new Date(result.startedAt).toLocaleString("en-US", {
           month: "short",
           day: "numeric",

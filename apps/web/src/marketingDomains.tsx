@@ -223,7 +223,7 @@ export function NewDomainDialog({
   const retainCompletion = useEffectEvent(async () => {
     if (liveClone?.phase !== "done") return;
     const selected = await chooseFolder(siteFiles);
-    if (selected && liveClone?.phase === "done") setCompletedClone(liveClone);
+    if (selected) setCompletedClone(liveClone);
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Persist completion of the external clone tracker before its snapshot expires.
   useEffect(() => {
@@ -379,7 +379,7 @@ export function NewDomainDialog({
               </p>
             ) : (
               ["git", "headless", "unknown"].includes(cms) && (
-                <fieldset className="flex flex-col gap-2">
+                <fieldset className="flex min-w-0 max-w-full flex-col gap-2 [&>*]:min-w-0 [&>*]:max-w-full">
                   <legend>Site files</legend>
                   <Select
                     disabled={busy}
@@ -426,10 +426,13 @@ export function NewDomainDialog({
                             .catch(() => setError("Could not open the folder picker."));
                         }}
                       >
-                        {siteFiles
-                          ? `Change folder (${siteFiles.split(/[\\/]/).pop()})`
-                          : "Choose folder"}
+                        {siteFiles ? "Change folder" : "Choose folder"}
                       </Button>
+                      {siteFiles && (
+                        <p className="truncate text-sm text-muted-foreground">
+                          {siteFiles.split(/[\\/]/).pop()}
+                        </p>
+                      )}
                       {!desktopFolderPicker && (
                         <Input
                           disabled={busy}
@@ -592,13 +595,13 @@ export function NewDomainDialog({
             {savedCopies.some(
               (copy) => !registeredDomains.some((d) => d.projectId === copy.id),
             ) && (
-              <details>
+              <details className="min-w-0 max-w-full">
                 <summary>Reuse previously copied site files</summary>
                 {savedCopies
                   .filter((copy) => !registeredDomains.some((d) => d.projectId === copy.id))
                   .map((copy) => (
-                    <div key={copy.id}>
-                      <span>{displayFolder(copy.path)}</span>
+                    <div key={copy.id} className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate">{displayFolder(copy.path)}</span>
                       <Button
                         type="button"
                         variant="outline"

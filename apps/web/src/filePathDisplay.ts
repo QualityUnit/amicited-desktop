@@ -21,6 +21,7 @@ function stripRelativePrefixes(path: string): string {
 export function formatWorkspaceRelativePath(
   pathWithPosition: string,
   workspaceRoot: string | undefined,
+  omitWorkspaceLabel = false,
 ): string {
   const position = splitFilePathPosition(pathWithPosition);
   const normalizedPath = stripSlashPrefixedWindowsDrive(normalizePathSeparators(position.path));
@@ -54,5 +55,9 @@ export function formatWorkspaceRelativePath(
     }
   }
 
+  if (omitWorkspaceLabel && workspaceRoot) {
+    const label = fileBasename(normalizePathSeparators(trimTrailingPathSeparators(workspaceRoot)));
+    if (displayPath.startsWith(`${label}/`)) displayPath = displayPath.slice(label.length + 1);
+  }
   return formatFilePathPosition({ ...position, path: displayPath });
 }

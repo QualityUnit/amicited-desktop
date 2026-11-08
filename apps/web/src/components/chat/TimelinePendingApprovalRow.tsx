@@ -1,5 +1,5 @@
 import { formatWorkspaceRelativePath } from "../../filePathDisplay";
-import { readDomain } from "../../marketingDomainStore";
+import { useDomains } from "../../marketingDomains";
 import { useThreadShell } from "../../state/entities";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingApprovalCard, useMarketingApproval } from "../../marketingChat";
@@ -46,11 +46,11 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
   const marketer = useWorkspaceMode() === "marketer";
   const siteEdit = marketer && approval.requestKind === "file-change";
   const thread = useThreadShell(threadRef);
-  const siteFolder =
-    threadRef &&
-    thread?.projectId &&
-    readDomain(threadRef.environmentId, thread.projectId)?.siteFiles;
-  const files = approval.files?.map((path) => formatWorkspaceRelativePath(path, workspaceRoot));
+  const { rows: domains } = useDomains(threadRef?.environmentId);
+  const siteFolder = domains.find((domain) => domain.projectId === thread?.projectId)?.siteFiles;
+  const files = approval.files?.map((path) =>
+    formatWorkspaceRelativePath(path, workspaceRoot, marketer),
+  );
   const siteAction = marketer
     ? approval.requestKind === "file-change"
       ? files?.length

@@ -32,9 +32,11 @@ export class DomainConnections {
   private clients = new Map<string, CloudClient>();
   private queue: Promise<unknown> = Promise.resolve();
   private rows: Domain[] | undefined;
+  private siteMembership: Pick<Domain, "projectId" | "siteFiles">[] | undefined;
   private migrationChecked = false;
   private readonly options: {
     read(): Promise<Domain[]>;
+    readSiteMembership?(): Promise<Pick<Domain, "projectId" | "siteFiles">[]>;
     write(rows: Domain[]): Promise<void>;
     secrets(projectId: string): SecretStorage;
     legacy: SecretStorage;
@@ -76,6 +78,22 @@ export class DomainConnections {
         ...row,
       }))),
     ]);
+  }
+  async requiresSiteApproval(projectId: string, cwd: string) {
+    const membership =
+      this.rows ??
+      (this.siteMembership ??= await this.options.readSiteMembership?.().catch(() => undefined));
+    return Boolean(
+      membership?.some(
+        (row) => row.siteFiles && (row.projectId === projectId || this.inside(cwd, row.siteFiles)),
+      ),
+    );
+  }
+
+  private inside(cwd: string, root: string) {
+    const normalized = root.replaceAll("\\", "/").replace(/\/+$/, "");
+    const path = cwd.replaceAll("\\", "/");
+    return path === normalized || path.startsWith(`${normalized}/`);
   }
   list() {
     return this.serial(async () => {
