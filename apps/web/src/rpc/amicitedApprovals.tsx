@@ -187,9 +187,8 @@ function CloudApproval({
                   if (response._tag !== "Success") setFailure(true);
                 } catch {
                   setFailure(true);
-                } finally {
-                  setBusy(false);
                 }
+                setBusy(false);
               }}
             >
               {label}
