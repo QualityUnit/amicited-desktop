@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
     projectId?: string;
     website?: string;
     workspaceRoot?: string;
+    remoteUrl?: string;
+    destinationPath?: string;
   }>,
 }));
 vi.mock("@effect/atom-react", async (original) => ({
@@ -57,16 +59,20 @@ vi.mock("./state/use-atom-command", () => ({
         apiKey?: string;
         website?: string;
         workspaceRoot?: string;
+        remoteUrl?: string;
+        destinationPath?: string;
       };
     }) => {
       state.requests.push({
         label: command.label,
         ...(input?.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+        ...(input?.remoteUrl ? { remoteUrl: input.remoteUrl } : {}),
+        ...(input?.destinationPath ? { destinationPath: input.destinationPath } : {}),
         ...(input?.projectId ? { projectId: input.projectId } : {}),
         ...(input?.website ? { website: input.website } : {}),
       });
       if (command.label === "environment-data:source-control:project-clone-start")
-        return { _tag: "Success", value: { cwd: "/fixture/clones/first.example" } };
+        return { _tag: "Success", value: { cwd: input?.destinationPath } };
       if (command.label === "domains:inspect")
         return { _tag: "Success", value: { git: true, framework: "Next.js" } };
       if (command.label === "environment-data:projects:create-new")
@@ -334,32 +340,66 @@ it.each(["skip", "folder", "website", "close", "expired", "failed-folder"])(
   },
 );
 
-it("creates consecutive domains with independent folders and repositories", async () => {
-  state.emptyDomains = true;
-  state.clonePhase = "done";
-  state.requests.length = 0;
-  await using screen = await render(
-    <NewDomainDialog open onOpenChange={() => {}} destination={EnvironmentId.make("local")} />,
-  );
-  for (const hostname of ["first.example", "second.example"]) {
-    await userEvent.fill(screen.getByLabelText("Website", { exact: true }), hostname);
-    await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
-    await userEvent.click(page.getByRole("option", { name: "Use a folder on this computer" }));
-    await userEvent.fill(
-      screen.getByRole("textbox", { name: "Folder path" }),
-      `/fixture/${hostname}`,
+it.each(["folder", "clone"])(
+  "creates consecutive domains with independent %s sources",
+  async (source) => {
+    state.emptyDomains = true;
+    state.clonePhase = "done";
+    state.requests.length = 0;
+    await using screen = await render(
+      <NewDomainDialog open onOpenChange={() => {}} destination={EnvironmentId.make("local")} />,
     );
-    await userEvent.tab();
-    await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
-    await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
-  }
-  expect(state.requests.filter((r) => r.workspaceRoot).map((r) => r.workspaceRoot)).toEqual([
-    "/fixture/first.example",
-    "/fixture/second.example",
-  ]);
-  expect(state.requests.filter((r) => r.label === "domains:save").map((r) => r.website)).toEqual([
-    "first.example",
-    "second.example",
-  ]);
-  state.emptyDomains = false;
-});
+    for (const hostname of ["first.example", "second.example"]) {
+      await userEvent.fill(screen.getByLabelText("Website", { exact: true }), hostname);
+      await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
+      await userEvent.click(
+        page.getByRole("option", {
+          name: source === "folder" ? "Use a folder on this computer" : "Clone from a Git URL",
+        }),
+      );
+      if (source === "folder") {
+        await userEvent.fill(
+          screen.getByRole("textbox", { name: "Folder path" }),
+          `/fixture/${hostname}`,
+        );
+        await userEvent.tab();
+      } else {
+        await userEvent.fill(
+          screen.getByRole("textbox", { name: "Git URL" }),
+          `/fixture/${hostname}.git`,
+        );
+        await userEvent.click(
+          screen.getByRole("button", { name: "Clone site files", exact: true }),
+        );
+        await expect.element(screen.getByText(/^Copied to/)).toBeVisible();
+      }
+      await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
+      await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+    }
+    if (source === "folder") {
+      expect(state.requests.filter((r) => r.workspaceRoot).map((r) => r.workspaceRoot)).toEqual([
+        "/fixture/first.example",
+        "/fixture/second.example",
+      ]);
+    } else {
+      const clones = state.requests.filter((r) => r.remoteUrl);
+      expect(clones.map((r) => r.remoteUrl)).toEqual([
+        "/fixture/first.example.git",
+        "/fixture/second.example.git",
+      ]);
+      expect(clones.map((r) => r.destinationPath)).toEqual([
+        "/fixture/clones/first.example",
+        "/fixture/clones/second.example",
+      ]);
+      expect(new Set(clones.map((r) => r.projectId)).size).toBe(2);
+      expect(
+        state.requests.filter((r) => r.label === "domains:save").map((r) => r.projectId),
+      ).toEqual(clones.map((r) => r.projectId));
+    }
+    expect(state.requests.filter((r) => r.label === "domains:save").map((r) => r.website)).toEqual([
+      "first.example",
+      "second.example",
+    ]);
+    state.emptyDomains = false;
+  },
+);
