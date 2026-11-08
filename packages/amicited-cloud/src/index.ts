@@ -1,4 +1,4 @@
-import { isUsefulResult } from "@amicited/tools-core";
+import { isUsefulResult, marketingTarget } from "@amicited/tools-core";
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -214,6 +214,9 @@ export class CloudClient {
     if (decision === "acceptForSession" && !free && readOnly) this.readGrants.add(threadId);
     return this.threadCall(threadId, tool, args);
   }
+  target(threadId: string, tool: string, args: Record<string, unknown>) {
+    return marketingTarget(args, this.resources.get(threadId), tool);
+  }
   private async threadCall(threadId: string, tool: string, args: Record<string, unknown>) {
     const result = await this.call(tool, args);
     if (!result.isError) {
@@ -225,8 +228,14 @@ export class CloudClient {
         }
         const row = record(value);
         const name =
-          row.name ?? row.domain ?? row.domain_name ?? row.prompt ?? row.prompt_text ?? row.text;
-        for (const id of [row.id, row.domain_id, row.prompt_id])
+          row.name ??
+          row.domain ??
+          row.domain_name ??
+          row.prompt ??
+          row.prompt_text ??
+          row.text ??
+          row.content;
+        for (const id of [row.id, row.prompt_id ?? row.domain_id])
           if (typeof id === "string" && typeof name === "string") known.set(id, name);
         Object.values(row)
           .filter((v) => v && typeof v === "object")
@@ -710,9 +719,6 @@ export function cloudAction(
   resources?: ReadonlyMap<string, string>,
 ) {
   const input = record(args.request ?? args);
-  const targets = [input.website ?? input.target ?? input.query, input.domain_id, input.prompt_id]
-    .filter((v): v is string => typeof v === "string")
-    .map((id) => resources?.get(id) ?? id);
   const free = tool.startsWith("free_");
   const action = tool
     .replace(/^free_/, "")
@@ -730,5 +736,5 @@ export function cloudAction(
         : /^(create|update|set|edit)_/.test(tool)
           ? "Change"
           : "Run";
-  return `${verb} ${action}${targets.length ? ` for ${targets.join(" / ")}` : ""}`;
+  return `${verb} ${action}${marketingTarget(input, resources, tool)}`;
 }

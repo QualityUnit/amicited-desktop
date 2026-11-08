@@ -95,7 +95,13 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
           "Could not check this AmICited tool. Check your connection and discover its name first.",
       }),
   });
-  return { kind: "amicited-cloud-result", tool: params.tool, arguments: params.arguments, result };
+  return {
+    kind: "amicited-cloud-result",
+    tool: params.tool,
+    arguments: params.arguments,
+    target: cloud.target(caller.scope.thread.threadId, params.tool, params.arguments),
+    result,
+  };
 });
 export const layer = McpToolAccess.toLayer(CloudToolkit, {
   amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) => call(tool, args)),

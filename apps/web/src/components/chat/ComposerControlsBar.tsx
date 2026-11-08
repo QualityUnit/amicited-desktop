@@ -1,3 +1,4 @@
+import { useCloudApprovals } from "../../rpc/amicitedApprovals";
 import { getTraitsSectionVisibility } from "./TraitsPicker";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import type { ChatComposerProps } from "./ChatComposer";
@@ -92,6 +93,12 @@ export function ComposerControlsBar(props: {
   getModelDisabledReason: ChatComposerProps["getModelDisabledReason"];
 }) {
   const workspaceMode = useWorkspaceMode();
+  const approvals = useCloudApprovals(
+    workspaceMode === "marketer" ? props.routeThreadRef?.environmentId : null,
+  );
+  const cloudPending = approvals.some(
+    (request) => request.threadId === props.routeThreadRef?.threadId,
+  );
   const {
     environmentId,
     routeKind,
@@ -193,6 +200,7 @@ export function ComposerControlsBar(props: {
   // Its own element, so typing (which rebuilds the controls around it) leaves it cached.
   const composerModelPicker = (
     <ComposerModelPicker
+      {...(cloudPending ? { triggerLabel: "Needs your OK" } : {})}
       environmentId={environmentId}
       compact={false}
       isComposerOwned

@@ -1,11 +1,6 @@
 import { useThreadVisibleTurnItems, useThreadShell } from "../../state/entities";
 import { MarketingTranscriptCard } from "../../marketingChat";
-import {
-  useWorkspaceMode,
-  marketingToolResult,
-  resultTitle,
-  cloudToolResult,
-} from "@amicited/ui-marketing";
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { TimelinePendingApprovalRow } from "./TimelinePendingApprovalRow";
 import { WorkLogButton, WorkLogList, WorkLogRow } from "./WorkLog";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
@@ -639,45 +634,13 @@ export function WorkGroupToggleTimelineRow({
 }) {
   const workspaceMode = useWorkspaceMode();
   const ctx = use(TimelineRowCtx);
-  const cloudOnly =
-    workspaceMode === "marketer" &&
-    !row.expanded &&
-    row.marketingEntries?.length &&
-    row.marketingEntries.every(
-      (entry) =>
-        entry.structuredPayload?.type === "dynamic_tool" &&
-        entry.structuredPayload.toolName?.includes("amicited_cloud_"),
-    );
-  const marketingTitles = row.marketingEntries?.flatMap((entry) => {
-    const result = marketingToolResult(
-      entry.structuredPayload?.type === "dynamic_tool"
-        ? entry.structuredPayload.output
-        : entry.toolData,
-    );
-    const cloud = cloudToolResult(
-      entry.structuredPayload?.type === "dynamic_tool"
-        ? entry.structuredPayload.output
-        : entry.toolData,
-    );
-    return result
-      ? [resultTitle(result)]
-      : cloud
-        ? [
-            ["list_toolsets", "search_tools", "describe_tool"].includes(cloud.tool)
-              ? "Looked up AmICited tools"
-              : "AmICited results",
-          ]
-        : [];
-  });
+  const titledMarketingRows =
+    workspaceMode === "marketer" && !row.expanded && !!row.marketingEntries?.length;
   return (
     <>
-      {!cloudOnly && (
+      {!titledMarketingRows && (
         <WorkGroupHeader
-          label={
-            workspaceMode === "marketer" && row.marketingEntries !== undefined
-              ? [...new Set(marketingTitles)].join(", ") || "AmICited results"
-              : row.summary
-          }
+          label={row.summary}
           iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}
           toolIcon={row.toolIcon}
           failed={row.hasFailure}

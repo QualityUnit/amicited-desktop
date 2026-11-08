@@ -303,8 +303,10 @@ export function MarketingTranscriptCard({
     runId &&
     peerItem?.type === "dynamic_tool" &&
     (peerItem.input as { arguments?: { run_id?: string } })?.arguments?.run_id === runId
-  )
-    cloud = cloudToolResult(peerOutput) ?? cloud;
+  ) {
+    const polled = cloudToolResult(peerOutput);
+    if (polled) cloud = { ...polled, ...(cloud?.target ? { target: cloud.target } : {}) };
+  }
   if (cloud)
     return (
       <CloudToolResultCard

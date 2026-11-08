@@ -24,7 +24,7 @@ export function CloudDisclosure({
 }) {
   return (
     <Collapsible>
-      <CollapsibleTrigger className="group flex items-center gap-2 text-sm text-muted-foreground">
+      <CollapsibleTrigger className="group flex items-center gap-2 text-xs text-muted-foreground">
         <ChevronRight className="size-3 group-data-open:rotate-90" />
         {label}
       </CollapsibleTrigger>
@@ -197,7 +197,11 @@ function CloudApproval({
         </div>
         <div className="ms-7.5 text-xs">
           <CloudDisclosure label="Inputs">
-            <pre>{JSON.stringify(request.arguments, null, 2)}</pre>
+            <pre>
+              {JSON.stringify(request.arguments, null, 2)
+                ?.replace(/"domain_id":/g, '"Website":')
+                .replace(/"prompt_id":/g, '"Prompt":')}
+            </pre>
           </CloudDisclosure>
         </div>
         {failure && (

@@ -396,6 +396,14 @@ function runAgent(): void {
         }
       }
       if (cloudClient && !signal.aborted) {
+        await cloudClient.callTool(
+          {
+            name: "amicited_cloud_call",
+            arguments: { tool: "list_prompts", arguments: { domain_id: "capture-domain" } },
+          },
+          undefined,
+          { timeout: 11 * 60_000, signal },
+        );
         const toolCallId = NodeCrypto.randomUUID();
         send({
           method: "session/update",
@@ -409,7 +417,10 @@ function runAgent(): void {
               status: "pending",
               rawInput: {
                 tool: "prompt_analytics",
-                arguments: { domain_id: "capture-domain", prompt_id: "Brand recommendations" },
+                arguments: {
+                  domain_id: "capture-domain",
+                  prompt_id: "3f9c0000-0000-4000-8000-000000000001",
+                },
               },
             },
           },
@@ -419,7 +430,10 @@ function runAgent(): void {
             name: "amicited_cloud_call",
             arguments: {
               tool: "prompt_analytics",
-              arguments: { domain_id: "capture-domain", prompt_id: "Brand recommendations" },
+              arguments: {
+                domain_id: "capture-domain",
+                prompt_id: "3f9c0000-0000-4000-8000-000000000001",
+              },
             },
           },
           undefined,

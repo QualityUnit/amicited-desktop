@@ -89,6 +89,11 @@ const fixture = NodeHttp.createServer(async (req, res) => {
         ? {
             tools: [
               {
+                name: "list_prompts",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
                 name: "free_brand_visibility_start",
                 inputSchema: { type: "object" },
                 annotations: { readOnlyHint: false, destructiveHint: false },
@@ -130,72 +135,90 @@ const fixture = NodeHttp.createServer(async (req, res) => {
               {
                 type: "text",
                 text:
-                  rpc.params.name === "free_query_fanout_start"
-                    ? JSON.stringify({ run_id: "expired-query-1", status: "pending" })
-                    : rpc.params.name === "free_query_fanout_get"
-                      ? "Report expired: not found"
-                      : rpc.params.name.startsWith("free_brand_visibility")
-                        ? JSON.stringify({
-                            run_id: "free-brand-1",
-                            workspace_id: "capture",
-                            website: "https://example.com",
-                            domain: "example.com",
+                  rpc.params.name === "list_prompts"
+                    ? JSON.stringify({
+                        prompts: [
+                          {
+                            prompt_id: "3f9c0000-0000-4000-8000-000000000001",
                             domain_id: "capture-domain",
-                            brand_name: "Example",
-                            status: rpc.params.name.endsWith("_start") ? "pending" : "success",
-                            providers: [
-                              {
-                                provider: "chatgpt",
-                                status: "success",
-                                mentioned: true,
-                                visibility_score: 74,
-                              },
-                              {
-                                provider: "perplexity",
-                                status: "success",
-                                mentioned: true,
-                                visibility_score: 50,
-                              },
-                              {
-                                provider: "gemini",
-                                status: "success",
-                                mentioned: false,
-                                visibility_score: 0,
-                              },
-                            ],
-                            competitive_landscape: [],
-                            error: null,
-                          })
-                        : rpc.params.name === "prompt_analytics"
-                          ? "`prompt_analytics` needs an AmICited subscription, and this workspace does not have one yet. On the free plan this connection runs the free tools only: brand visibility, query fan-out, llms.txt generator, site health and AI watermark detection and removal (the `free_tools` toolset; see list_toolsets). A Pro plan or the trial unlocks every AmICited tool on this endpoint: daily tracking of how ChatGPT, Gemini, Perplexity and Google AI Overviews cite the brand, share of voice against competitors, the sources AI answers cite, AI-crawler site audits, Search Console, GA4 and ad-platform reports, and content the agent can write and publish. FlowHunt's AI Studio adds its own MCP endpoint for building and running AI agents and flows. Tell the user they can upgrade at https://app.flowhunt.io/amicited/subscription."
-                          : rpc.params.name === "free_site_health_get"
-                            ? JSON.stringify({
-                                run_id: "replay-site-health",
-                                workspace_id: "capture",
-                                target: "https://example.com",
-                                status: "success",
-                                report: {
-                                  score: 72,
-                                  fixes: [{ title: "Add an AI website guide" }],
+                            content: "Brand recommendations",
+                            tag_id: null,
+                            country: null,
+                            status: "active",
+                            schedule: "daily",
+                            providers: null,
+                            created_at: "2026-11-07T00:00:00Z",
+                            updated_at: "2026-11-07T00:00:00Z",
+                          },
+                        ],
+                        count: 1,
+                      })
+                    : rpc.params.name === "free_query_fanout_start"
+                      ? JSON.stringify({ run_id: "expired-query-1", status: "pending" })
+                      : rpc.params.name === "free_query_fanout_get"
+                        ? "Report expired: not found"
+                        : rpc.params.name.startsWith("free_brand_visibility")
+                          ? JSON.stringify({
+                              run_id: "free-brand-1",
+                              workspace_id: "capture",
+                              website: "https://example.com",
+                              domain: "example.com",
+                              domain_id: "capture-domain",
+                              brand_name: "Example",
+                              status: rpc.params.name.endsWith("_start") ? "pending" : "success",
+                              providers: [
+                                {
+                                  provider: "chatgpt",
+                                  status: "success",
+                                  mentioned: true,
+                                  visibility_score: 74,
                                 },
-                              })
-                            : JSON.stringify(
-                                rpc.params.name === "free_site_health_start"
-                                  ? {
-                                      run_id: "replay-site-health",
-                                      workspace_id: "capture",
-                                      status: "pending",
-                                      report: null,
-                                    }
-                                  : {
-                                      tools: [
-                                        {
-                                          name: "free_site_health_start",
-                                          inputSchema: { type: "object", required: ["request"] },
-                                        },
-                                      ],
-                                    },
-                              ),
+                                {
+                                  provider: "perplexity",
+                                  status: "success",
+                                  mentioned: true,
+                                  visibility_score: 50,
+                                },
+                                {
+                                  provider: "gemini",
+                                  status: "success",
+                                  mentioned: false,
+                                  visibility_score: 0,
+                                },
+                              ],
+                              competitive_landscape: [],
+                              error: null,
+                            })
+                          : rpc.params.name === "prompt_analytics"
+                            ? "`prompt_analytics` needs an AmICited subscription, and this workspace does not have one yet. On the free plan this connection runs the free tools only: brand visibility, query fan-out, llms.txt generator, site health and AI watermark detection and removal (the `free_tools` toolset; see list_toolsets). A Pro plan or the trial unlocks every AmICited tool on this endpoint: daily tracking of how ChatGPT, Gemini, Perplexity and Google AI Overviews cite the brand, share of voice against competitors, the sources AI answers cite, AI-crawler site audits, Search Console, GA4 and ad-platform reports, and content the agent can write and publish. FlowHunt's AI Studio adds its own MCP endpoint for building and running AI agents and flows. Tell the user they can upgrade at https://app.flowhunt.io/amicited/subscription."
+                            : rpc.params.name === "free_site_health_get"
+                              ? JSON.stringify({
+                                  run_id: "replay-site-health",
+                                  workspace_id: "capture",
+                                  target: "https://example.com",
+                                  status: "success",
+                                  report: {
+                                    score: 72,
+                                    fixes: [{ title: "Add an AI website guide" }],
+                                  },
+                                })
+                              : JSON.stringify(
+                                  rpc.params.name === "free_site_health_start"
+                                    ? {
+                                        run_id: "replay-site-health",
+                                        workspace_id: "capture",
+                                        status: "pending",
+                                        report: null,
+                                      }
+                                    : {
+                                        tools: [
+                                          {
+                                            name: "free_site_health_start",
+                                            inputSchema: { type: "object", required: ["request"] },
+                                          },
+                                        ],
+                                      },
+                                ),
               },
             ],
             ...(["prompt_analytics", "free_query_fanout_get"].includes(rpc.params.name)
@@ -586,6 +609,8 @@ try {
 
     await capture("03g-cloud-approval-live");
     await page.getByRole("button", { name: "Allow free checks in this chat", exact: true }).click();
+    await page.getByText(/View prompts on example.com/).waitFor();
+    await page.getByRole("button", { name: "Allow", exact: true }).click();
     await page.getByText(/The free site health check is complete/).waitFor();
     await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
     await capture("03e-cloud-site-health");
@@ -605,6 +630,10 @@ try {
       .waitFor();
     await capture("03l-brand-visibility-summary");
     await page.getByText("Report expired: not found", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Allow", exact: true }).click();
+    await page
+      .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
+      .waitFor();
     await capture("03m-failed-poll");
     await capture("03h-paid-approval-live");
     await page.getByRole("button", { name: "Allow", exact: true }).click();

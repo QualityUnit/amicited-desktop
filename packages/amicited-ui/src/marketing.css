@@ -337,9 +337,6 @@
     align-items: center;
     gap: 16px;
   }
-  .am-result-links > button {
-    padding-inline: 0;
-  }
   .am-chat-brand {
     position: relative;
     height: var(--workspace-topbar-height);

@@ -189,3 +189,29 @@ export function friendlyAssistant(value: string) {
 }
 
 export { marketingReportInstructions, marketingWebsiteInstructions } from "./websiteContext.ts";
+
+export function marketingTarget(
+  input: unknown,
+  resources?: ReadonlyMap<string, string>,
+  tool?: string,
+): string {
+  const record = (value: unknown): Record<string, unknown> =>
+    value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const outer = record(input);
+  const args = record(outer.arguments ?? outer);
+  const r = record(args.request ?? args);
+  const website =
+    r.website ?? r.url ?? r.domain ?? (tool?.includes("site_health") ? r.target : undefined);
+  if (typeof website === "string" && website) {
+    try {
+      return ` on ${new URL(website.includes("://") ? website : `https://${website}`).hostname}`;
+    } catch {
+      return ` on ${website}`;
+    }
+  }
+  if (typeof r.query === "string" && r.query) return ` for ${JSON.stringify(r.query)}`;
+  const targets = [r.target, r.domain_id, r.prompt_id]
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map((id) => resources?.get(id) ?? id);
+  return targets.length ? ` on ${targets.join(" / ")}` : "";
+}

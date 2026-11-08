@@ -1,3 +1,4 @@
+import { CloudDisclosure } from "./rpc/amicitedApprovals";
 import { useCloudApprovals } from "./rpc/amicitedCloud";
 import { useWindowControlsInsetStyle } from "./components/AppSidebarLayout";
 import { isElectron } from "./env";
@@ -249,6 +250,7 @@ const marketingUi = {
   SettingsGroup,
   SettingsRow,
   WorkDisclosure: KitWorkDisclosure,
+  Disclosure: CloudDisclosure,
   Breadcrumb: KitBreadcrumb,
   Menu: KitMenu,
   Button: KitButton,

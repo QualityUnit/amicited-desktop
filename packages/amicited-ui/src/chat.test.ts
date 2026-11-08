@@ -147,7 +147,7 @@ it("keeps the approved target on a plan refusal and recognizes matching poll run
   const markup = renderToStaticMarkup(
     createElement(CloudToolResultCard, { cloud: refusal, onStartTrial() {} }),
   );
-  expect(markup).toContain("brand visibility on acme.com");
+  expect(markup).toContain("Brand visibility on acme.com needs a plan");
   expect(markup).toContain('role="alert">Needs a Pro plan or trial. Free checks still work.');
   expect(markup).not.toContain("visibility on app.flowhunt.io");
   for (const result of [

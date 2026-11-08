@@ -442,3 +442,5 @@ are recovered from the server after remount; restart cancels them safely.
 - `packages/client-runtime/src/rpc/client.ts`: registers the AmICited approval snapshot stream as a destination-environment subscription.
 
 - `apps/web/src/rpc/amicitedApprovals.tsx`: isolated cloud approval adapter shared by work rows and the timeline fallback; `marketingApprovals.browser.test.tsx` verifies pushed updates and argument matching.
+
+- `apps/web/src/components/chat/ComposerControlsBar.tsx`: pending cloud approvals replace the stale Replay step label with Needs your OK.

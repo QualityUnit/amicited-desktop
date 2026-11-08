@@ -1,7 +1,12 @@
 import type { ToolResult } from "@amicited/tools-core";
-import { isUsefulResult } from "@amicited/tools-core";
+import { isUsefulResult, marketingTarget } from "@amicited/tools-core";
 import { resultTitle, rankedFindings } from "./experience.js";
-import { MarketingButton, MarketingWorkDisclosure, MarketingIcon } from "./primitives.js";
+import {
+  MarketingButton,
+  MarketingWorkDisclosure,
+  MarketingIcon,
+  MarketingDisclosure,
+} from "./primitives.js";
 export const marketingStarters = [
   "Audit my website for AI search",
   "Check whether ChatGPT and Claude mention my brand",
@@ -14,7 +19,7 @@ function record(value: unknown): Record<string, unknown> {
 export function cloudToolResult(
   value: unknown,
   depth = 0,
-): { tool: string; result: unknown; arguments?: unknown } | null {
+): { tool: string; result: unknown; arguments?: unknown; target?: string | undefined } | null {
   if (depth > 8) return null;
   if (typeof value === "string") {
     try {
@@ -27,7 +32,12 @@ export function cloudToolResult(
     return value.map((part) => cloudToolResult(part, depth + 1)).find(Boolean) ?? null;
   const data = record(value);
   if (data.kind === "amicited-cloud-result" && typeof data.tool === "string")
-    return { tool: data.tool, result: data.result, arguments: data.arguments };
+    return {
+      tool: data.tool,
+      result: data.result,
+      arguments: data.arguments,
+      target: typeof data.target === "string" ? data.target : undefined,
+    };
   for (const candidate of [data.result, data.structuredContent, data.content, data.text]) {
     const found = candidate === undefined ? null : cloudToolResult(candidate, depth + 1);
     if (found) return found;
@@ -181,11 +191,11 @@ export function CompactMarketingResult({
                 ))}
             </ul>
             <div className="am-result-links">
-              <MarketingButton variant="link" onClick={open}>
+              <MarketingButton size="xs" variant="outline" onClick={open}>
                 Open full result
               </MarketingButton>
               {ask && (
-                <MarketingButton variant="link" onClick={ask}>
+                <MarketingButton size="xs" variant="outline" onClick={ask}>
                   Ask AI about this
                 </MarketingButton>
               )}
@@ -293,24 +303,11 @@ export function marketingSignInError(message: string): boolean {
   );
 }
 
-function marketingTarget(input: unknown) {
-  const outer = record(input);
-  const args = record(outer.arguments ?? outer);
-  const r = record(args.request ?? args);
-  const target = r.website ?? r.target ?? r.query ?? r.url ?? r.domain;
-  if (typeof target !== "string" || !target) return "";
-  try {
-    return ` on ${new URL(target.includes("://") ? target : `https://${target}`).hostname}`;
-  } catch {
-    return ` on ${target}`;
-  }
-}
-
 export function CloudToolResultCard({
   cloud,
   onStartTrial,
 }: {
-  cloud: { tool: string; result: unknown; arguments?: unknown };
+  cloud: { tool: string; result: unknown; arguments?: unknown; target?: string | undefined };
   onStartTrial(): void;
 }) {
   const result = record(cloud.result);
@@ -350,9 +347,14 @@ export function CloudToolResultCard({
         .slice(0, 2)
         .join("; ")
     : undefined;
-  const title = discovery
-    ? "Looked up AmICited tools"
-    : `${failed ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(cloud.arguments)}`;
+  const toolTitle = names[base] ?? base.replaceAll("_", " ");
+  const target = cloud.target ?? marketingTarget(cloud.arguments, undefined, cloud.tool);
+  const title =
+    data.code === "plan_required"
+      ? `${toolTitle[0]?.toUpperCase()}${toolTitle.slice(1)}${target} needs a plan`
+      : discovery
+        ? "Looked up AmICited tools"
+        : `${failed ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${toolTitle}${target}`;
   const summary =
     data.code === "plan_required"
       ? "Needs a Pro plan or trial. Free checks still work."
@@ -375,16 +377,19 @@ export function CloudToolResultCard({
     <article className="am-tool-card" aria-label="AmICited tool result">
       <MarketingWorkDisclosure label={title}>
         {!failed && <p>{summary}</p>}
-        <details>
-          <summary>Technical details</summary>
+        <MarketingDisclosure label="Technical details">
           <pre>{JSON.stringify(cloud.result, null, 2)}</pre>
-        </details>
+        </MarketingDisclosure>
       </MarketingWorkDisclosure>
-      {failed && <p role="alert">{summary}</p>}
-      {structured.kind === "amicited-upgrade" && (
-        <MarketingButton variant="outline" onClick={onStartTrial}>
-          Start 7-day free trial
-        </MarketingButton>
+      {failed && (
+        <div className="ms-7.5 text-xs text-muted-foreground">
+          <p role="alert">{summary}</p>
+          {structured.kind === "amicited-upgrade" && (
+            <MarketingButton size="xs" variant="outline" onClick={onStartTrial}>
+              Start 7-day free trial
+            </MarketingButton>
+          )}
+        </div>
       )}
     </article>
   );

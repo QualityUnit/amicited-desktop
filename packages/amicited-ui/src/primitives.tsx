@@ -48,6 +48,7 @@ export type MarketingButtonProps = ComponentProps<"button"> & {
   variant?: "header" | "agent" | "default" | "outline" | "secondary" | "link" | "row";
 };
 type Primitives = {
+  Disclosure?: ComponentType<{ label: ReactNode; children: ReactNode }>;
   Categories?: ComponentType<{
     value: string;
     items: readonly (readonly [string, string])[];
@@ -261,5 +262,26 @@ export function MarketingSettingsRow(props: {
       </div>
       {props.control}
     </div>
+  );
+}
+
+export function MarketingDisclosure({
+  label,
+  children,
+}: {
+  label: ReactNode;
+  children: ReactNode;
+}) {
+  const { Disclosure } = useContext(MarketingUiContext);
+  return Disclosure ? (
+    <Disclosure label={label}>{children}</Disclosure>
+  ) : (
+    <details>
+      <summary>
+        <ChevronRight size={12} />
+        {label}
+      </summary>
+      {children}
+    </details>
   );
 }

@@ -111,11 +111,29 @@ async function fixture() {
             text:
               refusal ||
               JSON.stringify(
-                rpc.params.name === "prompt_analytics"
-                  ? { visibility: 23, citations: 7 }
-                  : rpc.params.name === "report_link"
-                    ? { url: "https://app.flowhunt.io/reports/test" }
-                    : { domains: [{ id: "domain-1", name: "example.com" }] },
+                rpc.params.name === "list_prompts"
+                  ? {
+                      prompts: [
+                        {
+                          prompt_id: "3f9c0000-0000-4000-8000-000000000001",
+                          domain_id: "domain-1",
+                          content: "Brand recommendations",
+                          tag_id: null,
+                          country: null,
+                          status: "active",
+                          schedule: "daily",
+                          providers: null,
+                          created_at: "2026-11-07T00:00:00Z",
+                          updated_at: "2026-11-07T00:00:00Z",
+                        },
+                      ],
+                      count: 1,
+                    }
+                  : rpc.params.name === "prompt_analytics"
+                    ? { visibility: 23, citations: 7 }
+                    : rpc.params.name === "report_link"
+                      ? { url: "https://app.flowhunt.io/reports/test" }
+                      : { domains: [{ id: "domain-1", name: "example.com" }] },
               ),
           },
         ],
@@ -512,15 +530,25 @@ it("names paid actions and resolves resources learned in the same chat", async (
   await waiting.promise;
   await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "acceptForSession");
   await domains;
+  await cloud.requestCall("thread", "list_prompts", { domain_id: "domain-1" });
+  expect(
+    cloud.target("thread", "prompt_analytics", {
+      domain_id: "domain-1",
+      prompt_id: "3f9c0000-0000-4000-8000-000000000001",
+    }),
+  ).toBe(" on example.com / Brand recommendations");
+  expect(
+    cloudAction("free_site_health_start", { request: { target: "https://example.com/path" } }),
+  ).toBe("Check site health on example.com");
   cloud.toolPolicy = async () => ({ needsApproval: true, destructive: true });
   waiting = Promise.withResolvers<void>();
   const deletion = cloud.requestCall("thread", "delete_prompt", {
     domain_id: "domain-1",
-    prompt_id: "prompt-unknown",
+    prompt_id: "3f9c0000-0000-4000-8000-000000000001",
   });
   await waiting.promise;
   expect(cloud.pendingApprovals()[0]!.message).toContain(
-    "Delete prompt for example.com / prompt-unknown",
+    "Delete prompt on example.com / Brand recommendations",
   );
   await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "decline");
   await deletion;

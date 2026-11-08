@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vite-plus/test";
 import * as Schema from "effect/Schema";
-import { ToolRegistry, isUsefulResult, type ToolDefinition } from "./index.ts";
+import { ToolRegistry, isUsefulResult, marketingTarget, type ToolDefinition } from "./index.ts";
 const definition = (
   run: ToolDefinition<string, string>["run"],
   timeoutMs = 50,
@@ -72,4 +72,23 @@ it("rejects blocked and unreadable searches as first wins", () => {
   for (const status of ["verification_required", "consent_required", "could_not_parse"]) {
     expect(isUsefulResult({ status: "success", output: { status, organic: [] } })).toBe(false);
   }
+});
+
+it.each([
+  [{ website: "https://example.com/path" }, " on example.com"],
+  [{ url: "https://example.com/path" }, " on example.com"],
+  [{ domain: "example.com" }, " on example.com"],
+  [{ query: "brand recommendations" }, ' for "brand recommendations"'],
+  [{ target: "brand recommendations" }, " on brand recommendations"],
+  [{ domain_id: "domain-1", prompt_id: "prompt-1" }, " on Example / Brand recommendations"],
+])("formats marketing target %j", (input, expected) => {
+  expect(
+    marketingTarget(
+      input,
+      new Map([
+        ["domain-1", "Example"],
+        ["prompt-1", "Brand recommendations"],
+      ]),
+    ),
+  ).toBe(expected);
 });
