@@ -228,6 +228,7 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   expect(JSON.stringify(await cloud.status())).not.toContain("test-key");
   expect(await cloud.connectionForRequest("citations", false, true)).toMatchObject({
     state: "connected",
+    access: "unknown",
     tools: ["amicited_cloud_discover", "amicited_cloud_call"],
   });
   expect((await fake.make().status()).state).toBe("connected");

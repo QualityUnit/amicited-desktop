@@ -1,3 +1,4 @@
+import { jsonToolResult } from "../../../amicited/toolResult.ts";
 import { domainToolInput } from "@amicited/cloud-client/domainModel";
 import { usefulMarketingResult } from "@amicited/cloud-client";
 import { AmicitedCloud } from "../../../amicited/Cloud.ts";
@@ -53,11 +54,15 @@ export const layer = McpToolAccess.toLayer(MarketingToolkit, {
         ...connection,
         ...(domain
           ? {
-              domain: { hostname: domain.hostname, brand: domain.brand, domainId: domain.domainId },
+              domain: {
+                hostname: domain.hostname,
+                brand: domain.brand,
+                ...(domain.domainId === undefined ? {} : { domainId: domain.domainId }),
+              },
             }
           : {}),
       };
-    }),
+    }).pipe(Effect.flatMap(jsonToolResult)),
   ),
   marketing_tools_search: McpToolAccess.reads((input) =>
     Effect.gen(function* () {
@@ -72,7 +77,7 @@ export const layer = McpToolAccess.toLayer(MarketingToolkit, {
             .includes(word),
         ),
       );
-    }),
+    }).pipe(Effect.flatMap(jsonToolResult)),
   ),
   marketing_tools_run: McpToolAccess.writesEnvironment((input) =>
     Effect.gen(function* () {
@@ -89,6 +94,6 @@ export const layer = McpToolAccess.toLayer(MarketingToolkit, {
       return yield* service
         .run(input.name, domainToolInput(input.name, input.input, domain))
         .pipe(Effect.provideService(MarketingCaller, { selection: thread?.modelSelection }));
-    }),
+    }).pipe(Effect.flatMap(jsonToolResult)),
   ),
 });

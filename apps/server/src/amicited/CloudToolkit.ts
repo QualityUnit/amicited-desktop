@@ -1,3 +1,4 @@
+import { jsonToolResult } from "./toolResult.ts";
 import { OrchestratorMcpFailure } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -114,6 +115,10 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
   };
 });
 export const layer = McpToolAccess.toLayer(CloudToolkit, {
-  amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) => call(tool, args)),
-  amicited_cloud_call: McpToolAccess.reads(guardedCall),
+  amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) =>
+    call(tool, args).pipe(Effect.flatMap(jsonToolResult)),
+  ),
+  amicited_cloud_call: McpToolAccess.reads((params) =>
+    guardedCall(params).pipe(Effect.flatMap(jsonToolResult)),
+  ),
 });

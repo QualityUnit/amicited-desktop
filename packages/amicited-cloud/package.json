@@ -10,6 +10,7 @@
     "./domainModel": "./src/domainModel.ts",
     "./siteFiles": "./src/siteFiles.ts",
     "./domains": "./src/domains.ts",
+    "./toolResult": "./src/toolResult.ts",
     "./capture": "./src/capture.ts"
   },
   "scripts": {

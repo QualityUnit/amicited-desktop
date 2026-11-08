@@ -415,6 +415,7 @@ Wave 30 keeps existing cloud RPC and toolkit seams and adds:
 ## Cloud approvals and readable results
 
 - `apps/server/src/ws.ts`, `packages/contracts/src/clientRpcPermissions.ts` and `apps/server/src/observability/RpcInstrumentation.ts`: settings-authorized cloud approval answers and access invalidation; agents cannot answer these through the cloud proxy.
+- `apps/server/src/amicited/toolResult.ts`: maps package-owned JSON normalization failures to readable MCP errors and logs the cause.
 - `apps/server/src/amicited/CloudToolkit.ts`: delegates approval to app-owned pending requests; ignores model approval flags.
 - `apps/web/src/components/chat/MessagesTimeline.logic.ts`: includes cloud calls in compact results outside collapsed work groups.
 - `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: folds discovery into one compact result.

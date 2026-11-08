@@ -148,7 +148,7 @@ export class CloudClient {
       return {
         state: "connected",
         kind: "amicited-connection",
-        access: connection.access,
+        access: connection.access ?? "unknown",
         tools: ["amicited_cloud_discover", "amicited_cloud_call"],
         instruction:
           "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. Free checks use a small amount of workspace credits, covered by a new account’s welcome credits; no paid plan is needed. The app requests user approval for external writes and paid tools. Paid reads also use workspace credits; mention the cost before long read loops. Never claim a tool ran unless its call succeeded.",
