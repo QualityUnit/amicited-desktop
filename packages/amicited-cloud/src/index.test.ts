@@ -1,6 +1,6 @@
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
-import { expect, it } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 import { CloudClient, errorState } from "./index.ts";
 async function fixture() {
   let stored: string | undefined;
@@ -210,9 +210,9 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   expect(await cloud.summary()).toMatchObject({ connection: { state: "connected" } });
   await cloud.call("free_site_health_get", { run_id: "report-1" });
   expect(fake.argumentsByTool.free_site_health_get).toEqual({ run_id: "report-1" });
-  expect(await cloud.toolPolicy("free_site_health_get")).toEqual({ needsApproval: false });
+  expect(await cloud.toolPolicy("free_site_health_get")).toMatchObject({ needsApproval: false });
   for (const name of ["free_site_health_start", "unknown_annotations", "contradictory"])
-    expect(await cloud.toolPolicy(name)).toEqual({ needsApproval: true });
+    expect(await cloud.toolPolicy(name)).toMatchObject({ needsApproval: true });
   expect(fake.listings).toBe(1);
   expect(fake.initializations).toBe(2); // One restored client and the original reused session.
   expect(fake.calls.filter((name) => name === "list_toolsets")).toHaveLength(2);
@@ -305,33 +305,95 @@ it("preserves the connection and original tool failures, then runs free tools", 
   await cloud.disconnect();
 });
 
-it("requires app-owned approval and grants only free checks in the same thread", async () => {
+it("keeps one call waiting for app approval and scopes free grants to a thread", async () => {
   await using fake = await fixture();
   const cloud = fake.make();
   await cloud.connectApiKey("test-key");
-  const pending = await cloud.requestCall("thread-1", "contradictory", {});
-  const requestId = (pending as { structuredContent: { requestId: string } }).structuredContent
-    .requestId;
+  let policyDone = Promise.withResolvers<void>();
+  const unsubscribe = cloud.subscribeApprovals(() => {
+    if (cloud.pendingApprovals().length) policyDone.resolve();
+  });
+  const pending = cloud.requestCall("thread-1", "contradictory", {});
+  await policyDone.promise;
+  const requestId = cloud.pendingApprovals()[0]!.requestId;
   expect(fake.calls).not.toContain("contradictory");
   await cloud.answerApproval(requestId, "accept");
+  expect(await pending).toHaveProperty("content");
   await expect(cloud.answerApproval(requestId, "accept")).rejects.toThrow("no longer pending");
   expect(fake.calls.filter((name) => name === "contradictory")).toHaveLength(1);
-  const free = await cloud.requestCall("thread-1", "free_site_health_start", {
+  policyDone = Promise.withResolvers<void>();
+  const free = cloud.requestCall("thread-1", "free_site_health_start", {
     request: { target: "example.com" },
   });
-  await cloud.answerApproval(
-    (free as { structuredContent: { requestId: string } }).structuredContent.requestId,
-    "acceptForSession",
-  );
+  await policyDone.promise;
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "acceptForSession");
+  await free;
   await cloud.requestCall("thread-1", "free_site_health_start", {
     request: { target: "other.example" },
   });
   expect(fake.calls.filter((name) => name === "free_site_health_start")).toHaveLength(2);
-  expect(await cloud.requestCall("thread-2", "free_site_health_start", {})).toMatchObject({
-    structuredContent: { kind: "amicited-approval" },
+  policyDone = Promise.withResolvers<void>();
+  const other = cloud.requestCall("thread-2", "free_site_health_start", {});
+  await policyDone.promise;
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "decline");
+  expect(await other).toMatchObject({
+    isError: true,
+    content: [{ text: expect.stringContaining("user declined") }],
   });
-  expect(await cloud.requestCall("thread-1", "unknown_annotations", { other: true })).toMatchObject(
-    { structuredContent: { kind: "amicited-approval" } },
+  expect(fake.calls.filter((name) => name === "free_site_health_start")).toHaveLength(2);
+  policyDone = Promise.withResolvers<void>();
+  const restarting = cloud.requestCall("thread-1", "contradictory", { restart: true });
+  await policyDone.promise;
+  const staleRequest = cloud.pendingApprovals()[0]!.requestId;
+  await cloud.close();
+  expect(await restarting).toMatchObject({ isError: true });
+  expect(fake.calls.filter((name) => name === "contradictory")).toHaveLength(1);
+  const restored = fake.make();
+  expect(await restored.status()).toMatchObject({ state: "connected" });
+  await expect(restored.answerApproval(staleRequest, "accept")).rejects.toThrow(
+    "no longer pending",
   );
+  unsubscribe();
+  await restored.disconnect();
+});
+
+it("expires and cancels pending calls without executing, including destructive free tools after a grant", async () => {
+  using _timers = { [Symbol.dispose]: () => vi.useRealTimers() };
+  vi.useFakeTimers();
+  const cloud = new CloudClient({
+    secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+    openExternal: async () => {},
+  });
+  const policy = Promise.resolve({ needsApproval: true, destructive: false });
+  cloud.toolPolicy = () => policy;
+  const call = vi.spyOn(cloud, "call").mockResolvedValue({ content: [] });
+  const timed = cloud.requestCall("thread", "paid_tool", {});
+  await policy;
+  const staleId = cloud.pendingApprovals()[0]!.requestId;
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  expect(await timed).toMatchObject({
+    isError: true,
+    content: [{ text: expect.stringContaining("timed out") }],
+  });
+  await expect(cloud.answerApproval(staleId, "accept")).rejects.toThrow("no longer pending");
+  const granted = cloud.requestCall("thread", "free_site_health_start", {});
+  await policy;
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "acceptForSession");
+  await granted;
+  call.mockClear();
+  const destructive = Promise.resolve({ needsApproval: true, destructive: true });
+  cloud.toolPolicy = () => destructive;
+  const controller = new AbortController();
+  const waiting = cloud.requestCall("thread", "free_site_health_start", {}, controller.signal);
+  await destructive;
+  expect(cloud.pendingApprovals()).toHaveLength(1);
+  expect(call).not.toHaveBeenCalled();
+  controller.abort();
+  expect(await waiting).toMatchObject({ isError: true });
+  expect(cloud.pendingApprovals()).toEqual([]);
+  const cancelled = cloud.requestCall("thread", "paid_tool", {});
+  await destructive;
   await cloud.disconnect();
+  expect(await cancelled).toMatchObject({ isError: true });
+  expect(call).not.toHaveBeenCalled();
 });

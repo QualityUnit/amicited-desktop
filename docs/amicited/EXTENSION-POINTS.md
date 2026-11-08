@@ -422,10 +422,19 @@ Wave 30 keeps existing cloud RPC and toolkit seams and adds:
 - `apps/web/src/components/chat/ChatComposer.tsx`: starter arrows indicate an in-app action.
 - `apps/web/src/components/chat/MessagesTimeline.logic.test.ts`: covers cloud results in the existing completed-turn folding case.
 
-Approvals currently live in the cloud service session. Disconnect clears requests
-and free-check grants. Server restart invalidates pending approvals. The card
-reuses upstream approval actions, but is not a provider runtime approval request;
-its accepted result is browser-local until the agent retrieves the cached result.
+Cloud MCP calls wait up to ten minutes for an app-owned decision and return the
+actual result in that same call. Provider runtime responses require a native
+provider request, so cloud requests use the bounded-wait fallback. Pending cards
+are recovered from the server after remount; restart cancels them safely.
+
+- `apps/server/src/auth/RpcAuthorization.ts`: permits orchestration readers to see pending cloud approvals; answering remains settings-write protected.
+- `apps/web/src/components/chat/ChatComposer.tsx`: displays pending cloud requests at the normal composer approval location.
+- `apps/web/src/marketing.tsx`: shows Needs your OK for threads waiting on a cloud decision.
+- `packages/amicited-ui/src/marketing.css`: the native collapsed rail retains its wider header because macOS traffic lights and the toggle occupy the same top row; matching 48px would overlap those controls.
 
 - `scripts/amicited/electron-screenshots.mjs`: disables the viewport resize overlay and compares matching sidebar title elements.
 - `apps/web/src/marketingOffer.browser.test.tsx`: supplies the additional cloud adapter exports in the existing isolated mock.
+
+- `apps/server/src/amicited/Cloud.ts`: cancels pending cloud calls on service shutdown and accepts a loopback MCP endpoint only when Replay capture is enabled.
+- `apps/server/scripts/dev-replay-agent.ts`: opt-in live cloud capture calls the actual injected MCP tools and persists their returned results.
+- `scripts/amicited/electron-screenshots.mjs`: uses the installed Electron binary and optionally captures the production OAuth login boundary in an isolated browser.

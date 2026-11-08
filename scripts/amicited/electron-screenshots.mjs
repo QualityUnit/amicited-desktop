@@ -32,6 +32,22 @@ const env = {
   T3CODE_NO_BROWSER: "1",
   T3CODE_SINGLE_ORIGIN_DEV: "1",
 };
+if (process.env.AMICITED_CAPTURE_OAUTH === "1") {
+  const bin = NodePath.join(home, "capture-bin");
+  NodeFS.mkdirSync(bin);
+  env.AMICITED_OAUTH_CAPTURE_URL = NodePath.join(home, "oauth-url");
+  NodeFS.writeFileSync(
+    NodePath.join(bin, "open"),
+    `#!/bin/sh
+case "$1" in
+  https://api.flowhunt.io/*) printf '%s' "$1" > "$AMICITED_OAUTH_CAPTURE_URL" ;;
+  *) exec /usr/bin/open "$@" ;;
+esac
+`,
+    { mode: 0o700 },
+  );
+  env.PATH = bin + NodePath.delimiter + env.PATH;
+}
 delete env.ELECTRON_RUN_AS_NODE;
 delete env.VITE_HTTP_URL;
 delete env.VITE_WS_URL;
@@ -89,8 +105,12 @@ NodeFS.writeFileSync(
 let child, browser;
 try {
   await webReady;
+  process.env.VITE_DEV_SERVER_URL = env.VITE_DEV_SERVER_URL;
+  const { resolveElectronLaunchCommand } =
+    await import("../../apps/desktop/scripts/electron-launcher.mjs");
+  resolveElectronLaunchCommand();
   const executable =
-    // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone evidence launcher selects the installed Electron binary without an Effect runtime.
+    // oxlint-disable-next-line t3code/no-global-process-runtime -- Standalone capture selects the platform Electron binary.
     NodeOS.platform() === "darwin"
       ? NodePath.join(
           root,
@@ -497,6 +517,60 @@ try {
       2,
     ),
   );
+  if (process.env.AMICITED_CAPTURE_OAUTH === "1") {
+    await page.evaluate(() => {
+      localStorage.setItem("amicited.workspace-mode", "marketer");
+      window.location.hash = "/marketing-settings";
+    });
+    await page.reload();
+    let watcher;
+    let launchTimer;
+    const launched = new Promise((resolve, reject) => {
+      launchTimer = setTimeout(() => {
+        watcher.close();
+        reject(
+          new Error("Production OAuth did not reach the browser-open boundary within 40 seconds."),
+        );
+      }, 40_000);
+      watcher = NodeFS.watch(home, (_, name) => {
+        if (
+          name === "oauth-url" &&
+          NodeFS.readFileSync(env.AMICITED_OAUTH_CAPTURE_URL, "utf8").length
+        ) {
+          clearTimeout(launchTimer);
+          watcher.close();
+          resolve(NodeFS.readFileSync(env.AMICITED_OAUTH_CAPTURE_URL, "utf8"));
+        }
+      });
+    });
+    void launched.catch(() => {});
+    await page.getByRole("button", { name: "Connect with AmICited", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
+    await capture("production-oauth-waiting");
+    const loginBrowser = await chromium.launch({ headless: true });
+    try {
+      const login = await loginBrowser.newPage({
+        viewport: { width: 1344, height: 1016 },
+        deviceScaleFactor: 2,
+      });
+      await login.goto(await launched);
+      await login.waitForURL(/flowhunt\.io.*login/);
+      await login.screenshot({
+        path: NodePath.join(out, "electron-production-flowhunt-login.png"),
+      });
+    } catch (error) {
+      NodeFS.writeFileSync(
+        NodePath.join(out, "production-oauth-boundary.json"),
+        JSON.stringify({ loginCaptured: false, reason: String(error) }, null, 2),
+      );
+    } finally {
+      clearTimeout(launchTimer);
+      watcher.close();
+      await loginBrowser.close();
+      const cancel = page.getByRole("button", { name: "Cancel", exact: true });
+      if (await cancel.count()) await cancel.click();
+    }
+  }
   await cdp.detach();
   const report = JSON.parse(NodeFS.readFileSync(NodePath.join(out, "electron-fonts.json"), "utf8"));
   report.verified = Object.values(report.fonts).every(Boolean);

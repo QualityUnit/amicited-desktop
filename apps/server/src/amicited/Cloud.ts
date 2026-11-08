@@ -1,4 +1,5 @@
 import { CloudClient } from "@amicited/cloud-client";
+import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,7 +23,14 @@ export const layer = Layer.effect(
     };
     const missing = (error: unknown) =>
       /NoEntry|no (matching )?entry|not found/i.test(String(error));
-    return new CloudClient({
+    const capture = yield* Config.String("T3CODE_DEV_REPLAY_CAPTURE").pipe(Config.withDefault(""));
+    const endpoint = yield* Config.String("T3CODE_DEV_AMICITED_ENDPOINT").pipe(
+      Config.withDefault(""),
+    );
+    const fixtureEndpoint =
+      capture === "1" && /^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(endpoint) ? endpoint : undefined;
+    const cloud = new CloudClient({
+      ...(fixtureEndpoint ? { endpoint: fixtureEndpoint } : {}),
       secrets: {
         read: async () => {
           try {
@@ -46,5 +54,7 @@ export const layer = Layer.effect(
           launcher.launchBrowser(url).pipe(Effect.withTracerEnabled(false)),
         ),
     });
+    yield* Effect.addFinalizer(() => Effect.promise(() => cloud.close()));
+    return cloud;
   }),
 );

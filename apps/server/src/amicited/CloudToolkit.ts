@@ -68,7 +68,7 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
       message: "Run AmICited actions from a thread so the user can approve them.",
     });
   const result = yield* Effect.tryPromise({
-    try: async () => {
+    try: async (signal) => {
       const policy = await cloud.toolPolicy(params.tool);
       if (
         caller.scope.client?.access === "read-only" &&
@@ -81,7 +81,12 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
             message: "This client can only read free AmICited results.",
           },
         };
-      return cloud.requestCall(caller.scope.thread!.threadId, params.tool, params.arguments);
+      return cloud.requestCall(
+        caller.scope.thread!.threadId,
+        params.tool,
+        params.arguments,
+        signal,
+      );
     },
     catch: () =>
       new OrchestratorMcpFailure({

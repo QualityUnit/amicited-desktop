@@ -116,3 +116,14 @@ standalone connection component is mounted over the page.
 Native reuse of a real Haiku turn requires `AMICITED_REUSE_REAL=1`; reusing a
 free Replay home does not assume an account-backed run exists. Native cloud
 settings states use the same controlled dev event as the browser journey.
+
+Wave 32 uses `.amicited-shots/r30/`. The browser harness points the cloud service
+at a loopback-only fake MCP endpoint and passes `--live-cloud` to Replay. Its
+cloud scenario calls T3's actual MCP proxy and waits for the app approval before
+persisting the returned result. Live waiting, connected-after-refresh, free and
+paid approval, and subscription-refusal captures have distinct names; the older
+Settings evidence fixtures remain labelled separately. No production account is
+used. `AMICITED_CAPTURE_OAUTH=1` on the native harness routes the browser-open
+boundary to an isolated capture browser and attempts a FlowHunt login capture
+without submitting forms, then cancels in the app. If the boundary cannot be
+reached, `production-oauth-boundary.json` records that limitation.

@@ -8,6 +8,7 @@
  */
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
+import { connectCaptureAgent, type CaptureMcpServer } from "@amicited/cloud-client/capture";
 import * as NodeReadline from "node:readline";
 
 interface LogicalFrame {
@@ -215,6 +216,7 @@ function runAgent(): void {
     return turns;
   };
 
+  const cloudServers = new Map<string, CaptureMcpServer>();
   const sessions = new Map<
     string,
     { cwd: string; model: string; promptCount: number; cancel: (() => void) | undefined }
@@ -249,56 +251,138 @@ function runAgent(): void {
     const session = sessions.get(sessionId)!;
     // Random, so a session loaded after a restart cannot reuse earlier tool rows.
     const live = { sessionId, workspace: session.cwd, turnKey: NodeCrypto.randomUUID() };
-    for (const recorded of turn.frames) {
-      const frame = materialize(recorded.frame, live) as LogicalFrame;
-      if (frame.kind === "request") {
-        await sleep(recorded.afterMs ?? FRAME_DELAY_MS, signal);
-        if (signal.aborted) return;
-        const id = nextAgentRequestId++;
-        let answer: unknown;
-        const response = new Promise((resolve) =>
-          pendingAgentRequests.set(String(id), (result) => resolve((answer = result))),
-        );
-        send({ id, method: frame.method, params: frame.params as Record<string, unknown> });
-        await untilAbort(response, signal);
-        pendingAgentRequests.delete(String(id));
-        // The client answers "cancelled" when the user stops the turn mid-request.
-        const outcome = (answer as { outcome?: { outcome?: string } } | undefined)?.outcome;
-        if (signal.aborted || outcome?.outcome === "cancelled") return "cancelled";
-        const toolCallId = permissionRejectedToolCallId(frame, answer);
-        if (toolCallId === undefined) continue;
-        // The recording only has the approved path, so a rejection ends the turn here.
+    const liveCloud = session.model === "marketing-cloud" ? cloudServers.get(sessionId) : undefined;
+    if (process.argv.includes("--live-cloud") && session.model === "marketing-cloud" && !liveCloud)
+      throw new Error("Live cloud capture needs T3 MCP capabilities.");
+    const cloudClient = liveCloud ? await connectCaptureAgent(liveCloud) : undefined;
+    const calls = new Map<string, Promise<unknown>>();
+    try {
+      for (const recorded of turn.frames) {
+        const frame = materialize(recorded.frame, live) as LogicalFrame;
+        if (frame.kind === "request") {
+          await sleep(recorded.afterMs ?? FRAME_DELAY_MS, signal);
+          if (signal.aborted) return;
+          const id = nextAgentRequestId++;
+          let answer: unknown;
+          const response = new Promise((resolve) =>
+            pendingAgentRequests.set(String(id), (result) => resolve((answer = result))),
+          );
+          send({ id, method: frame.method, params: frame.params as Record<string, unknown> });
+          await untilAbort(response, signal);
+          pendingAgentRequests.delete(String(id));
+          // The client answers "cancelled" when the user stops the turn mid-request.
+          const outcome = (answer as { outcome?: { outcome?: string } } | undefined)?.outcome;
+          if (signal.aborted || outcome?.outcome === "cancelled") return "cancelled";
+          const toolCallId = permissionRejectedToolCallId(frame, answer);
+          if (toolCallId === undefined) continue;
+          // The recording only has the approved path, so a rejection ends the turn here.
+          send({
+            method: "session/update",
+            params: {
+              sessionId,
+              update: { sessionUpdate: "tool_call_update", toolCallId, status: "failed" },
+            },
+          });
+          return;
+        }
+        const params = frame.params as { update: { sessionUpdate: string; content?: unknown } };
+        const toolUpdate = params.update as unknown as {
+          sessionUpdate: string;
+          toolCallId: string;
+          title?: string;
+          rawInput?: Record<string, unknown>;
+          rawOutput?: unknown;
+        };
+        if (cloudClient && toolUpdate.sessionUpdate === "tool_call" && toolUpdate.title) {
+          calls.set(
+            toolUpdate.toolCallId,
+            cloudClient.callTool(
+              { name: toolUpdate.title, arguments: toolUpdate.rawInput },
+              undefined,
+              { timeout: 11 * 60_000, signal },
+            ),
+          );
+        }
+        if (
+          cloudClient &&
+          toolUpdate.sessionUpdate === "tool_call_update" &&
+          calls.has(toolUpdate.toolCallId)
+        ) {
+          const result = await calls.get(toolUpdate.toolCallId);
+          const structured = result as {
+            structuredContent?: unknown;
+            content?: { type: string; text?: string }[];
+          };
+          toolUpdate.rawOutput =
+            structured.structuredContent ??
+            JSON.parse(structured.content?.find((entry) => entry.type === "text")?.text ?? "{}");
+        }
+        const content = params.update.content as { type?: string; text?: string } | undefined;
+        const text =
+          (params.update.sessionUpdate === "agent_message_chunk" ||
+            params.update.sessionUpdate === "agent_thought_chunk") &&
+          content?.type === "text"
+            ? content.text
+            : undefined;
+        // Live recordings hold one frame per token, so text defaults to the chunk pace.
+        const firstDelay =
+          recorded.afterMs ?? (text === undefined ? FRAME_DELAY_MS : CHUNK_DELAY_MS);
+        const chunks = text === undefined ? [undefined] : streamChunks(text);
+        for (const [index, chunk] of chunks.entries()) {
+          await sleep(index === 0 ? firstDelay : CHUNK_DELAY_MS, signal);
+          if (signal.aborted) return;
+          send({
+            method: frame.method,
+            params:
+              chunk === undefined
+                ? params
+                : { ...params, update: { ...params.update, content: { ...content, text: chunk } } },
+          });
+        }
+      }
+      if (cloudClient && !signal.aborted) {
+        const toolCallId = NodeCrypto.randomUUID();
         send({
           method: "session/update",
           params: {
             sessionId,
-            update: { sessionUpdate: "tool_call_update", toolCallId, status: "failed" },
+            update: {
+              sessionUpdate: "tool_call",
+              toolCallId,
+              title: "amicited_cloud_call",
+              kind: "other",
+              status: "pending",
+              rawInput: { tool: "paid_refusal", arguments: {} },
+            },
           },
         });
-        return;
-      }
-      const params = frame.params as { update: { sessionUpdate: string; content?: unknown } };
-      const content = params.update.content as { type?: string; text?: string } | undefined;
-      const text =
-        (params.update.sessionUpdate === "agent_message_chunk" ||
-          params.update.sessionUpdate === "agent_thought_chunk") &&
-        content?.type === "text"
-          ? content.text
-          : undefined;
-      // Live recordings hold one frame per token, so text defaults to the chunk pace.
-      const firstDelay = recorded.afterMs ?? (text === undefined ? FRAME_DELAY_MS : CHUNK_DELAY_MS);
-      const chunks = text === undefined ? [undefined] : streamChunks(text);
-      for (const [index, chunk] of chunks.entries()) {
-        await sleep(index === 0 ? firstDelay : CHUNK_DELAY_MS, signal);
-        if (signal.aborted) return;
+        const result = await cloudClient.callTool(
+          { name: "amicited_cloud_call", arguments: { tool: "paid_refusal", arguments: {} } },
+          undefined,
+          { timeout: 11 * 60_000, signal },
+        );
+        const structured = result as {
+          structuredContent?: unknown;
+          content?: { type: string; text?: string }[];
+        };
+        const rawOutput =
+          structured.structuredContent ??
+          JSON.parse(structured.content?.find((entry) => entry.type === "text")?.text ?? "{}");
         send({
-          method: frame.method,
-          params:
-            chunk === undefined
-              ? params
-              : { ...params, update: { ...params.update, content: { ...content, text: chunk } } },
+          method: "session/update",
+          params: {
+            sessionId,
+            update: {
+              sessionUpdate: "tool_call_update",
+              toolCallId,
+              status: "completed",
+              rawOutput,
+            },
+          },
         });
       }
+    } finally {
+      await cloudClient?.close();
     }
   };
 
@@ -309,6 +393,7 @@ function runAgent(): void {
         return {
           protocolVersion: 1,
           agentCapabilities: {
+            mcpCapabilities: { http: true },
             loadSession: true,
             promptCapabilities: { image: false, audio: false, embeddedContext: true },
           },
@@ -322,6 +407,15 @@ function runAgent(): void {
         const sessionId =
           message.method === "session/load" ? String(params.sessionId) : NodeCrypto.randomUUID();
         const cwd = typeof params.cwd === "string" ? params.cwd : process.cwd();
+        if (process.argv.includes("--live-cloud") && Array.isArray(params.mcpServers)) {
+          const server = params.mcpServers.find(
+            (value: unknown) =>
+              typeof value === "object" &&
+              value !== null &&
+              (("type" in value && value.type === "http") || "command" in value),
+          ) as CaptureMcpServer | undefined;
+          if (server) cloudServers.set(sessionId, server);
+        }
         sessions.set(sessionId, { cwd, model: SCENARIOS[0].id, promptCount: 0, cancel: undefined });
         return {
           ...(message.method === "session/new" ? { sessionId } : {}),

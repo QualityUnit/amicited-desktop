@@ -122,70 +122,113 @@ export class CloudClient {
     {
       threadId: string;
       tool: string;
-      args: Record<string, unknown>;
       free: boolean;
-      result?: unknown;
+      resolve: (
+        decision: "decline" | "accept" | "acceptForSession" | "timeout" | "cancelled",
+      ) => void;
     }
   >();
   private freeGrants = new Set<string>();
-  async requestCall(threadId: string, tool: string, args: Record<string, unknown>) {
+  private approvalListeners = new Set<() => void>();
+  subscribeApprovals(listener: () => void) {
+    this.approvalListeners.add(listener);
+    return () => {
+      this.approvalListeners.delete(listener);
+    };
+  }
+  pendingApprovals() {
+    return [...this.approvals.entries()].map(([requestId, request]) => ({
+      requestId,
+      threadId: request.threadId,
+      tool: request.tool,
+      free: request.free,
+      message: request.free
+        ? "Allow this free AmICited check? It sends your input to AmICited and costs no workspace credits."
+        : "Allow this AmICited action? It may change your workspace and uses workspace credits.",
+    }));
+  }
+  private cancelApprovals() {
+    for (const request of this.approvals.values()) request.resolve("cancelled");
+    this.approvals.clear();
+  }
+  async requestCall(
+    threadId: string,
+    tool: string,
+    args: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) {
+    const generation = this.generation;
     const policy = await this.toolPolicy(tool);
     const free =
       /^free_(?:brand_visibility|query_fanout|llms_txt|site_health|watermark_detection|watermark_removal)_(?:start|get)$/.test(
         tool,
       );
-    const matching = [...this.approvals.entries()].find(
-      ([, request]) =>
-        request.threadId === threadId &&
-        request.tool === tool &&
-        JSON.stringify(request.args) === JSON.stringify(args),
-    );
-    if (matching) {
-      if (matching[1].result !== undefined) {
-        this.approvals.delete(matching[0]);
-        return matching[1].result;
-      }
-      return this.approvalCard(matching[0], matching[1]);
-    }
-    if ((free && !policy.needsApproval) || (free && this.freeGrants.has(threadId)))
+    if (signal?.aborted || generation !== this.generation) return this.approvalFailure("cancelled");
+    if (
+      (free && !policy.needsApproval) ||
+      (free && this.freeGrants.has(threadId) && !policy.destructive)
+    )
       return this.call(tool, args);
     const id = NodeCrypto.randomUUID();
-    const request = { threadId, tool, args, free };
-    this.approvals.set(id, request);
-    return this.approvalCard(id, request);
+    const decision = await new Promise<
+      "decline" | "accept" | "acceptForSession" | "timeout" | "cancelled"
+    >((resolve) => {
+      const finish = (
+        value: "decline" | "accept" | "acceptForSession" | "timeout" | "cancelled",
+      ) => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", cancel);
+        this.approvals.delete(id);
+        this.approvalListeners.forEach((listener) => listener());
+        resolve(value);
+      };
+      const cancel = () => finish("cancelled");
+      const timer = setTimeout(() => finish("timeout"), 10 * 60_000);
+      this.approvals.set(id, { threadId, tool, free, resolve: finish });
+      signal?.addEventListener("abort", cancel, { once: true });
+      this.approvalListeners.forEach((listener) => listener());
+    });
+    if (generation !== this.generation || signal?.aborted) return this.approvalFailure("cancelled");
+    if (decision === "decline" || decision === "timeout" || decision === "cancelled")
+      return this.approvalFailure(decision);
+    if (decision === "acceptForSession" && free && !policy.destructive)
+      this.freeGrants.add(threadId);
+    return this.call(tool, args);
   }
-  private approvalCard(id: string, request: { tool: string; free: boolean }) {
+  private approvalFailure(reason: "decline" | "timeout" | "cancelled") {
     return {
-      structuredContent: {
-        kind: "amicited-approval",
-        requestId: id,
-        tool: request.tool,
-        free: request.free,
-        message: request.free
-          ? "Allow this free AmICited check? It sends your input to AmICited and costs no workspace credits."
-          : "Allow this AmICited action? It may change your workspace and uses workspace credits.",
-      },
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text:
+            reason === "decline"
+              ? "The user declined this AmICited action. Nothing was run."
+              : reason === "timeout"
+                ? "Approval timed out after ten minutes. Nothing was run. Ask the user before trying again."
+                : "This AmICited approval was cancelled. Nothing was run.",
+        },
+      ],
     };
   }
   async answerApproval(requestId: string, decision: "decline" | "accept" | "acceptForSession") {
     const request = this.approvals.get(requestId);
-    if (!request || request.result !== undefined)
-      throw new Error("This approval is no longer pending.");
-    // Consume before awaiting to prevent double-clicks from executing twice.
-    request.result = {
-      isError: true,
-      content: [{ type: "text", text: "This action was declined or is already running." }],
-    };
-    if (decision === "decline") return request.result;
-    if (decision === "acceptForSession" && request.free) this.freeGrants.add(request.threadId);
-    request.result = await this.call(request.tool, request.args);
-    return request.result;
+    if (!request) throw new Error("This approval is no longer pending.");
+    request.resolve(decision);
+    return { accepted: decision !== "decline" };
+  }
+  async close() {
+    ++this.generation;
+    this.cancelApprovals();
+    this.freeGrants.clear();
+    this.cancelOAuth?.();
+    await this.closeSession();
   }
   private current: Connection = { state: "disconnected" };
   private generation = 0;
   private checkedAt = 0;
   private session: { key: string; client: Client } | undefined;
-  private policies = new Map<string, { needsApproval: boolean }>();
+  private policies = new Map<string, { needsApproval: boolean; destructive?: boolean }>();
   private async closeSession() {
     const session = this.session;
     this.session = undefined;
@@ -350,9 +393,10 @@ export class CloudClient {
     });
   }
   async connectApiKey(apiKey: string): Promise<Connection> {
-    this.approvals.clear();
+    this.cancelApprovals();
     this.freeGrants.clear();
     if (this.current.state === "connecting") return this.current;
+    ++this.generation;
     return this.serial(async () => {
       this.current = { state: "connecting" };
       try {
@@ -368,7 +412,7 @@ export class CloudClient {
     });
   }
   async connectOAuth(): Promise<Connection> {
-    this.approvals.clear();
+    this.cancelApprovals();
     this.freeGrants.clear();
     if (this.current.state === "connecting") return this.current;
     this.current = { state: "connecting" };
@@ -437,7 +481,7 @@ export class CloudClient {
   }
   async disconnect(): Promise<Connection> {
     ++this.generation;
-    this.approvals.clear();
+    this.cancelApprovals();
     this.freeGrants.clear();
     this.cancelOAuth?.();
     return this.serial(async () => {
@@ -496,6 +540,7 @@ export class CloudClient {
           const page = await client.listTools(cursor ? { cursor } : {});
           for (const tool of page.tools)
             this.policies.set(tool.name, {
+              destructive: tool.annotations?.destructiveHint !== false,
               needsApproval:
                 tool.annotations?.readOnlyHint !== true ||
                 tool.annotations.destructiveHint !== false,

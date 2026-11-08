@@ -2016,6 +2016,7 @@ export const layerWsRpc = (
         "amicited.cloud.answerApproval": ({ requestId, decision }) =>
           Effect.promise(() => cloud.answerApproval(requestId, decision)),
         "amicited.cloud.resetAccess": () => Effect.sync(() => cloud.resetAccess()),
+        "amicited.cloud.pendingApprovals": () => Effect.sync(() => cloud.pendingApprovals()),
         "amicited.cloud.status": () => Effect.promise(() => cloud.status()),
         "amicited.cloud.summary": () => Effect.promise(() => cloud.summary()),
         "amicited.cloud.connectOAuth": () => Effect.promise(() => cloud.connectOAuth()),

@@ -1,3 +1,4 @@
+import { ComposerBanner } from "../components/chat/ComposerBanner";
 import { CloudToolResultCard } from "@amicited/ui-marketing";
 import { ComposerPendingApprovalActions } from "../components/chat/ComposerPendingApprovalActions";
 import { RuntimeRequestId } from "@t3tools/contracts";
@@ -11,12 +12,13 @@ import { marketingNavigate } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
 import {
   useEffect,
+  useContext,
   useEffectEvent,
   useState,
   useSyncExternalStore,
   type ComponentProps,
 } from "react";
-import { useAtomValue } from "@effect/atom-react";
+import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
@@ -91,14 +93,115 @@ const approval = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.answerApproval",
   label: "cloud:approval",
 });
+const pendingApprovals = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.cloud.pendingApprovals",
+  label: "cloud:pending-approvals",
+});
+type PendingCloudApproval = {
+  requestId: string;
+  threadId: string;
+  tool: string;
+  free: boolean;
+  message: string;
+};
+const pendingCloud = new Map<string, readonly PendingCloudApproval[]>();
+const emptyPending: readonly PendingCloudApproval[] = [];
+const pendingPollers = new Map<string, { users: number; stop: () => void }>();
+const pendingListeners = new Set<() => void>();
+const subscribePending = (listener: () => void) => {
+  pendingListeners.add(listener);
+  return () => {
+    pendingListeners.delete(listener);
+  };
+};
+export function useCloudApprovals(
+  environmentId: import("@t3tools/contracts").EnvironmentId | null | undefined,
+) {
+  const registry = useContext(RegistryContext);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Pending MCP calls live on the destination server, outside React.
+  useEffect(() => {
+    if (!environmentId) return;
+    let poller = pendingPollers.get(environmentId);
+    if (!poller) {
+      let active = true;
+      let reading = false;
+      const refresh = async () => {
+        if (reading) return;
+        reading = true;
+        try {
+          const result = await pendingApprovals.run(registry, { environmentId, input: undefined });
+          if (active && result._tag === "Success") {
+            const previous = pendingCloud.get(environmentId) ?? emptyPending;
+            if (
+              previous.length !== result.value.length ||
+              previous.some(
+                (request, index) => request.requestId !== result.value[index]?.requestId,
+              )
+            ) {
+              pendingCloud.set(environmentId, result.value);
+              pendingListeners.forEach((listener) => listener());
+            }
+          }
+        } catch {
+          pendingCloud.delete(environmentId);
+          pendingListeners.forEach((listener) => listener());
+        }
+        reading = false;
+      };
+      void refresh();
+      const timer = setInterval(() => void refresh(), 1000);
+      poller = {
+        users: 0,
+        stop: () => {
+          active = false;
+          clearInterval(timer);
+        },
+      };
+      pendingPollers.set(environmentId, poller);
+    }
+    poller.users++;
+    return () => {
+      if (--poller.users === 0) {
+        poller.stop();
+        pendingPollers.delete(environmentId);
+      }
+    };
+  }, [environmentId, registry]);
+  return useSyncExternalStore(subscribePending, () =>
+    environmentId ? (pendingCloud.get(environmentId) ?? emptyPending) : emptyPending,
+  );
+}
+export function CloudPendingApprovals({
+  threadRef,
+}: {
+  threadRef: import("@t3tools/contracts").ScopedThreadRef | null;
+}) {
+  const requests = useCloudApprovals(threadRef?.environmentId);
+  return requests
+    .filter((request) => request.threadId === threadRef?.threadId)
+    .map((request) => (
+      <ComposerBanner.Attachment key={request.requestId}>
+        <ComposerBanner.Root variant="warning">
+          <CloudApproval
+            request={request}
+            tool={request.tool}
+            environmentId={threadRef?.environmentId}
+          />
+        </ComposerBanner.Root>
+      </ComposerBanner.Attachment>
+    ));
+}
 export function CloudApproval({
   request,
   tool,
+  environmentId: destination,
 }: {
   request: { requestId: string; message: string; free: boolean };
   tool: string;
+  environmentId?: import("@t3tools/contracts").EnvironmentId | undefined;
 }) {
-  const environmentId = usePrimaryEnvironmentId();
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const environmentId = destination ?? primaryEnvironmentId;
   const answer = useAtomCommand(approval);
   const allowed = useAtomValue(approval.permissionAtom(environmentId));
   const [result, setResult] = useState<unknown>();
@@ -132,8 +235,27 @@ export function CloudApproval({
             input: { requestId: request.requestId, decision },
           });
           setBusy(false);
-          if (response._tag === "Success") setResult(response.value);
-          else setFailure(true);
+          if (response._tag === "Success") {
+            if (environmentId)
+              pendingCloud.set(
+                environmentId,
+                (pendingCloud.get(environmentId) ?? []).filter(
+                  (item) => item.requestId !== request.requestId,
+                ),
+              );
+            pendingListeners.forEach((listener) => listener());
+            setResult({
+              content: [
+                {
+                  type: "text",
+                  text:
+                    decision === "decline"
+                      ? "The user declined. Nothing was run."
+                      : "Approved. Waiting for AmICited…",
+                },
+              ],
+            });
+          } else setFailure(true);
         }}
       />
       {failure && <p role="alert">Could not answer this approval. Please try again.</p>}
@@ -223,10 +345,10 @@ export function CloudFooter({ result }: { result: WinResult }) {
   const { environmentId, connection, setConnection } = useCloud();
   const doOAuth = useAtomCommand(oauth);
   const doDisconnect = useAtomCommand(disconnect);
-  const [started, setStarted] = useState(false);
+
   const [gate] = useState(() => createUpsellGate(localStorage, sessionStorage));
   if (!connection) return null;
-  if (started && connection.state === "connected")
+  if (connection.state === "connected")
     return (
       <aside className="am-cloud-card">
         <p>Connected: free AmICited tools unlocked</p>
@@ -239,7 +361,7 @@ export function CloudFooter({ result }: { result: WinResult }) {
     <AmicitedUpsellCard
       result={result}
       gate={gate}
-      connected={connection.state === "connected"}
+      connected={false}
       ui={ui}
       openExternal={openExternal}
       connection={connection}
@@ -251,7 +373,6 @@ export function CloudFooter({ result }: { result: WinResult }) {
       }}
       onConnect={() => {
         if (!environmentId) return;
-        setStarted(true);
         setConnection({ state: "connecting" });
         void doOAuth({ environmentId, input: undefined }).then((r) =>
           setConnection(

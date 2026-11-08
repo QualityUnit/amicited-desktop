@@ -17,6 +17,17 @@ export const CloudConnection = Schema.Union([
   }),
 ]);
 export const cloudRpcs = [
+  Rpc.make("amicited.cloud.pendingApprovals", {
+    success: Schema.Array(
+      Schema.Struct({
+        requestId: Schema.String,
+        threadId: Schema.String,
+        tool: Schema.String,
+        free: Schema.Boolean,
+        message: Schema.String,
+      }),
+    ),
+  }),
   Rpc.make("amicited.cloud.resetAccess", { success: CloudConnection }),
   Rpc.make("amicited.cloud.answerApproval", {
     payload: {

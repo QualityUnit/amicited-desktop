@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./rpc": "./src/rpc.ts",
     "./upsell": "./src/upsell.ts",
-    "./model": "./src/model.ts"
+    "./model": "./src/model.ts",
+    "./capture": "./src/capture.ts"
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",

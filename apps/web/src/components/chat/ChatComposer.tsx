@@ -1,3 +1,4 @@
+import { CloudPendingApprovals } from "../../rpc/amicitedCloud";
 import { getOnboardingProviderState } from "../../onboarding/providerReadiness.logic";
 import { createPortal } from "react-dom";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer suggestion styles come from @amicited/ui-marketing. */
@@ -3243,6 +3244,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       <ComposerBanner.Dock>
         <ComposerBanner.Column>
           <ComposerBannerStack items={shelfItems} />
+          <CloudPendingApprovals threadRef={routeThreadRef} />
           {showComposerTopDrawer ? (
             <ComposerBanner.Attachment>
               <ComposerBanner.Root data-chat-composer-top-drawer="true" variant="info">

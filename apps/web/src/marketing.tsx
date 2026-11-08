@@ -1,3 +1,4 @@
+import { useCloudApprovals } from "./rpc/amicitedCloud";
 import { useWindowControlsInsetStyle } from "./components/AppSidebarLayout";
 import { isElectron } from "./env";
 import { ToggleGroup, Toggle } from "./components/ui/toggle-group";
@@ -939,7 +940,10 @@ function MarketingHistoryStatus({
 }: {
   thread: ReturnType<typeof useThreadShells>[number];
 }) {
-  const status = marketingHistoryStatus(thread);
+  const approvals = useCloudApprovals(thread.environmentId);
+  const status = approvals.some((request) => request.threadId === thread.id)
+    ? "Needs your OK"
+    : marketingHistoryStatus(thread);
   const label = status === "Done" && !thread.latestRun ? "" : status;
   const nowMinute = useNowMinute();
   const relative = formatRelativeTimeLabel(

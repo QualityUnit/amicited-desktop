@@ -20,7 +20,45 @@ await NodeFSP.writeFile(
 );
 const { CloudClient } = await import(String("../../packages/amicited-cloud/src/index.ts"));
 // Exercise the real client against a local MCP fixture; no production credentials.
+const fixtureCalls: { tool: string; arguments: unknown }[] = [];
 const fixture = NodeHttp.createServer(async (req, res) => {
+  const path = req.url ?? "";
+  const fixtureOrigin = `http://127.0.0.1:${(fixture.address() as NodeNet.AddressInfo).port}`;
+  if (path.startsWith("/.well-known/oauth-protected-resource")) {
+    res.writeHead(200, { "Content-Type": "application/json" }).end(
+      JSON.stringify({
+        resource: fixtureOrigin + "/mcp",
+        authorization_servers: [fixtureOrigin],
+      }),
+    );
+    return;
+  }
+  if (path.startsWith("/.well-known/")) {
+    res.writeHead(200, { "Content-Type": "application/json" }).end(
+      JSON.stringify({
+        issuer: fixtureOrigin,
+        authorization_endpoint: fixtureOrigin + "/authorize",
+        token_endpoint: fixtureOrigin + "/token",
+        registration_endpoint: fixtureOrigin + "/register",
+        response_types_supported: ["code"],
+        code_challenge_methods_supported: ["S256"],
+        token_endpoint_auth_methods_supported: ["none"],
+      }),
+    );
+    return;
+  }
+  if (path.startsWith("/authorize")) {
+    res.end("Capture sign-in boundary. Return to AmICited and cancel.");
+    return;
+  }
+  if (path === "/mcp" && !req.headers.authorization) {
+    res
+      .writeHead(401, {
+        "WWW-Authenticate": `Bearer resource_metadata="${fixtureOrigin}/.well-known/oauth-protected-resource/mcp/amicited"`,
+      })
+      .end();
+    return;
+  }
   if (req.method !== "POST") {
     res.writeHead(405).end();
     return;
@@ -28,6 +66,14 @@ const fixture = NodeHttp.createServer(async (req, res) => {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   const rpc = JSON.parse(Buffer.concat(chunks).toString());
+  if (path === "/register") {
+    res
+      .writeHead(201, { "Content-Type": "application/json" })
+      .end(JSON.stringify({ ...rpc, client_id: "capture-client" }));
+    return;
+  }
+  if (rpc.method === "tools/call")
+    fixtureCalls.push({ tool: rpc.params.name, arguments: rpc.params.arguments });
   if (rpc.id === undefined) {
     res.writeHead(202).end();
     return;
@@ -42,6 +88,16 @@ const fixture = NodeHttp.createServer(async (req, res) => {
       : rpc.method === "tools/list"
         ? {
             tools: [
+              {
+                name: "free_site_health_start",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: false },
+              },
+              {
+                name: "paid_refusal",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
               {
                 name: "free_site_health_get",
                 inputSchema: { type: "object" },
@@ -96,8 +152,6 @@ try {
   cloudFixtures = { free, full: await fixtureClient.status(), result, upgrade };
 } finally {
   await fixtureClient.disconnect();
-  fixture.closeAllConnections();
-  await new Promise<void>((resolve) => fixture.close(() => resolve()));
 }
 const home =
   process.env.AMICITED_CAPTURE_HOME ??
@@ -153,6 +207,7 @@ const env: NodeJS.ProcessEnv = {
   T3CODE_DEV_SEED: "0",
   T3CODE_DEV_REPLAY_CAPTURE: "1",
   T3CODE_PORT_OFFSET: "173",
+  T3CODE_DEV_AMICITED_ENDPOINT: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
 };
 delete env.VITE_HTTP_URL;
 delete env.VITE_WS_URL;
@@ -307,7 +362,20 @@ try {
           providerInstanceMutation: {
             operation: "upsert",
             instanceId: "devReplay",
-            instance: { ...instance, enabled: true, config: { ...instance.config, enabled: true } },
+            instance: {
+              ...instance,
+              enabled: true,
+              config: {
+                ...instance.config,
+                enabled: true,
+                commandArgs: [
+                  ...(Array.isArray(instance.config?.commandArgs)
+                    ? instance.config.commandArgs
+                    : []),
+                  "--live-cloud",
+                ],
+              },
+            },
           },
           patch: {},
         },
@@ -407,14 +475,50 @@ try {
     await page.getByRole("button", { name: "Open full result" }).click();
     await page.getByRole("region", { name: "Tool result" }).waitFor();
     await capture("04-full-result");
-    await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+    await page.goto(marketingChatUrl);
+    await page.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
+    await page.getByText("Waiting for you to finish in your browser…", { exact: true }).waitFor();
+    await capture("03j-connect-waiting-live");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.goto(url + "/marketing-settings");
+    await page.getByText("Use an API key instead", { exact: true }).click();
+    await page.getByLabel("Workspace API key").fill("capture-only");
+    await page.getByRole("button", { name: "Connect with key", exact: true }).click();
+    await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+    await page.goto(marketingChatUrl);
+    await page.getByText("Connected: free AmICited tools unlocked", { exact: true }).waitFor();
+    await capture("03f-connected-free-persisted");
+    await page.reload();
+    await page.getByText("Connected: free AmICited tools unlocked", { exact: true }).waitFor();
+    await page.evaluate(() => {
+      void (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing-cloud",
-      ),
-    );
+      );
+    });
+    await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+    await page.getByText("Needs your OK", { exact: true }).first().waitFor();
+    await capture("03g-cloud-approval-live");
+    await page.getByRole("button", { name: "More approval options", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Allow free AmICited checks", exact: true }).click();
     await page.getByText(/The free site health check is complete/).waitFor();
     await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
     await capture("03e-cloud-site-health");
+    await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+    await capture("03h-paid-approval-live");
+    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await page
+      .getByText("This tool requires a Pro plan or upgrade", { exact: false })
+      .first()
+      .waitFor();
+    await capture("03i-subscription-refusal-live");
+    await NodeFSP.writeFile(
+      NodePath.join(out, "cloud-live-transcript.txt"),
+      await page.locator("body").innerText(),
+    );
+    await NodeFSP.writeFile(
+      NodePath.join(out, "cloud-live-mcp-calls.json"),
+      JSON.stringify(fixtureCalls, null, 2),
+    );
     await page.goto(marketingChatUrl);
     await page
       .getByRole("article", { name: "Marketing tool result" })
@@ -528,8 +632,11 @@ try {
       await page.locator(".am-chat-sidebar").waitFor();
       if (path === "/tools")
         await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
-      if (path === "/marketing-settings")
+      if (path === "/marketing-settings") {
+        const disconnect = page.getByRole("button", { name: "Disconnect", exact: true });
+        if (await disconnect.count()) await disconnect.click();
         await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
+      }
       if (path === "/settings/general")
         await page.getByRole("textbox", { name: "Website URL", exact: true }).waitFor();
       await capture(name!);
@@ -642,7 +749,16 @@ try {
               instance: {
                 ...instance,
                 enabled: true,
-                config: { ...instance.config, enabled: true },
+                config: {
+                  ...instance.config,
+                  enabled: true,
+                  commandArgs: [
+                    ...(Array.isArray(instance.config?.commandArgs)
+                      ? instance.config.commandArgs
+                      : []),
+                    "--live-cloud",
+                  ],
+                },
               },
             },
             patch: {},
@@ -891,6 +1007,8 @@ try {
   }
   throw error;
 } finally {
+  fixture.closeAllConnections();
+  await new Promise<void>((resolve) => fixture.close(() => resolve()));
   await browser?.close();
   runner.kill("SIGTERM");
   web.kill("SIGTERM");
