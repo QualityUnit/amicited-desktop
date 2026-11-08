@@ -13,7 +13,14 @@ export type Connection =
       access?: "free" | "full" | "unknown";
       scopes: readonly string[];
     }
-  | { state: "error"; kind: ErrorKind; message: string };
+  | {
+      state: "error";
+      kind: ErrorKind;
+      message: string;
+      code?: string;
+      description?: string;
+      actionUrl?: string;
+    };
 
 export function domainNames(domains: readonly { id: string; name: string }[] | undefined) {
   return domains?.map((domain) => domain.name) ?? [];

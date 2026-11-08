@@ -523,3 +523,5 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.browser.test.tsx`: verifies short hostnames fit at rest and visible status icons and actions do not overlap on hover or focus, for short and long hostnames.
 
 - `apps/web/src/components/chat/MessagesTimeline.logic.ts`: optional folder-label omission for marketer work rows while retaining upstream label selection.
+
+- `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: passes marketer folder-label omission to live work-row labels.

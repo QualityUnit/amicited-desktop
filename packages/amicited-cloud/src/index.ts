@@ -24,7 +24,44 @@ interface Credential {
   redirect?: string;
   expiresAt?: number;
 }
+class OAuthCallbackError extends Error {
+  readonly code: string;
+  readonly description: string;
+  constructor(code: string, description: string) {
+    super(description);
+    this.code = code;
+    this.description = description;
+  }
+}
 export const errorState = (error: unknown): Extract<Connection, { state: "error" }> => {
+  if (error instanceof OAuthCallbackError) {
+    const messages: Record<string, string> = {
+      invalid_request:
+        "AmICited could not complete this sign-in request. Connect again and choose a workspace when asked.",
+      invalid_target:
+        "AmICited could not recognize this connection address. Update AmICited Desktop, then connect again.",
+      invalid_scope:
+        "AmICited could not approve the requested access. Update AmICited Desktop, then connect again.",
+      access_denied: /must belong to a workspace/i.test(error.description)
+        ? "Finish setting up your AmICited workspace, then connect again."
+        : /workspace|CRM role/i.test(error.description)
+          ? "Ask your workspace owner for access, then connect again."
+          : "Sign-in was not approved. Connect again when you are ready to allow access.",
+      server_error: "AmICited could not finish signing you in. Try connecting again later.",
+    };
+    return {
+      state: "error",
+      kind: "auth",
+      code: error.code,
+      description: error.description,
+      message:
+        messages[error.code] ??
+        "AmICited could not finish signing you in. Connect again or check your workspace in AmICited.",
+      ...(error.code === "access_denied" && /workspace|CRM role/i.test(error.description)
+        ? { actionUrl: "https://app.flowhunt.io/" }
+        : {}),
+    };
+  }
   const text = String(error);
   const kind: ErrorKind = /Pro plan|plan.*required|upgrade/i.test(text)
     ? "plan_required"
@@ -510,7 +547,11 @@ export class CloudClient {
     }
   }
   async status(): Promise<Connection> {
-    if (this.current.state === "connecting") return this.current;
+    if (
+      this.current.state === "connecting" ||
+      (this.current.state === "error" && this.current.code)
+    )
+      return this.current;
     if (this.current.state === "connected" && Date.now() - this.checkedAt < 30_000)
       return this.current;
     return this.serial(async () => {
@@ -570,8 +611,20 @@ export class CloudClient {
       }
       const code = url.searchParams.get("code");
       if (!code || url.searchParams.has("error")) {
-        rejectCode(new Error("Authentication denied"));
-        res.end("Sign-in cancelled. Return to AmICited Desktop.");
+        const error = new OAuthCallbackError(
+          url.searchParams.get("error") || "invalid_request",
+          url.searchParams.get("error_description") || "AmICited returned no sign-in approval.",
+        );
+        console.warn("AmICited OAuth sign-in failed", {
+          code: error.code,
+          description: error.description,
+        });
+        rejectCode(error);
+        res.writeHead(200, {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        });
+        res.end(`${error.description}\n\nYou can close this tab and return to AmICited Desktop.`);
         return;
       }
       resolveCode(code);

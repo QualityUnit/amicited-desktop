@@ -1,12 +1,13 @@
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
 import { expect, it, vi } from "vite-plus/test";
-import { CloudClient, errorState, cloudAction } from "./index.ts";
+import { MCP_URL, CloudClient, errorState, cloudAction } from "./index.ts";
 async function fixture() {
   let stored: string | undefined;
   let refusal = "";
   let challenge = "";
   let refreshed = false;
+  let registeredScope = "";
   const calls: string[] = [];
   let initializations = 0;
   let listings = 0;
@@ -22,7 +23,7 @@ async function fixture() {
       res.end(JSON.stringify(value));
     };
     if (url.pathname.startsWith("/.well-known/oauth-protected-resource"))
-      return json({ resource: origin + "/mcp", authorization_servers: [origin] });
+      return json({ resource: origin + "/mcp/amicited", authorization_servers: [origin] });
     if (url.pathname.startsWith("/.well-known/"))
       return json({
         issuer: origin,
@@ -33,8 +34,10 @@ async function fixture() {
         code_challenge_methods_supported: ["S256"],
         token_endpoint_auth_methods_supported: ["none"],
       });
-    if (url.pathname === "/register")
+    if (url.pathname === "/register") {
+      registeredScope = JSON.parse(body).scope;
       return json({ ...JSON.parse(body), client_id: "native-client" }, 201);
+    }
     if (url.pathname === "/token") {
       const params = new URLSearchParams(body);
       if (params.get("grant_type") === "refresh_token") refreshed = true;
@@ -52,7 +55,7 @@ async function fixture() {
         scope: "amicited:read amicited:write",
       });
     }
-    if (url.pathname !== "/mcp") return json({}, 404);
+    if (url.pathname !== "/mcp/amicited") return json({}, 404);
     if (!req.headers.authorization) {
       res.setHeader(
         "WWW-Authenticate",
@@ -149,7 +152,7 @@ async function fixture() {
   return {
     make(openExternal?: (url: string) => Promise<void>) {
       return new CloudClient({
-        endpoint: origin + "/mcp",
+        endpoint: origin + "/mcp/amicited",
         secrets: {
           read: async () => stored,
           write: async (value) => {
@@ -173,6 +176,9 @@ async function fixture() {
             await fetch(callback);
           }),
       });
+    },
+    get registeredScope() {
+      return registeredScope;
     },
     calls,
     argumentsByTool,
@@ -562,4 +568,66 @@ it("names paid actions and resolves resources learned in the same chat", async (
   expect(cloudAction("create_prompts", {}, false)).toBe("Change prompts");
   stop();
   await cloud.disconnect();
+});
+
+it.each([
+  ["invalid_request", "Please choose a workspace for this authorization."],
+  ["invalid_target", "Only one resource may be requested."],
+  ["invalid_scope", "Scopes for another MCP endpoint cannot be granted for this resource."],
+  ["access_denied", "You must belong to a workspace before authorizing third-party applications."],
+  ["access_denied", "You do not have access to the workspace this application requested."],
+  ["access_denied", "The user denied the request"],
+  ["server_error", "Something went wrong"],
+  ["unexpected_error", "Unexpected refusal <script>alert(1)</script>"],
+])("preserves OAuth callback %s and its description", async (code, description) => {
+  await using fake = await fixture();
+  const cloud = fake.make(async (value) => {
+    const authorize = new URL(value);
+    const callback = new URL(authorize.searchParams.get("redirect_uri")!);
+    callback.searchParams.set("state", authorize.searchParams.get("state")!);
+    callback.searchParams.set("error", code);
+    callback.searchParams.set("error_description", description);
+    const response = await fetch(callback);
+    expect(response.headers.get("content-type")).toContain("text/plain");
+    expect(await response.text()).toContain(description);
+  });
+  expect(await cloud.connectOAuth()).toMatchObject({
+    state: "error",
+    kind: "auth",
+    code,
+    description,
+  });
+  expect(await cloud.status()).toMatchObject({ code, description });
+  expect(fake.stored).toBeUndefined();
+});
+
+it("builds an authorization request satisfying FlowHunt resource, registration and PKCE checks", async () => {
+  // FlowHunt mcp_resources.py:174-182 and oauth_services.py:62-74, 298-331.
+  const constraints = {
+    resource: "https://api.flowhunt.io/mcp/amicited",
+    scopes: ["amicited:read", "amicited:write", "amicited:spending"],
+    method: "S256",
+  };
+  expect(MCP_URL).toBe(constraints.resource);
+  await using fake = await fixture();
+  const cloud = fake.make(async (value) => {
+    const url = new URL(value);
+    const params = url.searchParams;
+    const resource = new URL(params.get("resource")!);
+    expect(new URL(resource.pathname, MCP_URL).href).toBe(constraints.resource);
+    expect(params.getAll("resource")).toHaveLength(1);
+    expect(params.get("scope")?.split(" ")).toEqual(constraints.scopes);
+    expect(fake.registeredScope.split(" ")).toEqual(constraints.scopes);
+    expect(params.get("app")).toBe("amicited");
+    expect(params.get("response_type")).toBe("code");
+    expect(params.get("code_challenge_method")).toBe(constraints.method);
+    expect(params.get("code_challenge")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(params.get("state")).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const callback = new URL(params.get("redirect_uri")!);
+    expect(callback.hostname).toBe("127.0.0.1");
+    callback.searchParams.set("state", params.get("state")!);
+    callback.searchParams.set("error", "access_denied");
+    await fetch(callback);
+  });
+  expect(await cloud.connectOAuth()).toMatchObject({ state: "error", code: "access_denied" });
 });

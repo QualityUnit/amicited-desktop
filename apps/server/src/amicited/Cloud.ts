@@ -131,7 +131,11 @@ export const layer = Layer.effect(
         await run(fs.writeFileString(temporary, JSON.stringify(rows)));
         await run(fs.rename(temporary, metadataPath));
         knownSites = rows;
-        await saveMembership(rows);
+        await saveMembership(rows).catch(() =>
+          run(
+            Effect.logWarning("Could not save domain site membership; the next write will retry."),
+          ),
+        );
       },
       secrets: (id) => secretsFor(`${account}:domain:${id}`),
       legacy: secretsFor(),

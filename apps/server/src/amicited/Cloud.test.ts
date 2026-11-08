@@ -31,6 +31,7 @@ it.effect(
         ],
       ]);
       let denyBackup = true;
+      let denyAfterRegistry = false;
       const fs = FileSystem.makeNoop({
         exists: (path) => Effect.succeed(files.has(path)),
         readFileString: (path) => Effect.sync(() => files.get(path)!),
@@ -50,6 +51,7 @@ it.effect(
           Effect.sync(() => {
             files.set(to, files.get(from)!);
             files.delete(from);
+            if (to === primary && denyAfterRegistry) denyBackup = true;
           }),
       });
       const cloud = yield* Cloud.AmicitedCloud.pipe(
@@ -69,6 +71,9 @@ it.effect(
         { projectId: "site", siteFiles: "/fixture/site" },
       ]);
       expect(JSON.parse(files.get(primary)!)[0].brand).toBe("Updated");
+      denyAfterRegistry = true;
+      yield* Effect.promise(() => cloud.domains!.register("site", "example.com", "Saved"));
+      expect(JSON.parse(files.get(primary)!)[0].brand).toBe("Saved");
     }).pipe(
       Effect.provide(ServerConfig.layerTest(process.cwd(), { prefix: "w42-cloud-" })),
       Effect.provideService(ExternalLauncher.ExternalLauncher, {

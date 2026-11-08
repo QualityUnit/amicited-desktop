@@ -485,3 +485,35 @@ it("uses the upstream sidebar state for clicks, history and its keyboard shortcu
   await userEvent.keyboard("{Meta>}b{/Meta}");
   await expect.element(screen.getByText("Domain chats")).toBeVisible();
 });
+
+it("keeps the workspace recovery action and server sign-in details visible after refusal", async () => {
+  const connection = {
+    state: "error" as const,
+    kind: "auth" as const,
+    code: "access_denied",
+    description: "You must belong to a workspace before authorizing third-party applications.",
+    message: "Finish setting up your AmICited workspace, then connect again.",
+    actionUrl: "https://app.flowhunt.io/",
+  };
+  await using screen = await render(
+    <AmicitedConnectPanel
+      ui={ui}
+      connection={connection}
+      actions={{
+        connectOAuth: async () => connection,
+        connectApiKey: async () => connection,
+        disconnect: async () => ({ state: "disconnected" }),
+      }}
+      onChange={() => {}}
+      openExternal={() => {}}
+    />,
+  );
+  await expect.element(screen.getByText(connection.message)).toBeVisible();
+  await expect
+    .element(screen.getByRole("link", { name: "Open AmICited workspace" }))
+    .toHaveAttribute("href", connection.actionUrl);
+  await screen.getByText("Sign-in details", { exact: true }).click();
+  await expect
+    .element(screen.getByText(`${connection.code}: ${connection.description}`))
+    .toBeVisible();
+});

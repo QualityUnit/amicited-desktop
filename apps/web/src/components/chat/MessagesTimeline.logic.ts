@@ -171,7 +171,9 @@ export function workEntryDisplayLabel(
   const detailIsSearchOutput =
     (action === "code-search" || action === "search") && /[\r\n]/.test(compactDetail ?? "");
   if (compactDetail && !providerRetry && action !== "read" && !detailIsSearchOutput) {
-    return compactDetail;
+    return /^(?:[A-Za-z]:[\\/]|\/|\.?\.?\/|[^\s]+[\\/])[^\r\n]*$/.test(compactDetail)
+      ? formatWorkspaceRelativePath(compactDetail, workspaceRoot, omitWorkspaceLabel)
+      : compactDetail;
   }
   const [firstPath] = entry.changedFiles ?? [];
   if (firstPath) {
@@ -244,6 +246,7 @@ export function liveWorkEntryLabel(
   entry: WorkLogEntry,
   workspaceRoot: string | undefined,
   active: boolean,
+  omitWorkspaceLabel = false,
 ) {
   const status = liveActivityToolStatus(entry.toolLifecycleStatus, active);
   if (entry.itemType === "reasoning") {
@@ -271,7 +274,7 @@ export function liveWorkEntryLabel(
               : "Ran";
     return `${verb} ${commandProgramName(command) ?? "command"}`;
   }
-  return workEntryDisplayLabel(entry, workspaceRoot);
+  return workEntryDisplayLabel(entry, workspaceRoot, omitWorkspaceLabel);
 }
 
 export function workEntryIsVisibleInGroup(

@@ -32,6 +32,7 @@ import {
   resolveAssistantMessageCopyState,
   type MessagesTimelineRow,
   workEntryDisplayLabel,
+  liveWorkEntryLabel,
 } from "./MessagesTimeline.logic";
 
 describe("resolveAssistantMessageCopyState", () => {
@@ -4431,5 +4432,23 @@ it.each(["marketing_tools_run", "amicited_cloud_discover", "amicited_cloud_call"
         .flatMap((row) => (row.kind === "work" ? row.groupedEntries : []))
         .some((entry) => entry.structuredPayload?.type === "dynamic_tool"),
     ).toBe(true);
+  },
+);
+
+it.each(["site/src/math.ts", "/fixture/site/src/math.ts"])(
+  "formats the live edit detail %s relative to the marketer site",
+  (detail) => {
+    const entry = {
+      id: "live-edit",
+      createdAt: "2026-01-01T00:00:00Z",
+      label: "Editing file",
+      requestKind: "file-change" as const,
+      detail,
+      tone: "tool" as const,
+      toolLifecycleStatus: "inProgress" as const,
+    };
+    expect(liveWorkEntryLabel(entry, "/fixture/site", true, true)).toBe("src/math.ts");
+    expect(workEntryDisplayLabel(entry, "/fixture/site", true)).toBe("src/math.ts");
+    expect(workEntryDisplayLabel(entry, "/fixture/site", false)).toBe("site/src/math.ts");
   },
 );

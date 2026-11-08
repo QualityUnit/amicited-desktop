@@ -588,6 +588,45 @@ try {
     await page.goto(url + "/settings/general");
     await page.getByText("Folder:", { exact: false }).first().waitFor();
     await capture("38-settings-domains");
+    await page.goto(url + "/marketing-settings");
+    await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+    const refusal = new CloudClient({
+      endpoint: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
+      secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+      openExternal: async (value: string) => {
+        const authorize = new URL(value);
+        const callback = new URL(authorize.searchParams.get("redirect_uri")!);
+        callback.searchParams.set("state", authorize.searchParams.get("state")!);
+        callback.searchParams.set("error", "access_denied");
+        callback.searchParams.set(
+          "error_description",
+          "You must belong to a workspace before authorizing third-party applications.",
+        );
+        const tab = await browser!.newPage({
+          viewport: { width: 1440, height: 900 },
+          deviceScaleFactor: 2,
+        });
+        await tab.goto(callback.href);
+        for (const theme of ["light", "dark"] as const) {
+          await tab.emulateMedia({ colorScheme: theme });
+          await tab.screenshot({ path: NodePath.join(out, `43-oauth-callback-${theme}.png`) });
+        }
+        await tab.close();
+      },
+    });
+    const error = await refusal.connectOAuth();
+    await refusal.close();
+    await page.evaluate(
+      (detail) => window.dispatchEvent(new CustomEvent("amicited-cloud-evidence", { detail })),
+      error,
+    );
+    await page
+      .getByText("Finish setting up your AmICited workspace, then connect again.", { exact: true })
+      .waitFor();
+    await page.getByText("Sign-in details", { exact: true }).click();
+    await capture("43-oauth-error");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
     await page.goto(url + "/");
     await page.getByRole("button", { name: "New domain", exact: true }).first().click();
     await page.getByLabel("Website", { exact: true }).fill("clone.example");

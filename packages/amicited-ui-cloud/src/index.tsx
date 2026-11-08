@@ -92,7 +92,7 @@ export function AmicitedUpsellCard({
   return (
     <aside aria-label="More with AmICited" className="am-cloud-card am-cloud-offer">
       <p>{comparison.missing}</p>
-      {connection?.state === "error" && <p role="alert">{connection.message}</p>}
+      {connection?.state === "error" && <ConnectionError connection={connection} />}
       <p className="am-hint">Optional 7-day trial, then EUR 120/month Pro for the full set.</p>
       <div className="am-cloud-actions">
         <Button variant="default" onClick={onConnect}>
@@ -109,6 +109,26 @@ export function AmicitedUpsellCard({
         </Button>
       </div>
     </aside>
+  );
+}
+function ConnectionError({ connection }: { connection: Extract<Connection, { state: "error" }> }) {
+  return (
+    <div role="alert">
+      <p>{connection.message}</p>
+      {connection.actionUrl && (
+        <a href={connection.actionUrl} target="_blank" rel="noreferrer">
+          Open AmICited workspace
+        </a>
+      )}
+      {connection.code && (
+        <details>
+          <summary>Sign-in details</summary>
+          <p>
+            {connection.code}: {connection.description}
+          </p>
+        </details>
+      )}
+    </div>
   );
 }
 export function AmicitedConnectPanel({
@@ -198,7 +218,7 @@ export function AmicitedConnectPanel({
           <>
             {connection.state === "error" && (
               <div role="alert">
-                <p>{connection.message}</p>
+                <ConnectionError connection={connection} />
                 {connection.kind === "plan_required" && (
                   <Button
                     onClick={() => {
@@ -406,7 +426,7 @@ export function DomainConnectionWarning({
       >
         Dismiss
       </Button>
-      {connection.state === "error" && <span role="alert">{connection.message}</span>}
+      {connection.state === "error" && <ConnectionError connection={connection} />}
     </aside>
   );
 }

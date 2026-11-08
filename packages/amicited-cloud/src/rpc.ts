@@ -14,6 +14,9 @@ export const CloudConnection = Schema.Union([
     state: Schema.Literal("error"),
     kind: Schema.Literals(["auth", "plan_required", "no_credits", "rate_limited", "network"]),
     message: Schema.String,
+    code: Schema.optionalKey(Schema.String),
+    description: Schema.optionalKey(Schema.String),
+    actionUrl: Schema.optionalKey(Schema.String),
   }),
 ]);
 export class CloudApprovalExpired extends Schema.TaggedError<CloudApprovalExpired>()(

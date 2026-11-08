@@ -8,7 +8,7 @@ import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { SidebarProjectFolderHeader } from "./SidebarProjectFolderHeader";
 
 it.each(["flowhunt.io", "a-very-long-hostname-that-must-truncate.example.com"])(
-  "keeps domain names readable and visible icons apart from actions ($displayName)",
+  "keeps domain names readable and visible icons apart from actions (%s)",
   async (displayName) => {
     const group: SidebarProjectSnapshot = {
       id: ProjectId.make("domain"),
