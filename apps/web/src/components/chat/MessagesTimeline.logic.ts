@@ -171,7 +171,9 @@ export function workEntryDisplayLabel(
   const detailIsSearchOutput =
     (action === "code-search" || action === "search") && /[\r\n]/.test(compactDetail ?? "");
   if (compactDetail && !providerRetry && action !== "read" && !detailIsSearchOutput) {
-    return /^(?:[A-Za-z]:[\\/]|\/|\.?\.?\/|[^\s]+[\\/])[^\r\n]*$/.test(compactDetail)
+    return omitWorkspaceLabel &&
+      (entry.requestKind === "file-change" || !!entry.changedFiles?.length) &&
+      /^(?:[A-Za-z]:[\\/]|\/|\.?\.?\/|[^\s]+[\\/])[^\r\n]*$/.test(compactDetail)
       ? formatWorkspaceRelativePath(compactDetail, workspaceRoot, omitWorkspaceLabel)
       : compactDetail;
   }

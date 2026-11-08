@@ -33,9 +33,13 @@ import { usePrimaryEnvironmentId } from "../state/environments";
 import { createLocalApi } from "../localApi";
 import { MarketingButton } from "@amicited/ui-marketing";
 import { Input } from "../components/ui/input";
-const CloudButton = (props: ComponentProps<typeof MarketingButton>) => (
-  <MarketingButton {...props} />
-);
+import { Button } from "../components/ui/button";
+const CloudButton = ({ variant = "outline", ...props }: ComponentProps<typeof MarketingButton>) =>
+  variant === "link" ? (
+    <Button variant="link" {...props} />
+  ) : (
+    <MarketingButton variant={variant} {...props} />
+  );
 
 const ui = {
   Button: CloudButton,

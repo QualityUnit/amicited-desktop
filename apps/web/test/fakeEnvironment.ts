@@ -279,6 +279,7 @@ function projectionOf(thread: FakeThread): OrchestrationV2ThreadProjection {
       runtimeMode: shell.runtimeMode,
       interactionMode: shell.interactionMode,
       branch: shell.branch,
+      pullRequests: shell.pullRequests ?? [],
       worktreePath: shell.worktreePath,
       activeProviderThreadId: null,
       lineage: shell.lineage,

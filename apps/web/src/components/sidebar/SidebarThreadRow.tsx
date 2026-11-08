@@ -1,5 +1,6 @@
 import { useCloudApprovals } from "../../rpc/amicitedApprovals";
 import { FolderIcon } from "lucide-react";
+import { marketingSignInError } from "@amicited/ui-marketing";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { MoreHorizontalIcon } from "lucide-react";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
@@ -730,67 +731,81 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     isActive: props.isActive,
     isSelected,
   });
+  const marketingFailure =
+    marketer && (status === "failed" || thread.source.latestMarketingCheckFailed);
   const topStatus =
-    status === "preparing" || status === "working"
+    marketingFailure &&
+    status !== "working" &&
+    status !== "preparing" &&
+    status !== "approval" &&
+    status !== "input"
       ? {
-          label:
-            status === "preparing"
-              ? "Setting up"
-              : thread.goal?.status === "active"
-                ? "Goal"
-                : "Working",
-          icon: "working" as const,
-          className: "text-info-foreground",
+          label: marketingSignInError(thread.runtime?.lastError ?? thread.source.lastError ?? "")
+            ? "Sign in needed"
+            : "Couldn't check",
+          icon: "failed" as const,
+          className: "text-error-foreground",
         }
-      : status === "waiting"
+      : status === "preparing" || status === "working"
         ? {
-            label: "Waiting",
-            icon: "waiting" as const,
-            className: "text-muted-foreground",
+            label:
+              status === "preparing"
+                ? "Setting up"
+                : thread.goal?.status === "active"
+                  ? "Goal"
+                  : "Working",
+            icon: "working" as const,
+            className: "text-info-foreground",
           }
-        : status === "approval"
+        : status === "waiting"
           ? {
-              label: marketer ? "Needs your OK" : "Approval",
-              icon: "approval" as const,
-              className: "text-warning-foreground",
+              label: "Waiting",
+              icon: "waiting" as const,
+              className: "text-muted-foreground",
             }
-          : status === "input"
+          : status === "approval"
             ? {
-                label: "Input",
-                icon: "input" as const,
-                className: "text-indigo-600 dark:text-indigo-300",
+                label: marketer ? "Needs your OK" : "Approval",
+                icon: "approval" as const,
+                className: "text-warning-foreground",
               }
-            : status === "request"
+            : status === "input"
               ? {
-                  label: "Request",
-                  icon: "request" as const,
-                  className: "text-guest-foreground",
+                  label: "Input",
+                  icon: "input" as const,
+                  className: "text-indigo-600 dark:text-indigo-300",
                 }
-              : status === "limited"
+              : status === "request"
                 ? {
-                    label: "Limited",
-                    icon: "failed" as const,
-                    className: "text-warning-foreground",
+                    label: "Request",
+                    icon: "request" as const,
+                    className: "text-guest-foreground",
                   }
-                : status === "failed"
+                : status === "limited"
                   ? {
-                      label: "Failed",
+                      label: "Limited",
                       icon: "failed" as const,
-                      className: "text-error-foreground",
+                      className: "text-warning-foreground",
                     }
-                  : isWoke
+                  : status === "failed"
                     ? {
-                        label: "Woke",
-                        icon: "woke" as const,
-                        className: "text-warning-foreground",
+                        label: "Failed",
+                        icon: "failed" as const,
+                        className: "text-error-foreground",
                       }
-                    : isUnread
+                    : isWoke
                       ? {
-                          label: "Done",
-                          icon: "done" as const,
-                          className: "text-success-foreground",
+                          label: "Woke",
+                          icon: "woke" as const,
+                          className: "text-warning-foreground",
                         }
-                      : null;
+                      : isUnread
+                        ? {
+                            label: "Done",
+                            icon: "done" as const,
+                            className: "text-success-foreground",
+                          }
+                        : null;
   const isWokeStatus = topStatus?.icon === "woke";
 
   const branchMismatch = resolveLocalCheckoutBranchMismatch({
@@ -1151,7 +1166,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   // Only the trailing icons would remain, so the row moves them to the title line instead.
   const visibleBranch = props.locationLabel === null ? null : thread.branch;
   const metaLineEmpty =
-    !marketer &&
     !visibleBranch &&
     !props.locationLabel &&
     !showsScratchMachine &&
@@ -1276,21 +1290,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               {title}
               {multiline ? titleLineIcons : null}
               {pinIndicator}
-              {marketer ? (
-                <button
-                  type="button"
-                  aria-label={`Chat actions for ${thread.title}`}
-                  onPointerDown={handleActionPointerDown}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
-                  }}
-                  className="ml-auto shrink-0 text-muted-foreground"
-                >
-                  <MoreHorizontalIcon className="size-3.5" />
-                </button>
-              ) : null}
               {multiline ? null : terminalStatusIcon}
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">
@@ -1311,6 +1310,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                     className={cn(
                       "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
                       !isWoke && "group-any-hover/sidebar-row:opacity-0",
+                      marketer && "group-focus-within/sidebar-row:opacity-0",
+                      marketer && props.isActive && "opacity-0",
                     )}
                   >
                     {variantAction === "unsnooze" && props.snoozeWakeLabelText !== null ? (
@@ -1359,7 +1360,25 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                       </span>
                     )}
                   </span>
-                  {variantAction === "unsnooze" ? (
+                  {marketer ? (
+                    <button
+                      type="button"
+                      aria-label={`Chat actions for ${thread.title}`}
+                      onPointerDown={handleActionPointerDown}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
+                      }}
+                      className={cn(
+                        "absolute inset-y-0 right-0 z-10 inline-flex items-center text-muted-foreground opacity-0 pointer-events-none group-any-hover/sidebar-row:opacity-100 group-any-hover/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto",
+                        props.isActive && "opacity-100 pointer-events-auto",
+                      )}
+                    >
+                      <MoreHorizontalIcon className="size-3.5" />
+                    </button>
+                  ) : null}
+                  {marketer ? null : variantAction === "unsnooze" ? (
                     !props.snoozeSupported ? null : (
                       <button
                         type="button"

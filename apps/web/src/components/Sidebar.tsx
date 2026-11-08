@@ -1,3 +1,4 @@
+import { marketerMenuItems } from "@amicited/ui-marketing";
 import { useOpenLink } from "~/browser/useOpenLink";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/client-runtime/thread-pull-requests";
 import { Fragment } from "react";
@@ -439,9 +440,10 @@ function useSidebarThreads(input: {
     folderGroups,
     keepEmptyFolders: keepEmpty,
   } = input;
-  // Folders already separate the work, so boring mode has no Working shelf.
+  // Developer boring mode uses folders alone; domains also keep the Working shelf.
+  const marketer = useWorkspaceMode() === "marketer";
   const workingShelfEnabled =
-    useClientSettings((s) => s.sidebarWorkingShelfEnabled) && folderGroups === null;
+    useClientSettings((s) => s.sidebarWorkingShelfEnabled) && (marketer || folderGroups === null);
   const inboxReturnsVersion = useSyncExternalStore(
     inboxReturns.subscribe,
     inboxReturns.getSnapshot,
@@ -1272,16 +1274,24 @@ export default function Sidebar({
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             [
-              { id: "new-thread", label: "New thread" },
+              { id: "new-thread", label: marketer ? "New chat" : "New thread" },
               { id: "copy-path", label: "Copy path" },
               ...(canPinProject(group)
                 ? [
                     group.pinned
-                      ? { id: "unpin", label: "Unpin project", icon: "pin-off" }
-                      : { id: "pin", label: "Pin project", icon: "pin" },
+                      ? {
+                          id: "unpin",
+                          label: marketer ? "Unpin domain" : "Unpin project",
+                          icon: "pin-off",
+                        }
+                      : { id: "pin", label: marketer ? "Pin domain" : "Pin project", icon: "pin" },
                   ]
                 : []),
-              { id: "project-settings", label: "Project settings", icon: "settings" },
+              {
+                id: "project-settings",
+                label: marketer ? "Domain settings" : "Project settings",
+                icon: "settings",
+              },
             ],
             position,
           ),
@@ -2547,11 +2557,14 @@ export default function Sidebar({
           projectByKey.get(`${session.environmentId}:${session.projectId}`)?.workspaceRoot;
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
-            buildDraftActionMenuItems({
-              hasPath: Boolean(workspacePath),
-              hasBranch: Boolean(session.branch),
-              hasProject: projectGroup != null,
-            }),
+            marketerMenuItems(
+              buildDraftActionMenuItems({
+                hasPath: Boolean(workspacePath),
+                hasBranch: Boolean(session.branch),
+                hasProject: projectGroup != null,
+              }),
+              marketer,
+            ),
             position,
           ),
         );
@@ -2621,45 +2634,48 @@ export default function Sidebar({
           ) ?? null;
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
-            buildThreadActionMenuItems({
-              canOperate: readEnvironmentScope(
-                threadRef.environmentId,
-                AuthOrchestrationOperateScope,
-              ),
-              hasLinkedPullRequest: !!(
-                resolveThreadCurrentPullRequestLink(thread.pullRequests)?.url ??
-                thread.linkedPullRequest?.url ??
-                thread.branchPullRequest?.url
-              ),
-              branch: thread.branch ?? null,
-              // An archived project is not a filter choice.
-              projectFilter:
-                threadProjectGroup && !threadProjectGroup.archived
-                  ? {
-                      label: threadProjectGroup.displayName,
-                      isActive: projectScopeKeys.includes(threadProjectGroup.projectKey),
-                    }
-                  : null,
-              isPinned,
-              isSettled,
-              autoSettleEnabled: thread.autoSettleDisabledAt == null,
-              isSnoozed,
-              canSnoozeNow: canSnooze(thread, { now: new Date().toISOString() }),
-              isRegeneratingTitle,
-              isRunning: !threadRuntimeCanArchive(thread.runtime),
-              canShareWithGuest: appAtomRegistry.get(
-                canShareWithGuestAtom(threadRef.environmentId),
-              ),
-              canTurnIntoProject: canTurnThreadIntoProject(threadRef),
-              supports: {
-                settlement: configLoaded,
-                autoSettleOptOut: supportsAutoSettleOptOut,
-                snooze: configLoaded,
-                pinning: configLoaded,
-                titleRegeneration: configLoaded,
-              },
-              snoozePresets,
-            }),
+            marketerMenuItems(
+              buildThreadActionMenuItems({
+                canOperate: readEnvironmentScope(
+                  threadRef.environmentId,
+                  AuthOrchestrationOperateScope,
+                ),
+                hasLinkedPullRequest: !!(
+                  resolveThreadCurrentPullRequestLink(thread.pullRequests)?.url ??
+                  thread.linkedPullRequest?.url ??
+                  thread.branchPullRequest?.url
+                ),
+                branch: thread.branch ?? null,
+                // An archived project is not a filter choice.
+                projectFilter:
+                  threadProjectGroup && !threadProjectGroup.archived
+                    ? {
+                        label: threadProjectGroup.displayName,
+                        isActive: projectScopeKeys.includes(threadProjectGroup.projectKey),
+                      }
+                    : null,
+                isPinned,
+                isSettled,
+                autoSettleEnabled: thread.autoSettleDisabledAt == null,
+                isSnoozed,
+                canSnoozeNow: canSnooze(thread, { now: new Date().toISOString() }),
+                isRegeneratingTitle,
+                isRunning: !threadRuntimeCanArchive(thread.runtime),
+                canShareWithGuest: appAtomRegistry.get(
+                  canShareWithGuestAtom(threadRef.environmentId),
+                ),
+                canTurnIntoProject: canTurnThreadIntoProject(threadRef),
+                supports: {
+                  settlement: configLoaded,
+                  autoSettleOptOut: supportsAutoSettleOptOut,
+                  snooze: configLoaded,
+                  pinning: configLoaded,
+                  titleRegeneration: configLoaded,
+                },
+                snoozePresets,
+              }),
+              marketer,
+            ),
             position,
           ),
         );

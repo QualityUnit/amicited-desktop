@@ -358,10 +358,11 @@ let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
 try {
   const { url, pairing } = await ready;
   browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({
+  const context = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 2,
   });
+  let page = await context.newPage();
   page.setDefaultTimeout(120_000);
   page.on("pageerror", (e) => console.error("BROWSER ERROR", e));
   page.on("console", (m) => {
@@ -586,8 +587,9 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Settle thread", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Settle chat", exact: true }).click();
       await page.getByRole("button", { name: /Settled 1/ }).waitFor();
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
       await capture("45-sidebar-settled-snoozed");
       const settledShelf = page.getByRole("button", { name: /Settled 1/ });
       if ((await settledShelf.getAttribute("aria-expanded")) === "false")
@@ -596,7 +598,7 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Un-settle thread", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Un-settle chat", exact: true }).click();
       await page
         .getByRole("button", { name: /Chat actions for/ })
         .first()
@@ -612,7 +614,7 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Wake thread", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Wake chat", exact: true }).click();
       await page.getByRole("button", { name: "New chat", exact: true }).click();
       await page.getByRole("button", { name: "New domain", exact: true }).first().click();
       await page.getByLabel("Website", { exact: true }).fill("managed.example");
@@ -744,8 +746,17 @@ try {
       freezeFixture = false;
       await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "marketer"));
       fixtureActive = false;
-      await page.unroute("**/api/orchestration/shell*");
-      await page.reload();
+      const fixturePage = page;
+      page = await fixturePage.context().newPage();
+      page.setDefaultTimeout(120_000);
+      await fixturePage.close();
+      await page.goto(siteThreadRoute);
+      await waitForOperate();
+      await page
+        .getByTestId("sidebar-project-folder")
+        .filter({ hasText: "flowhunt.io" })
+        .first()
+        .waitFor();
     }
 
     await page.mouse.move(800, 400);
@@ -796,8 +807,9 @@ try {
     await page
       .getByText("Finish setting up your AmICited workspace, then connect again.", { exact: true })
       .waitFor();
-    await page.getByText("Sign-in details", { exact: true }).click();
     await capture("43-oauth-error");
+    await page.getByText("Sign-in details", { exact: true }).click();
+    await capture("46-oauth-details");
     await page.getByRole("button", { name: "Close", exact: true }).click();
 
     await page.goto(url + "/");
@@ -916,6 +928,11 @@ try {
         ),
       );
       await page.getByText("Thinking…", { exact: true }).waitFor();
+      const workingShelf = page.getByRole("button", { name: /Working 1/, exact: true });
+      await workingShelf.waitFor();
+      if ((await workingShelf.getAttribute("aria-expanded")) === "false")
+        await workingShelf.click();
+      await capture("46-working");
       await capture("03b-thinking");
       await page.locator('[data-state="pending"]').waitFor({ timeout: 45000 });
       await capture("03a-mid-stream");
@@ -1104,7 +1121,7 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Archive thread", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Archive chat", exact: true }).click();
       const archiveConfirmation = page.getByRole("alertdialog");
       if (await archiveConfirmation.isVisible())
         await archiveConfirmation.getByRole("button", { name: /Archive/ }).click();
@@ -1119,7 +1136,7 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Rename thread", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Rename chat", exact: true }).click();
       await page.getByRole("textbox", { name: "Thread title" }).fill("Website audit review");
       await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
       await page
@@ -1387,7 +1404,7 @@ try {
             .filter({ visible: true })
             .first()
             .click();
-          await page.getByRole("menuitem", { name: "Rename thread", exact: true }).click();
+          await page.getByRole("menuitem", { name: "Rename chat", exact: true }).click();
           await page
             .getByRole("textbox", { name: "Chat name" })
             .fill("Website audit — technical snapshot for example.com");
@@ -1475,7 +1492,7 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .nth(index)
         .click();
-      await page.getByRole("menuitem", { name: "Rename thread", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Rename chat", exact: true }).click();
       await page.getByRole("textbox", { name: "Thread title" }).fill(title);
       await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
       await page.getByRole("textbox", { name: "Chat name" }).waitFor({ state: "hidden" });

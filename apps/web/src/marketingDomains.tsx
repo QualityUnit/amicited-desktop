@@ -939,7 +939,7 @@ export function DomainsSettings() {
                   <Tooltip>
                     <TooltipTrigger render={<span className="block truncate" />}>
                       {domain.siteFiles
-                        ? `Folder: ${domain.siteFiles.split(/[\\/]/).filter(Boolean).pop() ?? domain.siteFiles}`
+                        ? `Folder: ${displayFolder(domain.siteFiles)}`
                         : "Site files: Not connected"}
                     </TooltipTrigger>
                     <TooltipPopup>{domain.siteFiles ?? "Site files: Not connected"}</TooltipPopup>

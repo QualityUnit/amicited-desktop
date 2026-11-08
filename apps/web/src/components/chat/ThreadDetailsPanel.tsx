@@ -1,3 +1,4 @@
+import { MarketingThreadLocation } from "@amicited/ui-marketing";
 import type {
   EditorId,
   EnvironmentId,
@@ -46,6 +47,10 @@ interface ThreadDetailsPanelProps extends Pick<
   ComponentProps<typeof ThreadDetailsCard>,
   "anchor" | "handle"
 > {
+  marketer?: boolean;
+  siteFolder?: string | null;
+  marketerBranch?: string | null;
+  marketerPullRequests?: readonly { url: string; number: number }[];
   forceNewWorktree?: boolean;
   environmentId: EnvironmentId;
   threadId: ThreadId;
@@ -150,11 +155,16 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
       {(density) => {
         // Section flags follow the rows that will render, so no empty section steals the divider rule.
         const show = {
-          environment: density === "full" && visible.environment,
-          openIn: density !== "essential" && visible.openIn && props.showOpenInPicker,
+          environment: !props.marketer && density === "full" && visible.environment,
+          openIn:
+            (!props.marketer || (!!props.siteFolder && props.isGitRepo)) &&
+            density !== "essential" &&
+            visible.openIn &&
+            props.showOpenInPicker,
           scripts: visible.scripts && props.activeProjectScripts !== undefined,
-          branch: props.gitCwd !== null && props.isGitRepo && visible.branch,
+          branch: !props.marketer && props.gitCwd !== null && props.isGitRepo && visible.branch,
           git:
+            (!props.marketer || (!!props.siteFolder && props.isGitRepo)) &&
             props.gitCwd !== null &&
             props.activeProjectName !== undefined &&
             (visible.gitActions || (visible.changes && props.isGitRepo)),
@@ -162,6 +172,19 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
         return (
           <>
             <div className="group/details-items">
+              {props.marketer ? (
+                <MarketingThreadLocation
+                  machine={
+                    props.availableEnvironments.find(
+                      (environment) => environment.environmentId === props.environmentId,
+                    )?.label ?? "This machine"
+                  }
+                  folder={props.siteFolder}
+                  branch={props.marketerBranch}
+                  pullRequests={props.marketerPullRequests}
+                  onReview={props.onOpenChanges}
+                />
+              ) : null}
               {show.environment || show.openIn || show.scripts ? (
                 <ThreadDetailsSection
                   headingId="thread-details-workspace-heading"
@@ -227,7 +250,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                       <GitActionsControl
                         compact={density !== "full"}
                         showActions={visible.gitActions}
-                        showChanges={visible.changes}
+                        showChanges={!props.marketer && visible.changes}
                         gitCwd={props.gitCwd}
                         activeThreadRef={activeThreadRef}
                         {...(props.draftId ? { draftId: props.draftId } : {})}
@@ -238,18 +261,21 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                 </ThreadDetailsSection>
               ) : null}
 
-              {density === "full" && !props.draftId && visible.servers ? (
+              {!props.marketer && density === "full" && !props.draftId && visible.servers ? (
                 <ThreadServersPanel environmentId={props.environmentId} threadId={props.threadId} />
               ) : null}
 
-              {density === "full" && !props.draftId && visible.automations ? (
+              {!props.marketer && density === "full" && !props.draftId && visible.automations ? (
                 <ThreadAutomationsPanel
                   environmentId={props.environmentId}
                   threadId={props.threadId}
                 />
               ) : null}
 
-              {density === "full" && !props.draftId && (visible.lineage || visible.sideChats) ? (
+              {!props.marketer &&
+              density === "full" &&
+              !props.draftId &&
+              (visible.lineage || visible.sideChats) ? (
                 <ThreadRelationshipsPanel
                   environmentId={props.environmentId}
                   threadId={props.threadId}
@@ -258,14 +284,17 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                 />
               ) : null}
 
-              {visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
+              {!props.marketer && visible.usage ? <ThreadDetailsUsage {...props.usage} /> : null}
 
-              {visible.context && props.usage.contextWindow ? (
+              {!props.marketer && visible.context && props.usage.contextWindow ? (
                 <ThreadDetailsContext usage={props.usage.contextWindow} />
               ) : null}
 
               {/* Shown only when no section above has content, so an emptied card can be refilled. */}
-              <div className="p-2 group-has-[>section>:last-child:not(:empty)]/details-items:hidden">
+              <div
+                hidden={props.marketer}
+                className="p-2 group-has-[>section>:last-child:not(:empty)]/details-items:hidden"
+              >
                 <ThreadDetailsControl
                   size="xs"
                   variant="ghost"

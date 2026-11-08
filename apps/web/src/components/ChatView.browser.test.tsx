@@ -77,6 +77,14 @@ it.each(["developer", "marketer"] as const)(
       await expect
         .element(page.getByRole("heading", { name: "What do you want to work on?" }))
         .toBeVisible();
+      await expect
+        .element(page.getByText("Initialize Git", { exact: true }))
+        .not.toBeInTheDocument();
+      await expect
+        .element(page.getByRole("button", { name: "Toggle thread details panel" }))
+        .not.toBeInTheDocument();
+      await expect.element(page.getByText(/Open in/)).not.toBeInTheDocument();
+      await expect.element(page.getByText(/Publish repository/)).not.toBeInTheDocument();
       await page.getByRole("button", { name: "Audit my website for AI search" }).click();
       await expect
         .element(page.getByTestId("composer-editor"))
@@ -102,7 +110,27 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
       publish(ENVIRONMENT_ID, []);
     },
   };
-  const fixture = threadWithHistory(`location-${siteFiles}`, 0);
+  const base = threadWithHistory(`location-${siteFiles}`, 0);
+  const fixture = {
+    ...base,
+    shell: {
+      branch: "website",
+      pullRequests: siteFiles
+        ? [
+            {
+              host: "github.com",
+              repository: "example/site",
+              number: 46,
+              url: "https://github.com/example/site/pull/46",
+              source: "manual" as const,
+              linkedAt: "2026-11-08T00:00:00Z",
+              stack: null,
+              snapshot: null,
+            },
+          ]
+        : [],
+    },
+  };
   using _environment = installFakeEnvironment([fixture]);
   publish(ENVIRONMENT_ID, [
     {
@@ -126,7 +154,22 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
     router: false /* AppRoot owns the router */,
   });
   await expect.element(page.getByTestId("composer-editor")).toBeVisible();
-  await expect.element(page.getByLabelText(/Run context:.*Render scenarios/)).toBeVisible();
+  if (siteFiles) {
+    const details = page.getByRole("button", { name: "Toggle thread details panel" });
+    await expect.element(details).toBeVisible();
+    if (details.element().getAttribute("aria-pressed") !== "true") await details.click();
+    await expect
+      .element(page.getByRole("link", { name: "Open pull request #46", exact: true }))
+      .toBeVisible();
+    await expect.element(page.getByText("website", { exact: true }).last()).toBeVisible();
+    await expect
+      .element(page.getByText("/workspace/render", { exact: false }).last())
+      .toBeVisible();
+  } else {
+    await expect.element(page.getByText("Initialize Git", { exact: true })).not.toBeInTheDocument();
+    await expect.element(page.getByText(/Publish repository/)).not.toBeInTheDocument();
+    await expect.element(page.getByText(/Open in/)).not.toBeInTheDocument();
+  }
   await expect
     .element(page.getByRole("button", { name: "Add project script" }))
     .not.toBeInTheDocument();

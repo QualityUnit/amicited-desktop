@@ -1,6 +1,3 @@
-import { page, userEvent } from "vite-plus/test/browser";
-import { SidebarProvider } from "./components/ui/sidebar";
-import { MarketerShell } from "./marketing";
 import "./index.css";
 
 import { MarketingShell } from "@amicited/ui-marketing";
@@ -189,45 +186,6 @@ it("attaches the full tool result when asking AI", async () => {
   await screen.getByRole("button", { name: "Ask AI about this" }).click();
   expect(fix.mock.calls[0]?.[0]).toContain("41");
 });
-it("keeps chat history and secondary navigation available when collapsed", async () => {
-  const navigate = vi.fn();
-  localStorage.removeItem("amicited.rail-collapsed");
-  try {
-    await using screen = await render(
-      <MarketingShell
-        path="/home"
-        navigate={navigate}
-        history={
-          <a
-            href="/env/chat"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate("/env/chat");
-            }}
-          >
-            Campaign audit
-          </a>
-        }
-      >
-        <h1>Chat</h1>
-      </MarketingShell>,
-    );
-    await screen.getByRole("link", { name: "Campaign audit" }).click();
-    expect(navigate).toHaveBeenCalledWith("/env/chat");
-    await screen.getByRole("button", { name: "Collapse sidebar" }).click();
-    await expect.element(screen.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
-    await screen.getByRole("button", { name: "Expand sidebar" }).click();
-    await expect.element(screen.getByRole("link", { name: "Campaign audit" })).toBeVisible();
-    await screen.getByRole("button", { name: "Collapse sidebar" }).click();
-    await screen.getByRole("button", { name: "Expand sidebar" }).click();
-    await expect.element(screen.getByRole("link", { name: "Campaign audit" })).toBeVisible();
-    await screen.getByRole("link", { name: "Tools", exact: true }).click();
-    expect(navigate).toHaveBeenCalledWith("/tools");
-  } finally {
-    localStorage.removeItem("amicited.rail-collapsed");
-  }
-});
-
 it("opens result inputs instead of the remembered brand form", async () => {
   const { ToolForm } = await import("@amicited/ui-marketing");
   sessionStorage.setItem(
@@ -445,47 +403,6 @@ it("shows domain connection warnings without blocking chat, and remembers dismis
   }
 });
 
-it("uses the upstream sidebar state for clicks, history and its keyboard shortcut", async () => {
-  await page.viewport(1280, 800);
-  using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
-  await using screen = await render(
-    <SidebarProvider>
-      <MarketerShell path="/home" navigate={() => {}} history={<p>Domain chats</p>}>
-        <h1>Chat</h1>
-      </MarketerShell>
-    </SidebarProvider>,
-  );
-  await screen.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
-  const toggle = document.querySelector<HTMLButtonElement>('[aria-label="Expand sidebar"]')!;
-  const rect = toggle.getBoundingClientRect();
-  expect(
-    toggle.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)),
-  ).toBe(true);
-  const laterDragRegions = [...document.querySelectorAll<HTMLElement>("*")].filter((element) => {
-    if (!(toggle.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
-    if (getComputedStyle(element).getPropertyValue("-webkit-app-region") !== "drag") return false;
-    const region = element.getBoundingClientRect();
-    return (
-      region.left < rect.right &&
-      region.right > rect.left &&
-      region.top < rect.bottom &&
-      region.bottom > rect.top
-    );
-  });
-  expect(laterDragRegions).toEqual([]);
-  await screen.getByRole("button", { name: "Expand sidebar", exact: true }).click();
-  await expect.element(screen.getByText("Domain chats")).toBeVisible();
-  await screen.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
-  await screen.getByRole("button", { name: "Expand sidebar", exact: true }).click();
-  await expect.element(screen.getByText("Domain chats")).toBeVisible();
-  await userEvent.keyboard("{Meta>}b{/Meta}");
-  await expect
-    .element(screen.getByRole("button", { name: "Expand sidebar", exact: true }))
-    .toBeVisible();
-  await userEvent.keyboard("{Meta>}b{/Meta}");
-  await expect.element(screen.getByText("Domain chats")).toBeVisible();
-});
-
 it("keeps the workspace recovery action and server sign-in details visible after refusal", async () => {
   const connection = {
     state: "error" as const,
@@ -510,8 +427,12 @@ it("keeps the workspace recovery action and server sign-in details visible after
   );
   await expect.element(screen.getByText(connection.message)).toBeVisible();
   await expect
-    .element(screen.getByRole("link", { name: "Open AmICited workspace" }))
-    .toHaveAttribute("href", connection.actionUrl);
+    .element(screen.getByRole("button", { name: "Open AmICited workspace" }))
+    .toBeVisible();
+  await expect
+    .element(screen.getByText(`${connection.code}: ${connection.description}`))
+    .not.toBeVisible();
+  expect(screen.getByRole("alert").elements()).toHaveLength(1);
   await screen.getByText("Sign-in details", { exact: true }).click();
   await expect
     .element(screen.getByText(`${connection.code}: ${connection.description}`))

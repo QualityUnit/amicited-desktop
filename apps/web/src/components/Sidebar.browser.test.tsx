@@ -3,7 +3,13 @@ import { useThreadActions } from "../hooks/useThreadActions";
 import "../index.css";
 import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
 import { makeThreadFixture } from "../test-fixtures";
-import { DEFAULT_CLIENT_SETTINGS, EnvironmentId, ProjectId } from "@t3tools/contracts";
+import {
+  DEFAULT_CLIENT_SETTINGS,
+  EnvironmentId,
+  ProjectId,
+  RunId,
+  ThreadId,
+} from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
@@ -102,11 +108,14 @@ describe("sidebar header new thread", () => {
   });
 });
 
-it.each(["PR", "lifecycle"])(
+it.each(["PR", "lifecycle", "tool-failure", "auth-failure", "working", "working-attention"])(
   "keeps %s controls in the marketer domain sidebar",
   async (scenario) => {
     await page.viewport(1280, 800);
     using stack = new DisposableStack();
+    const previousSettings = getClientSettings();
+    stack.defer(() => __setClientSettingsForTests(previousSettings));
+    __setClientSettingsForTests({ ...DEFAULT_CLIENT_SETTINGS, sidebarWorkingShelfEnabled: true });
     const previousMode = localStorage.getItem("amicited.workspace-mode");
     localStorage.setItem("amicited.workspace-mode", "marketer");
     stack.defer(() =>
@@ -119,6 +128,7 @@ it.each(["PR", "lifecycle"])(
     const domain = project("example.com");
     vi.mocked(useProjects).mockReturnValue([domain]);
     const thread = makeThreadFixture({
+      id: ThreadId.make(`marketer-${scenario}`),
       environmentId: domain.environmentId,
       projectId: domain.id,
       title: "Website update",
@@ -185,18 +195,101 @@ it.each(["PR", "lifecycle"])(
     );
     await using screen = await render(ui());
     refresh = () => screen.rerender(ui());
+    const openMenu = async () => {
+      await screen.getByTestId("sidebar-row-folder").hover();
+      await userEvent.click(
+        screen.getByRole("button", { name: "Chat actions for Website update" }),
+      );
+    };
+    if (scenario === "tool-failure" || scenario === "auth-failure") {
+      await change({
+        latestRun: {
+          runId: RunId.make("completed-check"),
+          status: "completed",
+          requestedAt: null,
+          startedAt: null,
+          completedAt: thread.updatedAt,
+          assistantMessageId: null,
+        },
+        source: {
+          ...thread.source,
+          latestMarketingCheckFailed: true,
+          lastError:
+            scenario === "auth-failure" ? "Authentication required. Please sign in." : null,
+        },
+        runtime:
+          scenario === "auth-failure"
+            ? {
+                status: "failed",
+                activeRunId: null,
+                providerInstanceId: thread.providerInstanceId,
+                providerName: "Claude",
+                lastError: "Authentication required. Please sign in.",
+                updatedAt: thread.updatedAt,
+              }
+            : null,
+      });
+      await expect
+        .element(
+          screen.getByText(scenario === "auth-failure" ? "Sign in needed" : "Couldn't check", {
+            exact: true,
+          }),
+        )
+        .toBeVisible();
+      return;
+    }
+    if (scenario === "working" || scenario === "working-attention") {
+      await change({
+        runtime: {
+          status: "running",
+          activeRunId: null,
+          providerInstanceId: thread.providerInstanceId,
+          providerName: "Claude",
+          lastError: null,
+          updatedAt: thread.updatedAt,
+        },
+      });
+      await expect
+        .element(screen.getByRole("button", { name: "Working 1", exact: true }))
+        .toBeVisible();
+      const working = screen.getByRole("button", { name: "Working 1", exact: true });
+      if (working.element().getAttribute("aria-expanded") === "false")
+        await userEvent.click(working);
+      await expect
+        .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
+        .toBeVisible();
+      await change({
+        runtime:
+          scenario === "working-attention"
+            ? {
+                status: "failed",
+                activeRunId: null,
+                providerInstanceId: thread.providerInstanceId,
+                providerName: "Claude",
+                lastError: "Check failed",
+                updatedAt: thread.updatedAt,
+              }
+            : null,
+      });
+      await expect
+        .element(screen.getByRole("button", { name: "Working 1", exact: true }))
+        .not.toBeInTheDocument();
+      await expect
+        .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
+        .toBeVisible();
+      await expect.element(screen.getByTestId("sidebar-row-folder")).toBeVisible();
+      return;
+    }
     if (scenario === "PR") {
       await expect
         .element(screen.getByRole("link", { name: "PR #45 - Merged: Update website" }))
         .toBeVisible();
-      await userEvent.click(
-        screen.getByRole("button", { name: "Chat actions for Website update" }),
-      );
+      await openMenu();
       await expect
         .element(page.getByRole("menuitem", { name: "Open pull request", exact: true }))
         .toBeVisible();
       await expect
-        .element(page.getByRole("menuitem", { name: "Settle thread", exact: true }))
+        .element(page.getByRole("menuitem", { name: "Settle chat", exact: true }))
         .toBeVisible();
       await expect
         .element(page.getByRole("menuitem", { name: "Snooze", exact: true }))
@@ -207,27 +300,26 @@ it.each(["PR", "lifecycle"])(
       await expect
         .element(screen.getByRole("link", { name: "PR #45 - Merged: Update website" }))
         .not.toBeInTheDocument();
-      await userEvent.click(
-        screen.getByRole("button", { name: "Chat actions for Website update" }),
-      );
+      await openMenu();
       await expect
         .element(page.getByRole("menuitem", { name: "Open pull request", exact: true }))
         .not.toBeInTheDocument();
       await userEvent.keyboard("{Escape}");
       return;
     }
-    await userEvent.click(screen.getByRole("button", { name: "Chat actions for Website update" }));
-    await userEvent.click(page.getByRole("menuitem", { name: "Settle thread", exact: true }));
+    await openMenu();
+    await userEvent.click(page.getByRole("menuitem", { name: "Settle chat", exact: true }));
     await expect
       .element(screen.getByRole("button", { name: "Settled 1", exact: true }))
       .toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Settled 1", exact: true }));
-    await userEvent.click(screen.getByRole("button", { name: "Chat actions for Website update" }));
-    await userEvent.click(page.getByRole("menuitem", { name: "Un-settle thread", exact: true }));
+    const settled = screen.getByRole("button", { name: "Settled 1", exact: true });
+    if (settled.element().getAttribute("aria-expanded") === "false") await userEvent.click(settled);
+    await openMenu();
+    await userEvent.click(page.getByRole("menuitem", { name: "Un-settle chat", exact: true }));
     await expect
       .element(screen.getByRole("button", { name: "Settled 0", exact: true }))
       .toBeVisible();
-    await userEvent.click(screen.getByRole("button", { name: "Chat actions for Website update" }));
+    await openMenu();
     await page.getByRole("menuitem", { name: "Snooze", exact: true }).hover();
     await userEvent.click(page.getByRole("menuitem", { name: /In 1 hour/ }));
     await expect.element(screen.getByRole("button", { name: /Snoozed 1/ })).toBeVisible();
@@ -235,8 +327,8 @@ it.each(["PR", "lifecycle"])(
       .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
       .not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Snoozed 1/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Chat actions for Website update" }));
-    await userEvent.click(page.getByRole("menuitem", { name: "Wake thread", exact: true }));
+    await openMenu();
+    await userEvent.click(page.getByRole("menuitem", { name: "Wake chat", exact: true }));
     await expect
       .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
       .toBeVisible();
