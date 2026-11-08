@@ -6,11 +6,7 @@ import {
 } from "../marketingDomains";
 import { useThreadRouteRef } from "../hooks/useThreadRouteTarget";
 import { useThreadShell } from "../state/entities";
-export {
-  CloudPendingApprovals,
-  CloudUnclaimedApprovals,
-  useCloudApprovals,
-} from "./amicitedApprovals";
+export { CloudPendingApprovals, CloudUnclaimedApprovals } from "./amicitedApprovals";
 import { CloudDisclosure } from "./amicitedApprovals";
 
 import { Switch } from "../components/ui/switch";

@@ -1,3 +1,4 @@
+import { publish } from "~/marketingDomainStore";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { ThreadId } from "@t3tools/contracts";
@@ -17,6 +18,7 @@ import {
   ENVIRONMENT_ID,
   PROJECT_ID,
   installFakeEnvironment,
+  threadWithHistory,
   type FakeDriver,
 } from "../../test/fakeEnvironment";
 import { render } from "../../test/render";
@@ -88,3 +90,44 @@ it.each(["developer", "marketer"] as const)(
     expect(threadRequests).toEqual([]);
   },
 );
+
+it.each([false, true])("shows marketer thread location with site files=%s", async (siteFiles) => {
+  await page.viewport(1344, 1016);
+  const previous = localStorage.getItem("amicited.workspace-mode");
+  localStorage.setItem("amicited.workspace-mode", "marketer");
+  using _mode = {
+    [Symbol.dispose]() {
+      if (previous === null) localStorage.removeItem("amicited.workspace-mode");
+      else localStorage.setItem("amicited.workspace-mode", previous);
+      publish(ENVIRONMENT_ID, []);
+    },
+  };
+  const fixture = threadWithHistory(`location-${siteFiles}`, 0);
+  using _environment = installFakeEnvironment([fixture]);
+  publish(ENVIRONMENT_ID, [
+    {
+      projectId: PROJECT_ID,
+      hostname: "example.com",
+      brand: "Example",
+      connectionRef: PROJECT_ID,
+      cms: siteFiles ? "git" : "unknown",
+      siteFiles: siteFiles ? "/workspace/render" : null,
+    },
+  ]);
+  __setClientSettingsForTests({
+    ...DEFAULT_CLIENT_SETTINGS,
+    onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+  });
+  const router = getRouter(
+    createMemoryHistory({ initialEntries: [`/${ENVIRONMENT_ID}/${fixture.id}`] }),
+  );
+  await router.load();
+  await using _app = await render(<AppRoot router={router} />, {
+    router: false /* AppRoot owns the router */,
+  });
+  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  await expect.element(page.getByLabelText(/Run context:.*Render scenarios/)).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Add project script" }))
+    .not.toBeInTheDocument();
+});

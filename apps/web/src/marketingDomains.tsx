@@ -18,9 +18,6 @@ import { useSubscriptionRefresh, openCloudSubscription } from "./amicitedSubscri
 import { CloudDisclosure } from "./rpc/amicitedApprovals";
 import { useAtomValue } from "@effect/atom-react";
 import { SidebarProjectFolderHeader } from "./components/sidebar/SidebarProjectFolderHeader";
-import type { SidebarProjectSnapshot } from "./sidebarProjectGrouping";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import type { ReactNode } from "react";
 import { DomainConnectionWarning, AmicitedConnectPanel } from "@amicited/ui-cloud";
 import { useEffect, useRef, useEffectEvent, useState, useSyncExternalStore } from "react";
 import type { Domain } from "@amicited/cloud-client/domains";
@@ -1151,78 +1148,48 @@ function DomainProjectActions({
   );
 }
 
-export function DomainThreadGroup({
-  snapshot,
+export function DomainFolderHeader({
   domain,
   destination,
-  threads,
-  onNew,
-  children,
-}: {
-  snapshot?: SidebarProjectSnapshot | undefined;
-  domain?: Domain | undefined;
-  destination?: EnvironmentId | null | undefined;
-  threads: readonly EnvironmentThreadShell[];
-  onNew(): void;
-  children: ReactNode;
+  ...props
+}: React.ComponentProps<typeof SidebarProjectFolderHeader> & {
+  domain: Domain;
+  destination: EnvironmentId;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
-  if (!snapshot || !domain || !destination)
-    return (
-      <section>
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={() => setCollapsed(!collapsed)}
-          aria-expanded={!collapsed}
-        >
-          No domain
-        </Button>
-        {!collapsed && children}
-      </section>
-    );
   return (
-    <section>
-      <SidebarProjectFolderHeader
-        group={snapshot}
-        newThreadLabel="New chat"
-        actions={<DomainProjectActions domain={domain} destination={destination} />}
-        collapsed={collapsed}
-        hiddenThreads={threads}
-        onToggle={() => setCollapsed(!collapsed)}
-        onNewThread={onNew}
-        onContextMenu={() => {}}
-        status={
-          <span className="flex shrink-0 items-center gap-1 text-xs text-sidebar-muted-foreground">
-            <DomainStatusDot domain={domain} destination={destination} />
-            {domain.cms && domain.cms !== "unknown" && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={<span role="img" aria-label={domain.framework ?? cmsLabel(domain.cms)} />}
-                >
-                  {domain.cms === "git" ? (
-                    <CodeIcon className="size-3" />
-                  ) : (
-                    <GlobeIcon className="size-3" />
-                  )}
-                </TooltipTrigger>
-                <TooltipPopup>{domain.framework ?? cmsLabel(domain.cms)}</TooltipPopup>
-              </Tooltip>
-            )}
-            {domain.siteFiles && (
-              <Tooltip>
-                <TooltipTrigger
-                  render={<span role="img" aria-label={`Folder: ${domain.siteFiles}`} />}
-                >
-                  <FolderIcon className="size-3" />
-                </TooltipTrigger>
-                <TooltipPopup>Folder: {domain.siteFiles}</TooltipPopup>
-              </Tooltip>
-            )}
-          </span>
-        }
-      />
-      {!collapsed && children}
-    </section>
+    <SidebarProjectFolderHeader
+      {...props}
+      newThreadLabel="New chat"
+      actions={<DomainProjectActions domain={domain} destination={destination} />}
+      status={
+        <span className="flex shrink-0 items-center gap-1 text-xs text-sidebar-muted-foreground">
+          <DomainStatusDot domain={domain} destination={destination} />
+          {domain.cms && domain.cms !== "unknown" && (
+            <Tooltip>
+              <TooltipTrigger
+                render={<span role="img" aria-label={domain.framework ?? cmsLabel(domain.cms)} />}
+              >
+                {domain.cms === "git" ? (
+                  <CodeIcon className="size-3" />
+                ) : (
+                  <GlobeIcon className="size-3" />
+                )}
+              </TooltipTrigger>
+              <TooltipPopup>{domain.framework ?? cmsLabel(domain.cms)}</TooltipPopup>
+            </Tooltip>
+          )}
+          {domain.siteFiles && (
+            <Tooltip>
+              <TooltipTrigger
+                render={<span role="img" aria-label={`Folder: ${domain.siteFiles}`} />}
+              >
+                <FolderIcon className="size-3" />
+              </TooltipTrigger>
+              <TooltipPopup>Folder: {domain.siteFiles}</TooltipPopup>
+            </Tooltip>
+          )}
+        </span>
+      }
+    />
   );
 }

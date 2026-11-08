@@ -1,3 +1,6 @@
+import { useOpenLink } from "~/browser/useOpenLink";
+import { resolveThreadCurrentPullRequestLink } from "@t3tools/client-runtime/thread-pull-requests";
+import { Fragment } from "react";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { attachSidebarTree } from "../lib/sidebarTree";
 import { type EnvironmentId, type ScopedProjectRef } from "@t3tools/contracts";
@@ -892,7 +895,22 @@ function readRouteThreadKey(router: AnyRouter): string | null {
   return ref === null ? null : scopedThreadKey(ref);
 }
 
-export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReveal }) {
+export default function Sidebar({
+  routeReveal,
+  renderProjectFolder,
+  resolveThreadLocation,
+  onNewDomain,
+  archiveAction,
+}: {
+  routeReveal: SidebarRouteReveal;
+  onNewDomain?: () => void;
+  archiveAction?: ReactNode;
+  resolveThreadLocation?: (thread: EnvironmentThreadShell) => string | null | undefined;
+  renderProjectFolder?: (
+    props: React.ComponentProps<typeof SidebarProjectFolderHeader>,
+  ) => ReactNode;
+}) {
+  const openLink = useOpenLink(null);
   const marketer = useWorkspaceMode() === "marketer";
   const {
     projects,
@@ -1334,14 +1352,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
     delegatedUnderParent,
     routeRowThreadKey,
     folderGroups:
-      !marketer && boringSidebarEnabled
+      marketer || boringSidebarEnabled
         ? scopedProjectGroups.length === 0
           ? // An archived project keeps a folder for its active threads, below the rest.
             [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
           : scopedProjectGroups
         : null,
     keepEmptyFolders: (group) =>
-      scopedProjectGroups.length > 0 || (group.pinned && !group.archived),
+      marketer || scopedProjectGroups.length > 0 || (group.pinned && !group.archived),
   });
 
   // Ranked across environments as the palette ranks them, so one
@@ -2608,6 +2626,11 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                 threadRef.environmentId,
                 AuthOrchestrationOperateScope,
               ),
+              hasLinkedPullRequest: !!(
+                resolveThreadCurrentPullRequestLink(thread.pullRequests)?.url ??
+                thread.linkedPullRequest?.url ??
+                thread.branchPullRequest?.url
+              ),
               branch: thread.branch ?? null,
               // An archived project is not a filter choice.
               projectFilter:
@@ -2656,6 +2679,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
           return;
         }
         switch (clicked.value) {
+          case "open-pull-request": {
+            const url =
+              resolveThreadCurrentPullRequestLink(thread.pullRequests)?.url ??
+              thread.linkedPullRequest?.url ??
+              thread.branchPullRequest?.url;
+            if (url) await openLink(url, { threadRef });
+            return;
+          }
           case "filter-by-project":
             if (threadProjectGroup) {
               setProjectScopeKeys(
@@ -2935,6 +2966,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
 
   const handleNewThreadClick = (event?: ReactMouseEvent) => {
     if (
+      marketer ||
       legacySidebarEnabled ||
       shouldCreateNewThreadInCurrentProject(
         event?.shiftKey ?? false,
@@ -2974,7 +3006,14 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
         fixedHeader={
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
-              hasProjects={!marketer && projectGroups.length > 0}
+              hasProjects={marketer || projectGroups.length > 0}
+              {...(marketer
+                ? {
+                    newProjectLabel: "New domain",
+                    newThreadLabel: "New chat",
+                    searchLabel: "Search chats",
+                  }
+                : {})}
               projectScope={
                 <Combobox
                   items={projectScopeItems}
@@ -3176,7 +3215,8 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                   </ComboboxPopup>
                 </Combobox>
               }
-              onNewProject={openAddProjectCommandPalette}
+              {...(marketer ? { projectScope: archiveAction } : {})}
+              onNewProject={onNewDomain ?? openAddProjectCommandPalette}
               onNewThread={handleNewThreadClick}
               newThreadDisabled={projects.length === 0}
               newThreadShortcutLabel={newThreadShortcutLabel}
@@ -3319,7 +3359,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         const isCard =
                           section === "active" || section === "pinned" || section === "working";
                         const rowVariant = marketer
-                          ? "folder"
+                          ? "folder-multiline"
                           : folderRow
                             ? folderRowsMultiline
                               ? "folder-multiline"
@@ -3340,6 +3380,7 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                             }
                             thread={thread}
                             variant={rowVariant}
+                            locationLabel={resolveThreadLocation?.(thread)}
                             navigationParent={
                               folderRow ??
                               (section === "working" ||
@@ -3450,16 +3491,22 @@ export default function Sidebar({ routeReveal }: { routeReveal: SidebarRouteReve
                         }
                         if (projectFolders !== null && item.marker === "active-placeholder") {
                           for (const folder of projectFolders) {
+                            const folderProps = {
+                              group: folder.group,
+                              collapsed: folder.collapsed,
+                              hiddenThreads: folder.hiddenThreads,
+                              onToggle: toggleProjectFolder,
+                              onNewThread: startThreadInProjectFolder,
+                              onContextMenu: handleProjectFolderContextMenu,
+                            };
                             items.push(
-                              <SidebarProjectFolderHeader
-                                key={`project-folder:${folder.group.projectKey}`}
-                                group={folder.group}
-                                collapsed={folder.collapsed}
-                                hiddenThreads={folder.hiddenThreads}
-                                onToggle={toggleProjectFolder}
-                                onNewThread={startThreadInProjectFolder}
-                                onContextMenu={handleProjectFolderContextMenu}
-                              />,
+                              <Fragment key={`project-folder:${folder.group.projectKey}`}>
+                                {renderProjectFolder ? (
+                                  renderProjectFolder(folderProps)
+                                ) : (
+                                  <SidebarProjectFolderHeader {...folderProps} />
+                                )}
+                              </Fragment>,
                             );
                             for (const thread of folder.threads) {
                               items.push(

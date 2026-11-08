@@ -407,7 +407,7 @@ export function SidebarControl({ marketer = false }: { marketer?: boolean } = {}
   );
 }
 
-export function useWindowControlsInsetStyle() {
+function useWindowControlsInsetStyle() {
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const isWindowFullscreen = useSyncExternalStore(
     subscribeToWindowFullscreen,
@@ -421,7 +421,15 @@ export function useWindowControlsInsetStyle() {
   return windowControlsInsetStyle;
 }
 
-export function AppSidebarLayout({ children }: { children: ReactNode }) {
+export function AppSidebarLayout({
+  children,
+  sidebarContent,
+  marketer = false,
+}: {
+  children: ReactNode;
+  sidebarContent?: ReactNode;
+  marketer?: boolean;
+}) {
   const sidebarArea = workspaceAreaProps("sidebar", 0, "Threads");
   const [sidebarRouteReveal] = useState<SidebarRouteReveal>(() => ({
     observedKey: null,
@@ -480,12 +488,12 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           }}
           style={windowControlsInsetStyle}
         >
-          <ThreadSidebar routeReveal={sidebarRouteReveal} />
+          {sidebarContent ?? <ThreadSidebar routeReveal={sidebarRouteReveal} />}
           <SidebarRail onDoubleClick={resetSidebarWidth} />
         </Sidebar>
         {children}
         <BackgroundThreadAnnouncer />
-        <SidebarControl />
+        <SidebarControl marketer={marketer} />
         {isElectron ? <HistorySwipeNavigation /> : null}
       </SidebarProvider>
     </PanelAnimationSuppressionProvider>

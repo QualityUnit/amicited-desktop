@@ -1,3 +1,5 @@
+import { useOpenLink } from "~/browser/useOpenLink";
+import { resolveThreadCurrentPullRequestLink } from "@t3tools/client-runtime/thread-pull-requests";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { requestCustomSnooze } from "../components/CustomSnoozeDialog";
 import { openGuestShareDialog } from "../components/chat/guestShareDialogState";
@@ -65,6 +67,7 @@ export function useThreadActionMenu(input: {
   readonly onFind?: ((threadRef: ScopedThreadRef) => void) | undefined;
   readonly canShareWithGuest: boolean;
 }) {
+  const openLink = useOpenLink(input.threadRef);
   const { threadRef, projectCwd, onStartRename, onFind, canShareWithGuest } = input;
   const router = useRouter();
   const projects = useProjects();
@@ -133,7 +136,12 @@ export function useThreadActionMenu(input: {
       };
       const isRegeneratingTitle = thread.titleRegeneration != null;
       const snoozePresets = resolveSnoozePresets(now, timestampFormat, threadRef.environmentId);
+      const pullRequestUrl =
+        resolveThreadCurrentPullRequestLink(thread.pullRequests)?.url ??
+        thread.linkedPullRequest?.url ??
+        thread.branchPullRequest?.url;
       const items = buildThreadActionMenuItems({
+        hasLinkedPullRequest: !!pullRequestUrl,
         canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
         canFind: onFind !== undefined,
         branch: thread.branch ?? null,
@@ -190,6 +198,9 @@ export function useThreadActionMenu(input: {
         }
       };
       switch (action) {
+        case "open-pull-request":
+          if (pullRequestUrl) await openLink(pullRequestUrl);
+          return;
         case "find":
           onFind?.(threadRef);
           return;
