@@ -185,6 +185,8 @@ function CloudApproval({
                     input: { requestId: request.requestId, decision },
                   });
                   if (response._tag !== "Success") setFailure(true);
+                } catch {
+                  setFailure(true);
                 } finally {
                   setBusy(false);
                 }
