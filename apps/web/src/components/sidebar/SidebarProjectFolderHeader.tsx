@@ -90,7 +90,11 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
         >
           {group.displayName}
         </span>
-        {props.status}
+        {props.status && (
+          <span className="shrink-0 group-hover/project-folder:invisible group-focus-within/project-folder:invisible pointer-coarse:invisible">
+            {props.status}
+          </span>
+        )}
         {dot ? (
           <span className={cn("size-1.5 shrink-0 rounded-full", FOLDER_DOT_CLASS_NAME[dot])}>
             <span className="sr-only">{FOLDER_DOT_LABEL[dot]}</span>
@@ -111,8 +115,7 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
       </button>
       <span
         className={cn(
-          "flex shrink-0 items-center gap-1 opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 group-focus-within/project-folder:opacity-100 pointer-coarse:opacity-100",
-          props.status ? "pr-1" : "absolute inset-y-0 right-6",
+          "absolute inset-y-0 right-1 flex items-center gap-1 rounded-(--control-radius) bg-sidebar-row-hover opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 group-focus-within/project-folder:opacity-100 pointer-coarse:opacity-100",
         )}
       >
         {props.actions}

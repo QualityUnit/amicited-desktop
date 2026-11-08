@@ -481,7 +481,7 @@ try {
     ]);
     NodeChildProcess.execFileSync("git", ["clone", "--bare", site, bare]);
     await page.getByRole("button", { name: "New domain", exact: true }).first().click();
-    await page.getByLabel("Website", { exact: true }).fill("site.example");
+    await page.getByLabel("Website", { exact: true }).fill("flowhunt.io");
     await capture("38-new-domain-cms");
     await page.getByRole("combobox", { name: "CMS", exact: true }).click();
     await page.getByRole("option", { name: /^Git-based site/ }).click();
@@ -495,8 +495,8 @@ try {
     await page
       .getByRole("dialog", { name: "New domain", exact: true })
       .waitFor({ state: "hidden" });
-    await page.getByText("site.example", { exact: true }).first().waitFor();
-    await page.locator(".am-composer-context").getByText("site.example", { exact: true }).waitFor();
+    await page.getByText("flowhunt.io", { exact: true }).first().waitFor();
+    await page.locator(".am-composer-context").getByText("flowhunt.io", { exact: true }).waitFor();
     await capture("38-sidebar-cms-folder");
     await page.evaluate(async () => {
       const { serverEnvironment, primaryServerSettingsAtom } = await import(
@@ -576,13 +576,13 @@ try {
     await page.getByRole("button", { name: "Close review", exact: true }).click();
     await capture("39-review-diff-closed");
     await page.mouse.move(800, 400);
-    await capture("41-domain-header-rest");
+    await capture("42-domain-header-rest");
     await page
       .getByTestId("sidebar-project-folder")
-      .filter({ hasText: "site.example" })
+      .filter({ hasText: "flowhunt.io" })
       .first()
       .hover();
-    await capture("41-domain-header-hover");
+    await capture("42-domain-header-hover");
     await page.mouse.move(800, 400);
 
     await page.goto(url + "/settings/general");

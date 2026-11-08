@@ -2,6 +2,7 @@ import type { Domain } from "@amicited/cloud-client/domains";
 export const cache =
   (import.meta.hot?.data.domainCache as Map<string, readonly Domain[]> | undefined) ??
   new Map<string, readonly Domain[]>();
+export const readFailures = new Set<string>();
 export const listeners = new Set<() => void>();
 export const empty: readonly Domain[] = [];
 export const subscribe = (listener: () => void) => {

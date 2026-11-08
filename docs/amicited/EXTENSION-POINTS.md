@@ -520,6 +520,6 @@ Wave 39 site-file corrections:
 - `apps/server/src/orchestration-v2/RuntimePolicy.test.ts`: verifies site supervision and metadata failure at the runtime boundary.
 
 - `apps/web/src/filePathDisplay.ts`: optional workspace-label omission for marketer file rows and approvals, matching the review diff.
-- `apps/web/src/components/sidebar/SidebarProjectFolderHeader.browser.test.tsx`: verifies domain status icons and actions do not overlap across hover, focus, themes and long hostnames.
+- `apps/web/src/components/sidebar/SidebarProjectFolderHeader.browser.test.tsx`: verifies short hostnames fit at rest and visible status icons and actions do not overlap on hover or focus, for short and long hostnames.
 
 - `apps/web/src/components/chat/MessagesTimeline.logic.ts`: optional folder-label omission for marketer work rows while retaining upstream label selection.

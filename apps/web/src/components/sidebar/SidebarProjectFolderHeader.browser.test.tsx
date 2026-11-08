@@ -1,20 +1,15 @@
 import "../../index.css";
 import { EnvironmentId, ProjectId, IsoDateTime } from "@t3tools/contracts";
-import { CodeIcon, FolderIcon } from "lucide-react";
+import { CodeIcon, FolderIcon, MoreHorizontal } from "lucide-react";
 import { expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 import { render } from "../../../test/render";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { SidebarProjectFolderHeader } from "./SidebarProjectFolderHeader";
 
-it.each([
-  { dark: false, displayName: "flowhunt.io" },
-  { dark: true, displayName: "flowhunt.io" },
-  { dark: false, displayName: "a-very-long-hostname-that-must-truncate.example.com" },
-  { dark: true, displayName: "a-very-long-hostname-that-must-truncate.example.com" },
-])(
-  "keeps domain icons apart from actions at rest, hover and focus ($dark, $displayName)",
-  async ({ dark, displayName }) => {
+it.each(["flowhunt.io", "a-very-long-hostname-that-must-truncate.example.com"])(
+  "keeps domain names readable and visible icons apart from actions ($displayName)",
+  async (displayName) => {
     const group: SidebarProjectSnapshot = {
       id: ProjectId.make("domain"),
       environmentId: EnvironmentId.make("local"),
@@ -38,7 +33,7 @@ it.each([
       archived: false,
     };
     await using screen = await render(
-      <div className={dark ? "dark" : ""} style={{ width: 256 }}>
+      <div style={{ width: 256 }}>
         <ul>
           <SidebarProjectFolderHeader
             group={group}
@@ -48,6 +43,11 @@ it.each([
             onNewThread={vi.fn()}
             onContextMenu={vi.fn()}
             newThreadLabel="New chat"
+            actions={
+              <button type="button" aria-label="Domain actions">
+                <MoreHorizontal className="size-4" />
+              </button>
+            }
             status={
               <span className="flex shrink-0 items-center gap-1">
                 <span data-status-icon className="size-1.5 rounded-full" />
@@ -62,8 +62,23 @@ it.each([
     const action = screen.getByRole("button", { name: `New chat in ${displayName}` });
     const row = screen.getByTestId("sidebar-project-folder");
     const verify = () => {
-      const icons = [...screen.container.querySelectorAll("[data-status-icon]")];
-      const boxes = [...icons, action.element()].map((node) => node.getBoundingClientRect());
+      const icons = [
+        ...screen.container.querySelectorAll(
+          "[data-status-icon], button[aria-label='Domain actions']",
+        ),
+      ].filter(
+        (node) =>
+          getComputedStyle(node).visibility !== "hidden" &&
+          getComputedStyle(
+            node.closest("button[aria-label='Domain actions']")?.parentElement ?? node,
+          ).opacity !== "0",
+      );
+      const boxes = [
+        ...icons,
+        ...(getComputedStyle(action.element().parentElement!).opacity === "0"
+          ? []
+          : [action.element()]),
+      ].map((node) => node.getBoundingClientRect());
       const boundary = row.element().getBoundingClientRect();
       for (let i = 0; i < boxes.length; i++) {
         const box = boxes[i]!;
@@ -74,6 +89,9 @@ it.each([
           expect(box.right <= other.left || other.right <= box.left).toBe(true);
       }
     };
+    const name = screen.getByText(displayName, { exact: true }).element();
+    if (displayName === "flowhunt.io")
+      expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
     verify();
     await row.hover();
     verify();

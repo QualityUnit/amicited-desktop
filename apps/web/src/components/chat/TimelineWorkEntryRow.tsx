@@ -46,6 +46,7 @@ import {
   workEntryReadOutput,
 } from "./MessagesTimeline.logic";
 import { cn } from "~/lib/utils";
+import { formatWorkspaceRelativePath } from "../../filePathDisplay";
 import { formatUpcomingTimestamp } from "../../timestampFormat";
 import { FetchedToolOutput, V2ItemInspector } from "./V2ItemInspector";
 import { SubagentNotificationLink } from "./V2LifecycleRow";
@@ -300,7 +301,9 @@ function WorkEntryLogRow(props: WorkEntryRowProps) {
         ? "Thinking"
         : "Thought"
       : questionHeading ||
-        (displayLabel ??
+        ((displayLabel && workspaceMode === "marketer"
+          ? formatWorkspaceRelativePath(displayLabel, workspaceRoot, true)
+          : displayLabel) ??
           workEntryDisplayLabel(workEntry, workspaceRoot, workspaceMode === "marketer"));
   const answerPreview =
     workEntry.questionAnswer && hasQuestionAnswer(workEntry.questionAnswer)

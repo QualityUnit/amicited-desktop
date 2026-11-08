@@ -338,5 +338,9 @@ export function CloudConnectedChip({
   destination?: import("@t3tools/contracts").EnvironmentId | undefined;
 }) {
   const { connection } = useCloud(destination);
-  return connection?.state === "connected" ? <span>AmICited connected</span> : null;
+  return connection?.state === "connected" ? (
+    <span>
+      · <span>AmICited connected</span>
+    </span>
+  ) : null;
 }

@@ -81,24 +81,30 @@ const connectionCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   label: "domains:connection",
 });
 export { readDomain } from "./marketingDomainStore";
-import { cache, listeners, empty, subscribe, publish } from "./marketingDomainStore";
+import { cache, listeners, empty, subscribe, publish, readFailures } from "./marketingDomainStore";
 export function useDomains(destination?: EnvironmentId | null) {
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
   const read = useAtomCommand(list);
+  const readFailed = useSyncExternalStore(subscribe, () =>
+    Boolean(environmentId && readFailures.has(environmentId)),
+  );
   const rows = useSyncExternalStore(subscribe, () =>
     environmentId ? (cache.get(environmentId) ?? empty) : empty,
   );
   const refresh = useEffectEvent(async () => {
     if (!environmentId) return;
     const result = await read({ environmentId, input: undefined });
+    if (result._tag === "Success") readFailures.delete(environmentId);
+    else readFailures.add(environmentId);
+    listeners.forEach((listener) => listener());
     if (result._tag === "Success") publish(environmentId, result.value);
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Metadata is read from the connected environment.
   useEffect(() => {
     if (environmentId) void refresh();
   }, [environmentId]);
-  return { rows, environmentId, refresh };
+  return { rows, environmentId, refresh, readFailed };
 }
 function displayFolder(path: string) {
   const homePath = path.replace(/^(?:\/Users\/[^/]+|\/home\/[^/]+)(?=\/|$)/, "~");
@@ -433,7 +439,7 @@ export function NewDomainDialog({
                           {siteFiles.split(/[\\/]/).pop()}
                         </p>
                       )}
-                      {!desktopFolderPicker && (
+                      {!desktopFolderPicker && !validatedPath && (
                         <Input
                           disabled={busy}
                           aria-label="Folder path"
@@ -901,11 +907,16 @@ export function DomainConnection({
 }
 
 export function DomainsSettings() {
-  const { rows, environmentId } = useDomains();
+  const { rows, environmentId, readFailed } = useDomains();
   const projects = useProjects();
   return (
     <section>
       <h2>Domains</h2>
+      {readFailed && (
+        <p role="status" className="text-sm text-muted-foreground">
+          Couldn't read your domains. Edits in site folders may not ask first.
+        </p>
+      )}
       <SettingsGroup>
         {rows
           .filter((domain) =>
@@ -1182,7 +1193,7 @@ export function DomainThreadGroup({
         onNewThread={onNew}
         onContextMenu={() => {}}
         status={
-          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <span className="flex shrink-0 items-center gap-1 text-xs text-sidebar-muted-foreground">
             <DomainStatusDot domain={domain} destination={destination} />
             {domain.cms && domain.cms !== "unknown" && (
               <Tooltip>

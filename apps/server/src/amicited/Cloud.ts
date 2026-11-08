@@ -100,14 +100,30 @@ export const layer = Layer.effect(
         ...decodeMembership(JSON.parse(await run(fs.readFileString(membershipPath)))),
       ],
       read: async () => {
-        if (!(await run(fs.exists(metadataPath)))) {
-          if (await run(fs.exists(membershipPath))) throw new Error("Domain registry is missing.");
-          return [];
+        try {
+          if (!(await run(fs.exists(metadataPath)))) {
+            if (await run(fs.exists(membershipPath)))
+              throw new Error("Domain registry is missing.");
+            return [];
+          }
+          const rows = [...decodeDomains(JSON.parse(await run(fs.readFileString(metadataPath))))];
+          knownSites = rows;
+          await saveMembership(rows).catch(() =>
+            run(
+              Effect.logWarning(
+                "Could not save domain site membership; the next write will retry.",
+              ),
+            ),
+          );
+          return rows;
+        } catch (error) {
+          await run(
+            Effect.logWarning(
+              "Couldn't read your domains. Edits in site folders may not ask first.",
+            ),
+          );
+          throw error;
         }
-        const rows = [...decodeDomains(JSON.parse(await run(fs.readFileString(metadataPath))))];
-        await saveMembership(rows);
-        knownSites = rows;
-        return rows;
       },
       write: async (rows) => {
         await saveMembership([...knownSites, ...rows]);
