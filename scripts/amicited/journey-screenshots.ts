@@ -397,7 +397,10 @@ try {
       });
       if (!name.startsWith("reference-")) await page.locator("[data-amicited-shell]").waitFor();
       await page.locator("#boot-shell").waitFor({ state: "detached" });
-      await page.getByTestId("composer-editor").or(page.getByRole("main")).first().waitFor();
+      await page
+        .locator('main:visible, [role="dialog"]:visible, [data-testid="composer-editor"]:visible')
+        .first()
+        .waitFor();
       if (page.url() !== intendedRoute) throw new Error(`Route changed before ${name}`);
       await page.waitForFunction(
         (dark) => document.documentElement.classList.contains("dark") === dark,
