@@ -274,14 +274,7 @@ try {
       if (["empty-chat", "tool-card-turn", "reference-t3-turn"].includes(name))
         parity[`${name}-${theme}`] = await readStyles();
       await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
-      const screenshot = await cdp.send("Page.captureScreenshot", {
-        format: "png",
-        captureBeyondViewport: false,
-      });
-      NodeFS.writeFileSync(
-        NodePath.join(out, `electron-${name}-${theme}-1344.png`),
-        Buffer.from(screenshot.data, "base64"),
-      );
+      await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
     }
   }
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
@@ -378,8 +371,11 @@ try {
   await page.waitForFunction(
     () => !Object.keys(sessionStorage).some((key) => key.startsWith("amicited.report-context.")),
   );
+  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
   await page.getByTestId("composer-editor").fill("Thanks, keep this for the next campaign.");
   await page.getByTestId("composer-editor").press("Enter");
+  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "visible" });
+  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("button", { name: "Content tools", exact: true }).click();
   if (!page.url().includes("category=content")) throw new Error("Electron lost category route");
