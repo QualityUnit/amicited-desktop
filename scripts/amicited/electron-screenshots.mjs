@@ -356,26 +356,25 @@ try {
     .waitFor();
   await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
   await capture("failed-tool");
-  await page.goto(marketingTurnUrl);
-  await page.getByRole("button", { name: "Open full result" }).waitFor();
-  await page.getByRole("button", { name: "Open full result" }).click();
-  await page.getByRole("button", { name: "Ask AI about this" }).click();
-  await page.getByTestId("composer-editor").waitFor();
-  await page.getByTestId("composer-editor").press("Enter");
-  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
-  NodeFS.writeFileSync(
-    NodePath.join(out, "electron-report-dispatch.txt"),
-    await page.locator("body").innerText(),
-  );
-  await capture("report-context");
-  await page.waitForFunction(
-    () => !Object.keys(sessionStorage).some((key) => key.startsWith("amicited.report-context.")),
-  );
-  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
-  await page.getByTestId("composer-editor").fill("Thanks, keep this for the next campaign.");
-  await page.getByTestId("composer-editor").press("Enter");
-  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+  if (process.env.AMICITED_SKIP_REPORT_PROBE !== "1") {
+    await page.goto(marketingTurnUrl);
+    await page.getByRole("button", { name: "Open full result" }).waitFor();
+    await page.getByRole("button", { name: "Open full result" }).click();
+    await page.getByRole("button", { name: "Ask AI about this" }).click();
+    await page.getByTestId("composer-editor").waitFor();
+    await page.getByTestId("composer-editor").press("Enter");
+    await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+    NodeFS.writeFileSync(
+      NodePath.join(out, "electron-report-dispatch.txt"),
+      await page.locator("body").innerText(),
+    );
+    await capture("report-context");
+    await page.waitForFunction(
+      () => !Object.keys(sessionStorage).some((key) => key.startsWith("amicited.report-context.")),
+    );
+    await page.getByTestId("composer-editor").fill("Thanks, keep this for the next campaign.");
+    await page.getByTestId("composer-editor").press("Enter");
+  }
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("button", { name: "Content tools", exact: true }).click();
   if (!page.url().includes("category=content")) throw new Error("Electron lost category route");
@@ -417,52 +416,58 @@ try {
   await page.getByRole("button", { name: /Run/ }).first().waitFor();
   await capture("tool-form");
   if (process.env.AMICITED_CAPTURE_HOME && process.env.AMICITED_REUSE_REAL === "1") {
+    if (process.env.AMICITED_SKIP_REPORT_PROBE !== "1") {
+      const { DatabaseSync } = await import("node:sqlite");
+      const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
+        readOnly: true,
+      });
+      const row = database
+        .prepare(
+          "SELECT thread_id, title FROM orchestration_v2_projection_threads WHERE thread_id = (SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' ORDER BY requested_at DESC LIMIT 1)",
+        )
+        .get();
+      database.close();
+      await page.evaluate(async (threadId) => {
+        const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+        location.hash = `/${readPrimaryEnvironmentId()}/${threadId}`;
+      }, row.thread_id);
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .waitFor();
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await capture("real-haiku-turn");
+    }
     const { DatabaseSync } = await import("node:sqlite");
     const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
       readOnly: true,
     });
-    const row = database
+    const outgoing = database
       .prepare(
-        "SELECT thread_id, title FROM orchestration_v2_projection_threads WHERE thread_id = (SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' ORDER BY requested_at DESC LIMIT 1)",
+        "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE type = 'user_message' ORDER BY updated_at DESC LIMIT 8",
       )
-      .get();
+      .all()
+      .map((row) => JSON.parse(row.payload_json));
     database.close();
-    await page.evaluate(async (threadId) => {
-      const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
-      location.hash = `/${readPrimaryEnvironmentId()}/${threadId}`;
-    }, row.thread_id);
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .filter({ hasText: "Website health audit" })
-      .waitFor();
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .filter({ hasText: "Website health audit" })
-      .evaluate((element) => element.scrollIntoView({ block: "center" }));
-    await capture("real-haiku-turn");
-  }
-  const { DatabaseSync } = await import("node:sqlite");
-  const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
-    readOnly: true,
-  });
-  const outgoing = database
-    .prepare(
-      "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE type = 'user_message' ORDER BY updated_at DESC LIMIT 8",
+    const reportQuestion = outgoing.find((item) =>
+      item.context?.records?.some((record) => record.kind === "marketing-report"),
+    );
+    if (!reportQuestion)
+      throw new Error("Electron outgoing message did not contain report context");
+    const followUp = outgoing.find((item) => item.text.includes("Thanks, keep this"));
+    if (
+      !followUp ||
+      followUp.context?.records?.some((record) => record.kind === "marketing-report")
     )
-    .all()
-    .map((row) => JSON.parse(row.payload_json));
-  database.close();
-  const reportQuestion = outgoing.find((item) =>
-    item.context?.records?.some((record) => record.kind === "marketing-report"),
-  );
-  if (!reportQuestion) throw new Error("Electron outgoing message did not contain report context");
-  const followUp = outgoing.find((item) => item.text.includes("Thanks, keep this"));
-  if (!followUp || followUp.context?.records?.some((record) => record.kind === "marketing-report"))
-    throw new Error("Electron repeated stale report context");
-  NodeFS.writeFileSync(
-    NodePath.join(out, "electron-outgoing-context.json"),
-    JSON.stringify({ reportQuestion, followUp }, null, 2),
-  );
+      throw new Error("Electron repeated stale report context");
+    NodeFS.writeFileSync(
+      NodePath.join(out, "electron-outgoing-context.json"),
+      JSON.stringify({ reportQuestion, followUp }, null, 2),
+    );
+  }
   await page.goto(marketingTurnUrl);
   await page.getByTestId("composer-editor").waitFor();
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));

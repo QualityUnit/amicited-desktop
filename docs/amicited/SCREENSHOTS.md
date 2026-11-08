@@ -129,3 +129,5 @@ without submitting forms, then cancels in the app. If the boundary cannot be
 reached, `production-oauth-boundary.json` records that limitation.
 
 Wave 33 uses `.amicited-shots/r31/`. Live cloud evidence includes inline credit approvals, a read-only chat grant, and provider-shaped brand visibility with start/poll consolidation. `AMICITED_CAPTURE_OAUTH=1` records the redacted authorization URL after the production browser launcher succeeds; it opens the real browser and cancels without submitting a form. It no longer substitutes a launcher shim. Explicit Replay capture holds long recorded states for thirty seconds to allow all three viewport captures under host load.
+
+`AMICITED_SKIP_REPORT_PROBE=1` scopes the native harness to its UI and cloud captures without sending the separate report-question follow-ups. Report dispatch remains covered by the full browser journey; report a scoped native run as such.
