@@ -397,3 +397,73 @@ it("expires and cancels pending calls without executing, including destructive f
   expect(await cancelled).toMatchObject({ isError: true });
   expect(call).not.toHaveBeenCalled();
 });
+
+it("cancels discovery and immediately reconnects without opening the stale browser", async () => {
+  await using fake = await fixture();
+  const discovery = Promise.withResolvers<void>();
+  const nativeFetch = globalThis.fetch;
+  let blocked = false;
+  using _fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (!blocked && String(url).includes(".well-known")) {
+      blocked = true;
+      discovery.resolve();
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("cancelled")), {
+          once: true,
+        });
+      });
+    }
+    return nativeFetch(url, init);
+  });
+  const opened = Promise.withResolvers<void>();
+  const open = vi.fn(async () => {
+    opened.resolve();
+  });
+  const cloud = fake.make(open);
+  const first = cloud.connectOAuth();
+  await discovery.promise;
+  await cloud.disconnect();
+  const second = cloud.connectOAuth();
+  await first;
+  await opened.promise;
+  expect(open).toHaveBeenCalledTimes(1);
+  await cloud.disconnect();
+  expect(await second).toEqual({ state: "disconnected" });
+  expect(fake.stored).toBeUndefined();
+});
+
+it("grants paid reads per chat, always asks for writes, and refuses known free access before approval", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make();
+  await cloud.connectApiKey("test-key");
+  cloud.toolPolicy = async () => ({ needsApproval: false, destructive: false });
+  let waiting = Promise.withResolvers<void>();
+  const stop = cloud.subscribeApprovals(() => {
+    if (cloud.pendingApprovals().length) waiting.resolve();
+  });
+  const call = cloud.requestCall("thread", "paid_read", { website: "acme.com" });
+  await waiting.promise;
+  expect(cloud.pendingApprovals()[0]).toMatchObject({
+    readOnly: true,
+    message: expect.stringContaining("acme.com"),
+  });
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "acceptForSession");
+  await call;
+  await cloud.requestCall("thread", "paid_read", {});
+  expect(cloud.pendingApprovals()).toEqual([]);
+  cloud.toolPolicy = async () => ({ needsApproval: true, destructive: false });
+  waiting = Promise.withResolvers<void>();
+  const write = cloud.requestCall("thread", "paid_write", {});
+  await waiting.promise;
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "decline");
+  await write;
+  fake.refuse("Pro plan required");
+  await cloud.call("paid_read");
+  expect(await cloud.requestCall("thread", "paid_write", {})).toMatchObject({
+    isError: true,
+    structuredContent: { code: "plan_required" },
+  });
+  expect(cloud.pendingApprovals()).toEqual([]);
+  stop();
+  await cloud.disconnect();
+});

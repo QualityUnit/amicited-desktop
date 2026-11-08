@@ -404,4 +404,4 @@ export {
 
 export { MarketingHeader } from "./shell.js";
 
-export { cloudToolResult, CloudToolResultCard } from "./chat.js";
+export { cloudRunId, cloudToolResult, CloudToolResultCard } from "./chat.js";

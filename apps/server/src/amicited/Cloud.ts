@@ -1,3 +1,4 @@
+import * as FileSystem from "effect/FileSystem";
 import { CloudClient } from "@amicited/cloud-client";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
@@ -13,6 +14,7 @@ export class AmicitedCloud extends Context.Service<AmicitedCloud, CloudClient>()
 export const layer = Layer.effect(
   AmicitedCloud,
   Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
     const launcher = yield* ExternalLauncher.ExternalLauncher;
     const config = yield* ServerConfig.ServerConfig;
     const account = config.stateDir;
@@ -25,6 +27,9 @@ export const layer = Layer.effect(
       /NoEntry|no (matching )?entry|not found/i.test(String(error));
     const capture = yield* Config.String("T3CODE_DEV_REPLAY_CAPTURE").pipe(Config.withDefault(""));
     const endpoint = yield* Config.String("T3CODE_DEV_AMICITED_ENDPOINT").pipe(
+      Config.withDefault(""),
+    );
+    const oauthLog = yield* Config.String("AMICITED_OAUTH_CAPTURE_URL").pipe(
       Config.withDefault(""),
     );
     const fixtureEndpoint =
@@ -49,10 +54,16 @@ export const layer = Layer.effect(
           }
         },
       },
-      openExternal: (url) =>
-        Effect.runPromiseWith(context)(
+      openExternal: async (url) => {
+        await Effect.runPromiseWith(context)(
           launcher.launchBrowser(url).pipe(Effect.withTracerEnabled(false)),
-        ),
+        );
+        if (capture === "1" && oauthLog) {
+          const redacted = new URL(url);
+          redacted.searchParams.set("state", "REDACTED");
+          await Effect.runPromiseWith(context)(fs.writeFileString(oauthLog, redacted.href));
+        }
+      },
     });
     yield* Effect.addFinalizer(() => Effect.promise(() => cloud.close()));
     return cloud;

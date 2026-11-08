@@ -15,7 +15,7 @@ import {
   shouldResumeMarketingDraft,
 } from "./marketingContext";
 import { useThreadVisibleTurnItems, useThreadShell } from "./state/entities";
-import { CloudApproval, openCloudSubscription } from "./rpc/amicitedCloud";
+import { CloudPendingApprovals, openCloudSubscription } from "./rpc/amicitedCloud";
 import { CloudFooter } from "./rpc/amicitedCloud";
 import type { ScopedThreadRef, RunId } from "@t3tools/contracts";
 import { resolveAppModelSelectionState } from "./modelSelection";
@@ -34,6 +34,7 @@ import { useNavigate, useLocation } from "@tanstack/react-router";
 import {
   CompactMarketingResult,
   cloudToolResult,
+  cloudRunId,
   CloudToolResultCard,
   marketingToolResult,
   marketingOfferResult,
@@ -50,16 +51,19 @@ import {
 import { MarketingSubscriptions, useMarketingTask } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
 export function MarketingComposerContext({
+  destination,
   onSelected,
   onConnected,
   selectedInstanceId,
 }: {
+  destination?: EnvironmentId | null | undefined;
   selectedInstanceId: string;
   onConnected: (selection: import("@t3tools/contracts").ModelSelection) => void;
   onSelected: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
   const [connecting, setConnecting] = useState<"claudeAgent" | "codex" | null>(null);
-  const environmentId = usePrimaryEnvironmentId();
+  const primary = usePrimaryEnvironmentId();
+  const environmentId = destination ?? primary;
   const providers = useEnvironmentProviders();
   const selected = environmentId
     ? providers.get(environmentId)?.find((p) => p.instanceId === selectedInstanceId)
@@ -179,7 +183,7 @@ export function MarketingComposerContext({
             </MarketingButton>
           </>
         )}
-        <CloudConnectedChip />
+        <CloudConnectedChip destination={environmentId ?? undefined} />
       </div>
       {connecting && !ready && (
         <MarketingSubscriptions
@@ -230,6 +234,52 @@ export function MarketingTranscriptCard({
       ? { environmentId, threadId: projectedItem.sourceThreadId }
       : null,
   );
+  const current =
+    fetched?.type === "dynamic_tool"
+      ? fetched
+      : projectedItem?.item.type === "dynamic_tool"
+        ? projectedItem.item
+        : undefined;
+  const input = current?.input as { tool?: string; arguments?: { run_id?: string } } | undefined;
+  let cloud = cloudToolResult(current?.output ?? output);
+  const runId = cloudRunId(current?.output ?? output);
+  const family = input?.tool?.replace(/_(start|get)$/, "");
+  const peers = visible.filter(
+    (candidate) => candidate.item.type === "dynamic_tool" && candidate.item.id !== current?.id,
+  );
+  const peer =
+    input?.tool?.endsWith("_start") && runId
+      ? peers.toReversed().find((candidate) => {
+          const args =
+            candidate.item.type === "dynamic_tool"
+              ? (candidate.item.input as { tool?: string; arguments?: { run_id?: string } })
+              : undefined;
+          return args?.tool === `${family}_get` && args.arguments?.run_id === runId;
+        })
+      : input?.tool?.endsWith("_get")
+        ? peers.toReversed().find((candidate) => {
+            const args =
+              candidate.item.type === "dynamic_tool"
+                ? (candidate.item.input as { tool?: string })
+                : undefined;
+            return (
+              candidate.item.ordinal < (current?.ordinal ?? 0) && args?.tool === `${family}_start`
+            );
+          })
+        : undefined;
+  const peerDetail = useTurnItemDetail(
+    peer && environmentId && turnItemNeedsDetailFetch(peer.item)
+      ? {
+          environmentId,
+          threadId: peer.sourceThreadId,
+          itemId: peer.sourceItemId,
+          revision: turnItemDetailRevision(peer.item),
+        }
+      : null,
+    source,
+  );
+  const peerItem = peerDetail.data?.item ?? peer?.item;
+  const peerOutput = peerItem?.type === "dynamic_tool" ? peerItem.output : undefined;
   if (
     !result &&
     shell?.hasPendingApprovals &&
@@ -242,23 +292,46 @@ export function MarketingTranscriptCard({
   )
     return null;
   if (marketingSubcheckCovered(projectedItem, visible)) return null;
-  const cloud = cloudToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
   if (
-    cloud &&
-    typeof cloud.result === "object" &&
-    cloud.result !== null &&
-    "structuredContent" in cloud.result
-  ) {
-    const data = cloud.result.structuredContent as {
-      kind?: string;
-      requestId: string;
-      message: string;
-      free: boolean;
-    };
-    if (data?.kind === "amicited-approval")
-      return <CloudApproval request={data} tool={cloud.tool} />;
-  }
-  if (cloud) return <CloudToolResultCard cloud={cloud} onStartTrial={openCloudSubscription} />;
+    input?.tool?.endsWith("_get") &&
+    input.arguments?.run_id &&
+    cloudRunId(peerOutput) === input.arguments.run_id
+  )
+    return null;
+  if (input?.tool?.endsWith("_start") && runId && cloudRunId(peerOutput) === runId)
+    cloud = cloudToolResult(peerOutput) ?? cloud;
+  if (cloud)
+    return (
+      <CloudToolResultCard
+        cloud={{
+          ...cloud,
+          arguments:
+            fetched?.type === "dynamic_tool"
+              ? fetched.input
+              : projectedItem?.item.type === "dynamic_tool"
+                ? projectedItem.item.input
+                : cloud.arguments,
+        }}
+        onStartTrial={openCloudSubscription}
+      />
+    );
+  if (
+    !result &&
+    projectedItem?.item.type === "dynamic_tool" &&
+    projectedItem.item.toolName?.includes("amicited_cloud_call")
+  )
+    return (
+      <>
+        <CloudPendingApprovals
+          tool={input?.tool}
+          arguments={input?.arguments}
+          threadRef={
+            environmentId ? { environmentId, threadId: projectedItem.sourceThreadId } : null
+          }
+        />
+        <MarketingCallState status={status} input={projectedItem.item.input} output={output} />
+      </>
+    );
   if (!result)
     return (
       <MarketingCallState
@@ -330,7 +403,9 @@ function MarketingOfferCandidate({
   const result = item?.type === "dynamic_tool" ? marketingOfferResult(item.output) : null;
   if (result?.tool === "amicited.connection" && result.status === "hidden") return null;
   if (result && item && whatYouAreMissing(result))
-    return <CloudFooter result={{ ...result, id: item.id }} />;
+    return (
+      <CloudFooter result={{ ...result, id: item.id }} destination={threadRef?.environmentId} />
+    );
   if (detail.isPending) return null;
   return candidates.length > 1 ? (
     <MarketingOfferCandidate candidates={candidates.slice(1)} threadRef={threadRef} />

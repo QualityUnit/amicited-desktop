@@ -100,6 +100,7 @@ export function AmicitedConnectPanel({
   openExternal(url: string): void;
   ui: CloudUi;
 }) {
+  const [trialOpened, setTrialOpened] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState(false);
@@ -132,7 +133,7 @@ export function AmicitedConnectPanel({
                     ? "Full AmICited access is unlocked."
                     : connection.access === "free"
                       ? "Free AmICited tools are unlocked: brand visibility, query fan-out, llms.txt, site health and watermark detection."
-                      : "Trial started? We'll confirm on your next AmICited check."
+                      : "We’ll confirm access on your next AmICited check."
                   : "Your local tools always work without an account."
               }
               control={
@@ -148,9 +149,19 @@ export function AmicitedConnectPanel({
             {connection.access !== "full" && (
               <Row
                 title="Full AmICited access"
-                description="Trial started? We’ll confirm on your next AmICited check."
+                description={
+                  trialOpened
+                    ? "Trial started? We’ll confirm on your next AmICited check."
+                    : "One-off checks use workspace credits. Welcome credits cover new accounts; no paid plan needed."
+                }
                 control={
-                  <Button variant="outline" onClick={() => openExternal(SUBSCRIPTION_URL)}>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTrialOpened(true);
+                      openExternal(SUBSCRIPTION_URL);
+                    }}
+                  >
                     Start 7-day free trial
                   </Button>
                 }
@@ -163,7 +174,12 @@ export function AmicitedConnectPanel({
               <div role="alert">
                 <p>{connection.message}</p>
                 {connection.kind === "plan_required" && (
-                  <Button onClick={() => openExternal(SUBSCRIPTION_URL)}>
+                  <Button
+                    onClick={() => {
+                      setTrialOpened(true);
+                      openExternal(SUBSCRIPTION_URL);
+                    }}
+                  >
                     Start 7-day free trial
                   </Button>
                 )}
@@ -175,7 +191,7 @@ export function AmicitedConnectPanel({
               </div>
             )}
             <Row
-              title="Connection"
+              title={pending ? "Connecting…" : "Connection · Not connected"}
               description="Your local tools always work without an account."
               control={
                 <Button
@@ -218,8 +234,9 @@ export function AmicitedConnectPanel({
         <Disclosure label="How this works">
           <p>
             AmICited shares your workspace through MCP. Sign-in stays in your browser and
-            credentials stay in your computer’s secure storage. Connecting is free and includes free
-            tools; a trial or Pro unlocks the full set.
+            credentials stay in your computer’s secure storage. Connecting is free. One-off checks
+            use workspace credits, covered by welcome credits for new accounts; no paid plan needed.
+            A trial or Pro unlocks the full set.
           </p>
         </Disclosure>
       </Group>

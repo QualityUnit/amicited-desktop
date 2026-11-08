@@ -1,3 +1,4 @@
+import { CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as MarketingTools from "@amicited/tools/service";
@@ -2014,8 +2015,26 @@ export const layerWsRpc = (
       const handlers = ServerWsRpcGroup.of({
         // AmICited cloud: credentials stay inside the server.
         "amicited.cloud.answerApproval": ({ requestId, decision }) =>
-          Effect.promise(() => cloud.answerApproval(requestId, decision)),
+          Effect.tryPromise({
+            try: () => cloud.answerApproval(requestId, decision),
+            catch: () =>
+              new CloudApprovalExpired({ message: "This approval is no longer pending." }),
+          }),
         "amicited.cloud.resetAccess": () => Effect.sync(() => cloud.resetAccess()),
+        "amicited.cloud.subscribeApprovals": () =>
+          Stream.callback<ReturnType<typeof cloud.pendingApprovals>>((queue) =>
+            Effect.acquireRelease(
+              Effect.sync(() => {
+                const send = () => {
+                  Queue.offerUnsafe(queue, cloud.pendingApprovals());
+                };
+                const unsubscribe = cloud.subscribeApprovals(send);
+                send();
+                return unsubscribe;
+              }),
+              (unsubscribe) => Effect.sync(unsubscribe),
+            ),
+          ),
         "amicited.cloud.pendingApprovals": () => Effect.sync(() => cloud.pendingApprovals()),
         "amicited.cloud.status": () => Effect.promise(() => cloud.status()),
         "amicited.cloud.summary": () => Effect.promise(() => cloud.summary()),

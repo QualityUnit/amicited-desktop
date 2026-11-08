@@ -438,3 +438,5 @@ are recovered from the server after remount; restart cancels them safely.
 - `apps/server/src/amicited/Cloud.ts`: cancels pending cloud calls on service shutdown and accepts a loopback MCP endpoint only when Replay capture is enabled.
 - `apps/server/scripts/dev-replay-agent.ts`: opt-in live cloud capture calls the actual injected MCP tools and persists their returned results.
 - `scripts/amicited/electron-screenshots.mjs`: uses the installed Electron binary and optionally captures the production OAuth login boundary in an isolated browser.
+
+- `packages/client-runtime/src/rpc/client.ts`: registers the AmICited approval snapshot stream as a destination-environment subscription.

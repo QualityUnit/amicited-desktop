@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 import { expect, it, vi } from "vite-plus/test";
 import { render } from "../test/render";
 import {
@@ -8,6 +9,7 @@ import {
 } from "@t3tools/contracts";
 const state = vi.hoisted(() => ({
   items: [] as OrchestrationV2ProjectedTurnItem[],
+  details: {} as Record<string, { item: OrchestrationV2ProjectedTurnItem["item"] }>,
   connected: false,
   dismissed: false,
 }));
@@ -19,12 +21,17 @@ vi.mock("./state/entities", () => ({
   useThreadVisibleTurnItems: () => state.items,
   useThreadShell: () => null,
 }));
-vi.mock("./state/queries", () => ({ useTurnItemDetail: () => ({ data: null, isPending: false }) }));
+vi.mock("./state/queries", () => ({
+  useTurnItemDetail: (target: { itemId: string } | null) => ({
+    data: target ? (state.details[target.itemId] ?? null) : null,
+    isPending: false,
+  }),
+}));
 vi.mock("./rpc/amicitedCloud", async () => {
   const { shouldOfferUpsell } = await import("@amicited/cloud-client/upsell");
   return {
     CloudConnectedChip: () => null,
-    CloudApproval: () => null,
+    CloudPendingApprovals: () => null,
     openCloudSubscription: () => {},
     CloudFooter: ({ result }: { result: { tool: string; status: string; output?: unknown } }) =>
       shouldOfferUpsell(result, { dismissed: state.dismissed }, false, 0, state.connected) ? (
@@ -32,7 +39,7 @@ vi.mock("./rpc/amicitedCloud", async () => {
       ) : null,
   };
 });
-import { MarketingTurnOffer } from "./marketingChat";
+import { MarketingTranscriptCard, MarketingTurnOffer } from "./marketingChat";
 const threadRef = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("chat") };
 it.each([
   { connected: false, dismissed: false, offered: true, connectionTool: false, hiddenReply: false },
@@ -106,3 +113,73 @@ it.each([
         .not.toBeInTheDocument();
   },
 );
+
+it("merges a start and poll when the timeline omits their outputs", async () => {
+  state.items = ["start", "get"].map(
+    (step, ordinal) =>
+      ({
+        sourceThreadId: threadRef.threadId,
+        sourceItemId: `cloud-${step}`,
+        item: {
+          id: `cloud-${step}`,
+          type: "dynamic_tool",
+          runId: "cloud-run",
+          ordinal,
+          toolName: "amicited_cloud_call",
+          status: "completed",
+          updatedAt: DateTime.makeUnsafe(0),
+          input: {
+            tool: `free_brand_visibility_${step}`,
+            arguments:
+              step === "start" ? { request: { website: "acme.com" } } : { run_id: "brand-1" },
+          },
+          outputOmitted: true,
+        },
+      }) as unknown as OrchestrationV2ProjectedTurnItem,
+  );
+  state.details = Object.fromEntries(
+    state.items.map((projected, index) => [
+      projected.sourceItemId,
+      {
+        item: {
+          ...projected.item,
+          outputOmitted: false,
+          output: {
+            kind: "amicited-cloud-result",
+            tool: `free_brand_visibility_${index === 0 ? "start" : "get"}`,
+            result: {
+              structuredContent: {
+                run_id: "brand-1",
+                status: index === 0 ? "pending" : "success",
+                providers: [
+                  { provider: "chatgpt", status: "success", mentioned: true, visibility_score: 62 },
+                ],
+              },
+            },
+          },
+        },
+      },
+    ]),
+  );
+  await using screen = await render(
+    <>
+      {state.items.map((projected) => (
+        <MarketingTranscriptCard
+          key={projected.item.id}
+          projectedItem={projected}
+          environmentId={threadRef.environmentId}
+          output={undefined}
+        />
+      ))}
+    </>,
+  );
+  await expect
+    .element(screen.getByRole("article", { name: "AmICited tool result" }))
+    .toBeInTheDocument();
+  await expect
+    .element(screen.getByText("Checked brand visibility on acme.com"))
+    .toBeInTheDocument();
+  await expect
+    .element(screen.getByText("Started checking brand visibility on acme.com"))
+    .not.toBeInTheDocument();
+});

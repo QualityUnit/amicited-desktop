@@ -538,7 +538,9 @@ export function LiveWorkEntryTimelineRow({
   if (
     marketer &&
     (marketingItem?.toolName?.includes("marketing_tools_run") ||
-      row.entry.label.toLowerCase().includes("marketing_tools_run"))
+      row.entry.label.toLowerCase().includes("marketing_tools_run") ||
+      marketingItem?.toolName?.includes("amicited_cloud_") ||
+      row.entry.label.toLowerCase().includes("amicited_cloud_"))
   ) {
     return (
       <MarketingTranscriptCard

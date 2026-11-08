@@ -13,6 +13,7 @@ type WsRpcMethod = RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"];
 const RPC_AGGREGATES = {
   "amicited.cloud.answerApproval": "amicited",
   "amicited.cloud.resetAccess": "amicited",
+  "amicited.cloud.subscribeApprovals": "server",
   "amicited.cloud.pendingApprovals": "amicited",
   "amicited.cloud.status": "amicited",
   "amicited.cloud.summary": "amicited",

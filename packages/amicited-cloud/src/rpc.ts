@@ -16,17 +16,26 @@ export const CloudConnection = Schema.Union([
     message: Schema.String,
   }),
 ]);
+export class CloudApprovalExpired extends Schema.TaggedError<CloudApprovalExpired>()(
+  "CloudApprovalExpired",
+  { message: Schema.String },
+) {}
+const PendingApproval = Schema.Struct({
+  requestId: Schema.String,
+  threadId: Schema.String,
+  tool: Schema.String,
+  free: Schema.Boolean,
+  readOnly: Schema.Boolean,
+  arguments: Schema.Record(Schema.String, Schema.Unknown),
+  message: Schema.String,
+});
 export const cloudRpcs = [
+  Rpc.make("amicited.cloud.subscribeApprovals", {
+    success: Schema.Array(PendingApproval),
+    stream: true,
+  }),
   Rpc.make("amicited.cloud.pendingApprovals", {
-    success: Schema.Array(
-      Schema.Struct({
-        requestId: Schema.String,
-        threadId: Schema.String,
-        tool: Schema.String,
-        free: Schema.Boolean,
-        message: Schema.String,
-      }),
-    ),
+    success: Schema.Array(PendingApproval),
   }),
   Rpc.make("amicited.cloud.resetAccess", { success: CloudConnection }),
   Rpc.make("amicited.cloud.answerApproval", {
@@ -35,6 +44,7 @@ export const cloudRpcs = [
       decision: Schema.Literals(["decline", "accept", "acceptForSession"]),
     },
     success: Schema.Unknown,
+    error: CloudApprovalExpired,
   }),
   Rpc.make("amicited.cloud.status", { success: CloudConnection }),
   Rpc.make("amicited.cloud.connectOAuth", { success: CloudConnection }),

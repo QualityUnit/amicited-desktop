@@ -89,6 +89,16 @@ const fixture = NodeHttp.createServer(async (req, res) => {
         ? {
             tools: [
               {
+                name: "free_brand_visibility_start",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: false },
+              },
+              {
+                name: "free_brand_visibility_get",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
                 name: "free_site_health_start",
                 inputSchema: { type: "object" },
                 annotations: { readOnlyHint: false, destructiveHint: false },
@@ -109,12 +119,64 @@ const fixture = NodeHttp.createServer(async (req, res) => {
             content: [
               {
                 type: "text",
-                text:
-                  rpc.params.name === "paid_refusal"
+                text: rpc.params.name.startsWith("free_brand_visibility")
+                  ? JSON.stringify({
+                      run_id: "free-brand-1",
+                      workspace_id: "capture",
+                      website: "https://example.com",
+                      domain: "example.com",
+                      brand_name: "Example",
+                      status: rpc.params.name.endsWith("_start") ? "pending" : "success",
+                      providers: [
+                        {
+                          provider: "chatgpt",
+                          status: "success",
+                          mentioned: true,
+                          visibility_score: 74,
+                        },
+                        {
+                          provider: "perplexity",
+                          status: "success",
+                          mentioned: true,
+                          visibility_score: 50,
+                        },
+                        {
+                          provider: "gemini",
+                          status: "success",
+                          mentioned: false,
+                          visibility_score: 0,
+                        },
+                      ],
+                      competitive_landscape: [],
+                      error: null,
+                    })
+                  : rpc.params.name === "paid_refusal"
                     ? "This tool requires a Pro plan or upgrade"
                     : rpc.params.name === "free_site_health_get"
-                      ? "Site health report for example.com: HTTPS is available. This is controlled fixture data."
-                      : "Workspace tool available.",
+                      ? JSON.stringify({
+                          run_id: "replay-site-health",
+                          workspace_id: "capture",
+                          target: "https://example.com",
+                          status: "success",
+                          report: { score: 72, fixes: [{ title: "Add an AI website guide" }] },
+                        })
+                      : JSON.stringify(
+                          rpc.params.name === "free_site_health_start"
+                            ? {
+                                run_id: "replay-site-health",
+                                workspace_id: "capture",
+                                status: "pending",
+                                report: null,
+                              }
+                            : {
+                                tools: [
+                                  {
+                                    name: "free_site_health_start",
+                                    inputSchema: { type: "object", required: ["request"] },
+                                  },
+                                ],
+                              },
+                        ),
               },
             ],
             ...(rpc.params.name === "paid_refusal" ? { isError: true } : {}),
@@ -430,7 +492,7 @@ try {
     );
     await page.getByText("Thinking…", { exact: true }).waitFor();
     await capture("03b-thinking");
-    await page.locator('[data-state="pending"]').waitFor();
+    await page.locator('[data-state="pending"]').waitFor({ timeout: 45000 });
     await capture("03a-mid-stream");
     await page
       .getByRole("article", { name: "Marketing tool result" })
@@ -486,10 +548,14 @@ try {
     await page.getByRole("button", { name: "Connect with key", exact: true }).click();
     await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
     await page.goto(marketingChatUrl);
-    await page.getByText("Connected: free AmICited tools unlocked", { exact: true }).waitFor();
+    await page
+      .getByText("Connected · access confirmed on your next check", { exact: true })
+      .waitFor();
     await capture("03f-connected-free-persisted");
     await page.reload();
-    await page.getByText("Connected: free AmICited tools unlocked", { exact: true }).waitFor();
+    await page
+      .getByText("Connected · access confirmed on your next check", { exact: true })
+      .waitFor();
     await page.evaluate(() => {
       void (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "marketing-cloud",
@@ -498,14 +564,27 @@ try {
     await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
     await page.getByText("Needs your OK", { exact: true }).first().waitFor();
     await capture("03g-cloud-approval-live");
-    await page.getByRole("button", { name: "More approval options", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Allow free AmICited checks", exact: true }).click();
+    await page.getByRole("button", { name: "Allow free checks in this chat", exact: true }).click();
     await page.getByText(/The free site health check is complete/).waitFor();
     await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
     await capture("03e-cloud-site-health");
     await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+    await page
+      .getByText(/Checked brand visibility on example.com/)
+      .first()
+      .waitFor();
+    await capture("03k-brand-visibility-merged");
+    await page
+      .getByRole("button", { name: /Checked brand visibility on example.com/ })
+      .first()
+      .click();
+    await page
+      .getByText(/Mentioned by ChatGPT and Perplexity/)
+      .first()
+      .waitFor();
+    await capture("03l-brand-visibility-summary");
     await capture("03h-paid-approval-live");
-    await page.getByRole("button", { name: "Approve", exact: true }).click();
+    await page.getByRole("button", { name: "Allow", exact: true }).click();
     await page
       .getByText("This tool requires a Pro plan or upgrade", { exact: false })
       .first()

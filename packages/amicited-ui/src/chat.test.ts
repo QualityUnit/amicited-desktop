@@ -95,3 +95,58 @@ it("uses the shared work disclosure for pending and failed calls", async () => {
     if (!pending) expect(markup).toContain("The website did not respond.");
   }
 });
+
+it("summarizes provider results and query fan-out without inventing failed measurements", async () => {
+  const { cloudSummary } = await import("./chat.tsx");
+  expect(
+    cloudSummary({
+      providers: [
+        { provider: "chatgpt", status: "success", mentioned: true, visibility_score: 74 },
+        { provider: "perplexity", status: "success", mentioned: true, visibility_score: 50 },
+        { provider: "gemini", status: "failure", mentioned: null, visibility_score: null },
+      ],
+    }),
+  ).toBe(
+    "Mentioned by ChatGPT and Perplexity · Could not check Gemini · Average visibility 62/100",
+  );
+  expect(cloudSummary({ queries: [{ query_text: "best CRM", category: "comparison" }] })).toBe(
+    "1 related searches: best CRM",
+  );
+});
+
+it("keeps the approved target on a plan refusal and recognizes matching poll runs", async () => {
+  const { createElement } = await import("react");
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const { CloudToolResultCard, cloudRunId } = await import("./chat.js");
+  const refusal = {
+    kind: "amicited-cloud-result",
+    tool: "free_brand_visibility_start",
+    arguments: { request: { website: "acme.com" } },
+    result: {
+      isError: true,
+      structuredContent: {
+        kind: "amicited-upgrade",
+        url: "https://app.flowhunt.io/amicited/subscription",
+        message: "Pro plan required",
+      },
+    },
+  };
+  const markup = renderToStaticMarkup(
+    createElement(CloudToolResultCard, { cloud: refusal, onStartTrial() {} }),
+  );
+  expect(markup).toContain("brand visibility on acme.com");
+  expect(markup).not.toContain("visibility on app.flowhunt.io");
+  for (const result of [
+    { structuredContent: { run_id: "brand-1", status: "pending" } },
+    {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ run_id: "brand-1", status: "success", providers: [] }),
+        },
+      ],
+    },
+  ])
+    expect(cloudRunId({ ...refusal, result })).toBe("brand-1");
+  expect(cloudRunId(refusal)).toBeUndefined();
+});

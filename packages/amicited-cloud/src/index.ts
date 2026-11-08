@@ -72,6 +72,9 @@ export function toolFailure(message: string) {
       kind: code === "plan_required" ? "amicited-upgrade" : "amicited-tool-failure",
       code,
       message,
+      ...(code === "no_credits"
+        ? { nextStep: "Add workspace credits in AmICited, then try again." }
+        : {}),
       ...(code === "plan_required"
         ? { action: "Start 7-day free trial", url: SUBSCRIPTION_URL }
         : {}),
@@ -88,7 +91,7 @@ export class CloudClient {
         access: connection.access,
         tools: ["amicited_cloud_discover", "amicited_cloud_call"],
         instruction:
-          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. The app requests user approval for external writes and paid tools. Paid reads also use workspace credits; mention the cost before long read loops. Never claim a tool ran unless its call succeeded.",
+          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. Free checks use a small amount of workspace credits, covered by a new account’s welcome credits; no paid plan is needed. The app requests user approval for external writes and paid tools. Paid reads also use workspace credits; mention the cost before long read loops. Never claim a tool ran unless its call succeeded.",
       };
     if (!offersAllowed)
       return {
@@ -101,13 +104,14 @@ export class CloudClient {
       connection,
       kind: "amicited-connection",
       request,
-      missing:
-        "Connecting AmICited is free: brand visibility across AI assistants, query fan-out, llms.txt, site health and watermark detection. A 7-day trial or Pro adds daily prompt and citation tracking, competitors, SEO reports and audits.",
+      missing: /content|draft|write/i.test(request)
+        ? "Connecting AmICited is free. A draft does not measure which related searches people ask AI. One-off related-search checks use workspace credits; welcome credits cover new accounts, no paid plan needed."
+        : "Connecting AmICited is free. A one-time check does not show how your brand’s mentions and citations change each day. One-off checks use workspace credits; welcome credits cover new accounts, no paid plan needed. A trial adds daily tracking.",
       ...(firstWin
         ? {
             action: "Connect AmICited",
             pricing:
-              "Free connection and free tools. Optional 7-day trial, then EUR 120/month Pro for the full set",
+              "No paid plan needed for one-off checks; they use workspace credits, covered by welcome credits on a new account. Optional 7-day trial, then EUR 120/month Pro for the full set",
             settingsPath: "/marketing-settings",
           }
         : {}),
@@ -123,12 +127,15 @@ export class CloudClient {
       threadId: string;
       tool: string;
       free: boolean;
+      readOnly: boolean;
+      arguments: Record<string, unknown>;
       resolve: (
         decision: "decline" | "accept" | "acceptForSession" | "timeout" | "cancelled",
       ) => void;
     }
   >();
   private freeGrants = new Set<string>();
+  private readGrants = new Set<string>();
   private approvalListeners = new Set<() => void>();
   subscribeApprovals(listener: () => void) {
     this.approvalListeners.add(listener);
@@ -142,9 +149,9 @@ export class CloudClient {
       threadId: request.threadId,
       tool: request.tool,
       free: request.free,
-      message: request.free
-        ? "Allow this free AmICited check? It sends your input to AmICited and costs no workspace credits."
-        : "Allow this AmICited action? It may change your workspace and uses workspace credits.",
+      readOnly: request.readOnly,
+      arguments: request.arguments,
+      message: `${cloudAction(request.tool, request.arguments)} with AmICited? ${request.free ? "Uses a few workspace credits. No paid plan needed; welcome credits cover new accounts." : request.readOnly ? "Uses workspace credits." : "Changes your workspace and uses workspace credits."}`,
     }));
   }
   private cancelApprovals() {
@@ -158,13 +165,23 @@ export class CloudClient {
     signal?: AbortSignal,
   ) {
     const generation = this.generation;
+    if (
+      !tool.startsWith("free_") &&
+      this.current.state === "connected" &&
+      this.current.access === "free"
+    )
+      return toolFailure(
+        "This AmICited tool needs a Pro plan. Start a trial to use it; local tools and no-plan checks remain available.",
+      );
     const policy = await this.toolPolicy(tool);
     const free =
       /^free_(?:brand_visibility|query_fanout|llms_txt|site_health|watermark_detection|watermark_removal)_(?:start|get)$/.test(
         tool,
       );
     if (signal?.aborted || generation !== this.generation) return this.approvalFailure("cancelled");
+    const readOnly = !policy.needsApproval && !policy.destructive;
     if (
+      (!free && readOnly && this.readGrants.has(threadId)) ||
       (free && !policy.needsApproval) ||
       (free && this.freeGrants.has(threadId) && !policy.destructive)
     )
@@ -184,7 +201,7 @@ export class CloudClient {
       };
       const cancel = () => finish("cancelled");
       const timer = setTimeout(() => finish("timeout"), 10 * 60_000);
-      this.approvals.set(id, { threadId, tool, free, resolve: finish });
+      this.approvals.set(id, { threadId, tool, free, readOnly, arguments: args, resolve: finish });
       signal?.addEventListener("abort", cancel, { once: true });
       this.approvalListeners.forEach((listener) => listener());
     });
@@ -193,6 +210,7 @@ export class CloudClient {
       return this.approvalFailure(decision);
     if (decision === "acceptForSession" && free && !policy.destructive)
       this.freeGrants.add(threadId);
+    if (decision === "acceptForSession" && !free && readOnly) this.readGrants.add(threadId);
     return this.call(tool, args);
   }
   private approvalFailure(reason: "decline" | "timeout" | "cancelled") {
@@ -221,6 +239,7 @@ export class CloudClient {
     ++this.generation;
     this.cancelApprovals();
     this.freeGrants.clear();
+    this.readGrants.clear();
     this.cancelOAuth?.();
     await this.closeSession();
   }
@@ -358,7 +377,7 @@ export class CloudClient {
     this.checkedAt = Date.now();
     return {
       state: "connected",
-      workspace: "Your AmICited workspace",
+      workspace: "your AmICited workspace",
       access: this.current.state === "connected" ? (this.current.access ?? "unknown") : "unknown",
       scopes: credential.apiKey
         ? [...SCOPES]
@@ -395,6 +414,7 @@ export class CloudClient {
   async connectApiKey(apiKey: string): Promise<Connection> {
     this.cancelApprovals();
     this.freeGrants.clear();
+    this.readGrants.clear();
     if (this.current.state === "connecting") return this.current;
     ++this.generation;
     return this.serial(async () => {
@@ -414,6 +434,7 @@ export class CloudClient {
   async connectOAuth(): Promise<Connection> {
     this.cancelApprovals();
     this.freeGrants.clear();
+    this.readGrants.clear();
     if (this.current.state === "connecting") return this.current;
     this.current = { state: "connecting" };
     const generation = ++this.generation;
@@ -442,11 +463,23 @@ export class CloudClient {
       resolveCode(code);
       res.end("You can return to AmICited Desktop.");
     });
-    const timer = setTimeout(() => rejectCode(new Error("Authentication cancelled")), 15 * 60_000);
-    this.cancelOAuth = () => {
+    const controller = new AbortController();
+    const cancel = () => {
+      controller.abort();
       rejectCode(new Error("Authentication cancelled"));
       server.close();
     };
+    const timer = setTimeout(cancel, 15 * 60_000);
+    this.cancelOAuth = cancel;
+    const fetchFn: typeof fetch = (url, init) =>
+      fetch(url, {
+        ...init,
+        signal: AbortSignal.any([
+          controller.signal,
+          AbortSignal.timeout(30_000),
+          ...(init?.signal ? [init.signal] : []),
+        ]),
+      });
     try {
       await new Promise<void>((resolve, reject) => {
         server.once("error", reject);
@@ -459,11 +492,19 @@ export class CloudClient {
         credential,
         redirect,
         state,
-        this.options.openExternal,
+        async (url) => {
+          if (controller.signal.aborted || generation !== this.generation)
+            throw new Error("Authentication cancelled");
+          await this.options.openExternal(url);
+        },
         async () => {},
       );
-      await auth(provider, { serverUrl: this.endpoint(), scope: SCOPES.join(" ") });
-      await auth(provider, { serverUrl: this.endpoint(), authorizationCode: await codePromise });
+      await auth(provider, { serverUrl: this.endpoint(), scope: SCOPES.join(" "), fetchFn });
+      await auth(provider, {
+        serverUrl: this.endpoint(),
+        authorizationCode: await codePromise,
+        fetchFn,
+      });
       const connected = await this.validate(credential);
       await this.serial(async () => {
         if (generation !== this.generation) return;
@@ -475,7 +516,7 @@ export class CloudClient {
     } finally {
       clearTimeout(timer);
       server.close();
-      this.cancelOAuth = undefined;
+      if (this.cancelOAuth === cancel) this.cancelOAuth = undefined;
     }
     return this.current;
   }
@@ -483,6 +524,7 @@ export class CloudClient {
     ++this.generation;
     this.cancelApprovals();
     this.freeGrants.clear();
+    this.readGrants.clear();
     this.cancelOAuth?.();
     return this.serial(async () => {
       try {
@@ -601,4 +643,14 @@ export function usefulMarketingResult(output: unknown) {
     typeof value.status === "string" &&
     isUsefulResult({ status: value.status, output: "output" in value ? value.output : undefined })
   );
+}
+
+export function cloudAction(tool: string, args: Record<string, unknown>) {
+  const input = record(args.request ?? args);
+  const target = input.website ?? input.target ?? input.query;
+  const action = tool
+    .replace(/^free_/, "")
+    .replace(/_(start|get)$/, "")
+    .replaceAll("_", " ");
+  return `Check ${action}${typeof target === "string" ? ` for ${target}` : ""}`;
 }

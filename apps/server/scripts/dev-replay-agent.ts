@@ -116,7 +116,7 @@ const REPLAYED_REQUESTS = new Set(["session/request_permission", "elicitation/cr
 
 const CHUNK_DELAY_MS = 30;
 const FRAME_DELAY_MS = 250;
-const MAX_RECORDED_DELAY_MS = process.env.T3CODE_DEV_REPLAY_CAPTURE === "1" ? 10_000 : 2_000;
+const MAX_RECORDED_DELAY_MS = process.env.T3CODE_DEV_REPLAY_CAPTURE === "1" ? 30_000 : 2_000;
 const WORDS_PER_CHUNK = 3;
 
 function isReplayedFrame(frame: LogicalFrame): boolean {
@@ -239,7 +239,14 @@ function runAgent(): void {
     });
   const sleep = (ms: number, signal: AbortSignal) =>
     untilAbort(
-      new Promise((resolve) => setTimeout(resolve, Math.min(ms, MAX_RECORDED_DELAY_MS))),
+      new Promise((resolve) =>
+        setTimeout(
+          resolve,
+          process.env.T3CODE_DEV_REPLAY_CAPTURE === "1" && ms >= 5000
+            ? 30_000
+            : Math.min(ms, MAX_RECORDED_DELAY_MS),
+        ),
+      ),
       signal,
     );
 
@@ -316,6 +323,52 @@ function runAgent(): void {
           toolUpdate.rawOutput =
             structured.structuredContent ??
             JSON.parse(structured.content?.find((entry) => entry.type === "text")?.text ?? "{}");
+        }
+        if (cloudClient && !signal.aborted && toolUpdate.sessionUpdate === "agent_message_chunk") {
+          for (const [tool, args] of [
+            ["free_brand_visibility_start", { request: { website: "https://example.com" } }],
+            ["free_brand_visibility_get", { run_id: "free-brand-1" }],
+          ] as const) {
+            const toolCallId = NodeCrypto.randomUUID();
+            send({
+              method: "session/update",
+              params: {
+                sessionId,
+                update: {
+                  sessionUpdate: "tool_call",
+                  toolCallId,
+                  title: "amicited_cloud_call",
+                  kind: "other",
+                  status: "pending",
+                  rawInput: { tool, arguments: args },
+                },
+              },
+            });
+            const result = await cloudClient.callTool(
+              { name: "amicited_cloud_call", arguments: { tool, arguments: args } },
+              undefined,
+              { timeout: 11 * 60_000, signal },
+            );
+            const payload = result as {
+              structuredContent?: unknown;
+              content?: { type: string; text?: string }[];
+            };
+            const rawOutput =
+              payload.structuredContent ??
+              JSON.parse(payload.content?.find((part) => part.type === "text")?.text ?? "{}");
+            send({
+              method: "session/update",
+              params: {
+                sessionId,
+                update: {
+                  sessionUpdate: "tool_call_update",
+                  toolCallId,
+                  status: "completed",
+                  rawOutput,
+                },
+              },
+            });
+          }
         }
         const content = params.update.content as { type?: string; text?: string } | undefined;
         const text =

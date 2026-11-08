@@ -57,9 +57,11 @@ it("compares only measured scope and never treats failures as a win", () => {
   expect(whatYouAreMissing({ ...win, status: "error" })).toBeUndefined();
   expect(whatYouAreMissing({ ...win, output: { status: "needs_provider" } })).toBeUndefined();
   expect(whatYouAreMissing({ ...win, tool: "seo.ssl.check" })).toBeUndefined();
-  expect(whatYouAreMissing({ ...win, tool: "site.audit" })?.missing).toContain("free site health");
+  expect(whatYouAreMissing({ ...win, tool: "site.audit" })?.missing).toContain(
+    "does not measure whether AI answers cite",
+  );
   expect(whatYouAreMissing({ ...win, tool: "content.brief" })?.missing).toContain(
-    "free query fan-out",
+    "which follow-up searches",
   );
 });
 it("persists seven-day snooze and dismissal and admits at most one win per session", () => {

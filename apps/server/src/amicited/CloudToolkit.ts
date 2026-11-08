@@ -30,7 +30,7 @@ export const CloudToolkit = Toolkit.make(
   Tool.make("amicited_cloud_call", {
     ...shared,
     description:
-      "Call a real AmICited tool by name with its advertised arguments, including free_* tools. Server annotations decide whether approval is required. The app shows an approval card for external writes and all paid tools, which use workspace credits. Only the user can approve; model-supplied approval is ignored. A trial or paid-tool refusal leaves free tools available.",
+      "Call a discovered AmICited tool using its schema, including free_* tools. Free checks need no paid plan but spend workspace credits; welcome credits cover new accounts. Only users approve: the app asks for writes and paid calls. Chat grants cover free checks or paid reads, never other writes or destructive actions. A plan refusal leaves free checks available.",
     parameters: Schema.Struct({
       tool: Schema.String,
       arguments: Schema.Record(Schema.String, Schema.Unknown),
@@ -95,7 +95,7 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
           "Could not check this AmICited tool. Check your connection and discover its name first.",
       }),
   });
-  return { kind: "amicited-cloud-result", tool: params.tool, result };
+  return { kind: "amicited-cloud-result", tool: params.tool, arguments: params.arguments, result };
 });
 export const layer = McpToolAccess.toLayer(CloudToolkit, {
   amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) => call(tool, args)),

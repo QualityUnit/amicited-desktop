@@ -33,20 +33,7 @@ const env = {
   T3CODE_SINGLE_ORIGIN_DEV: "1",
 };
 if (process.env.AMICITED_CAPTURE_OAUTH === "1") {
-  const bin = NodePath.join(home, "capture-bin");
-  NodeFS.mkdirSync(bin);
   env.AMICITED_OAUTH_CAPTURE_URL = NodePath.join(home, "oauth-url");
-  NodeFS.writeFileSync(
-    NodePath.join(bin, "open"),
-    `#!/bin/sh
-case "$1" in
-  https://api.flowhunt.io/*) printf '%s' "$1" > "$AMICITED_OAUTH_CAPTURE_URL" ;;
-  *) exec /usr/bin/open "$@" ;;
-esac
-`,
-    { mode: 0o700 },
-  );
-  env.PATH = bin + NodePath.delimiter + env.PATH;
 }
 delete env.ELECTRON_RUN_AS_NODE;
 delete env.VITE_HTTP_URL;
@@ -151,6 +138,7 @@ try {
   await page.locator("[data-amicited-shell]").first().waitFor({ timeout: 120000 });
   const cdp = await context.newCDPSession(page);
   await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
+  await cdp.send("Overlay.disable");
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 1344,
     height: 1016,
@@ -502,7 +490,7 @@ try {
           ["light", "dark"].map((theme) => [
             theme,
             Object.fromEntries(
-              Object.keys(parity[`tool-card-turn-${theme}`]).map((key) => [
+              ["sidebar", "header", "composer", "timeline", "sidebarRow", "workLog"].map((key) => [
                 key,
                 {
                   marketer: parity[`tool-card-turn-${theme}`][key],
@@ -549,15 +537,21 @@ try {
     await capture("production-oauth-waiting");
     const loginBrowser = await chromium.launch({ headless: true });
     try {
-      const login = await loginBrowser.newPage({
-        viewport: { width: 1344, height: 1016 },
-        deviceScaleFactor: 2,
-      });
-      await login.goto(await launched);
-      await login.waitForURL(/flowhunt\.io.*login/);
-      await login.screenshot({
-        path: NodePath.join(out, "electron-production-flowhunt-login.png"),
-      });
+      const authorizeUrl = await launched;
+      NodeFS.writeFileSync(
+        NodePath.join(out, "production-oauth-boundary.json"),
+        JSON.stringify(
+          {
+            launcherCalled: true,
+            authorizeUrl,
+            stateRedacted: true,
+            note: "Actual production launcher invoked from Electron Connect. Browser sign-in cancelled; no form submitted.",
+          },
+          null,
+          2,
+        ),
+      );
+      await capture("production-oauth-launched");
     } catch (error) {
       NodeFS.writeFileSync(
         NodePath.join(out, "production-oauth-boundary.json"),

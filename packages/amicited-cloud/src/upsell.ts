@@ -34,18 +34,18 @@ export function whatYouAreMissing(result: WinResult) {
       .join(" · ");
     if (teaser) teaser += " · not checked";
     missing =
-      "Connect AmICited for free brand visibility across AI assistants and query fan-out. The optional trial or Pro adds daily prompt and citation tracking and competitors.";
+      "This one-time answer does not show how visibility changes each day. Connect AmICited to check more assistants using workspace credits (welcome credits cover new accounts; no paid plan needed). A trial adds daily prompt and citation tracking.";
   } else if (/audit/.test(result.tool)) {
     checked =
       "You completed a one-time site audit, including whether AI crawlers can read your site.";
     const score = record(result.output).score;
     if (typeof score === "number") checked += ` Your audit score was ${score}/100.`;
     missing =
-      "Connect AmICited for free site health and llms.txt tools. The optional trial or Pro adds daily prompt and citation tracking, competitors, SEO reports and audits.";
+      "This audit checks your pages, but does not measure whether AI answers cite them. Connect AmICited for one-off checks using workspace credits (welcome credits cover new accounts; no paid plan needed). A trial adds daily citation tracking.";
   } else if (/^content\./.test(result.tool)) {
     checked = "You completed a content task.";
     missing =
-      "Connect AmICited for free query fan-out and watermark detection tools. The optional trial or Pro adds prompt and citation tracking, SEO reports and audits.";
+      "This draft does not show which follow-up searches readers ask AI. Connect AmICited for related searches using workspace credits (welcome credits cover new accounts; no paid plan needed).";
   } else return undefined;
   return {
     checked,

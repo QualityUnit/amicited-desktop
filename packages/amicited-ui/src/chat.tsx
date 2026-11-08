@@ -14,7 +14,7 @@ function record(value: unknown): Record<string, unknown> {
 export function cloudToolResult(
   value: unknown,
   depth = 0,
-): { tool: string; result: unknown } | null {
+): { tool: string; result: unknown; arguments?: unknown } | null {
   if (depth > 8) return null;
   if (typeof value === "string") {
     try {
@@ -27,7 +27,7 @@ export function cloudToolResult(
     return value.map((part) => cloudToolResult(part, depth + 1)).find(Boolean) ?? null;
   const data = record(value);
   if (data.kind === "amicited-cloud-result" && typeof data.tool === "string")
-    return { tool: data.tool, result: data.result };
+    return { tool: data.tool, result: data.result, arguments: data.arguments };
   for (const candidate of [data.result, data.structuredContent, data.content, data.text]) {
     const found = candidate === undefined ? null : cloudToolResult(candidate, depth + 1);
     if (found) return found;
@@ -233,15 +233,20 @@ export function MarketingCallState({
 }) {
   const state = marketingCallState(status, output);
   const title =
-    typeof record(input).name === "string"
-      ? resultTitle({ tool: String(record(input).name) }).toLowerCase()
-      : "marketing check";
+    typeof record(input).tool === "string"
+      ? String(record(input).tool)
+          .replace(/^free_/, "")
+          .replace(/_(start|get)$/, "")
+          .replaceAll("_", " ")
+      : typeof record(input).name === "string"
+        ? resultTitle({ tool: String(record(input).name) }).toLowerCase()
+        : "marketing check";
   return (
     <article className="am-tool-card" aria-label="Marketing tool result" data-state={state}>
       <MarketingWorkDisclosure
         defaultOpen
         pending={state === "pending"}
-        label={`${state === "pending" ? "Running" : state === "cancelled" ? "Stopped" : "Couldn't check"} ${title}${marketingTarget(record(input).input)}${state === "pending" ? "…" : ""}`}
+        label={`${state === "pending" ? "Running" : state === "cancelled" ? "Stopped" : "Couldn't check"} ${title}${marketingTarget(record(input).arguments ?? record(input).input)}${state === "pending" ? "…" : ""}`}
       >
         {state === "pending" ? (
           <div className="am-result-skeleton" aria-label="Waiting for result">
@@ -289,8 +294,10 @@ export function marketingSignInError(message: string): boolean {
 }
 
 function marketingTarget(input: unknown) {
-  const r = record(input);
-  const target = r.url ?? r.website ?? r.domain ?? r.target;
+  const outer = record(input);
+  const args = record(outer.arguments ?? outer);
+  const r = record(args.request ?? args);
+  const target = r.website ?? r.target ?? r.query ?? r.url ?? r.domain;
   if (typeof target !== "string" || !target) return "";
   try {
     return ` on ${new URL(target.includes("://") ? target : `https://${target}`).hostname}`;
@@ -303,7 +310,7 @@ export function CloudToolResultCard({
   cloud,
   onStartTrial,
 }: {
-  cloud: { tool: string; result: unknown };
+  cloud: { tool: string; result: unknown; arguments?: unknown };
   onStartTrial(): void;
 }) {
   const result = record(cloud.result);
@@ -343,11 +350,13 @@ export function CloudToolResultCard({
     : undefined;
   const title = discovery
     ? "Looked up AmICited tools"
-    : `${result.isError ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(data)}`;
+    : `${result.isError ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(cloud.arguments)}`;
   const summary =
     [
       data.message,
       data.error,
+      data.nextStep,
+      cloudSummary(data),
       data.summary,
       typeof score === "number" ? `Score: ${score}/100` : undefined,
       fixes,
@@ -360,12 +369,12 @@ export function CloudToolResultCard({
   return (
     <article className="am-tool-card" aria-label="AmICited tool result">
       <MarketingWorkDisclosure label={title}>
+        <p>{summary}</p>
         <details>
           <summary>Technical details</summary>
           <pre>{JSON.stringify(cloud.result, null, 2)}</pre>
         </details>
       </MarketingWorkDisclosure>
-      <p>{summary}</p>
       {structured.kind === "amicited-upgrade" && (
         <MarketingButton variant="outline" onClick={onStartTrial}>
           Start 7-day free trial
@@ -373,4 +382,63 @@ export function CloudToolResultCard({
       )}
     </article>
   );
+}
+
+export function cloudSummary(data: Record<string, unknown>) {
+  if (Array.isArray(data.providers)) {
+    const rows = data.providers.map(record);
+    const name = (row: Record<string, unknown>) =>
+      ({ chatgpt: "ChatGPT", perplexity: "Perplexity", gemini: "Gemini" })[
+        String(row.provider).toLowerCase() as "chatgpt"
+      ] ?? String(row.provider);
+    const mentioned = rows
+      .filter((row) => row.status === "success" && row.mentioned === true)
+      .map(name);
+    const absent = rows
+      .filter((row) => row.status === "success" && row.mentioned === false)
+      .map(name);
+    const failed = rows.filter((row) => row.status === "failure").map(name);
+    const scores = rows
+      .filter((row) => row.status === "success")
+      .flatMap((row) => (typeof row.visibility_score === "number" ? [row.visibility_score] : []));
+    return [
+      mentioned.length ? `Mentioned by ${mentioned.join(" and ")}` : undefined,
+      absent.length ? `Not mentioned by ${absent.join(" and ")}` : undefined,
+      failed.length ? `Could not check ${failed.join(" and ")}` : undefined,
+      scores.length
+        ? `Average visibility ${Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)}/100`
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }
+  if (Array.isArray(data.queries))
+    return `${data.queries.length} related searches${
+      data.queries.length
+        ? `: ${data.queries
+            .slice(0, 2)
+            .map((query) => record(query).query_text)
+            .join("; ")}`
+        : ""
+    }`;
+  return undefined;
+}
+
+export function cloudRunId(value: unknown): string | undefined {
+  const cloud = cloudToolResult(value);
+  if (!cloud) return undefined;
+  const result = record(cloud.result);
+  const data = record(
+    result.structuredContent ??
+      (() => {
+        try {
+          return JSON.parse(
+            String(record(Array.isArray(result.content) ? result.content[0] : undefined).text),
+          );
+        } catch {
+          return undefined;
+        }
+      })(),
+  );
+  return typeof data.run_id === "string" ? data.run_id : undefined;
 }
