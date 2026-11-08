@@ -147,3 +147,11 @@ and DOM-order drag-region checks. macOS Accessibility privileges are required
 for an OS click; CDP clicks alone do not prove native hit testing. Domains
 settings captures include compact disconnected, connected and account-reuse rows,
 with trial and API-key details in a native dialog.
+
+Wave 38 uses `.amicited-shots/r36/`. Run the normal browser and Electron journeys
+for the preceding evidence set. `AMICITED_CAPTURE_SITE_FILES=1` on the browser
+journey adds CMS, detected folder, sidebar, Settings and local-bare-repository clone
+captures. Site-edit evidence uses the free Replay showcase approval; the capture
+harness applies the proposed fixture-file change after approval so the normal
+checkpoint service and diff UI observe a real disk change. This is controlled
+fixture evidence, not an actual model editing a production site.

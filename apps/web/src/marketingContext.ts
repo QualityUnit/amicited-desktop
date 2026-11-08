@@ -1,3 +1,4 @@
+import { domainInstruction, type Cms } from "@amicited/cloud-client/domainModel";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { marketingSignInError, marketingToolResult } from "@amicited/ui-marketing";
 import { ComposerContextId, type OrchestrationMessageContext } from "@t3tools/contracts";
@@ -7,6 +8,7 @@ export function withMarketingWebsite(
   website: string | undefined,
   _firstMessage: boolean,
   marketer = false,
+  domain?: { cms?: Cms; siteFiles?: string | null; framework?: string | null },
 ): OrchestrationMessageContext | undefined {
   const storage = typeof localStorage === "undefined" ? undefined : localStorage;
   const promotion = {
@@ -41,8 +43,11 @@ export function withMarketingWebsite(
         payload: {
           ...promotion,
           website,
+          cms: domain?.cms ?? "unknown",
+          siteFilesConnected: !!domain?.siteFiles,
           instruction:
-            "Use this website as the default for local marketing checks unless the user names another.",
+            "Use this website as the default for local marketing checks unless the user names another. " +
+            domainInstruction(domain),
         },
       },
     ],

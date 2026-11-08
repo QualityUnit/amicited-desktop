@@ -440,20 +440,62 @@ try {
           );
         });
       }
+      if (name === "38-site-edit-approval")
+        await page
+          .getByRole("group", { name: "File change approval", exact: true })
+          .scrollIntoViewIfNeeded();
       await page.evaluate(() => document.fonts.ready);
       await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
     }
   };
-  if (process.env.AMICITED_REUSE_REAL !== "1") {
-    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-    await page.getByTestId("composer-editor").waitFor();
-    await page.getByRole("button", { name: "Connect Claude", exact: true }).waitFor();
-    await capture("01-first-launch");
-    await page.getByTestId("composer-editor").fill("Plan my next campaign");
-    await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
-    if (!(await page.getByTestId("composer-editor").innerText()).includes("Plan my next campaign"))
-      throw new Error("Connecting lost the typed prompt");
-    await page.getByTestId("composer-editor").fill("");
+  if (process.env.AMICITED_CAPTURE_SITE_FILES === "1") {
+    const fixtureRoot = await NodeFSP.mkdtemp(
+      NodePath.join(NodeOS.tmpdir(), "amicited-site-capture-"),
+    );
+    const site = NodePath.join(fixtureRoot, "site");
+    const bare = NodePath.join(fixtureRoot, "site.git");
+    await NodeFSP.mkdir(site);
+    await NodeFSP.writeFile(
+      NodePath.join(site, "package.json"),
+      JSON.stringify({ dependencies: { next: "16" } }),
+    );
+    await NodeFSP.writeFile(NodePath.join(site, "README.md"), "Fixture site\n");
+    await NodeFSP.mkdir(NodePath.join(site, "src"));
+    await NodeFSP.writeFile(
+      NodePath.join(site, "src/math.ts"),
+      "export const clamp = (n: number) => n;\n",
+    );
+    NodeChildProcess.execFileSync("git", ["init", site]);
+    NodeChildProcess.execFileSync("git", ["-C", site, "add", "."]);
+    NodeChildProcess.execFileSync("git", [
+      "-C",
+      site,
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.com",
+      "commit",
+      "-m",
+      "Fixture",
+    ]);
+    NodeChildProcess.execFileSync("git", ["clone", "--bare", site, bare]);
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByLabel("Website", { exact: true }).fill("site.example");
+    await capture("38-new-domain-cms");
+    await page.getByRole("combobox", { name: "CMS", exact: true }).click();
+    await page.getByRole("option", { name: /^Git-based site/ }).click();
+    await page.getByRole("combobox", { name: "Site files", exact: true }).click();
+    await page.getByRole("option", { name: "Use a folder on this computer" }).click();
+    await page.getByRole("textbox", { name: "Folder path", exact: true }).fill(site);
+    await page.getByRole("textbox", { name: "Folder path", exact: true }).blur();
+    await page.getByText(/Detected Next.js/).waitFor();
+    await capture("38-folder-detected");
+    await page.getByRole("button", { name: "Create domain", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "New domain", exact: true })
+      .waitFor({ state: "hidden" });
+    await page.getByText("site.example", { exact: true }).first().waitFor();
+    await capture("38-sidebar-cms-folder");
     await page.evaluate(async () => {
       const { serverEnvironment, primaryServerSettingsAtom } = await import(
         String("/src/state/server.ts")
@@ -497,392 +539,83 @@ try {
       return appAtomRegistry
         .get(primaryServerProvidersAtom)
         .some(
-          (p: { instanceId: string; enabled: boolean; models: unknown[] }) =>
-            p.instanceId === "devReplay" && p.enabled && p.models.length,
+          (p: { instanceId: string; enabled: boolean; models: { slug: string }[] }) =>
+            p.instanceId === "devReplay" &&
+            p.enabled &&
+            p.models.some((m: { slug: string }) => m.slug === "showcase"),
         );
     });
-    await page.evaluate(() =>
-      localStorage.setItem(
-        "amicited.brand",
-        JSON.stringify({ website: "https://example.com", name: "Example" }),
-      ),
-    );
-    await page.reload();
-    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-    await page
-      .locator(".am-chat-history")
-      .getByText("example.com", { exact: true })
-      .first()
-      .waitFor();
-    await capture("02-empty-chat");
-    await page.locator("[data-chat-provider-model-picker]").last().click();
-    await page.getByPlaceholder("Search models...").waitFor();
-    await capture("02e-model-picker");
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
-    await page.getByRole("button", { name: "Create domain" }).waitFor();
-    await capture("02c-website-popover");
-    await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
-    await page.getByRole("button", { name: "Collapse sidebar" }).click();
-    await page.locator(".am-chat-sidebar").waitFor({ state: "hidden" });
-    await capture("02d-collapsed-sidebar");
-    await page.getByRole("button", { name: "Expand sidebar" }).click();
-    await waitForOperate();
-    await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing",
-      ),
-    );
-    await page.getByText("Thinking…", { exact: true }).waitFor();
-    await capture("03b-thinking");
-    await page.locator('[data-state="pending"]').waitFor({ timeout: 45000 });
-    await capture("03a-mid-stream");
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .first()
-      .waitFor()
-      .catch(async (e) => {
-        console.error("BEFORE EXPAND", await page.locator("body").innerText());
-        await page
-          .getByRole("button", { name: /Worked for/ })
-          .first()
-          .click();
-        console.error("EXPANDED", await page.locator("body").innerText());
-        await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
-        throw e;
-      });
-    await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
-    await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
-    await capture("03-tool-card-turn");
-    await page.getByRole("button", { name: /Ran website health audit.*Partial/ }).waitFor();
-    await capture("03c-partial-coverage");
-    await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
-    await capture("03d-connection-offer");
-    await page.evaluate(() =>
-      localStorage.setItem("amicited.cloud.upsell", JSON.stringify({ dismissed: true })),
-    );
-    const offerChatUrl = page.url();
-    await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing-hidden",
-      ),
-    );
-    await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
-    await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
-    await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
-    if (await page.getByRole("complementary", { name: "More with AmICited" }).count())
-      throw new Error("Hidden offer rendered");
-    await capture("03e-connection-hidden");
-    await page.evaluate(() => localStorage.setItem("amicited.cloud.upsell", "{}"));
-    await page.goto(offerChatUrl);
-    await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
-    const marketingChatUrl = page.url();
-    await page.getByRole("button", { name: "Open full result" }).click();
-    await page.getByRole("region", { name: "Tool result" }).waitFor();
-    await capture("04-full-result");
-    await page.goto(marketingChatUrl);
-    await page
-      .getByRole("button", { name: "Connect AmICited (free)", exact: true })
-      .first()
-      .click();
-    await page
-      .getByText("Waiting for you to finish in your browser…", { exact: true })
-      .first()
-      .waitFor();
-    await capture("03j-connect-waiting-live");
-    await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
-    await page.goto(url + "/marketing-settings");
-    await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
-    await page.getByText("Use an API key instead", { exact: true }).click();
-    await page.getByLabel("Workspace API key").fill("capture-only");
-    await page.getByRole("button", { name: "Connect with key", exact: true }).click();
-    await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
-    await page.goto(marketingChatUrl);
-    await page
-      .getByText("Connected · access confirmed on your next check", { exact: true })
-      .waitFor();
-    await capture("03f-connected-free-persisted");
-    await page.reload();
-    await page
-      .getByText("Connected · access confirmed on your next check", { exact: true })
-      .waitFor();
-    await page.evaluate(() => {
-      void (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing-cloud",
-      );
-    });
-    await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
 
-    await capture("03g-cloud-approval-live");
-    await page.getByRole("button", { name: "Allow free checks in this chat", exact: true }).click();
-    await page.getByText(/View prompts on example.com/).waitFor();
-    await page.getByRole("button", { name: "Allow", exact: true }).click();
-    await page.getByText(/The free site health check is complete/).waitFor();
-    await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
-    await capture("03e-cloud-site-health");
-    await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
-    await page
-      .getByText(/Checked brand visibility on example.com/)
-      .first()
-      .waitFor();
-    await capture("03k-brand-visibility-merged");
-    await page
-      .getByRole("button", { name: /Checked brand visibility on example.com/ })
-      .first()
-      .click();
-    await page
-      .getByText(/Mentioned by ChatGPT and Perplexity/)
-      .first()
-      .waitFor();
-    await capture("03l-brand-visibility-summary");
-    await page.getByText("Report expired: not found", { exact: true }).waitFor();
-    await page
-      .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
-      .waitFor();
-    await capture("03m-failed-poll");
-    await capture("03h-paid-approval-live");
-    await page.getByRole("button", { name: "Allow", exact: true }).click();
-    await page
-      .getByText("Needs a Pro plan or trial. Free checks still work.", { exact: true })
-      .first()
-      .waitFor();
-    await capture("03i-subscription-refusal-live");
-    await NodeFSP.writeFile(
-      NodePath.join(out, "cloud-live-transcript.txt"),
-      await page.locator("body").innerText(),
-    );
-    await NodeFSP.writeFile(
-      NodePath.join(out, "cloud-live-mcp-calls.json"),
-      JSON.stringify(fixtureCalls, null, 2),
-    );
-    await page.goto(marketingChatUrl);
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .first()
-      .waitFor()
-      .catch(async (e) => {
-        console.error("BEFORE EXPAND", await page.locator("body").innerText());
-        await page
-          .getByRole("button", { name: /Worked for/ })
-          .first()
-          .click();
-        console.error("EXPANDED", await page.locator("body").innerText());
-        await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
-        throw e;
-      });
-    await page.getByRole("button", { name: "Open full result" }).click();
-    await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
-    await page.waitForURL(marketingChatUrl);
-    if (!(await page.getByTestId("composer-editor").innerText()).includes("41"))
-      throw new Error("Ask AI did not attach the tool result");
-    await capture("04b-result-context-chat");
-    await page.getByTestId("composer-editor").fill("");
-    await page.goto(marketingChatUrl);
-    await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
-    await waitForOperate();
-    await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing",
-      ),
-    );
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .first()
-      .waitFor()
-      .catch(async (e) => {
-        console.error("BEFORE EXPAND", await page.locator("body").innerText());
-        await page
-          .getByRole("button", { name: /Worked for/ })
-          .first()
-          .click();
-        console.error("EXPANDED", await page.locator("body").innerText());
-        await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
-        throw e;
-      });
-    await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
-    await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
-    await page.mouse.move(1000, 100);
-    await capture("05-chat-list");
-    await capture("05a-chat-hover");
-    await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .first()
-      .click();
-    await capture("05b-chat-menu");
-    await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
-    await page.getByRole("alertdialog").waitFor();
-    await capture("05c-delete-confirmation");
-    await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
-    await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .first()
-      .click();
-    await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
-    await page.waitForURL(/\/draft\//);
-    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-    await page.getByRole("button", { name: "Archived", exact: true }).click();
-    await page.getByRole("button", { name: "Restore", exact: true }).waitFor();
-    await capture("05d-archived");
-    await page.getByRole("button", { name: "Restore", exact: true }).click();
-    await page.getByText("No archived chats", { exact: true }).waitFor();
-    await capture("05e-archived-empty");
-    await page.getByRole("button", { name: "Back to chats", exact: true }).click();
-    await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .first()
-      .click();
-    await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-    await page.getByRole("textbox", { name: "Chat name" }).fill("Website audit review");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page
-      .getByRole("button", { name: /Website audit review/ })
-      .first()
-      .waitFor();
-    const firstHistory = page.locator("[data-chat-history-link]").first();
-    await firstHistory.focus();
-    await firstHistory.press("ArrowDown");
-    if (await firstHistory.evaluate((element) => element === document.activeElement))
-      throw new Error("History ArrowDown did not move focus");
-    await page.getByRole("button", { name: "New chat", exact: true }).click();
-    await page.waitForURL(/\/draft\//);
-    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-    await page.evaluate(async () => {
-      const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
-      const draftId = location.pathname.split("/").at(-1);
-      useComposerDraftStore
-        .getState()
-        .setModelSelection(
-          draftId,
-          { instanceId: "devReplay", model: "marketing" },
-          { replaceOptions: true, explicit: true },
-        );
-    });
-    await page.locator("[data-chat-provider-model-picker]").last().waitFor();
-    await capture("02b-empty-connected");
-    for (const [path, name] of [
-      ["/tools", "06-tools"],
-      ["/marketing-settings", "07-amicited"],
-      ["/settings/general", "08-settings"],
-    ]) {
-      await page.goto(url + path);
-      await page.locator(".am-chat-sidebar").waitFor();
-      if (path === "/tools")
-        await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
-      if (path === "/marketing-settings") {
-        const disconnect = page.getByRole("button", { name: "Disconnect", exact: true });
-        if (await disconnect.count()) await disconnect.click();
-        await page.getByRole("button", { name: "Connect", exact: true }).first().waitFor();
-      }
-      if (path === "/settings/general")
-        await page.getByRole("heading", { name: "Domains", exact: true }).waitFor();
-      await capture(name!);
-      if (path === "/marketing-settings") {
-        await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
-        for (const state of ["waiting", "free", "upgrade", "full"]) {
-          await page.evaluate(
-            async ({ state, fixtures }) => {
-              window.dispatchEvent(
-                new CustomEvent("amicited-cloud-evidence", {
-                  detail:
-                    state === "waiting"
-                      ? { state: "connecting" }
-                      : state === "full"
-                        ? fixtures.full
-                        : fixtures.free,
-                }),
-              );
-            },
-            { state, fixtures: cloudFixtures },
-          );
-          if (state === "waiting")
-            await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
-          else await page.getByText(/Connected to your AmICited workspace/).waitFor();
-          await capture("07-cloud-" + state);
-        }
-      }
-      if (path === "/tools") {
-        await page.locator(".am-tool-list > a").first().hover();
-        await capture("06b-tools-hover");
-      }
-    }
-    await page.getByRole("link", { name: "Tools", exact: true }).click();
-    await page.getByRole("button", { name: "Content tools", exact: true }).click();
-    await page.locator('a[href="/tools/content.readability"]').click();
-    await page
-      .getByRole("textbox", { name: "text", exact: true })
-      .fill("Our campaign helps small teams write clearly. Keep the message useful and concise.");
-    await page.getByRole("button", { name: "Run check", exact: true }).click();
-    await page.getByRole("button", { name: "Ask AI about this", exact: true }).waitFor();
-    await capture("08b-readability-result");
-    await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+    await page.reload();
     await page.getByTestId("composer-editor").waitFor();
-    await capture("08c-readability-context");
-    await NodeFSP.writeFile(
-      NodePath.join(out, "readability-report-context.json"),
-      await page.evaluate(() =>
-        JSON.stringify(
-          Object.fromEntries(
-            Object.entries(sessionStorage).filter(([key]) =>
-              key.startsWith("amicited.report-context."),
-            ),
-          ),
-          null,
-          2,
-        ),
-      ),
-    );
-    await page.goto(marketingChatUrl);
-    await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
-    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing-failed",
+        "showcase",
       ),
     );
+    await page.getByRole("group", { name: "File change approval", exact: true }).waitFor();
+    await capture("38-site-edit-approval");
     await page
-      .getByText("Could not check: the website did not respond. Try again later.", { exact: true })
-      .waitFor();
-    await page
-      .getByRole("button", { name: "Stop generating", exact: false })
-      .waitFor({ state: "hidden" });
-    await capture("09-failed-tool");
-    await waitForOperate();
-    await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing-approval",
-      ),
-    );
-
-    await capture("10-pending-approval");
-    await page
-      .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
-      .last()
+      .getByRole("group", { name: "File change approval", exact: true })
+      .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
+      .first()
       .click();
-    await page.getByText("This is a controlled Replay result", { exact: false }).first().waitFor();
-    await waitForOperate();
-    await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing-readability-approval",
-      ),
+    await NodeFSP.writeFile(
+      NodePath.join(site, "src/math.ts"),
+      "export const clamp = (n: number) => Math.max(0, n);\n",
     );
-    await page.getByRole("group", { name: "Marketing approval" }).waitFor();
-    await capture("10b-readability-approval");
-    await page.getByRole("button", { name: "Don't allow", exact: true }).click();
-    if (process.env.AMICITED_REAL_PROVIDER === "1") {
+    await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).waitFor();
+    await capture("38-changed-files-review");
+
+    await page.goto(url + "/settings/general");
+    await page.getByText(`Folder: ${site}`, { exact: false }).first().waitFor();
+    await capture("38-settings-domains");
+    await page.goto(url + "/");
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByLabel("Website", { exact: true }).fill("clone.example");
+    await page.getByRole("combobox", { name: "CMS", exact: true }).click();
+    await page.getByRole("option", { name: /^Git-based site/ }).click();
+    await page.getByRole("combobox", { name: "Site files", exact: true }).click();
+    await page.getByRole("option", { name: "Clone from a Git URL" }).click();
+    await page.getByRole("textbox", { name: "Git URL", exact: true }).fill(bare);
+    await capture("38-clone-flow");
+    await page.getByRole("button", { name: "Clone site files", exact: true }).click();
+    await page.getByText("Site files copied.", { exact: true }).waitFor();
+    await capture("38-clone-done");
+    await page.getByRole("button", { name: "Create domain", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "New domain", exact: true })
+      .waitFor({ state: "hidden" });
+    await NodeFSP.writeFile(
+      NodePath.join(out, "site-fixture.json"),
+      JSON.stringify({ site, bare, localOnly: true }),
+    );
+  } else {
+    if (process.env.AMICITED_REUSE_REAL !== "1") {
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page.getByTestId("composer-editor").waitFor();
+      await page.getByRole("button", { name: "Connect Claude", exact: true }).waitFor();
+      await capture("01-first-launch");
+      await page.getByTestId("composer-editor").fill("Plan my next campaign");
+      await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
+      if (
+        !(await page.getByTestId("composer-editor").innerText()).includes("Plan my next campaign")
+      )
+        throw new Error("Connecting lost the typed prompt");
+      await page.getByTestId("composer-editor").fill("");
       await page.evaluate(async () => {
         const { serverEnvironment, primaryServerSettingsAtom } = await import(
           String("/src/state/server.ts")
         );
         const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
         const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
-        const instance =
-          appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent;
+        const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.devReplay;
         const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
           environmentId: readPrimaryEnvironmentId(),
           input: {
             providerInstanceMutation: {
               operation: "upsert",
-              instanceId: "claudeAgent",
+              instanceId: "devReplay",
               instance: {
                 ...instance,
                 enabled: true,
@@ -901,229 +634,659 @@ try {
             patch: {},
           },
         });
-        if (result._tag !== "Success") throw new Error("Could not enable Claude");
-      });
-      const cli = async (args: string[]) => {
-        const child = NodeChildProcess.spawn(
-          process.execPath,
-          ["apps/server/src/bin.ts", ...args, "--base-dir", home],
-          { env, stdio: ["ignore", "pipe", "pipe"] },
-        );
-        let output = "";
-        child.stdout.on("data", (b) => {
-          output += b.toString();
+        if (result._tag !== "Success") throw new Error("Could not enable the free Replay fixture");
+        await serverEnvironment.refreshProviders.run(appAtomRegistry, {
+          environmentId: readPrimaryEnvironmentId(),
+          input: {},
         });
-        child.stderr.on("data", (b) => {
-          output += b.toString();
-        });
-        const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
-        return { code, output };
-      };
-      const project = await cli(["project", "add", process.cwd()]);
-      await NodeFSP.writeFile(NodePath.join(out, "real-provider-project.txt"), project.output);
-      await page.getByRole("button", { name: "New chat", exact: true }).click();
-      await page.waitForURL(/\/draft\//);
-      await page.getByTestId("composer-editor").waitFor();
-      await page.evaluate(async () => {
-        const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
-        const state = useComposerDraftStore.getState();
-        state.setStickyModelSelection({ instanceId: "claudeAgent", model: "claude-haiku-4-5" });
-        state.setModelSelection(
-          location.pathname.split("/").at(-1),
-          { instanceId: "claudeAgent", model: "claude-haiku-4-5" },
-          { replaceOptions: true, explicit: true },
-        );
       });
-      console.log(
-        "REAL SELECTION",
-        await page
-          .getByTestId("composer-editor")
-          .locator("..")
-          .innerText()
-          .catch(() => ""),
-      );
-      await page
-        .getByRole("button", { name: /Claude Haiku/ })
-        .waitFor({ timeout: 30000 })
-        .catch(async (error) => {
-          await NodeFSP.writeFile(
-            NodePath.join(out, "real-selection-debug.txt"),
-            await page.locator("body").innerText(),
+      await page.waitForFunction(async () => {
+        const { primaryServerProvidersAtom } = await import(String("/src/state/server.ts"));
+        const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+        return appAtomRegistry
+          .get(primaryServerProvidersAtom)
+          .some(
+            (p: { instanceId: string; enabled: boolean; models: { slug: string }[] }) =>
+              p.instanceId === "devReplay" && p.enabled && p.models.length,
           );
-          throw error;
-        });
+      });
+      await page.evaluate(() =>
+        localStorage.setItem(
+          "amicited.brand",
+          JSON.stringify({ website: "https://example.com", name: "Example" }),
+        ),
+      );
+      await page.reload();
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
       await page
-        .getByTestId("composer-editor")
-        .fill(
-          "Audit my website example.com for AI search. Give me the three most useful next steps.",
-        );
-      await page.getByTestId("composer-editor").press("Enter");
+        .locator(".am-chat-history")
+        .getByText("example.com", { exact: true })
+        .first()
+        .waitFor();
+      await capture("02-empty-chat");
+      await page.locator("[data-chat-provider-model-picker]").last().click();
+      await page.getByPlaceholder("Search models...").waitFor();
+      await capture("02e-model-picker");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+      await page.getByRole("button", { name: "Create domain" }).waitFor();
+      await capture("02c-website-popover");
+      await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+      await page.getByRole("button", { name: "Collapse sidebar" }).click();
+      await page.locator(".am-chat-sidebar").waitFor({ state: "hidden" });
+      await capture("02d-collapsed-sidebar");
+      await page.getByRole("button", { name: "Expand sidebar" }).click();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing",
+        ),
+      );
+      await page.getByText("Thinking…", { exact: true }).waitFor();
+      await capture("03b-thinking");
+      await page.locator('[data-state="pending"]').waitFor({ timeout: 45000 });
+      await capture("03a-mid-stream");
       await page
         .getByRole("article", { name: "Marketing tool result" })
         .first()
-        .waitFor({ timeout: 180000 });
+        .waitFor()
+        .catch(async (e) => {
+          console.error("BEFORE EXPAND", await page.locator("body").innerText());
+          await page
+            .getByRole("button", { name: /Worked for/ })
+            .first()
+            .click();
+          console.error("EXPANDED", await page.locator("body").innerText());
+          await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+          throw e;
+        });
+      await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+      await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+      await capture("03-tool-card-turn");
+      await page.getByRole("button", { name: /Ran website health audit.*Partial/ }).waitFor();
+      await capture("03c-partial-coverage");
+      await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+      await capture("03d-connection-offer");
+      await page.evaluate(() =>
+        localStorage.setItem("amicited.cloud.upsell", JSON.stringify({ dismissed: true })),
+      );
+      const offerChatUrl = page.url();
+      await page.evaluate(() =>
+        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing-hidden",
+        ),
+      );
+      await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+      await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+      await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      if (await page.getByRole("complementary", { name: "More with AmICited" }).count())
+        throw new Error("Hidden offer rendered");
+      await capture("03e-connection-hidden");
+      await page.evaluate(() => localStorage.setItem("amicited.cloud.upsell", "{}"));
+      await page.goto(offerChatUrl);
+      await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      const marketingChatUrl = page.url();
+      await page.getByRole("button", { name: "Open full result" }).click();
+      await page.getByRole("region", { name: "Tool result" }).waitFor();
+      await capture("04-full-result");
+      await page.goto(marketingChatUrl);
       await page
-        .getByRole("button", { name: "Submit message", exact: true })
-        .waitFor({ timeout: 180000 });
-      const realChatUrl = page.url();
-      const match = /\/([^/]+)$/.exec(new URL(realChatUrl).pathname);
-      if (match) {
-        await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
-        const transcript = await page.locator("body").innerText();
-        await NodeFSP.writeFile(
-          NodePath.join(out, "real-provider-transcript.txt"),
-          "\nRendered transcript:\n" + transcript,
+        .getByRole("button", { name: "Connect AmICited (free)", exact: true })
+        .first()
+        .click();
+      await page
+        .getByText("Waiting for you to finish in your browser…", { exact: true })
+        .first()
+        .waitFor();
+      await capture("03j-connect-waiting-live");
+      await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+      await page.goto(url + "/marketing-settings");
+      await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+      await page.getByText("Use an API key instead", { exact: true }).click();
+      await page.getByLabel("Workspace API key").fill("capture-only");
+      await page.getByRole("button", { name: "Connect with key", exact: true }).click();
+      await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+      await page.goto(marketingChatUrl);
+      await page
+        .getByText("Connected · access confirmed on your next check", { exact: true })
+        .waitFor();
+      await capture("03f-connected-free-persisted");
+      await page.reload();
+      await page
+        .getByText("Connected · access confirmed on your next check", { exact: true })
+        .waitFor();
+      await page.evaluate(() => {
+        void (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing-cloud",
         );
-        await page.getByRole("button", { name: "Open full result" }).click();
-        const result = await page.evaluate(() => sessionStorage.getItem("amicited.last-result"));
-        await NodeFSP.writeFile(
-          NodePath.join(out, "real-provider-tool-result.json"),
-          result ?? "null",
+      });
+      await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+
+      await capture("03g-cloud-approval-live");
+      await page
+        .getByRole("button", { name: "Allow free checks in this chat", exact: true })
+        .click();
+      await page.getByText(/View prompts on example.com/).waitFor();
+      await page.getByRole("button", { name: "Allow", exact: true }).click();
+      await page.getByText(/The free site health check is complete/).waitFor();
+      await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
+      await capture("03e-cloud-site-health");
+      await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+      await page
+        .getByText(/Checked brand visibility on example.com/)
+        .first()
+        .waitFor();
+      await capture("03k-brand-visibility-merged");
+      await page
+        .getByRole("button", { name: /Checked brand visibility on example.com/ })
+        .first()
+        .click();
+      await page
+        .getByText(/Mentioned by ChatGPT and Perplexity/)
+        .first()
+        .waitFor();
+      await capture("03l-brand-visibility-summary");
+      await page.getByText("Report expired: not found", { exact: true }).waitFor();
+      await page
+        .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
+        .waitFor();
+      await capture("03m-failed-poll");
+      await capture("03h-paid-approval-live");
+      await page.getByRole("button", { name: "Allow", exact: true }).click();
+      await page
+        .getByText("Needs a Pro plan or trial. Free checks still work.", { exact: true })
+        .first()
+        .waitFor();
+      await capture("03i-subscription-refusal-live");
+      await NodeFSP.writeFile(
+        NodePath.join(out, "cloud-live-transcript.txt"),
+        await page.locator("body").innerText(),
+      );
+      await NodeFSP.writeFile(
+        NodePath.join(out, "cloud-live-mcp-calls.json"),
+        JSON.stringify(fixtureCalls, null, 2),
+      );
+      await page.goto(marketingChatUrl);
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .first()
+        .waitFor()
+        .catch(async (e) => {
+          console.error("BEFORE EXPAND", await page.locator("body").innerText());
+          await page
+            .getByRole("button", { name: /Worked for/ })
+            .first()
+            .click();
+          console.error("EXPANDED", await page.locator("body").innerText());
+          await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+          throw e;
+        });
+      await page.getByRole("button", { name: "Open full result" }).click();
+      await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+      await page.waitForURL(marketingChatUrl);
+      if (!(await page.getByTestId("composer-editor").innerText()).includes("41"))
+        throw new Error("Ask AI did not attach the tool result");
+      await capture("04b-result-context-chat");
+      await page.getByTestId("composer-editor").fill("");
+      await page.goto(marketingChatUrl);
+      await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing",
+        ),
+      );
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .first()
+        .waitFor()
+        .catch(async (e) => {
+          console.error("BEFORE EXPAND", await page.locator("body").innerText());
+          await page
+            .getByRole("button", { name: /Worked for/ })
+            .first()
+            .click();
+          console.error("EXPANDED", await page.locator("body").innerText());
+          await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+          throw e;
+        });
+      await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+      await page
+        .getByText("This is a controlled Replay result", { exact: false })
+        .first()
+        .waitFor();
+      await page.mouse.move(1000, 100);
+      await capture("05-chat-list");
+      await capture("05a-chat-hover");
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await capture("05b-chat-menu");
+      await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+      await page.getByRole("alertdialog").waitFor();
+      await capture("05c-delete-confirmation");
+      await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
+      await page.waitForURL(/\/draft\//);
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page.getByRole("button", { name: "Archived", exact: true }).click();
+      await page.getByRole("button", { name: "Restore", exact: true }).waitFor();
+      await capture("05d-archived");
+      await page.getByRole("button", { name: "Restore", exact: true }).click();
+      await page.getByText("No archived chats", { exact: true }).waitFor();
+      await capture("05e-archived-empty");
+      await page.getByRole("button", { name: "Back to chats", exact: true }).click();
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+      await page.getByRole("textbox", { name: "Chat name" }).fill("Website audit review");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await page
+        .getByRole("button", { name: /Website audit review/ })
+        .first()
+        .waitFor();
+      const firstHistory = page.locator("[data-chat-history-link]").first();
+      await firstHistory.focus();
+      await firstHistory.press("ArrowDown");
+      if (await firstHistory.evaluate((element) => element === document.activeElement))
+        throw new Error("History ArrowDown did not move focus");
+      await page.getByRole("button", { name: "New chat", exact: true }).click();
+      await page.waitForURL(/\/draft\//);
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page.evaluate(async () => {
+        const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+        const draftId = location.pathname.split("/").at(-1);
+        useComposerDraftStore
+          .getState()
+          .setModelSelection(
+            draftId,
+            { instanceId: "devReplay", model: "marketing" },
+            { replaceOptions: true, explicit: true },
+          );
+      });
+      await page.locator("[data-chat-provider-model-picker]").last().waitFor();
+      await capture("02b-empty-connected");
+      for (const [path, name] of [
+        ["/tools", "06-tools"],
+        ["/marketing-settings", "07-amicited"],
+        ["/settings/general", "08-settings"],
+      ]) {
+        await page.goto(url + path);
+        await page.locator(".am-chat-sidebar").waitFor();
+        if (path === "/tools")
+          await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
+        if (path === "/marketing-settings") {
+          const disconnect = page.getByRole("button", { name: "Disconnect", exact: true });
+          if (await disconnect.count()) await disconnect.click();
+          await page.getByRole("button", { name: "Connect", exact: true }).first().waitFor();
+        }
+        if (path === "/settings/general")
+          await page.getByRole("heading", { name: "Domains", exact: true }).waitFor();
+        await capture(name!);
+        if (path === "/marketing-settings") {
+          await page
+            .getByRole("button", { name: "Connection details", exact: true })
+            .first()
+            .click();
+          for (const state of ["waiting", "free", "upgrade", "full"]) {
+            await page.evaluate(
+              async ({ state, fixtures }) => {
+                window.dispatchEvent(
+                  new CustomEvent("amicited-cloud-evidence", {
+                    detail:
+                      state === "waiting"
+                        ? { state: "connecting" }
+                        : state === "full"
+                          ? fixtures.full
+                          : fixtures.free,
+                  }),
+                );
+              },
+              { state, fixtures: cloudFixtures },
+            );
+            if (state === "waiting")
+              await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
+            else await page.getByText(/Connected to your AmICited workspace/).waitFor();
+            await capture("07-cloud-" + state);
+          }
+        }
+        if (path === "/tools") {
+          await page.locator(".am-tool-list > a").first().hover();
+          await capture("06b-tools-hover");
+        }
+      }
+      await page.getByRole("link", { name: "Tools", exact: true }).click();
+      await page.getByRole("button", { name: "Content tools", exact: true }).click();
+      await page.locator('a[href="/tools/content.readability"]').click();
+      await page
+        .getByRole("textbox", { name: "text", exact: true })
+        .fill("Our campaign helps small teams write clearly. Keep the message useful and concise.");
+      await page.getByRole("button", { name: "Run check", exact: true }).click();
+      await page.getByRole("button", { name: "Ask AI about this", exact: true }).waitFor();
+      await capture("08b-readability-result");
+      await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+      await page.getByTestId("composer-editor").waitFor();
+      await capture("08c-readability-context");
+      await NodeFSP.writeFile(
+        NodePath.join(out, "readability-report-context.json"),
+        await page.evaluate(() =>
+          JSON.stringify(
+            Object.fromEntries(
+              Object.entries(sessionStorage).filter(([key]) =>
+                key.startsWith("amicited.report-context."),
+              ),
+            ),
+            null,
+            2,
+          ),
+        ),
+      );
+      await page.goto(marketingChatUrl);
+      await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
+      await waitForOperate();
+      await page.evaluate(() =>
+        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing-failed",
+        ),
+      );
+      await page
+        .getByText("Could not check: the website did not respond. Try again later.", {
+          exact: true,
+        })
+        .waitFor();
+      await page
+        .getByRole("button", { name: "Stop generating", exact: false })
+        .waitFor({ state: "hidden" });
+      await capture("09-failed-tool");
+      await waitForOperate();
+      await page.evaluate(() =>
+        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing-approval",
+        ),
+      );
+
+      await capture("10-pending-approval");
+      await page
+        .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
+        .last()
+        .click();
+      await page
+        .getByText("This is a controlled Replay result", { exact: false })
+        .first()
+        .waitFor();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+          "marketing-readability-approval",
+        ),
+      );
+      await page.getByRole("group", { name: "Marketing approval" }).waitFor();
+      await capture("10b-readability-approval");
+      await page.getByRole("button", { name: "Don't allow", exact: true }).click();
+      if (process.env.AMICITED_REAL_PROVIDER === "1") {
+        await page.evaluate(async () => {
+          const { serverEnvironment, primaryServerSettingsAtom } = await import(
+            String("/src/state/server.ts")
+          );
+          const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+          const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+          const instance =
+            appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent;
+          const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+            environmentId: readPrimaryEnvironmentId(),
+            input: {
+              providerInstanceMutation: {
+                operation: "upsert",
+                instanceId: "claudeAgent",
+                instance: {
+                  ...instance,
+                  enabled: true,
+                  config: {
+                    ...instance.config,
+                    enabled: true,
+                    commandArgs: [
+                      ...(Array.isArray(instance.config?.commandArgs)
+                        ? instance.config.commandArgs
+                        : []),
+                      "--live-cloud",
+                    ],
+                  },
+                },
+              },
+              patch: {},
+            },
+          });
+          if (result._tag !== "Success") throw new Error("Could not enable Claude");
+        });
+        const cli = async (args: string[]) => {
+          const child = NodeChildProcess.spawn(
+            process.execPath,
+            ["apps/server/src/bin.ts", ...args, "--base-dir", home],
+            { env, stdio: ["ignore", "pipe", "pipe"] },
+          );
+          let output = "";
+          child.stdout.on("data", (b) => {
+            output += b.toString();
+          });
+          child.stderr.on("data", (b) => {
+            output += b.toString();
+          });
+          const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+          return { code, output };
+        };
+        const project = await cli(["project", "add", process.cwd()]);
+        await NodeFSP.writeFile(NodePath.join(out, "real-provider-project.txt"), project.output);
+        await page.getByRole("button", { name: "New chat", exact: true }).click();
+        await page.waitForURL(/\/draft\//);
+        await page.getByTestId("composer-editor").waitFor();
+        await page.evaluate(async () => {
+          const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+          const state = useComposerDraftStore.getState();
+          state.setStickyModelSelection({ instanceId: "claudeAgent", model: "claude-haiku-4-5" });
+          state.setModelSelection(
+            location.pathname.split("/").at(-1),
+            { instanceId: "claudeAgent", model: "claude-haiku-4-5" },
+            { replaceOptions: true, explicit: true },
+          );
+        });
+        console.log(
+          "REAL SELECTION",
+          await page
+            .getByTestId("composer-editor")
+            .locator("..")
+            .innerText()
+            .catch(() => ""),
         );
-        await page.goto(realChatUrl);
-        await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+        await page
+          .getByRole("button", { name: /Claude Haiku/ })
+          .waitFor({ timeout: 30000 })
+          .catch(async (error) => {
+            await NodeFSP.writeFile(
+              NodePath.join(out, "real-selection-debug.txt"),
+              await page.locator("body").innerText(),
+            );
+            throw error;
+          });
+        await page
+          .getByTestId("composer-editor")
+          .fill(
+            "Audit my website example.com for AI search. Give me the three most useful next steps.",
+          );
+        await page.getByTestId("composer-editor").press("Enter");
         await page
           .getByRole("article", { name: "Marketing tool result" })
-          .filter({ hasText: "Website health audit" })
-          .evaluate((element) => element.scrollIntoView({ block: "center" }));
-        await page
-          .getByRole("button", { name: /Chat actions for/ })
-          .filter({ visible: true })
           .first()
-          .click();
-        await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+          .waitFor({ timeout: 180000 });
         await page
-          .getByRole("textbox", { name: "Chat name" })
-          .fill("Website audit — technical snapshot for example.com");
-        await page.getByRole("button", { name: "Save", exact: true }).click();
-        await capture("11-real-haiku-turn");
+          .getByRole("button", { name: "Submit message", exact: true })
+          .waitFor({ timeout: 180000 });
+        const realChatUrl = page.url();
+        const match = /\/([^/]+)$/.exec(new URL(realChatUrl).pathname);
+        if (match) {
+          await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+          const transcript = await page.locator("body").innerText();
+          await NodeFSP.writeFile(
+            NodePath.join(out, "real-provider-transcript.txt"),
+            "\nRendered transcript:\n" + transcript,
+          );
+          await page.getByRole("button", { name: "Open full result" }).click();
+          const result = await page.evaluate(() => sessionStorage.getItem("amicited.last-result"));
+          await NodeFSP.writeFile(
+            NodePath.join(out, "real-provider-tool-result.json"),
+            result ?? "null",
+          );
+          await page.goto(realChatUrl);
+          await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+          await page
+            .getByRole("article", { name: "Marketing tool result" })
+            .filter({ hasText: "Website health audit" })
+            .evaluate((element) => element.scrollIntoView({ block: "center" }));
+          await page
+            .getByRole("button", { name: /Chat actions for/ })
+            .filter({ visible: true })
+            .first()
+            .click();
+          await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+          await page
+            .getByRole("textbox", { name: "Chat name" })
+            .fill("Website audit — technical snapshot for example.com");
+          await page.getByRole("button", { name: "Save", exact: true }).click();
+          await capture("11-real-haiku-turn");
+        }
       }
     }
-  }
-  if (process.env.AMICITED_REUSE_REAL === "1") {
+    if (process.env.AMICITED_REUSE_REAL === "1") {
+      await page.evaluate(() =>
+        localStorage.setItem(
+          "amicited.brand",
+          JSON.stringify({ website: "https://example.com", name: "Example" }),
+        ),
+      );
+      const { DatabaseSync } = await import("node:sqlite");
+      const database = new DatabaseSync(NodePath.join(home, "userdata/statev2.sqlite"), {
+        readOnly: true,
+      });
+      const run = database
+        .prepare(
+          "SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' AND status = 'completed' ORDER BY requested_at DESC LIMIT 1",
+        )
+        .get() as { thread_id: string };
+      const events = database
+        .prepare(
+          "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE thread_id = ? ORDER BY ordinal",
+        )
+        .all(run.thread_id);
+      database.close();
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-events.json"),
+        JSON.stringify(
+          events.map((row) => JSON.parse(String(row.payload_json))),
+          null,
+          2,
+        ),
+      );
+      const environment = await page.evaluate(async () =>
+        (await import(String("/src/state/environments.ts"))).readPrimaryEnvironmentId(),
+      );
+      const chatUrl = `${url}/${environment}/${run.thread_id}`;
+      await page.goto(chatUrl);
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .waitFor();
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-transcript.txt"),
+        await page.locator("body").innerText(),
+      );
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await capture("11-real-haiku-turn");
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .getByRole("button", { name: "Open full result" })
+        .click();
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-tool-result.json"),
+        (await page.evaluate(() => sessionStorage.getItem("amicited.last-result"))) ?? "null",
+      );
+      await page.goto(chatUrl);
+    }
+    await page.getByRole("button", { name: "New chat", exact: true }).click();
+    await page.waitForURL(/\/draft\//);
+    await page.getByTestId("composer-editor").waitFor();
+    await waitForOperate();
     await page.evaluate(() =>
-      localStorage.setItem(
-        "amicited.brand",
-        JSON.stringify({ website: "https://example.com", name: "Example" }),
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "marketing-auth",
       ),
     );
-    const { DatabaseSync } = await import("node:sqlite");
-    const database = new DatabaseSync(NodePath.join(home, "userdata/statev2.sqlite"), {
-      readOnly: true,
-    });
-    const run = database
-      .prepare(
-        "SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' AND status = 'completed' ORDER BY requested_at DESC LIMIT 1",
-      )
-      .get() as { thread_id: string };
-    const events = database
-      .prepare(
-        "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE thread_id = ? ORDER BY ordinal",
-      )
-      .all(run.thread_id);
-    database.close();
+    await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
+    await capture("12-sign-in-recovery");
+    for (const [index, title] of [
+      "Website audit — review crawler access and discovery recommendations",
+      "Website audit — technical snapshot for example.com",
+      "AI search visibility — review the latest website findings",
+    ].entries()) {
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .nth(index)
+        .click();
+      await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+      await page.getByRole("textbox", { name: "Chat name" }).fill(title);
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await page.getByRole("textbox", { name: "Chat name" }).waitFor({ state: "hidden" });
+    }
+    await capture("12b-sidebar-statuses");
     await NodeFSP.writeFile(
-      NodePath.join(out, "real-provider-events.json"),
-      JSON.stringify(
-        events.map((row) => JSON.parse(String(row.payload_json))),
-        null,
-        2,
-      ),
-    );
-    const environment = await page.evaluate(async () =>
-      (await import(String("/src/state/environments.ts"))).readPrimaryEnvironmentId(),
-    );
-    const chatUrl = `${url}/${environment}/${run.thread_id}`;
-    await page.goto(chatUrl);
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .filter({ hasText: "Website health audit" })
-      .waitFor();
-    await NodeFSP.writeFile(
-      NodePath.join(out, "real-provider-transcript.txt"),
+      NodePath.join(out, "sign-in-recovery-transcript.txt"),
       await page.locator("body").innerText(),
     );
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .filter({ hasText: "Website health audit" })
-      .evaluate((element) => element.scrollIntoView({ block: "center" }));
-    await capture("11-real-haiku-turn");
-    await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .filter({ hasText: "Website health audit" })
-      .getByRole("button", { name: "Open full result" })
-      .click();
-    await NodeFSP.writeFile(
-      NodePath.join(out, "real-provider-tool-result.json"),
-      (await page.evaluate(() => sessionStorage.getItem("amicited.last-result"))) ?? "null",
+    await page.reload();
+    await page.evaluate(() => localStorage.setItem("t3code:theme", "dark"));
+    await page.reload();
+    await page.getByRole("button", { name: "New chat", exact: true }).click();
+    await page.waitForURL(/\/draft\//);
+    await page.getByTestId("composer-editor").waitFor();
+    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.addStyleTag({ content: "* { transition: none !important; }" });
+    await page.setViewportSize({ width: 1344, height: 1016 });
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByRole("dialog", { name: "New domain" }).waitFor();
+    await page.screenshot({ path: NodePath.join(out, "13-fresh-dark-1344.png") });
+    await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+    await page.goto(url + "/");
+    await page.getByTestId("composer-editor").waitFor();
+    await capture("reference-t3-empty-chat");
+    await waitForOperate();
+    await page.evaluate(() =>
+      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
+        "showcase",
+      ),
     );
-    await page.goto(chatUrl);
-  }
-  await page.getByRole("button", { name: "New chat", exact: true }).click();
-  await page.waitForURL(/\/draft\//);
-  await page.getByTestId("composer-editor").waitFor();
-  await waitForOperate();
-  await page.evaluate(() =>
-    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-      "marketing-auth",
-    ),
-  );
-  await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
-  await capture("12-sign-in-recovery");
-  for (const [index, title] of [
-    "Website audit — review crawler access and discovery recommendations",
-    "Website audit — technical snapshot for example.com",
-    "AI search visibility — review the latest website findings",
-  ].entries()) {
     await page
-      .getByRole("button", { name: /Chat actions for/ })
-      .nth(index)
+      .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
+      .last()
       .click();
-    await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-    await page.getByRole("textbox", { name: "Chat name" }).fill(title);
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    await page.getByRole("textbox", { name: "Chat name" }).waitFor({ state: "hidden" });
+    await page.getByText("I added", { exact: false }).first().waitFor();
+    const fold = page.getByRole("button", { name: /^Worked for/ });
+    if (await fold.count()) await fold.first().click();
+    await capture("reference-t3-showcase");
+    await capture("reference-t3-sidebar");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByText("General", { exact: true }).first().waitFor();
+    await capture("reference-t3-settings");
   }
-  await capture("12b-sidebar-statuses");
-  await NodeFSP.writeFile(
-    NodePath.join(out, "sign-in-recovery-transcript.txt"),
-    await page.locator("body").innerText(),
-  );
-  await page.reload();
-  await page.evaluate(() => localStorage.setItem("t3code:theme", "dark"));
-  await page.reload();
-  await page.getByRole("button", { name: "New chat", exact: true }).click();
-  await page.waitForURL(/\/draft\//);
-  await page.getByTestId("composer-editor").waitFor();
-  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
-  await page.addStyleTag({ content: "* { transition: none !important; }" });
-  await page.setViewportSize({ width: 1344, height: 1016 });
-  await page.getByRole("button", { name: "New domain", exact: true }).first().click();
-  await page.getByRole("dialog", { name: "New domain" }).waitFor();
-  await page.screenshot({ path: NodePath.join(out, "13-fresh-dark-1344.png") });
-  await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
-  await page.goto(url + "/");
-  await page.getByTestId("composer-editor").waitFor();
-  await capture("reference-t3-empty-chat");
-  await waitForOperate();
-  await page.evaluate(() =>
-    (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-      "showcase",
-    ),
-  );
-  await page
-    .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
-    .last()
-    .click();
-  await page.getByText("I added", { exact: false }).first().waitFor();
-  const fold = page.getByRole("button", { name: /^Worked for/ });
-  if (await fold.count()) await fold.first().click();
-  await capture("reference-t3-showcase");
-  await capture("reference-t3-sidebar");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
-  await page.getByText("General", { exact: true }).first().waitFor();
-  await capture("reference-t3-settings");
   const fonts = await page.evaluate(async () => {
     const result: Record<string, boolean> = {};
     for (const family of ["-apple-system", "system-ui"])

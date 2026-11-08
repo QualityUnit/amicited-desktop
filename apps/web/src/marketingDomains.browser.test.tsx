@@ -9,7 +9,12 @@ const state = vi.hoisted(() => ({
   connections: new Map<string, Connection>(),
   failSave: false,
   emptyDomains: false,
-  requests: [] as Array<{ label: string; projectId?: string; website?: string }>,
+  requests: [] as Array<{
+    label: string;
+    projectId?: string;
+    website?: string;
+    workspaceRoot?: string;
+  }>,
 }));
 vi.mock("@effect/atom-react", async (original) => ({
   ...(await original<typeof import("@effect/atom-react")>()),
@@ -22,7 +27,10 @@ vi.mock("./state/environments", async (original) => ({
 }));
 vi.mock("./localApi", async (original) => ({
   ...(await original<typeof import("./localApi")>()),
-  createLocalApi: () => ({ shell: { openExternal: async () => {} } }),
+  createLocalApi: () => ({
+    shell: { openExternal: async () => {} },
+    dialogs: { pickFolder: async () => "/fixture/site" },
+  }),
 }));
 vi.mock("./hooks/useHandleNewThread", () => ({ useNewThreadHandler: () => async () => {} }));
 vi.mock("./state/use-atom-command", () => ({
@@ -31,13 +39,22 @@ vi.mock("./state/use-atom-command", () => ({
     async ({
       input,
     }: {
-      input?: { projectId?: string; sourceProjectId?: string; apiKey?: string; website?: string };
+      input?: {
+        projectId?: string;
+        sourceProjectId?: string;
+        apiKey?: string;
+        website?: string;
+        workspaceRoot?: string;
+      };
     }) => {
       state.requests.push({
         label: command.label,
+        ...(input?.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
         ...(input?.projectId ? { projectId: input.projectId } : {}),
         ...(input?.website ? { website: input.website } : {}),
       });
+      if (command.label === "domains:inspect")
+        return { _tag: "Success", value: { git: true, framework: "Next.js" } };
       if (command.label === "environment-data:projects:create-new")
         return {
           _tag: "Success",
@@ -84,6 +101,10 @@ vi.mock("./state/use-atom-command", () => ({
       return { _tag: "Success", value };
     },
 }));
+vi.mock("./state/use-orchestration-command", async () => {
+  const { useAtomCommand } = await import("./state/use-atom-command");
+  return { useOrchestrationCommand: useAtomCommand };
+});
 import { DomainMigration, DomainConnection, NewDomainDialog } from "./marketingDomains";
 it("offers account reuse immediately after another domain connects", async () => {
   state.connections.clear();
@@ -205,4 +226,29 @@ it("reuses the saved migration project after a failed save and remount", async (
     localStorage.removeItem("amicited.brand");
     localStorage.removeItem(key);
   }
+});
+
+it("uses the chosen site folder as the T3 project workspaceRoot", async () => {
+  state.emptyDomains = true;
+  state.requests.length = 0;
+  await using screen = await render(
+    <NewDomainDialog open onOpenChange={() => {}} destination={EnvironmentId.make("local")} />,
+  );
+  await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "site.example");
+  await userEvent.click(screen.getByRole("combobox", { name: "CMS", exact: true }));
+  await userEvent.click(page.getByRole("option", { name: /^Git-based site/ }));
+  await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
+  await userEvent.click(page.getByRole("option", { name: "Use a folder on this computer" }));
+  await userEvent.click(screen.getByRole("button", { name: "Choose folder" }));
+  await expect.element(screen.getByText(/Detected Next.js/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
+  await vi.waitFor(() =>
+    expect(state.requests).toContainEqual(
+      expect.objectContaining({
+        label: "environment-data:commands:project:create",
+        workspaceRoot: "/fixture/site",
+      }),
+    ),
+  );
+  state.emptyDomains = false;
 });

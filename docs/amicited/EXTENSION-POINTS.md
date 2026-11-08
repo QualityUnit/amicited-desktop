@@ -482,3 +482,23 @@ from a user-approved `list_domains` result, without an extra paid status probe.
 - `apps/web/src/components/CommandPalette.tsx`: marketer Tools and AmICited navigation actions alongside the existing Settings action.
 
 - `apps/web/src/components/chat/ChatHeader.tsx`: marketer breadcrumb uses the thread domain hostname.
+
+## Domain CMS and site files
+
+- `apps/web/src/marketingDomains.tsx`: T3 select and native folder picker; folder projects use the upstream project-create command and Git URLs use source-control clone with its existing progress stream and managed projects root.
+- `apps/server/src/ws.ts`: authenticated folder-inspection RPC forwards to the AmICited site-files inspector. Metadata saves validate the connected path against the destination project root.
+- `packages/contracts/src/clientRpcPermissions.ts` and `apps/server/src/observability/RpcInstrumentation.ts`: settings-write authorization and telemetry for inspection.
+- `apps/web/src/hooks/useHandleNewThread.ts` and `components/chat/useComposerSend.ts`: connected marketer sites select upstream approval-required runtime mode at creation and send; developer settings remain upstream.
+- `apps/web/src/components/chat/TimelineAssistantRows.tsx`: marketer changed-files row opens the existing turn diff.
+- `evals/mcp-tool-use/run.ts`: CMS fixtures import the production domain instruction rather than copying it.
+
+Folder replacement creates a new domain project. Although ProjectService.update
+accepts a root, existing thread working directories and provider sessions may keep
+the old path; changing the label alone would misrepresent where agents run.
+The Edit domain dialog explains this and the domain menu offers a new domain.
+Existing chats, checkpoints, credentials and files stay with the original project.
+
+- `apps/web/src/components/chat/TimelinePendingApprovalRow.tsx`: plain-language marketer edit/command headings alongside the unchanged native approval details and decisions.
+
+`apps/web/src/marketingDomainStore.ts` and `@amicited/ui-marketing/mode` provide
+dependency-light readers so project creation does not import the domain UI recursively.

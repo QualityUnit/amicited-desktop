@@ -46,3 +46,61 @@ export function domainToolInput(
   if (name === "ai.visibility.check") return { website, brand: domain.brand, ...row };
   return input;
 }
+
+export const cmsOptions = [
+  ["wordpress", "WordPress"],
+  ["webflow", "Webflow"],
+  ["shopify", "Shopify"],
+  ["wix", "Wix"],
+  ["squarespace", "Squarespace"],
+  ["hubspot", "HubSpot CMS"],
+  ["ghost", "Ghost"],
+  ["headless", "Headless CMS (Contentful, Sanity, Strapi…)"],
+  ["git", "Git-based site (Next.js, Astro, Hugo, Jekyll, Gatsby, Eleventy, Docusaurus…)"],
+  ["unknown", "Other / not sure"],
+] as const;
+export type Cms = (typeof cmsOptions)[number][0];
+export function cmsLabel(cms: Cms = "unknown") {
+  return cmsOptions.find(([value]) => value === cms)?.[1] ?? "Not sure";
+}
+export function detectFramework(files: readonly string[], packageJson?: string): string | null {
+  let dependencies: Record<string, unknown> = {};
+  try {
+    const json = JSON.parse(packageJson ?? "{}");
+    dependencies = { ...json.devDependencies, ...json.dependencies };
+  } catch {
+    /* Configuration files can still identify the framework. */
+  }
+  const frameworks = [
+    ["Next.js", "next", /^next\.config\./],
+    ["Astro", "astro", /^astro\.config\./],
+    ["Docusaurus", "@docusaurus/core", /^docusaurus\.config\./],
+    ["Gatsby", "gatsby", /^gatsby-config\./],
+    ["Eleventy", "@11ty/eleventy", /^(?:\.eleventy\.(?:js|cjs)|eleventy\.config\.)/],
+    ["Hugo", "", /^(?:hugo\.(?:toml|yaml|yml|json)|config\.(?:toml|yaml|yml))$/],
+    ["Jekyll", "", /^_config\.ya?ml$/],
+  ] as const;
+  return (
+    frameworks.find(
+      ([, dependency, pattern]) =>
+        (dependency && dependency in dependencies) || files.some((file) => pattern.test(file)),
+    )?.[0] ?? null
+  );
+}
+export function domainInstruction(domain?: {
+  cms?: Cms;
+  siteFiles?: string | null;
+  framework?: string | null;
+}) {
+  if (!domain) return "";
+  if (domain.siteFiles)
+    return `This site uses ${domain.cms === "git" ? (domain.framework ?? "a Git-based site") : cmsLabel(domain.cms)}${domain.cms !== "git" && domain.framework ? ` (site files: ${domain.framework})` : ""}. Site files are connected at the workspace root. Read and propose edits only after approval. Never commit or push unless explicitly asked.`;
+  return `This site uses ${cmsLabel(domain.cms)}. Site files are not connected. Give steps for its admin; do not claim you can edit the site.`;
+}
+export function domainRuntimeMode<T extends string>(
+  marketer: boolean,
+  domain: { siteFiles?: string | null } | undefined,
+  fallback: T,
+) {
+  return marketer && domain?.siteFiles ? "approval-required" : fallback;
+}

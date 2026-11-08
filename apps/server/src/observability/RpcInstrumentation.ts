@@ -18,6 +18,7 @@ const RPC_AGGREGATES = {
   "amicited.domains.status": "amicited",
   "amicited.domains.reuse": "amicited",
   "amicited.domains.list": "amicited",
+  "amicited.domains.inspect": "amicited",
   "amicited.domains.save": "amicited",
   "amicited.domains.connection": "amicited",
   "amicited.cloud.status": "amicited",

@@ -7,16 +7,14 @@ export interface Domain {
   brand: string;
   connectionRef: string;
   domainId?: string;
+  cms?: import("./domainModel.ts").Cms;
+  siteFiles?: string | null;
+  framework?: string | null;
 }
 export { normalizeDomain } from "./domainModel.ts";
 import { normalizeDomain } from "./domainModel.ts";
 
-const withoutDomainId = (domain: Domain) => ({
-  projectId: domain.projectId,
-  hostname: domain.hostname,
-  brand: domain.brand,
-  connectionRef: domain.connectionRef,
-});
+const withoutDomainId = ({ domainId: _domainId, ...domain }: Domain) => domain;
 
 // Credentials and sessions are partitioned by project, including projects without metadata.
 export class DomainConnections {
@@ -72,25 +70,55 @@ export class DomainConnections {
   }
   metadata() {
     if (this.rows) return Promise.resolve([...this.rows]);
-    return this.serial(async () => [...(this.rows ??= await this.options.read())]);
+    return this.serial(async () => [
+      ...(this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      }))),
+    ]);
   }
   list() {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       await this.migrate(rows);
       return [...rows];
     });
   }
-  register(projectId: string, website: string, brand?: string) {
+  register(
+    projectId: string,
+    website: string,
+    brand?: string,
+    metadata: Pick<Domain, "cms" | "siteFiles" | "framework"> = {},
+  ) {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       const data = normalizeDomain(website, brand);
       const existing = rows.find((row) => row.projectId === projectId);
       if (existing) {
         await this.migrate(rows).catch(() => {});
-        return existing;
+        const updated = {
+          ...(existing.hostname === data.hostname ? existing : withoutDomainId(existing)),
+          ...data,
+          ...metadata,
+        };
+        const next = rows.map((row) => (row.projectId === projectId ? updated : row));
+        await this.options.write(next);
+        this.rows = next;
+        return updated;
       }
-      const row = { projectId, ...data, connectionRef: projectId };
+      const row = {
+        projectId,
+        ...data,
+        cms: "unknown" as const,
+        ...metadata,
+        connectionRef: projectId,
+      };
       // Persist the migration target before moving its credential, so retry is safe.
       await this.options.write([...rows, row]);
       this.rows = [...rows, row];
@@ -102,7 +130,10 @@ export class DomainConnections {
   }
   prepareConnection(projectId: string) {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       const domain = rows.find((row) => row.projectId === projectId);
       if (!domain) throw new Error("Add a domain before connecting AmICited.");
       this.release(projectId);
@@ -122,7 +153,10 @@ export class DomainConnections {
   }
   reuse(projectId: string, sourceProjectId: string) {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       const source = rows.find((row) => row.projectId === sourceProjectId);
       if (!source || (await this.client(sourceProjectId).status()).state !== "connected")
         throw new Error("Connect the source domain first.");
@@ -147,7 +181,10 @@ export class DomainConnections {
   }
   disconnect(projectId: string) {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       const row = rows.find((row) => row.projectId === projectId);
       this.release(projectId);
       if (row && rows.filter((other) => other.connectionRef === row.connectionRef).length > 1) {
@@ -173,7 +210,10 @@ export class DomainConnections {
   }
   forget(projectId: string) {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       const row = rows.find((row) => row.projectId === projectId);
       if (!row) return;
       this.release(projectId);
@@ -188,7 +228,10 @@ export class DomainConnections {
   }
   rememberDomain(projectId: string, result: unknown) {
     return this.serial(async () => {
-      const rows = (this.rows ??= await this.options.read());
+      const rows = (this.rows ??= (await this.options.read()).map((row) => ({
+        cms: "unknown" as const,
+        ...row,
+      })));
       const domain = rows.find((row) => row.projectId === projectId);
       if (!domain) return;
       let domainId: string | undefined;

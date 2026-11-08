@@ -1,3 +1,4 @@
+import { domainRuntimeMode } from "@amicited/cloud-client/domainModel";
 import { readDomain } from "../../marketingDomains";
 import {
   readMarketingReport,
@@ -290,7 +291,7 @@ export function useComposerSend(input: ComposerSendInput) {
     isLocalDraftThread,
     isGitRepo,
     phase,
-    runtimeMode,
+    runtimeMode: configuredRuntimeMode,
     sendEnvMode,
     startFromOrigin,
     localCheckoutBranchMismatch,
@@ -371,6 +372,11 @@ export function useComposerSend(input: ComposerSendInput) {
     (store) => store.setEnvironmentContexts,
   );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
+  const runtimeMode = domainRuntimeMode(
+    readWorkspaceMode() === "marketer",
+    readDomain(environmentId, activeProject?.id),
+    configuredRuntimeMode,
+  );
   const sendToMultipleModels = useMultipleModelSend({
     environmentId,
     routeThreadKey,
@@ -937,6 +943,9 @@ export function useComposerSend(input: ComposerSendInput) {
             : undefined,
           isLocalDraftThread,
           readWorkspaceMode() === "marketer",
+          readWorkspaceMode() === "marketer"
+            ? readDomain(environmentId, activeProject?.id)
+            : undefined,
         ),
         report,
       );

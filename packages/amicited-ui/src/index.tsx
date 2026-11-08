@@ -32,14 +32,8 @@ import { useContext, useState, useSyncExternalStore, type ReactNode } from "reac
 import type { ToolCard, ToolResult } from "@amicited/tools-core";
 
 export const PRODUCT_NAME = "AmICited Desktop";
-const MODE_KEY = "amicited.workspace-mode";
-export function readWorkspaceMode(): "marketer" | "developer" {
-  try {
-    return localStorage.getItem(MODE_KEY) === "developer" ? "developer" : "marketer";
-  } catch {
-    return "marketer";
-  }
-}
+export { readWorkspaceMode } from "./mode.ts";
+import { readWorkspaceMode, MODE_KEY } from "./mode.ts";
 function subscribe(listener: () => void) {
   window.addEventListener("storage", listener);
   window.addEventListener("amicited-mode", listener);

@@ -3,9 +3,9 @@ import * as NodeHttp from "node:http";
 import { expect, it } from "vite-plus/test";
 import { CloudClient, type SecretStorage } from "./index.ts";
 import { DomainConnections, normalizeDomain, type Domain } from "./domains.ts";
-function fixture(endpoint?: string) {
+function fixture(endpoint?: string, initialRows: Domain[] = []) {
   const secrets = new Map<string, string>();
-  let rows: Domain[] = [];
+  let rows: Domain[] = initialRows;
   let migrated = false;
   const storage = (id: string): SecretStorage => ({
     read: async () => secrets.get(id),
@@ -280,4 +280,24 @@ it("requires a registered domain before connecting and clears account-specific d
   });
   await f.domains.disconnect("a");
   expect((await f.domains.metadata())[0]?.domainId).toBeUndefined();
+});
+
+it("round-trips CMS and site files, migrates old rows, and preserves them when disconnecting", async () => {
+  const f = fixture(undefined, [
+    { projectId: "legacy", hostname: "old.example", brand: "Old", connectionRef: "legacy" },
+  ]);
+  expect((await f.restart().metadata())[0]?.cms).toBe("unknown");
+  await f.domains.register("site", "acme.example", "Acme", {
+    cms: "git",
+    siteFiles: "/fixture/site",
+    framework: "Astro",
+  });
+  await f.domains.register("site", "acme.example", "Updated", { cms: "headless" });
+  await f.domains.disconnect("site");
+  expect((await f.restart().metadata()).find((row) => row.projectId === "site")).toMatchObject({
+    cms: "headless",
+    siteFiles: "/fixture/site",
+    framework: "Astro",
+    brand: "Updated",
+  });
 });

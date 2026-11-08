@@ -24,3 +24,8 @@ Domains are T3 projects in marketer mode. Domain metadata and connections are
 AmICited-owned and keyed by project ID; developer directory projects retain
 the upstream flow. This owner decision supersedes the global browser website
 preference described in earlier waves and the specification snapshot.
+
+Domains record a CMS and optional connected site folder. Existing domains default
+to Not sure and retain their managed folders. Connected marketer sites use T3's
+approval-required runtime mode; commit and push are never automatic. Replacing
+site files creates another domain so existing chats keep their working directory.

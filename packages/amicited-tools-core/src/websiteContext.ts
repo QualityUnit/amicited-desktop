@@ -21,7 +21,11 @@ export function marketingWebsiteInstructions(records: readonly unknown[]): strin
   try {
     const url = new URL(payload.website);
     if (!["https:", "http:"].includes(url.protocol)) return "";
-    return `\n\n${MARKETING_INSTRUCTIONS}\n\nMarketing workspace context: default website for local marketing tools is ${url.origin}. Use another website when the user asks.`;
+    const siteInstruction =
+      "instruction" in payload && typeof payload.instruction === "string"
+        ? payload.instruction.slice(0, 1600)
+        : "";
+    return `\n\n${MARKETING_INSTRUCTIONS}\n\n${siteInstruction}\nMarketing workspace context: default website for local marketing tools is ${url.origin}. Use another website when the user asks.`;
   } catch {
     return "";
   }

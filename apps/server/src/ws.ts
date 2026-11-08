@@ -1,3 +1,4 @@
+import { inspectSiteFiles } from "@amicited/cloud-client/siteFiles";
 import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
@@ -2019,16 +2020,28 @@ export const layerWsRpc = (
             catch: () =>
               new DomainFailure({ message: "Could not read your domains. Please try again." }),
           }),
-        "amicited.domains.save": ({ projectId, website, brand }) =>
+        "amicited.domains.inspect": ({ path }) =>
+          Effect.tryPromise({
+            try: () => inspectSiteFiles(path),
+            catch: () =>
+              new DomainFailure({
+                message:
+                  "Could not read this folder. Check that it exists on this computer and try again.",
+              }),
+          }),
+        "amicited.domains.save": ({ projectId, website, brand, ...metadata }) =>
           projectService.getById(ProjectId.make(projectId)).pipe(
             Effect.mapError(
               () => new DomainFailure({ message: "This domain project no longer exists." }),
             ),
-            Effect.flatMap(() =>
+            Effect.flatMap((project) =>
               Effect.tryPromise({
                 try: async () => {
+                  if (Option.isNone(project)) throw new Error("Project missing");
+                  if (metadata.siteFiles && metadata.siteFiles !== project.value.workspaceRoot)
+                    throw new Error("Site folder does not match project");
                   if (!cloud.domains) throw new Error("Domains unavailable");
-                  return cloud.domains.register(projectId, website, brand);
+                  return cloud.domains.register(projectId, website, brand, metadata);
                 },
                 catch: () =>
                   new DomainFailure({

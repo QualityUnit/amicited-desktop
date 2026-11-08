@@ -17,6 +17,20 @@ it("supplies the current website as context while preserving the user's stored t
       withMarketingWebsite(undefined, undefined, false, true)?.records ?? [],
     ),
   ).toContain("For marketing tasks");
+  const cmsContext = withMarketingWebsite(undefined, "https://acme.example", false, true, {
+    cms: "wordpress",
+  });
+  expect(marketingWebsiteInstructions(cmsContext?.records ?? [])).toContain("WordPress");
+  expect(marketingWebsiteInstructions(cmsContext?.records ?? [])).toContain(
+    "do not claim you can edit",
+  );
+  const repoContext = withMarketingWebsite(undefined, "https://acme.example", false, true, {
+    cms: "git",
+    siteFiles: "/site",
+    framework: "Next.js",
+  });
+  expect(marketingWebsiteInstructions(repoContext?.records ?? [])).toContain("Next.js");
+  expect(marketingWebsiteInstructions(repoContext?.records ?? [])).toContain("only after approval");
   expect(text).toBe("Audit my website");
 });
 

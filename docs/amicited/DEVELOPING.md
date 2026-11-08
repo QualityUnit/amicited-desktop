@@ -145,3 +145,8 @@ OAuth refresh tokens to reuse an account. Domain metadata tests and MCP fixtures
 run offline against loopback services. The browser regression in
 `marketingDomains.browser.test.tsx` covers the peer connection update that makes
 an existing account available immediately after another domain connects.
+
+CMS detection and folder tests use temporary local repositories without network
+access. `AMICITED_CAPTURE_SITE_FILES=1` selects the site-file capture journey;
+its clone source is a temporary local bare repository. The edit fixture changes
+only its temporary `src/math.ts` after the Replay permission is approved.

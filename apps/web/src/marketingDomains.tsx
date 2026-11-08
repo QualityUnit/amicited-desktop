@@ -1,3 +1,15 @@
+import { newProjectId } from "./lib/utils";
+import { cmsOptions, cmsLabel, type Cms } from "@amicited/cloud-client/domainModel";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectPopup,
+  SelectItem,
+} from "./components/ui/select";
+import { sourceControlEnvironment } from "./state/sourceControl";
+import { useProjectClone, silenceProjectCloneToasts } from "./state/projectClones";
+import { useServerConfigs } from "./state/entities";
 import { useSubscriptionRefresh, openCloudSubscription } from "./amicitedSubscription";
 import { CloudDisclosure } from "./rpc/amicitedApprovals";
 import { useAtomValue } from "@effect/atom-react";
@@ -41,6 +53,10 @@ const list = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.domains.list",
   label: "domains:list",
 });
+const inspect = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.domains.inspect",
+  label: "domains:inspect",
+});
 const save = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.domains.save",
   label: "domains:save",
@@ -57,24 +73,8 @@ const connectionCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.domains.connection",
   label: "domains:connection",
 });
-const cache =
-  (import.meta.hot?.data.domainCache as Map<string, readonly Domain[]> | undefined) ??
-  new Map<string, readonly Domain[]>();
-const listeners = new Set<() => void>();
-const empty: readonly Domain[] = [];
-const subscribe = (listener: () => void) => {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-};
-function publish(environmentId: string, rows: readonly Domain[]) {
-  cache.set(environmentId, rows);
-  listeners.forEach((listener) => listener());
-}
-export function readDomain(environmentId: string, projectId: string | undefined) {
-  return cache.get(environmentId)?.find((domain) => domain.projectId === projectId);
-}
+export { readDomain } from "./marketingDomainStore";
+import { cache, listeners, empty, subscribe, publish } from "./marketingDomainStore";
 export function useDomains(destination?: EnvironmentId | null) {
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
@@ -97,19 +97,54 @@ export function NewDomainDialog({
   open,
   onOpenChange,
   destination,
+  editing,
 }: {
+  editing?: Domain;
   destination?: EnvironmentId | null | undefined;
   open: boolean;
   onOpenChange(value: boolean): void;
 }) {
   const { environmentId, refresh } = useDomains(destination);
   const create = useAtomCommand(projectEnvironment.createNew);
+  const addFolder = useOrchestrationCommand(projectEnvironment.create);
+  const startClone = useAtomCommand(sourceControlEnvironment.startProjectClone);
+  const retryClone = useAtomCommand(sourceControlEnvironment.retryProjectClone);
+  const cancelClone = useAtomCommand(sourceControlEnvironment.cancelProjectClone);
+  const inspectFolder = useAtomCommand(inspect);
+  const configs = useServerConfigs();
+  const [cms, setCms] = useState<Cms>(editing?.cms ?? "unknown");
+  const [siteFiles, setSiteFiles] = useState(editing?.siteFiles ?? "");
+  const [framework, setFramework] = useState<string | null>(editing?.framework ?? null);
+  const [validatedPath, setValidatedPath] = useState("");
+  const [folderNote, setFolderNote] = useState("");
+  const [fileChoice, setFileChoice] = useState("skip");
+  const [gitUrl, setGitUrl] = useState("");
+  const [cloneId, setCloneId] = useState<ProjectId | null>(null);
+  const clone = useProjectClone(
+    environmentId && cloneId ? scopeProjectRef(environmentId, cloneId) : null,
+  );
+  const chooseFolder = async (path: string) => {
+    if (!environmentId || !path) return;
+    const result = await inspectFolder({ environmentId, input: { path } });
+    if (result._tag !== "Success") {
+      setError("Could not read this folder. Check the path and try again.");
+      return;
+    }
+    setSiteFiles(path);
+    setValidatedPath(path);
+    setFramework(result.value.framework);
+    if (result.value.framework) setCms("git");
+    setFolderNote(
+      `${result.value.framework ? `Detected ${result.value.framework}. ` : ""}${result.value.git ? "Git folder connected." : "This folder has no Git history. You can still use it, but version history may be unavailable."}`,
+    );
+    setError("");
+  };
   const register = useAtomCommand(save);
   const canCreate = useAtomValue(projectEnvironment.createNew.permissionAtom(environmentId));
   const canSave = useAtomValue(save.permissionAtom(environmentId));
   const newThread = useNewThreadHandler();
-  const [website, setWebsite] = useState("");
-  const [brand, setBrand] = useState("");
+  const [website, setWebsite] = useState(editing?.hostname ?? "");
+  const [brand, setBrand] = useState(editing?.brand ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pendingProject = useRef<{
@@ -121,7 +156,7 @@ export function NewDomainDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup>
         <DialogHeader>
-          <DialogTitle>New domain</DialogTitle>
+          <DialogTitle>{editing ? "Edit domain" : "New domain"}</DialogTitle>
           <DialogDescription>
             Keep this website’s chats and AmICited connection together.
           </DialogDescription>
@@ -131,23 +166,48 @@ export function NewDomainDialog({
             className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!environmentId || busy || !canCreate || !canSave) return;
+              if (
+                !environmentId ||
+                busy ||
+                !canCreate ||
+                !canSave ||
+                (fileChoice === "folder" && (!siteFiles || validatedPath !== siteFiles)) ||
+                (fileChoice === "clone" && clone?.phase !== "done")
+              )
+                return;
               void (async () => {
                 setBusy(true);
                 setError("");
                 const domain = normalizeDomain(website, brand);
-                let projectId =
-                  pendingProject.current?.environmentId === environmentId &&
-                  pendingProject.current.hostname === domain.hostname
+                const detected =
+                  clone?.phase === "done" && siteFiles
+                    ? await inspectFolder({ environmentId, input: { path: siteFiles } })
+                    : null;
+                let projectId = editing
+                  ? ProjectId.make(editing.projectId)
+                  : pendingProject.current?.environmentId === environmentId &&
+                      pendingProject.current.hostname === domain.hostname
                     ? pendingProject.current.projectId
                     : undefined;
                 if (!projectId) {
-                  const created = await create({ environmentId, input: { name: domain.hostname } });
+                  const candidateId = newProjectId();
+                  const created = siteFiles
+                    ? await addFolder({
+                        environmentId,
+                        input: {
+                          projectId: candidateId,
+                          title: domain.hostname,
+                          workspaceRoot: siteFiles,
+                        },
+                      })
+                    : await create({ environmentId, input: { name: domain.hostname } });
                   if (created._tag !== "Success") {
                     setError("Could not create this domain. Please try again.");
                     return;
                   }
-                  projectId = created.value.projectId;
+                  projectId = siteFiles
+                    ? candidateId
+                    : (created.value as { projectId: ProjectId }).projectId;
                   pendingProject.current = { environmentId, hostname: domain.hostname, projectId };
                 }
                 const result = await register({
@@ -156,6 +216,9 @@ export function NewDomainDialog({
                     projectId,
                     website: domain.hostname,
                     brand: domain.brand,
+                    cms: detected?._tag === "Success" && detected.value.framework ? "git" : cms,
+                    siteFiles: siteFiles || null,
+                    framework: detected?._tag === "Success" ? detected.value.framework : framework,
                   },
                 });
                 if (result._tag !== "Success") {
@@ -169,7 +232,7 @@ export function NewDomainDialog({
                 onOpenChange(false);
                 setWebsite("");
                 setBrand("");
-                await newThread(scopeProjectRef(environmentId, projectId));
+                if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
               })()
                 .catch((error) =>
                   setError(
@@ -193,13 +256,233 @@ export function NewDomainDialog({
               Brand name (optional)
               <Input value={brand} onChange={(event) => setBrand(event.target.value)} />
             </label>
+            <label>
+              CMS
+              <Select
+                value={cms}
+                onValueChange={(value) => {
+                  if (value) {
+                    setCms(value);
+                    if (!editing && !["git", "headless", "unknown"].includes(value)) {
+                      setSiteFiles("");
+                      setFramework(null);
+                      setFileChoice("skip");
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger aria-label="CMS">
+                  <SelectValue>
+                    {() => (cms === "unknown" ? "Not sure" : cmsLabel(cms))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  {cmsOptions.map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
+            </label>
+            {editing ? (
+              <p className="text-sm text-muted-foreground">
+                {editing.siteFiles ? `Folder: ${editing.siteFiles}` : "Site files: Not connected"}.
+                Existing chats keep their original folder. To connect different site files, create a
+                new domain from that folder.
+              </p>
+            ) : (
+              ["git", "headless", "unknown"].includes(cms) && (
+                <fieldset className="flex flex-col gap-2">
+                  <legend>Site files</legend>
+                  <Select
+                    value={fileChoice}
+                    onValueChange={(value) => {
+                      if (value) {
+                        setFileChoice(value);
+                        setSiteFiles("");
+                        setFramework(null);
+                        setFolderNote("");
+                      }
+                    }}
+                  >
+                    <SelectTrigger aria-label="Site files">
+                      <SelectValue>
+                        {() =>
+                          fileChoice === "skip"
+                            ? "Skip for now"
+                            : fileChoice === "folder"
+                              ? "Use a folder on this computer"
+                              : "Clone from a Git URL"
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="skip">Skip for now</SelectItem>
+                      <SelectItem value="folder">Use a folder on this computer</SelectItem>
+                      <SelectItem value="clone">Clone from a Git URL</SelectItem>
+                    </SelectPopup>
+                  </Select>
+                  {fileChoice === "folder" && (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          void createLocalApi()
+                            .dialogs.pickFolder()
+                            .then((path) => {
+                              if (path) return chooseFolder(path);
+                            })
+                            .catch(() => setError("Could not open the folder picker."));
+                        }}
+                      >
+                        Choose folder
+                      </Button>
+                      <Input
+                        aria-label="Folder path"
+                        placeholder="/Users/you/Sites/acme"
+                        value={siteFiles}
+                        onChange={(event) => {
+                          setSiteFiles(event.target.value);
+                          setFramework(null);
+                          setFolderNote("");
+                        }}
+                        onBlur={() => {
+                          void chooseFolder(siteFiles);
+                        }}
+                      />
+                    </>
+                  )}
+                  {fileChoice === "clone" && (
+                    <>
+                      <Input
+                        aria-label="Git URL"
+                        placeholder="https://github.com/team/site.git"
+                        value={gitUrl}
+                        onChange={(event) => setGitUrl(event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!!cloneId || !gitUrl.trim()}
+                        onClick={() => {
+                          if (!environmentId) return;
+                          const root = configs.get(environmentId)?.newProjectsRoot;
+                          if (!root) {
+                            setError(
+                              "The folder for new sites is unavailable. Try again after reconnecting.",
+                            );
+                            return;
+                          }
+                          let hostname: string;
+                          try {
+                            hostname = normalizeDomain(website).hostname;
+                          } catch {
+                            setError("Enter a website like example.com before copying site files.");
+                            return;
+                          }
+                          const projectId = newProjectId();
+                          silenceProjectCloneToasts(scopeProjectRef(environmentId, projectId));
+                          setBusy(true);
+                          void startClone({
+                            environmentId,
+                            input: {
+                              projectId,
+                              title: hostname,
+                              remoteUrl: gitUrl.trim(),
+                              destinationPath: `${root}/site-${projectId}`,
+                              createdAt: new Date().toISOString(),
+                            },
+                          })
+                            .then((result) => {
+                              if (result._tag !== "Success") {
+                                setError(
+                                  "Could not copy the site. Check the Git URL and your access, then try again.",
+                                );
+                                return;
+                              }
+                              setCloneId(projectId);
+                              setSiteFiles(result.value.cwd);
+                              pendingProject.current = {
+                                environmentId,
+                                hostname,
+                                projectId,
+                              };
+                            })
+                            .catch(() =>
+                              setError("Could not copy the site. Check the website and Git URL."),
+                            )
+                            .finally(() => setBusy(false));
+                        }}
+                      >
+                        Clone site files
+                      </Button>
+                      {clone && clone.phase === "running" && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => {
+                            if (environmentId && cloneId)
+                              void cancelClone({ environmentId, input: { projectId: cloneId } });
+                          }}
+                        >
+                          Cancel copy
+                        </Button>
+                      )}
+                      {clone && (clone.phase === "failed" || clone.phase === "cancelled") && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            if (environmentId && cloneId)
+                              void retryClone({ environmentId, input: { projectId: cloneId } });
+                          }}
+                        >
+                          Try copying again
+                        </Button>
+                      )}
+                      {clone && (
+                        <p role="status">
+                          {clone.phase === "running"
+                            ? `Copying site files… ${clone.percent ?? 0}%`
+                            : clone.phase === "done"
+                              ? "Site files copied."
+                              : `Could not copy site files: ${clone.error ?? "Copy cancelled. Try again from a new domain."}`}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {folderNote && (
+                    <p role="status" className="text-sm text-muted-foreground">
+                      {folderNote}
+                    </p>
+                  )}
+                  {siteFiles && (
+                    <p className="text-sm text-muted-foreground">
+                      Edits need your OK. Review changes in this chat before publishing.
+                    </p>
+                  )}
+                </fieldset>
+              )
+            )}
             {error && <p role="alert">{error}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={busy || !canCreate || !canSave}>
-                {busy ? "Creating…" : "Create domain"}
+              <Button
+                type="submit"
+                disabled={
+                  busy ||
+                  !canCreate ||
+                  !canSave ||
+                  (fileChoice !== "skip" && !siteFiles) ||
+                  (fileChoice === "folder" && validatedPath !== siteFiles) ||
+                  (!!cloneId && clone?.phase !== "done")
+                }
+              >
+                {busy ? "Saving…" : editing ? "Save domain" : "Create domain"}
               </Button>
             </div>
           </form>
@@ -213,7 +496,6 @@ const connections =
   new Map<string, Connection>();
 if (import.meta.hot)
   import.meta.hot.dispose((data) => {
-    data.domainCache = cache;
     data.domainConnections = connections;
   });
 export function useDomainConnection(
@@ -478,7 +760,7 @@ export function DomainsSettings() {
             <SettingsRow
               key={domain.projectId}
               title={domain.hostname}
-              description={domain.brand}
+              description={`${domain.brand} · ${cmsLabel(domain.cms)} · ${domain.siteFiles ? `Folder: ${domain.siteFiles}` : "Site files: Not connected"}`}
               control={
                 environmentId ? (
                   <div className="flex items-center gap-2">
@@ -578,6 +860,8 @@ function DomainProjectActions({
   const project = useProject(scopeProjectRef(destination, ProjectId.make(domain.projectId)));
   const update = useOrchestrationCommand(projectEnvironment.update);
   const remove = useOrchestrationCommand(projectEnvironment.delete);
+  const [editing, setEditing] = useState(false);
+  const [newFromFolder, setNewFromFolder] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState("");
   if (!project) return null;
@@ -591,6 +875,10 @@ function DomainProjectActions({
           <MoreHorizontal />
         </MenuTrigger>
         <MenuPopup>
+          <MenuItem onClick={() => setEditing(true)}>Edit domain</MenuItem>
+          <MenuItem onClick={() => setNewFromFolder(true)}>
+            Create a new domain from this folder
+          </MenuItem>
           <MenuItem
             onClick={() => {
               setTitle(project.title);
@@ -630,6 +918,17 @@ function DomainProjectActions({
           </MenuItem>
         </MenuPopup>
       </Menu>
+      {editing && (
+        <NewDomainDialog
+          open
+          onOpenChange={setEditing}
+          destination={destination}
+          editing={domain}
+        />
+      )}
+      {newFromFolder && (
+        <NewDomainDialog open onOpenChange={setNewFromFolder} destination={destination} />
+      )}
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogPopup>
           <DialogHeader>
@@ -703,7 +1002,23 @@ export function DomainThreadGroup({
         onToggle={() => setCollapsed(!collapsed)}
         onNewThread={onNew}
         onContextMenu={() => {}}
-        status={<DomainStatusDot domain={domain} destination={destination} />}
+        status={
+          <span
+            className="flex items-center gap-1 text-xs text-muted-foreground"
+            aria-label={`${cmsLabel(domain.cms)}${domain.siteFiles ? ` · Folder: ${domain.siteFiles}` : ""}`}
+          >
+            <DomainStatusDot domain={domain} destination={destination} />
+            {domain.framework ??
+              (domain.cms === "git"
+                ? "Git"
+                : domain.cms === "headless"
+                  ? "Headless CMS"
+                  : domain.cms === "unknown" || !domain.cms
+                    ? "Not sure"
+                    : cmsLabel(domain.cms))}
+            {domain.siteFiles ? " · Folder" : ""}
+          </span>
+        }
       />
       {!collapsed && children}
     </section>

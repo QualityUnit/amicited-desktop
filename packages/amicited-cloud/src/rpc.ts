@@ -32,19 +32,43 @@ const PendingApproval = Schema.Struct({
 export class DomainFailure extends Schema.TaggedError<DomainFailure>()("DomainFailure", {
   message: Schema.String,
 }) {}
+export const Cms = Schema.Literals([
+  "wordpress",
+  "webflow",
+  "shopify",
+  "wix",
+  "squarespace",
+  "hubspot",
+  "ghost",
+  "headless",
+  "git",
+  "unknown",
+]);
+const SiteMetadata = {
+  cms: Schema.optionalKey(Cms),
+  siteFiles: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  framework: Schema.optionalKey(Schema.NullOr(Schema.String)),
+};
 export const DomainRecord = Schema.Struct({
   projectId: Schema.String,
   hostname: Schema.String,
   brand: Schema.String,
   connectionRef: Schema.String,
+  ...SiteMetadata,
   domainId: Schema.optionalKey(Schema.String),
 });
 export const cloudRpcs = [
+  Rpc.make("amicited.domains.inspect", {
+    payload: { path: Schema.String },
+    success: Schema.Struct({ git: Schema.Boolean, framework: Schema.NullOr(Schema.String) }),
+    error: DomainFailure,
+  }),
   Rpc.make("amicited.domains.list", { success: Schema.Array(DomainRecord), error: DomainFailure }),
   Rpc.make("amicited.domains.save", {
     payload: {
       projectId: Schema.String,
       website: Schema.String,
+      ...SiteMetadata,
       brand: Schema.optionalKey(Schema.String),
     },
     success: DomainRecord,

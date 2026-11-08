@@ -351,6 +351,7 @@ function AssistantChangedFilesSectionInner({
   displayThreadKey?: string;
   onOpenTurnDiff: (runId: RunId, filePath?: string) => void;
 }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const ctx = use(TimelineRowCtx);
   const persistedExpanded = useUiStateStore(
     (store) => store.threadChangedFilesExpandedById[routeThreadKey]?.[turnSummary.runId],
@@ -365,6 +366,13 @@ function AssistantChangedFilesSectionInner({
       : null,
   );
   const onFileContextMenu = useFileContextMenuHandler(ctx.activeThreadEnvironmentId);
+
+  if (marketer)
+    return (
+      <Button variant="ghost" size="sm" onClick={() => onOpenTurnDiff(turnSummary.runId)}>
+        Changed {checkpointFiles.length} {checkpointFiles.length === 1 ? "file" : "files"} · Review
+      </Button>
+    );
 
   return (
     <ChangedFilesCard

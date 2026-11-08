@@ -8,6 +8,7 @@
     "./upsell": "./src/upsell.ts",
     "./model": "./src/model.ts",
     "./domainModel": "./src/domainModel.ts",
+    "./siteFiles": "./src/siteFiles.ts",
     "./domains": "./src/domains.ts",
     "./capture": "./src/capture.ts"
   },

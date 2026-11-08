@@ -1,3 +1,6 @@
+import { domainRuntimeMode } from "@amicited/cloud-client/domainModel";
+import { readWorkspaceMode } from "@amicited/ui-marketing/mode";
+import { readDomain } from "../marketingDomainStore";
 import {
   scopedProjectKey,
   scopeProjectRef,
@@ -183,7 +186,11 @@ export function createNewThreadHandler(router: AnyRouter) {
     const projectDefaultModelSelection = fallbackResolution.fallback
       ? fallbackResolution.selection
       : configuredDefaultModelSelection;
-    const defaultRuntimeMode = projectSettings.settings.defaultRuntimeMode;
+    const defaultRuntimeMode = domainRuntimeMode(
+      readWorkspaceMode() === "marketer",
+      readDomain(projectRef.environmentId, projectRef.projectId),
+      projectSettings.settings.defaultRuntimeMode,
+    );
     const resolveModelSelectionOverride = (destinationDraftId: DraftId) =>
       resolveNewThreadModelSelectionOverride({
         projectDefaultSelection: projectDefaultModelSelection ?? null,

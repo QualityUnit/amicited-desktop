@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { domainInstruction } from "../../packages/amicited-cloud/src/domainModel.ts";
 import { CloudToolkit } from "../../apps/server/src/amicited/CloudToolkit.ts";
 import { MarketingToolkit } from "../../apps/server/src/mcp/toolkits/marketing/tools.ts";
 // @effect-diagnostics nodeBuiltinImport:off
@@ -290,6 +291,7 @@ export const McpToolUseCase = Schema.Struct({
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
     delegateRole: Schema.optional(OrchestratorMcpTaskRole),
     context: Schema.optional(Schema.String),
+    siteContext: Schema.optional(Schema.Literals(["wordpress", "next"])),
     priorTurns: Schema.optional(
       Schema.Array(
         Schema.Struct({
@@ -1012,6 +1014,14 @@ export const buildMessages = (sample: Sample) => {
     }
     if (turn.text) push(turn.role, text(turn.text));
   }
+  const cmsContext = testCase.setup.siteContext;
+  const cmsInstruction = cmsContext
+    ? domainInstruction(
+        cmsContext === "next"
+          ? { cms: "git", siteFiles: "/home/user/site", framework: "Next.js" }
+          : { cms: "wordpress" },
+      )
+    : "";
   const userText =
     testCase.promptContext === undefined
       ? testCase.prompt
@@ -1020,7 +1030,13 @@ export const buildMessages = (sample: Sample) => {
     sideChatContext === undefined ? userText : withInlineContext(sideChatContext, userText);
   const childPrompt = () => taskPrompt({ task: prompt, role: delegateRole });
   if (testCase.prompt !== "")
-    push("user", text(role === "delegated-child" ? childPrompt() : prompt));
+    push(
+      "user",
+      text(
+        (role === "delegated-child" ? childPrompt() : prompt) +
+          (cmsInstruction ? `\nWebsite context: ${cmsInstruction}` : ""),
+      ),
+    );
   // Claude Code gives a subagent its SubagentStart hooks' context as a reminder after the task.
   if (native && base.subagentContext) {
     push("user", reminder(`SubagentStart hook additional context: ${base.subagentContext}`));
