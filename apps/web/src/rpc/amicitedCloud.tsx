@@ -347,14 +347,17 @@ export function CloudFooter({ result }: { result: WinResult }) {
   const doDisconnect = useAtomCommand(disconnect);
 
   const [gate] = useState(() => createUpsellGate(localStorage, sessionStorage));
+  const [showTrial] = useState(() => gate.claim(result, Date.now()));
   if (!connection) return null;
   if (connection.state === "connected")
     return (
       <aside className="am-cloud-card">
         <p>Connected: free AmICited tools unlocked</p>
-        <CloudButton variant="outline" onClick={openCloudSubscription}>
-          Start 7-day free trial
-        </CloudButton>
+        {connection.access !== "full" && showTrial && (
+          <CloudButton variant="outline" onClick={openCloudSubscription}>
+            Start 7-day free trial
+          </CloudButton>
+        )}
       </aside>
     );
   return (
