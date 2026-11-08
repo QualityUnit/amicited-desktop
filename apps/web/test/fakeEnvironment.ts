@@ -183,6 +183,7 @@ function run(threadId: ThreadId, id: RunId, ordinal: number, userMessageId: stri
 }
 
 export interface FakeThread {
+  readonly shell?: Partial<OrchestrationV2ThreadShell>;
   /** Makes this a side chat of that thread. */
   readonly sideChatOf?: ThreadId;
   readonly id: ThreadId;
@@ -253,6 +254,7 @@ function shellOf(thread: FakeThread): OrchestrationV2ThreadShell {
     settledAt: null,
     lastVisitedAt: AT,
     deletedAt: null,
+    ...thread.shell,
   };
 }
 

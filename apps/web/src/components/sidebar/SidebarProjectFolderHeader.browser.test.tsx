@@ -7,9 +7,16 @@ import { render } from "../../../test/render";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { SidebarProjectFolderHeader } from "./SidebarProjectFolderHeader";
 
-it.each(["flowhunt.io", "a-very-long-hostname-that-must-truncate.example.com"])(
-  "keeps domain names readable and visible icons apart from actions (%s)",
-  async (displayName) => {
+it.each(
+  [208, 640].flatMap((width) =>
+    ["flowhunt.io", "a-very-long-hostname-that-must-truncate.example.com"].map((displayName) => ({
+      width,
+      displayName,
+    })),
+  ),
+)(
+  "keeps domain names readable and visible icons apart from actions ($displayName, $width px)",
+  async ({ displayName, width }) => {
     const group: SidebarProjectSnapshot = {
       id: ProjectId.make("domain"),
       environmentId: EnvironmentId.make("local"),
@@ -33,7 +40,7 @@ it.each(["flowhunt.io", "a-very-long-hostname-that-must-truncate.example.com"])(
       archived: false,
     };
     await using screen = await render(
-      <div style={{ width: 256 }}>
+      <div style={{ width }}>
         <ul>
           <SidebarProjectFolderHeader
             group={group}
@@ -90,7 +97,7 @@ it.each(["flowhunt.io", "a-very-long-hostname-that-must-truncate.example.com"])(
       }
     };
     const name = screen.getByText(displayName, { exact: true }).element();
-    if (displayName === "flowhunt.io")
+    if (displayName === "flowhunt.io" || width === 640)
       expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
     verify();
     await row.hover();

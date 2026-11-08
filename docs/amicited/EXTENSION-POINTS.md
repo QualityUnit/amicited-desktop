@@ -4,7 +4,7 @@ Upstream files change only at small, self-contained extension points listed here
 No patch files are required; this supersedes section 2 of the specification.
 
 - `apps/web/src/components/chat/ChatHeader.browser.test.tsx`: explicitly selects and restores developer mode for both rename cases.
-- `apps/web/src/components/ChatView.browser.test.tsx`: explicitly selects and restores developer mode for the reserved-draft case.
+- `apps/web/src/components/ChatView.browser.test.tsx`: verifies reserved drafts and marketer thread location, branch, PR and machine/provider metadata through the normal app root.
 
 - `packages/client-runtime/src/state/commandPermissions.test.ts`: extends existing grant coverage to marketing runs.
 - `packages/contracts/package.json`: dependency on the standalone marketing RPC definitions.
@@ -525,3 +525,14 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/chat/MessagesTimeline.logic.ts`: optional folder-label omission for marketer work rows while retaining upstream label selection.
 
 - `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: passes marketer folder-label omission to live work-row labels.
+
+## Thread context and sidebar parity
+
+- `apps/web/src/components/AppSidebarLayout.tsx`: optional sidebar content and marketer control labels share the upstream resize rail, width persistence and native title-bar inset.
+- `apps/web/src/components/Sidebar.tsx`: optional domain folder renderer, new-domain callback and archive action retain upstream search, keyboard navigation, lifecycle menus and Working/Settled/Snoozed shelves.
+- `apps/web/src/components/sidebar/SidebarThreadRow.tsx`: marketer rows retain native metadata and context menus, map cloud approvals to Needs your OK, and accept a site-folder fallback or managed-folder location omission.
+- `apps/web/src/components/ChatView.tsx`: marketer chats mount the upstream thread details card and its header control; project scripts remain developer-only.
+- `apps/web/src/components/threadActionMenu.logic.ts` and `hooks/useThreadActionMenu.ts`: linked threads offer Open pull request in both the sidebar and header menus.
+
+- `apps/web/src/components/{Sidebar,AppSidebarLayout}.browser.test.tsx` and `components/ui/sidebar.browser.test.tsx`: cover marketer lifecycle menus and shelves, drag limits and saved width after remount.
+- `apps/web/test/fakeEnvironment.ts`: optional shell metadata on test threads supports full-app PR and location fixtures without external calls.

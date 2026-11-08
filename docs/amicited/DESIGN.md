@@ -30,3 +30,8 @@ headless and unknown sites offer optional site files. Folder selection reports
 framework detection and explains missing Git history without blocking use.
 CMS and folder status appear in domain headers and Settings → Domains. The
 compact Changed files · Review action opens T3's existing diff view.
+
+Thread navigation shares T3's resizable sidebar and saved width. Active chats
+stay in their domain folders; Working, Settled and Snoozed use T3's shelves and
+lifecycle commands. Linked pull requests and the thread's machine, folder and
+branch use T3's row metadata and thread details card.

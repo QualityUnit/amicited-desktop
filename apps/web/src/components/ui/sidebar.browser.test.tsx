@@ -1,3 +1,4 @@
+import "../../index.css";
 import { page, userEvent } from "vite-plus/test/browser";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -71,4 +72,40 @@ describe("Sidebar", () => {
 
     expect(onResize).toHaveBeenCalledTimes(1);
   });
+});
+
+it("clamps a resized sidebar and persists the committed width", async () => {
+  await page.viewport(1280, 800);
+  const key = "sidebar-resize-test";
+  using _storage = {
+    [Symbol.dispose]() {
+      localStorage.removeItem(key);
+    },
+  };
+  const onResize = vi.fn();
+  await using screen = await render(
+    <SidebarProvider>
+      <Sidebar resizable={{ minWidth: 208, maxWidth: 640, storageKey: key, onResize }}>
+        <SidebarRail />
+      </Sidebar>
+    </SidebarProvider>,
+    { router: false /* resize has no routes */ },
+  );
+  const rail = screen.container.querySelector<HTMLElement>('[data-sidebar="rail"]')!;
+  const drag = (distance: number) => {
+    const { left, top } = rail.getBoundingClientRect();
+    const pointer = { bubbles: true, cancelable: true, pointerId: 1, button: 0, clientY: top + 10 };
+    rail.dispatchEvent(new PointerEvent("pointerdown", { ...pointer, clientX: left }));
+    rail.dispatchEvent(new PointerEvent("pointermove", { ...pointer, clientX: left + distance }));
+    rail.dispatchEvent(new PointerEvent("pointerup", { ...pointer, clientX: left + distance }));
+  };
+  drag(80);
+  expect(onResize).toHaveBeenLastCalledWith(336);
+  expect(localStorage.getItem(key)).toBe("336");
+  drag(2000);
+  expect(onResize).toHaveBeenLastCalledWith(640);
+  expect(localStorage.getItem(key)).toBe("640");
+  drag(-2000);
+  expect(onResize).toHaveBeenLastCalledWith(208);
+  expect(localStorage.getItem(key)).toBe("208");
 });

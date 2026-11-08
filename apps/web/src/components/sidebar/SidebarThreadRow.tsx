@@ -1,4 +1,7 @@
+import { useCloudApprovals } from "../../rpc/amicitedApprovals";
+import { FolderIcon } from "lucide-react";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
+import { MoreHorizontalIcon } from "lucide-react";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
@@ -564,6 +567,7 @@ type SidebarThreadRowProps = {
   scratchMachineLabel: string | null;
   project: EnvironmentProject | null;
   projectDisplayName: string | null;
+  locationLabel?: string | null | undefined;
   providerEntryByInstanceId: ReadonlyMap<string, SidebarProviderEntry>;
   timestampFormat: TimestampFormat;
   onThreadClick: (event: ReactMouseEvent, threadRef: ScopedThreadRef) => void;
@@ -631,7 +635,6 @@ function ThreadRenameInput(props: {
 }
 
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
-  const marketer = useWorkspaceMode() === "marketer";
   const {
     isRenaming,
     onCancelRename,
@@ -683,6 +686,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   };
 
   const gitCwd = thread.worktreePath ?? props.project?.workspaceRoot ?? null;
+  const marketer = useWorkspaceMode() === "marketer";
   const linkedPullRequestStatus = useLinkedThreadPullRequest(
     thread.environmentId,
     thread.linkedPullRequest,
@@ -709,7 +713,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     : null;
 
   const isUnread = hasUnseenCompletion({ ...thread, lastVisitedAt });
-  const status = resolveSidebarThreadStatus(thread);
+  const cloudApprovals = useCloudApprovals(marketer ? thread.environmentId : null);
+  const status = cloudApprovals.some((request) => request.threadId === thread.id)
+    ? "approval"
+    : resolveSidebarThreadStatus(thread);
   const lastVisitedDate = lastVisitedAt === undefined ? null : parseTimestampDate(lastVisitedAt);
   const wokeAtDate = props.wokeAt === null ? null : parseTimestampDate(props.wokeAt);
   const isWoke =
@@ -743,7 +750,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
           }
         : status === "approval"
           ? {
-              label: "Approval",
+              label: marketer ? "Needs your OK" : "Approval",
               icon: "approval" as const,
               className: "text-warning-foreground",
             }
@@ -1132,65 +1139,71 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   ) : null;
 
   const remoteMachineIcon =
-    isRemote && !showsScratchMachine ? (
-      <span className="inline-flex shrink-0 items-center text-sidebar-muted-foreground/70">
+    (marketer || isRemote) && !showsScratchMachine ? (
+      <span
+        data-thread-machine
+        className="inline-flex shrink-0 items-center text-sidebar-muted-foreground/70"
+      >
         <EnvironmentMachineIcon aria-hidden kind={props.environmentMachine} className="size-3.5" />
       </span>
     ) : null;
   const diff = latestRunDiff(thread);
   // Only the trailing icons would remain, so the row moves them to the title line instead.
+  const visibleBranch = props.locationLabel === null ? null : thread.branch;
   const metaLineEmpty =
-    !thread.branch &&
+    !marketer &&
+    !visibleBranch &&
+    !props.locationLabel &&
     !showsScratchMachine &&
     prBadge === null &&
     diff === null &&
     runningTerminalIds.length === 0;
-  const metaLine =
-    metaLineEmpty || marketer ? null : (
-      <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-        {thread.branch ? (
-          <>
-            <ThreadWorktreeIndicator thread={thread} />
-            <span className="flex min-w-0 flex-1">
-              <MiddleTruncate value={thread.branch} showTitle={false} />
-            </span>
-          </>
-        ) : showsScratchMachine ? (
-          <>
-            <EnvironmentMachineIcon
-              aria-hidden
-              kind={props.environmentMachine}
-              className="size-3 shrink-0"
-            />
-            <span className="min-w-0 flex-1 truncate">{props.scratchMachineLabel}</span>
-          </>
-        ) : (
-          <span className="flex-1" />
-        )}
-        {terminalStatusIcon}
-        {prBadge}
-        {diff ? (
-          <span className="shrink-0 font-mono">
-            <span className="text-diff-addition-foreground">
-              +{formatDiffCount(diff.insertions)}
-            </span>{" "}
-            <span className="text-diff-deletion-foreground">
-              −{formatDiffCount(diff.deletions)}
-            </span>
+  const metaLine = metaLineEmpty ? null : (
+    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
+      {visibleBranch ? (
+        <>
+          <ThreadWorktreeIndicator thread={thread} />
+          <span className="flex min-w-0 flex-1">
+            <MiddleTruncate value={visibleBranch} showTitle={false} />
           </span>
-        ) : null}
-        <span
-          aria-hidden
-          className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
-        >
-          {remoteMachineIcon}
-          <SidebarProviderStack
-            thread={thread}
-            providerEntryByInstanceId={props.providerEntryByInstanceId}
+        </>
+      ) : props.locationLabel ? (
+        <>
+          <FolderIcon className="size-3 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{props.locationLabel}</span>
+        </>
+      ) : showsScratchMachine ? (
+        <>
+          <EnvironmentMachineIcon
+            aria-hidden
+            kind={props.environmentMachine}
+            className="size-3 shrink-0"
           />
+          <span className="min-w-0 flex-1 truncate">{props.scratchMachineLabel}</span>
+        </>
+      ) : (
+        <span className="flex-1" />
+      )}
+      {terminalStatusIcon}
+      {prBadge}
+      {diff ? (
+        <span className="shrink-0 font-mono">
+          <span className="text-diff-addition-foreground">+{formatDiffCount(diff.insertions)}</span>{" "}
+          <span className="text-diff-deletion-foreground">−{formatDiffCount(diff.deletions)}</span>
         </span>
-      </div>
-    );
+      ) : null}
+      <span
+        aria-hidden
+        className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
+      >
+        {remoteMachineIcon}
+        <SidebarProviderStack
+          thread={thread}
+          providerEntryByInstanceId={props.providerEntryByInstanceId}
+        />
+      </span>
+    </div>
+  );
   const titleLineIcons = metaLineEmpty ? (
     <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
       {remoteMachineIcon}
@@ -1263,6 +1276,21 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               {title}
               {multiline ? titleLineIcons : null}
               {pinIndicator}
+              {marketer ? (
+                <button
+                  type="button"
+                  aria-label={`Chat actions for ${thread.title}`}
+                  onPointerDown={handleActionPointerDown}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
+                  }}
+                  className="ml-auto shrink-0 text-muted-foreground"
+                >
+                  <MoreHorizontalIcon className="size-3.5" />
+                </button>
+              ) : null}
               {multiline ? null : terminalStatusIcon}
               {isRegeneratingTitle ? (
                 <span role="status" className="sr-only">

@@ -409,9 +409,6 @@ try {
       );
       if (name === "09-failed-tool") {
         await page
-          .locator('.am-history-row:has([aria-current="page"]) [data-status="Couldn\'t check"]')
-          .waitFor();
-        await page
           .getByText("Could not check: the website did not respond. Try again later.", {
             exact: true,
           })
@@ -419,7 +416,6 @@ try {
       }
       if (name === "12-sign-in-recovery" || name === "12b-sidebar-statuses") {
         await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
-        await page.locator('.am-history-status[data-status="Sign in needed"]').first().waitFor();
       }
       if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
         await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
@@ -427,20 +423,13 @@ try {
         await page.getByRole("button", { name: "Create domain", exact: true }).waitFor();
       }
       if (name === "05a-chat-hover") {
-        const row = page.locator(".am-history-row").first();
-        await row.hover();
-        await page.waitForFunction(() => {
-          const row = document.querySelector(".am-history-row");
-          const slot = row?.querySelector(".am-history-status-slot");
-          const actions = row?.querySelector(".am-history-actions");
-          return (
-            slot &&
-            actions &&
-            getComputedStyle(slot).visibility === "hidden" &&
-            getComputedStyle(actions).opacity === "1"
-          );
-        });
+        await page.locator("[data-sidebar-row]").first().hover();
+        await page
+          .getByRole("button", { name: /Chat actions for/ })
+          .first()
+          .waitFor();
       }
+
       if (name === "38-site-edit-approval")
         await page
           .getByRole("group", { name: "File change approval", exact: true })
@@ -575,6 +564,190 @@ try {
     await capture("39-review-diff-open");
     await page.getByRole("button", { name: "Close review", exact: true }).click();
     await capture("39-review-diff-closed");
+    if (process.env.AMICITED_CAPTURE_THREAD_CONTEXT === "1") {
+      const siteThreadRoute = page.url();
+      await capture("45-site-folder-location");
+      for (const [name, delta] of [
+        ["narrow", -1000],
+        ["wide", 200],
+      ] as const) {
+        const rail = page.locator('[data-sidebar="rail"]');
+        const box = await rail.boundingBox();
+        if (!box) throw new Error("Sidebar resize rail is missing");
+        await page.mouse.move(box.x + box.width / 2, box.y + 80);
+        await page.mouse.down();
+        await page.mouse.move(Math.max(0, box.x + delta), box.y + 80);
+        await page.mouse.up();
+        await capture(`45-sidebar-${name}`);
+      }
+      await page.locator('[data-sidebar="rail"]').dblclick();
+
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Settle thread", exact: true }).click();
+      await page.getByRole("button", { name: /Settled 1/ }).waitFor();
+      await capture("45-sidebar-settled-snoozed");
+      const settledShelf = page.getByRole("button", { name: /Settled 1/ });
+      if ((await settledShelf.getAttribute("aria-expanded")) === "false")
+        await settledShelf.click();
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Un-settle thread", exact: true }).click();
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Snooze", exact: true }).hover();
+      await page.getByRole("menuitem", { name: /In 1 hour/ }).click();
+      const snoozedShelf = page.getByRole("button", { name: /Snoozed 1/ });
+      await snoozedShelf.waitFor();
+      await capture("45-sidebar-snoozed");
+      if ((await snoozedShelf.getAttribute("aria-expanded")) === "false")
+        await snoozedShelf.click();
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Wake thread", exact: true }).click();
+      await page.getByRole("button", { name: "New chat", exact: true }).click();
+      await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+      await page.getByLabel("Website", { exact: true }).fill("managed.example");
+      await page.getByRole("button", { name: "Create domain", exact: true }).click();
+      await page
+        .getByRole("dialog", { name: "New domain", exact: true })
+        .waitFor({ state: "hidden" });
+      await capture("45-managed-domain-location");
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+      await page.reload();
+      await capture("reference-t3-empty-chat");
+      await page.goto(siteThreadRoute);
+      await page.getByTestId("composer-editor").waitFor();
+      await capture("reference-t3-showcase");
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "marketer"));
+      await page.reload();
+      let fixtureActive = true;
+      const inject = (value: unknown): void => {
+        if (!fixtureActive) return;
+        if (!value || typeof value !== "object") return;
+        if (Array.isArray(value)) {
+          value.forEach(inject);
+          return;
+        }
+        const record = value as Record<string, unknown>;
+        if (Array.isArray(record.threads))
+          for (const thread of record.threads) {
+            thread.pullRequests = [
+              {
+                host: "github.com",
+                repository: "fixture/site",
+                number: 45,
+                url: "https://github.com/fixture/site/pull/45",
+                source: "manual",
+                linkedAt: "2026-11-08T00:00:00Z",
+                stack: null,
+                snapshot: {
+                  state: "open",
+                  title: "Improve the website",
+                  headBranch: "website",
+                  baseBranch: "main",
+                  isDraft: false,
+                  updatedAt: null,
+                  syncedAt: "2026-11-08T00:00:00Z",
+                },
+              },
+            ];
+          }
+        if ("projectId" in record && "runtimeMode" in record && "title" in record) {
+          if (!record.pullRequests || !(record.pullRequests as unknown[]).length) {
+            record.pullRequests = [
+              {
+                host: "github.com",
+                repository: "fixture/site",
+                number: 45,
+                url: "https://github.com/fixture/site/pull/45",
+                source: "manual",
+                linkedAt: "2026-11-08T00:00:00Z",
+                stack: null,
+                snapshot: {
+                  state: "open",
+                  title: "Improve the website",
+                  headBranch: "website",
+                  baseBranch: "main",
+                  isDraft: false,
+                  updatedAt: null,
+                  syncedAt: "2026-11-08T00:00:00Z",
+                },
+              },
+            ];
+          }
+        }
+        Object.values(record).forEach(inject);
+      };
+      let freezeFixture = false;
+      await page.routeWebSocket("**/ws?*", (socket) => {
+        const server = socket.connectToServer();
+        server.onMessage((message) => {
+          if (freezeFixture) return;
+          if (typeof message !== "string") {
+            socket.send(message);
+            return;
+          }
+          try {
+            const value = JSON.parse(message);
+            inject(value);
+            socket.send(JSON.stringify(value));
+          } catch {
+            socket.send(message);
+          }
+        });
+      });
+      await page.route("**/api/orchestration/shell*", async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        inject(body);
+        await route.fulfill({ response, json: body });
+      });
+      await page.reload();
+      await page
+        .getByRole("link", { name: /PR #45/ })
+        .first()
+        .waitFor();
+      await page
+        .locator("[data-sidebar-row]")
+        .getByRole("link", { name: /PR #45/ })
+        .first()
+        .waitFor();
+      freezeFixture = true;
+      await capture("45-thread-row-full");
+      await capture("45-linked-pr");
+      await page
+        .getByRole("button", { name: /Chat actions for/ })
+        .first()
+        .click();
+      await page.getByRole("menuitem", { name: "Open pull request", exact: true }).waitFor();
+      await capture("45-thread-menu-settle-snooze");
+      await page.keyboard.press("Escape");
+      freezeFixture = false;
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+      await page.reload();
+      await page
+        .locator("[data-sidebar-row]")
+        .getByRole("link", { name: /PR #45/ })
+        .first()
+        .waitFor();
+      freezeFixture = true;
+      await capture("reference-t3-thread-row-full");
+      freezeFixture = false;
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "marketer"));
+      fixtureActive = false;
+      await page.unroute("**/api/orchestration/shell*");
+      await page.reload();
+    }
+
     await page.mouse.move(800, 400);
     await capture("42-domain-header-rest");
     await page
@@ -717,7 +890,7 @@ try {
       await page.reload();
       await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
       await page
-        .locator(".am-chat-history")
+        .locator("[data-app-sidebar]")
         .getByText("example.com", { exact: true })
         .first()
         .waitFor();
@@ -731,7 +904,9 @@ try {
       await capture("02c-website-popover");
       await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
       await page.getByRole("button", { name: "Collapse sidebar" }).click();
-      await page.locator(".am-chat-sidebar").waitFor({ state: "hidden" });
+      await page
+        .locator('[data-slot="sidebar"][data-state="collapsed"]')
+        .waitFor({ state: "attached" });
       await capture("02d-collapsed-sidebar");
       await page.getByRole("button", { name: "Expand sidebar" }).click();
       await waitForOperate();
@@ -929,9 +1104,10 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Archive", exact: true }).click();
-      await page.waitForURL(/\/draft\//);
-      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page.getByRole("menuitem", { name: "Archive thread", exact: true }).click();
+      const archiveConfirmation = page.getByRole("alertdialog");
+      if (await archiveConfirmation.isVisible())
+        await archiveConfirmation.getByRole("button", { name: /Archive/ }).click();
       await page.getByRole("button", { name: "Archived", exact: true }).click();
       await page.getByRole("button", { name: "Restore", exact: true }).waitFor();
       await capture("05d-archived");
@@ -943,14 +1119,14 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .first()
         .click();
-      await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-      await page.getByRole("textbox", { name: "Chat name" }).fill("Website audit review");
-      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Rename thread", exact: true }).click();
+      await page.getByRole("textbox", { name: "Thread title" }).fill("Website audit review");
+      await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
       await page
         .getByRole("button", { name: /Website audit review/ })
         .first()
         .waitFor();
-      const firstHistory = page.locator("[data-chat-history-link]").first();
+      const firstHistory = page.locator("[data-sidebar-row]").first();
       await firstHistory.focus();
       await firstHistory.press("ArrowDown");
       if (await firstHistory.evaluate((element) => element === document.activeElement))
@@ -977,7 +1153,7 @@ try {
         ["/settings/general", "08-settings"],
       ]) {
         await page.goto(url + path);
-        await page.locator(".am-chat-sidebar").waitFor();
+        await page.locator("[data-app-sidebar]").waitFor();
         if (path === "/tools")
           await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
         if (path === "/marketing-settings") {
@@ -1211,11 +1387,11 @@ try {
             .filter({ visible: true })
             .first()
             .click();
-          await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
+          await page.getByRole("menuitem", { name: "Rename thread", exact: true }).click();
           await page
             .getByRole("textbox", { name: "Chat name" })
             .fill("Website audit — technical snapshot for example.com");
-          await page.getByRole("button", { name: "Save", exact: true }).click();
+          await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
           await capture("11-real-haiku-turn");
         }
       }
@@ -1299,9 +1475,9 @@ try {
         .getByRole("button", { name: /Chat actions for/ })
         .nth(index)
         .click();
-      await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-      await page.getByRole("textbox", { name: "Chat name" }).fill(title);
-      await page.getByRole("button", { name: "Save", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Rename thread", exact: true }).click();
+      await page.getByRole("textbox", { name: "Thread title" }).fill(title);
+      await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
       await page.getByRole("textbox", { name: "Chat name" }).waitFor({ state: "hidden" });
     }
     await capture("12b-sidebar-statuses");

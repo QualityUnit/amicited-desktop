@@ -14,6 +14,7 @@ export function MarketingShell({
   headerTitle,
   desktop,
   sidebar,
+  externalSidebar = false,
 }: {
   children: ReactNode;
   path: string;
@@ -22,6 +23,7 @@ export function MarketingShell({
   hash?: string;
   taskView?: boolean;
   connectionStatus?: ReactNode;
+  externalSidebar?: boolean;
   history?: ReactNode;
   brandHeader?: ReactNode;
   footer?: ReactNode;
@@ -41,40 +43,42 @@ export function MarketingShell({
       data-amicited-tokens=""
       className={`am-chat-shell ${collapsed ? "am-chat-collapsed" : ""}`}
     >
-      <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
-        <div className={`am-chat-brand ${desktop ? "drag-region" : ""}`}>
-          {brandHeader ?? <AmICitedMark />}
-        </div>
-        <nav aria-label="Chat history" className="am-chat-history">
-          {history}
-        </nav>
-        {footer ?? (
-          <nav aria-label="Workspace">
-            {(
-              [
-                ["Tools", "/tools", Wrench],
-                ["AmICited", "/marketing-settings", PlugZap],
-                ["Settings", "/settings/general", Settings],
-              ] as const
-            ).map(([label, href, Icon]) => (
-              <MarketingTooltip key={label} label={label}>
-                <a
-                  key={String(href)}
-                  aria-label={String(label)}
-                  href={String(href)}
-                  aria-current={path.startsWith(String(href)) ? "page" : undefined}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    navigate(String(href));
-                  }}
-                >
-                  {typeof Icon !== "string" && Icon && <Icon size={16} />}
-                </a>
-              </MarketingTooltip>
-            ))}
+      {!externalSidebar && (
+        <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
+          <div className={`am-chat-brand ${desktop ? "drag-region" : ""}`}>
+            {brandHeader ?? <AmICitedMark />}
+          </div>
+          <nav aria-label="Chat history" className="am-chat-history">
+            {history}
           </nav>
-        )}
-      </aside>
+          {footer ?? (
+            <nav aria-label="Workspace">
+              {(
+                [
+                  ["Tools", "/tools", Wrench],
+                  ["AmICited", "/marketing-settings", PlugZap],
+                  ["Settings", "/settings/general", Settings],
+                ] as const
+              ).map(([label, href, Icon]) => (
+                <MarketingTooltip key={label} label={label}>
+                  <a
+                    key={String(href)}
+                    aria-label={String(label)}
+                    href={String(href)}
+                    aria-current={path.startsWith(String(href)) ? "page" : undefined}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigate(String(href));
+                    }}
+                  >
+                    {typeof Icon !== "string" && Icon && <Icon size={16} />}
+                  </a>
+                </MarketingTooltip>
+              ))}
+            </nav>
+          )}
+        </aside>
+      )}
       <main className="am-chat-main">
         {headerTitle ||
         ["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
@@ -118,22 +122,24 @@ export function MarketingShell({
           children
         )}
       </main>
-      {sidebar?.control ?? (
-        <div className="am-sidebar-toggle">
-          <MarketingButton
-            size="icon-sm"
-            variant={collapsed ? "row" : "header"}
-            className="relative top-auto translate-y-0"
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            onClick={() => {
-              setCollapsed(!collapsed);
-              localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
-            }}
-          >
-            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-          </MarketingButton>
-        </div>
-      )}
+      {externalSidebar
+        ? null
+        : (sidebar?.control ?? (
+            <div className="am-sidebar-toggle">
+              <MarketingButton
+                size="icon-sm"
+                variant={collapsed ? "row" : "header"}
+                className="relative top-auto translate-y-0"
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => {
+                  setCollapsed(!collapsed);
+                  localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
+                }}
+              >
+                {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </MarketingButton>
+            </div>
+          ))}
     </div>
   );
 }

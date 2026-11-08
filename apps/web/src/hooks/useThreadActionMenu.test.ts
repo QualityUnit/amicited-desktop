@@ -19,6 +19,7 @@ function deferred<T>() {
 
 const state = vi.hoisted(() => ({
   granted: new Set<string>(),
+  linkedPr: false,
   effects: [] as string[],
   completed: deferred<void>(),
   show: vi.fn<
@@ -35,6 +36,9 @@ function recordEffect(action: string) {
 }
 
 vi.mock("../components/CustomSnoozeDialog", () => ({ requestCustomSnooze: vi.fn() }));
+vi.mock("../browser/useOpenLink", () => ({
+  useOpenLink: () => async () => recordEffect("open-pr"),
+}));
 vi.mock("react", () => ({
   useCallback: (callback: unknown) => callback,
   useMemo: (factory: () => unknown) => factory(),
@@ -55,6 +59,8 @@ vi.mock("../state/entities", () => ({
     projectId: "project",
     title: "Thread",
     branch: "main",
+    pullRequests: [],
+    linkedPullRequest: state.linkedPr ? { url: "https://github.com/fixture/site/pull/45" } : null,
     worktreePath: null,
     runtime: null,
     latestRun: null,
@@ -193,4 +199,21 @@ describe("thread menu permissions", () => {
     expect(state.effects).toEqual(["find"]);
     expect(onFind).toHaveBeenCalledExactlyOnceWith(target);
   });
+});
+
+it("opens a linked PR from a read-only thread menu", async () => {
+  state.linkedPr = true;
+  try {
+    state.show.mockResolvedValue("open-pull-request");
+    createMenu().openMenu(position);
+    await state.completed.promise;
+    expect(state.show.mock.calls[0]?.[0]).toContainEqual({
+      id: "open-pull-request",
+      label: "Open pull request",
+      icon: "external-link",
+    });
+    expect(state.effects).toEqual(["open-pr"]);
+  } finally {
+    state.linkedPr = false;
+  }
 });

@@ -1,21 +1,19 @@
-import { threadsForDomain } from "@amicited/cloud-client/domainModel";
-import { buildSidebarProjectSnapshots } from "./sidebarProjectGrouping";
+import ThreadSidebar from "./components/Sidebar";
 import {
   NewDomainDialog,
   DomainsSettings,
   DomainMigration,
-  DomainThreadGroup,
+  DomainFolderHeader,
   useDomains,
 } from "./marketingDomains";
 import { CloudDisclosure } from "./rpc/amicitedApprovals";
-import { useCloudApprovals } from "./rpc/amicitedCloud";
-import { SidebarControl, useWindowControlsInsetStyle } from "./components/AppSidebarLayout";
+import { AppSidebarLayout, SidebarControl } from "./components/AppSidebarLayout";
 import { isElectron } from "./env";
 import { ToggleGroup, Toggle } from "./components/ui/toggle-group";
 import { SettingsGroup } from "./components/settings/SettingsGroup";
 import { SettingsRow } from "./components/settings/settingsLayout";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "./components/ui/collapsible";
-import { ChevronRight, PlugZap, CircleAlert, CircleHelp } from "lucide-react";
+import { ChevronRight, PlugZap } from "lucide-react";
 import { ActivityShimmerOverlay } from "./components/chat/TimelineRowParts";
 import {
   WorkspaceBreadcrumb,
@@ -23,47 +21,28 @@ import {
   WorkspaceBreadcrumbText,
   WorkspaceBreadcrumbSeparator,
 } from "./components/WorkspaceBreadcrumb";
-import { resolveWorkingStartedAt } from "./components/Sidebar.logic";
-import { formatWorkingDurationLabel } from "@t3tools/client-runtime/state/models";
-import { tickTextContent } from "./lib/tickTextContent";
-import { Wrench, Settings, CircleDashed } from "lucide-react";
+import { Wrench, Settings } from "lucide-react";
 import { WorkLogButton, WorkLogDetails } from "./components/chat/WorkLog";
 import { Hammer } from "lucide-react";
 import { SidebarChromeHeader } from "./components/sidebar/SidebarChrome";
-import {
-  SidebarThreadHeader,
-  SidebarHeaderIconButton,
-} from "./components/sidebar/SidebarThreadHeader";
+import { SidebarHeaderIconButton } from "./components/sidebar/SidebarThreadHeader";
 import {
   SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
-  SidebarProvider,
   useSidebar,
   useSidebarVisibility,
 } from "./components/ui/sidebar";
 import { AmICitedMark } from "@amicited/ui-marketing";
 import { Archive } from "lucide-react";
-import { useRef } from "react";
-import { useNowMinute } from "./hooks/useNowMinute";
-import { formatRelativeTimeLabel } from "./timestampFormat";
 import { RelativeTime } from "./components/RelativeTime";
-import { MoreHorizontal } from "lucide-react";
 import { useArchivedThreadSnapshots } from "./lib/archivedThreadsState";
 import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { toastManager } from "./components/ui/toast";
 import { useThreadActions } from "./hooks/useThreadActions";
-import { useOrchestrationCommand } from "./state/use-orchestration-command";
-import { threadEnvironment } from "./state/threads";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import {
-  marketingReturnThread,
-  saveMarketingReport,
-  marketingHistoryStatus,
-} from "./marketingContext";
+import { marketingReturnThread, saveMarketingReport } from "./marketingContext";
 import { useThreadRouteRef } from "./hooks/useThreadRouteTarget";
-import { useProjects, useThreadShell, useThreadShells } from "./state/entities";
+import { useThreadShell, useThreadShells } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -286,7 +265,6 @@ const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
-  const windowControlsInsetStyle = useWindowControlsInsetStyle();
   const [archived, setArchived] = useState(false);
 
   const taskTarget = useThreadRouteTarget();
@@ -295,40 +273,10 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <SidebarProvider style={windowControlsInsetStyle}>
-        <DomainMigration />
-        <MarketerShell
-          desktop={isElectron}
-          footer={
-            <SidebarFooter>
-              <SidebarMenu className="flex-row">
-                {(
-                  [
-                    ["Settings", "/settings/general", Settings],
-                    ["Tools", "/tools", Wrench],
-                    ["AmICited", "/marketing-settings", PlugZap],
-                  ] as const
-                ).map(([label, href, Icon]) => (
-                  <SidebarMenuItem key={label}>
-                    <KitTooltip label={label}>
-                      <SidebarMenuButton
-                        size="icon"
-                        render={<a href={href} />}
-                        aria-label={label}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          void navigate({ to: href });
-                        }}
-                      >
-                        <Icon />
-                      </SidebarMenuButton>
-                    </KitTooltip>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarFooter>
-          }
-          brandHeader={
+      <AppSidebarLayout
+        marketer
+        sidebarContent={
+          <>
             <SidebarChromeHeader
               isElectron={isElectron}
               brand={
@@ -340,8 +288,32 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                 </span>
               }
             />
-          }
-          history={<MarketingHistory archived={archived} setArchived={setArchived} />}
+            <MarketingHistory archived={archived} setArchived={setArchived} />
+            <SidebarFooter>
+              <div className="flex gap-2">
+                {[
+                  ["Settings", "/settings/general", Settings],
+                  ["Tools", "/tools", Wrench],
+                  ["AmICited", "/marketing-settings", PlugZap],
+                ].map(([label, href, Icon]) => (
+                  <SidebarMenuButton
+                    key={String(label)}
+                    size="icon"
+                    aria-label={String(label)}
+                    onClick={() => void navigate({ to: String(href) })}
+                  >
+                    {typeof Icon !== "string" && Icon && <Icon />}
+                  </SidebarMenuButton>
+                ))}
+              </div>
+            </SidebarFooter>
+          </>
+        }
+      >
+        <DomainMigration />
+        <MarketerShell
+          externalSidebar
+          desktop={isElectron}
           headerTitle={archived ? "Archived chats" : undefined}
           mode={mode}
           taskView={taskTarget !== null}
@@ -377,7 +349,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             children
           )}
         </MarketerShell>
-      </SidebarProvider>
+      </AppSidebarLayout>
     </MarketingUiContext>
   ) : (
     children
@@ -779,41 +751,21 @@ function MarketingHistory({
   archived: boolean;
   setArchived: (value: boolean) => void;
 }) {
-  const activeThreads = useThreadShells();
-  const threads = activeThreads.filter((thread) => !thread.archivedAt);
-  const navigate = useNavigate();
-  const [search, setSearch] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const path = useLocation({ select: (location) => location.pathname });
-  const { archiveThread, unarchiveThread, confirmAndDeleteThread } = useThreadActions();
-  const act = async (operation: Promise<{ _tag: string }>) => {
-    if ((await operation)._tag === "Failure")
-      toastManager.add({ type: "error", title: "Could not update chat. Please try again." });
-  };
-  const update = useOrchestrationCommand(threadEnvironment.updateMetadata);
-  const [renaming, setRenaming] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
   const domains = useDomains();
-  const projects = useProjects();
-  const projectGroups = buildSidebarProjectSnapshots({
-    projects,
-    settings: { sidebarProjectGroupingMode: "separate", sidebarProjectGroupingOverrides: {} },
-    primaryEnvironmentId: domains.environmentId,
-    resolveEnvironmentLabel: () => null,
-  });
-  const target = useThreadRouteTarget();
-  const active = activeThreads.find(
-    (thread) => target?.kind === "server" && thread.id === target.threadRef.threadId,
-  );
-  const activeDomain = domains.rows.find((domain) => domain.projectId === active?.projectId);
-  const newThread = useNewThreadHandler();
+  const navigate = useNavigate();
   const [newDomainOpen, setNewDomainOpen] = useState(false);
-  const sorted = threads.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+  const [routeReveal] = useState(() => ({ observedKey: null, pendingKey: null }));
   return (
-    <div className="am-flat-history">
-      <SidebarThreadHeader
-        hasProjects
-        projectScope={
+    <>
+      <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
+      <ThreadSidebar
+        routeReveal={routeReveal}
+        onNewDomain={() => setNewDomainOpen(true)}
+        resolveThreadLocation={(thread) => {
+          const folder = domains.rows.find((row) => row.projectId === thread.projectId)?.siteFiles;
+          return folder ? folder.split(/[\\/]/).filter(Boolean).at(-1) : null;
+        }}
+        archiveAction={
           <SidebarHeaderIconButton
             label={archived ? "Back to chats" : "Archived"}
             onClick={() => {
@@ -824,263 +776,18 @@ function MarketingHistory({
             <Archive />
           </SidebarHeaderIconButton>
         }
-        newProjectLabel="New domain"
-        onNewProject={() => setNewDomainOpen(true)}
-        onNewThread={() =>
-          activeDomain && domains.environmentId
-            ? void newThread(
-                scopeProjectRef(domains.environmentId, ProjectId.make(activeDomain.projectId)),
-              )
-            : void navigate({ to: "/new" })
-        }
-        newThreadDisabled={false}
-        newThreadShortcutLabel={null}
-        newThreadInProjectShortcutLabel={null}
-        showNewThreadInProjectHint={false}
-        searchInputRef={searchInputRef}
-        searchQuery={search}
-        onSearchQueryChange={setSearch}
-        onSearchKeyDown={() => {}}
-        isSearching={Boolean(search)}
-        searchResultCount={0}
-        activeSearchResultIndex={0}
-        onClearSearch={() => setSearch("")}
-        newThreadLabel="New chat"
-        searchLabel="Search chats"
+        renderProjectFolder={(props) => {
+          const domain = domains.rows.find((row) => row.projectId === props.group.id);
+          return domain ? (
+            <DomainFolderHeader
+              {...props}
+              domain={domain}
+              destination={props.group.environmentId}
+            />
+          ) : null;
+        }}
       />
-      <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
-      {!threads.length && !domains.rows.length && (
-        <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
-      )}
-      {[
-        ...domains.rows
-          .filter((domain) =>
-            projects.some((project) => project.id === domain.projectId && !project.archivedAt),
-          )
-          .map((domain) => ({
-            key: domain.projectId,
-            snapshot: projectGroups.find((group) => group.id === domain.projectId),
-            title:
-              projects.find((project) => project.id === domain.projectId)?.title ?? domain.hostname,
-            domain,
-          })),
-        { key: "no-domain", title: "No domain", domain: undefined, snapshot: undefined },
-      ].map((group) => {
-        const rows = threadsForDomain(
-          sorted.filter((thread) => thread.title.toLowerCase().includes(search.toLowerCase())),
-          domains.rows,
-          domains.environmentId,
-          group.domain?.projectId,
-        );
-        return rows.length || group.domain ? (
-          <DomainThreadGroup
-            key={group.key}
-            snapshot={group.snapshot}
-            domain={group.domain}
-            destination={domains.environmentId}
-            threads={rows}
-            onNew={() => {
-              if (domains.environmentId && group.domain)
-                void newThread(
-                  scopeProjectRef(domains.environmentId, ProjectId.make(group.domain.projectId)),
-                );
-            }}
-          >
-            {rows.map((thread) => {
-              const ref = scopeThreadRef(thread.environmentId, thread.id);
-              const key = thread.environmentId + thread.id;
-              return (
-                <div
-                  className="am-history-row"
-                  data-selected={
-                    decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
-                  }
-                  key={key}
-                >
-                  {renaming === key ? (
-                    <form
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        if (title.trim())
-                          void update({
-                            environmentId: thread.environmentId,
-                            input: { threadId: thread.id, title: title.trim() },
-                          }).then((result) => {
-                            if (result._tag === "Success") setRenaming(null);
-                          });
-                      }}
-                    >
-                      <Input
-                        aria-label="Chat name"
-                        autoFocus
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Escape") setRenaming(null);
-                        }}
-                      />
-                      <MarketingButton type="submit">Save</MarketingButton>
-                    </form>
-                  ) : (
-                    <>
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={
-                            <SidebarMenuButton
-                              size="thread"
-                              variant="thread"
-                              isActive={
-                                decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
-                              }
-                              type="button"
-                              data-chat-history-link=""
-                              aria-current={
-                                decodeURIComponent(path) === `/${thread.environmentId}/${thread.id}`
-                                  ? "page"
-                                  : undefined
-                              }
-                              onKeyDown={(event) => {
-                                if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key))
-                                  return;
-                                const buttons = Array.from(
-                                  event.currentTarget
-                                    .closest(".am-flat-history")
-                                    ?.querySelectorAll<HTMLButtonElement>(
-                                      "[data-chat-history-link]",
-                                    ) ?? [],
-                                );
-                                const index = buttons.indexOf(event.currentTarget);
-                                const next =
-                                  event.key === "Home"
-                                    ? 0
-                                    : event.key === "End"
-                                      ? buttons.length - 1
-                                      : (index +
-                                          (event.key === "ArrowDown" ? 1 : -1) +
-                                          buttons.length) %
-                                        buttons.length;
-                                event.preventDefault();
-                                buttons[next]?.focus();
-                              }}
-                              onClick={() => {
-                                setArchived(false);
-                                void navigate({
-                                  to: "/$environmentId/$threadId",
-                                  params: {
-                                    environmentId: thread.environmentId,
-                                    threadId: thread.id,
-                                  },
-                                });
-                              }}
-                            >
-                              <div className="flex w-full items-center gap-2 px-2.5 py-1.5">
-                                <span
-                                  data-marketing-history-title=""
-                                  className="min-w-0 flex-1 truncate"
-                                >
-                                  {thread.title === "New thread" ? "New chat" : thread.title}
-                                </span>
-                                <MarketingHistoryStatus thread={thread} />
-                              </div>
-                            </SidebarMenuButton>
-                          }
-                        />
-                        <TooltipPopup>
-                          {thread.title === "New thread" ? "New chat" : thread.title}
-                        </TooltipPopup>
-                      </Tooltip>
-                      <div className="am-history-actions">
-                        <Menu>
-                          <MenuTrigger
-                            aria-label={`Chat actions for ${thread.title}`}
-                            render={<Button size="icon-xs" variant="ghost" />}
-                          >
-                            <MoreHorizontal size={16} />
-                          </MenuTrigger>
-                          <MenuPopup data-amicited-tokens="" data-amicited-popup="">
-                            <MenuItem
-                              onClick={() => {
-                                setTitle(thread.title);
-                                setRenaming(key);
-                              }}
-                            >
-                              Rename
-                            </MenuItem>
-                            <MenuItem
-                              onClick={() =>
-                                void act(archived ? unarchiveThread(ref) : archiveThread(ref))
-                              }
-                            >
-                              {archived ? "Restore" : "Archive"}
-                            </MenuItem>
-                            <MenuItem
-                              variant="destructive"
-                              onClick={() =>
-                                void act(
-                                  confirmAndDeleteThread(ref, {
-                                    forceConfirm: true,
-                                    marketer: true,
-                                  }),
-                                )
-                              }
-                            >
-                              Delete
-                            </MenuItem>
-                          </MenuPopup>
-                        </Menu>
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </DomainThreadGroup>
-        ) : null;
-      })}
-    </div>
-  );
-}
-
-function MarketingHistoryStatus({
-  thread,
-}: {
-  thread: ReturnType<typeof useThreadShells>[number];
-}) {
-  const approvals = useCloudApprovals(thread.environmentId);
-  const status = approvals.some((request) => request.threadId === thread.id)
-    ? "Needs your OK"
-    : marketingHistoryStatus(thread);
-  const label = status === "Done" ? "" : status;
-  const nowMinute = useNowMinute();
-  const relative = formatRelativeTimeLabel(
-    thread.latestUserMessageAt ?? thread.updatedAt,
-    Date.parse(`${nowMinute}:00.000Z`),
-  );
-  const time = relative === "just now" ? "now" : relative.replace(/ ago$/, "");
-  return (
-    <small className="am-history-status shrink-0" data-status={status}>
-      <span className="min-w-0 flex-1" />
-      <span
-        className={`am-history-status-slot flex shrink-0 items-center gap-1 ${status === "Working" ? "text-info-foreground" : status === "Needs your OK" ? "text-warning-foreground" : status === "Couldn't check" || status === "Sign in needed" ? "text-error-foreground" : ""}`}
-      >
-        {status === "Working" ? (
-          <CircleDashed size={12} />
-        ) : status === "Needs your OK" ? (
-          <CircleHelp size={12} />
-        ) : status === "Couldn't check" || status === "Sign in needed" ? (
-          <CircleAlert size={12} />
-        ) : null}
-        {label || time}
-        {status === "Working" && (
-          <span
-            ref={tickTextContent((now) => {
-              const started = resolveWorkingStartedAt(thread);
-              return started ? formatWorkingDurationLabel(now - Date.parse(started)) : "";
-            }, true)}
-          />
-        )}
-      </span>
-    </small>
+    </>
   );
 }
 
