@@ -287,7 +287,7 @@ This supersedes the earlier dashboard landing and website-first flow above.
 - `apps/web/src/components/chat/DraftHeroHeadline.tsx`: marketer headline and four starters seed the existing draft store.
 - `apps/web/src/components/chat/ChatComposer.tsx`: optional website/connection row; hands a preserved prompt to the selected assistant after connection.
 - `apps/web/src/components/chat/ChatHeader.tsx`: marketer New chat title.
-- `apps/web/src/components/chat/ProviderModelPicker.tsx`: plain assistant name, including the Replay development provider.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx`: plain assistant name, including the Replay development provider; permissions remain available in the footer when a model has no effort controls.
 - `apps/web/src/components/chat/MessagesTimeline.logic.ts`: carries marketing outputs on folded work groups.
 - `apps/web/src/components/chat/TimelineWorkGroupRows.tsx`: shows compact results beneath a folded work group in marketer mode.
 - `apps/web/src/components/chat/TimelineWorkEntryRow.tsx`: renders the same card inside expanded tool activity.

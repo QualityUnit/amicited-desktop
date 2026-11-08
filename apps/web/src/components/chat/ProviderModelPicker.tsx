@@ -457,6 +457,11 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
               {props.footer}
             </div>
           </DockedPickerContext>
+        ) : props.footer ? (
+          <div className="flex max-h-(--available-height) flex-col">
+            {picker}
+            {props.footer}
+          </div>
         ) : (
           picker
         )}

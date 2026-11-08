@@ -606,6 +606,7 @@ try {
         JSON.stringify(fixtureCalls, null, 2),
       );
       await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
+      await page.locator('[data-chat-provider-model-picker="true"]').first().click();
       await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
       await capture("47-site-access-mode-selector");
       await page.keyboard.press("Escape");
@@ -1050,6 +1051,7 @@ try {
         await page.getByText(/Delete prompt on example.com/).waitFor();
         await capture("47-full-access-free-check-and-destructive-confirmation");
         await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
+        await page.locator('[data-chat-provider-model-picker="true"]').first().click();
         await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
         await capture("47-access-mode-selector");
         await page.keyboard.press("Escape");
