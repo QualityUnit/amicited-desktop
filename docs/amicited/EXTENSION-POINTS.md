@@ -505,8 +505,7 @@ dependency-light readers so project creation does not import the domain UI recur
 
 Wave 39 site-file corrections:
 
-- `apps/server/src/orchestration-v2/Orchestrator.ts`: resolves the domain's supervised mode on thread creation and message/queued-run dispatch, independent of client.
-- `apps/server/src/orchestration-v2/RuntimePolicy.ts`: applies the same domain policy when resolving provider execution, including recovery.
+- `apps/server/src/orchestration-v2/RuntimePolicy.ts`: enforces domain supervision at provider execution, including queued turns and recovery; metadata failures use typed errors and require approval.
 - `packages/client-runtime/src/state/threadRequests.ts`: carries the related file-change paths into pending approvals.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: prioritizes the hostname when a custom domain status is supplied.
 - `apps/web/src/components/ChatView.tsx`: renders upstream diff panels in marketer mode with an explicit Close control.
@@ -516,3 +515,6 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/chat/ChatRightPanel.tsx`: accepts optional inline layout controls for the marketer diff close action.
 
 - `apps/web/src/components/DiffWorkerPoolProvider.tsx`: initializes both diff themes so a theme switch cannot render before its theme reaches the workers.
+
+- `apps/web/src/components/RightPanelTabs.tsx` and `components/chat/ChatRightPanel.tsx`: optional add-menu visibility for the marketer review panel.
+- `apps/server/src/orchestration-v2/RuntimePolicy.test.ts`: verifies site supervision and metadata failure at the runtime boundary.

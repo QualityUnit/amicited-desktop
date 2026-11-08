@@ -629,7 +629,41 @@ it("shows the file list belonging to an edit approval", () => {
   const request = { ...projection.runtimeRequests[0]!, kind: "file-change" as const };
   const result = derivePendingThreadRequests({
     runtimeRequests: [request],
-    turnItems: [{ ...base, type: "file_change", fileName: "src/math.ts", nodeId: request.nodeId }],
+    turnItems: [
+      { ...base, type: "file_change", fileName: "src/math.ts", nodeId: request.nodeId },
+      {
+        ...base,
+        type: "file_change",
+        fileName: "other.ts",
+        nodeId: "other" as typeof request.nodeId,
+      },
+      { ...base, type: "approval_request", requestId: request.id, requestKind: "file-change" },
+    ],
   });
   expect(result.approvals[0]?.files).toEqual(["src/math.ts"]);
+  const unmatched = { ...request, nodeId: "unmatched" as typeof request.nodeId };
+  expect(
+    derivePendingThreadRequests({
+      runtimeRequests: [unmatched],
+      turnItems: [
+        { ...base, type: "file_change", fileName: "a.ts", nodeId: request.nodeId },
+        {
+          ...base,
+          type: "file_change",
+          fileName: "b.ts",
+          nodeId: "other" as typeof request.nodeId,
+        },
+        { ...base, type: "approval_request", requestId: request.id, requestKind: "file-change" },
+      ],
+    }).approvals[0]?.files,
+  ).toBeUndefined();
+  expect(
+    derivePendingThreadRequests({
+      runtimeRequests: [unmatched],
+      turnItems: [
+        { ...base, type: "file_change", fileName: "a.ts", nodeId: request.nodeId },
+        { ...base, type: "approval_request", requestId: request.id, requestKind: "file-change" },
+      ],
+    }).approvals[0]?.files,
+  ).toEqual(["a.ts"]);
 });

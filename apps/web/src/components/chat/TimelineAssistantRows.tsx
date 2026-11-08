@@ -371,10 +371,11 @@ function AssistantChangedFilesSectionInner({
     return (
       <button
         type="button"
-        className="cursor-pointer text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
         onClick={() => onOpenTurnDiff(turnSummary.runId)}
       >
-        Changed {checkpointFiles.length} {checkpointFiles.length === 1 ? "file" : "files"} · Review
+        Changed {checkpointFiles.length} {checkpointFiles.length === 1 ? "file" : "files"} ·{" "}
+        <span className="underline underline-offset-4">Review</span>
       </button>
     );
 

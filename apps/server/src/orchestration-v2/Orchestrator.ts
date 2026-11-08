@@ -1,4 +1,3 @@
-import { siteRuntimeMode } from "../amicited/siteRuntimePolicy.ts";
 import type {
   GuestShareId,
   OrchestrationV2SearchThreadInput,
@@ -2952,7 +2951,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       title: command.title,
       providerInstanceId: command.modelSelection.instanceId,
       modelSelection: command.modelSelection,
-      runtimeMode: yield* siteRuntimeMode(command.projectId, command.runtimeMode),
+      runtimeMode: command.runtimeMode,
       interactionMode: command.interactionMode,
       branch: command.branch,
       worktreePath: command.worktreePath,
@@ -13354,27 +13353,6 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         }
       | undefined;
     let updateDelegatedCompletionOnlyRunId: RunId | undefined;
-    if (command.type === "message.dispatch" || command.type === "queued-run.start") {
-      const thread = yield* projectionStore
-        .getThread(command.threadId)
-        .pipe(
-          Effect.mapError(
-            (cause) => new OrchestratorProjectionError({ threadId: command.threadId, cause }),
-          ),
-        );
-      const runtimeMode = yield* siteRuntimeMode(thread.projectId, thread.runtimeMode);
-      if (runtimeMode !== thread.runtimeMode)
-        yield* dispatchThreadMutation(
-          {
-            type: "thread.runtime-mode.set",
-            commandId: command.commandId,
-            threadId: command.threadId,
-            runtimeMode,
-          },
-          events,
-          effects,
-        );
-    }
     switch (command.type) {
       case "thread.create":
         yield* dispatchThreadCreate(command, events);

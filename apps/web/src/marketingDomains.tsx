@@ -1,6 +1,7 @@
-import { isDesktopLocalConnectionTarget, desktopLocalBackendId } from "./connection/desktopLocal";
+import { desktopLocalBackendId } from "./connection/desktopLocal";
+import { readPrimaryEnvironmentTarget } from "./environments/primary/target";
 import { useEnvironment } from "./state/environments";
-/* oxlint-disable t3code/no-native-title-tooltip -- The implementation brief explicitly requests title tooltips for full folder paths and compact CMS icons. */
+import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { newProjectId } from "./lib/utils";
 import { cmsOptions, cmsLabel, type Cms } from "@amicited/cloud-client/domainModel";
 import {
@@ -25,9 +26,12 @@ import { useEffect, useRef, useEffectEvent, useState, useSyncExternalStore } fro
 import type { Domain } from "@amicited/cloud-client/domains";
 import { normalizeDomain } from "@amicited/cloud-client/domainModel";
 import type { Connection } from "@amicited/cloud-client/model";
-import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
+import {
+  squashAtomCommandFailure,
+  createEnvironmentRpcCommand,
+} from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { ProjectId, type EnvironmentId } from "@t3tools/contracts";
+import { PRIMARY_LOCAL_ENVIRONMENT_ID, ProjectId, type EnvironmentId } from "@t3tools/contracts";
 import { readBrand } from "@amicited/ui-marketing";
 import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
@@ -111,12 +115,18 @@ export function NewDomainDialog({
   open: boolean;
   onOpenChange(value: boolean): void;
 }) {
-  const { environmentId, refresh } = useDomains(destination);
+  const { environmentId, refresh, rows: registeredDomains } = useDomains(destination);
+  const projects = useProjects();
   const environment = useEnvironment(environmentId);
-  const desktopFolderPicker =
-    !!window.desktopBridge &&
-    !!environment &&
-    isDesktopLocalConnectionTarget(environment.entry.target);
+  const desktopBackend =
+    environment && window.desktopBridge
+      ? (desktopLocalBackendId(environment.entry.target) ??
+        (environment.entry.target._tag === "PrimaryConnectionTarget" &&
+        readPrimaryEnvironmentTarget()?.source === "desktop-managed"
+          ? PRIMARY_LOCAL_ENVIRONMENT_ID
+          : null))
+      : null;
+  const desktopFolderPicker = desktopBackend !== null;
   const create = useAtomCommand(projectEnvironment.createNew);
   const addFolder = useOrchestrationCommand(projectEnvironment.create);
   const startClone = useAtomCommand(sourceControlEnvironment.startProjectClone);
@@ -140,6 +150,7 @@ export function NewDomainDialog({
     environmentId: EnvironmentId;
     cloneId?: ProjectId;
     projectId: ProjectId;
+    root: string;
   } | null>(null);
   const liveClone = useProjectClone(
     environmentId && cloneId ? scopeProjectRef(environmentId, cloneId) : null,
@@ -189,7 +200,10 @@ export function NewDomainDialog({
   };
   const chooseFolder = async (path: string) => {
     if (!environmentId || !path) return;
-    const version = sourceVersion.current;
+    const version = ++sourceVersion.current;
+    if (pendingProject.current?.root !== path) pendingProject.current = null;
+    setSiteFiles(path);
+    setValidatedPath("");
     const result = await inspectFolder({ environmentId, input: { path } });
     if (version !== sourceVersion.current) return;
     if (result._tag !== "Success") {
@@ -204,12 +218,12 @@ export function NewDomainDialog({
       `${result.value.framework ? `Detected ${result.value.framework}. ` : ""}${result.value.git ? "Git folder connected." : "This folder has no Git history. You can still use it, but version history may be unavailable."}`,
     );
     setError("");
+    return true;
   };
   const retainCompletion = useEffectEvent(async () => {
     if (liveClone?.phase !== "done") return;
-    const version = sourceVersion.current;
-    await chooseFolder(siteFiles);
-    if (version === sourceVersion.current) setCompletedClone(liveClone);
+    const selected = await chooseFolder(siteFiles);
+    if (selected && liveClone?.phase === "done") setCompletedClone(liveClone);
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Persist completion of the external clone tracker before its snapshot expires.
   useEffect(() => {
@@ -276,7 +290,7 @@ export function NewDomainDialog({
                   projectId = siteFiles
                     ? candidateId
                     : (created.value as { projectId: ProjectId }).projectId;
-                  pendingProject.current = { environmentId, projectId };
+                  pendingProject.current = { environmentId, projectId, root: siteFiles };
                 }
                 const result = await register({
                   environmentId,
@@ -298,7 +312,7 @@ export function NewDomainDialog({
                 pendingProject.current = null;
                 await refresh();
                 onOpenChange(false);
-                setSavedCopies((rows) => rows.filter((r) => r.id !== cloneId));
+                setSavedCopies((rows) => rows.filter((r) => r.id !== projectId));
                 resetDraft();
                 if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
               })()
@@ -402,12 +416,8 @@ export function NewDomainDialog({
                         onClick={() => {
                           void createLocalApi()
                             .dialogs.pickFolder(
-                              environment && desktopFolderPicker
-                                ? {
-                                    targetEnvironmentId: desktopLocalBackendId(
-                                      environment.entry.target,
-                                    )!,
-                                  }
+                              desktopBackend !== null
+                                ? { targetEnvironmentId: desktopBackend }
                                 : undefined,
                             )
                             .then((path) => {
@@ -422,10 +432,15 @@ export function NewDomainDialog({
                       </Button>
                       {!desktopFolderPicker && (
                         <Input
+                          disabled={busy}
                           aria-label="Folder path"
                           placeholder="/Users/you/Sites/acme"
                           value={siteFiles}
                           onChange={(event) => {
+                            sourceVersion.current++;
+                            if (pendingProject.current?.root !== event.target.value)
+                              pendingProject.current = null;
+                            setValidatedPath("");
                             setSiteFiles(event.target.value);
                             setFramework(null);
                             setFolderNote("");
@@ -440,10 +455,14 @@ export function NewDomainDialog({
                   {fileChoice === "clone" && (
                     <>
                       <Input
+                        disabled={busy || clone?.phase === "running"}
                         aria-label="Git URL"
                         placeholder="https://github.com/team/site.git"
                         value={gitUrl}
-                        onChange={(event) => setGitUrl(event.target.value)}
+                        onChange={(event) => {
+                          invalidateSource();
+                          setGitUrl(event.target.value);
+                        }}
                       />
                       <Button
                         type="button"
@@ -465,6 +484,14 @@ export function NewDomainDialog({
                             setError("Enter a website like example.com before copying site files.");
                             return;
                           }
+                          const roots = new Set(
+                            projects
+                              .filter((p) => p.environmentId === environmentId)
+                              .map((p) => p.workspaceRoot),
+                          );
+                          let destinationPath = `${root}/${hostname}`;
+                          for (let suffix = 2; roots.has(destinationPath); suffix++)
+                            destinationPath = `${root}/${hostname}-${suffix}`;
                           const projectId = newProjectId();
                           silenceProjectCloneToasts(scopeProjectRef(environmentId, projectId));
                           setBusy(true);
@@ -474,14 +501,18 @@ export function NewDomainDialog({
                               projectId,
                               title: hostname,
                               remoteUrl: gitUrl.trim(),
-                              destinationPath: `${root}/${hostname}`,
+                              destinationPath,
                               createdAt: new Date().toISOString(),
                             },
                           })
                             .then((result) => {
                               if (result._tag !== "Success") {
                                 setError(
-                                  "Could not copy the site. Check the Git URL and your access, then try again.",
+                                  /destination.*exists/i.test(
+                                    String(squashAtomCommandFailure(result)),
+                                  )
+                                    ? "A folder for this website already exists. Choose that folder, or use a different website name."
+                                    : "Could not copy the site. Check the Git URL and your access, then try again.",
                                 );
                                 return;
                               }
@@ -491,6 +522,7 @@ export function NewDomainDialog({
                                 environmentId,
                                 cloneId: projectId,
                                 projectId,
+                                root: result.value.cwd,
                               };
                             })
                             .catch(() =>
@@ -532,12 +564,14 @@ export function NewDomainDialog({
                         </details>
                       )}
                       {clone && (
-                        <p role="status">
+                        <p role="status" className="truncate text-sm text-muted-foreground">
                           {clone.phase === "running"
                             ? `Copying site files… ${clone.percent ?? 0}%`
                             : clone.phase === "done"
-                              ? `Copied to ${displayFolder(siteFiles)}${framework ? ` · Detected ${framework}` : ""}`
-                              : "Could not copy the site. Check the Git URL and your access, then retry."}
+                              ? `Copied to ${displayFolder(siteFiles)}`
+                              : /destination.*exists/i.test(clone.error ?? "")
+                                ? "A folder for this website already exists. Choose that folder, or use a different website name."
+                                : "Could not copy the site. Check the Git URL and your access, then retry."}
                         </p>
                       )}
                     </>
@@ -555,28 +589,36 @@ export function NewDomainDialog({
                 </fieldset>
               )
             )}
-            {savedCopies.length > 0 && (
+            {savedCopies.some(
+              (copy) => !registeredDomains.some((d) => d.projectId === copy.id),
+            ) && (
               <details>
                 <summary>Reuse previously copied site files</summary>
-                {savedCopies.map((copy) => (
-                  <div key={copy.id}>
-                    <span title={copy.path}>{displayFolder(copy.path)}</span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => {
-                        invalidateSource();
-                        setFileChoice("folder");
-                        if (environmentId)
-                          pendingProject.current = { environmentId, projectId: copy.id };
-                        void chooseFolder(copy.path);
-                      }}
-                    >
-                      Use this copy
-                    </Button>
-                  </div>
-                ))}
+                {savedCopies
+                  .filter((copy) => !registeredDomains.some((d) => d.projectId === copy.id))
+                  .map((copy) => (
+                    <div key={copy.id}>
+                      <span>{displayFolder(copy.path)}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="xs"
+                        onClick={() => {
+                          invalidateSource();
+                          setFileChoice("folder");
+                          if (environmentId)
+                            pendingProject.current = {
+                              environmentId,
+                              projectId: copy.id,
+                              root: copy.path,
+                            };
+                          void chooseFolder(copy.path);
+                        }}
+                      >
+                        Use this copy
+                      </Button>
+                    </div>
+                  ))}
               </details>
             )}
             {error && <p role="alert">{error}</p>}
@@ -883,11 +925,14 @@ export function DomainsSettings() {
                       .filter(Boolean)
                       .join(" · ")}
                   </span>
-                  <span className="block truncate" title={domain.siteFiles ?? undefined}>
-                    {domain.siteFiles
-                      ? `Folder: ${displayFolder(domain.siteFiles)}`
-                      : "Site files: Not connected"}
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger render={<span className="block truncate" />}>
+                      {domain.siteFiles
+                        ? `Folder: ${displayFolder(domain.siteFiles)}`
+                        : "Site files: Not connected"}
+                    </TooltipTrigger>
+                    <TooltipPopup>{domain.siteFiles ?? "Site files: Not connected"}</TooltipPopup>
+                  </Tooltip>
                 </span>
               }
               control={
@@ -1134,24 +1179,31 @@ export function DomainThreadGroup({
         onNewThread={onNew}
         onContextMenu={() => {}}
         status={
-          <span
-            className="flex items-center gap-1 text-xs text-muted-foreground"
-            aria-label={`${cmsLabel(domain.cms)}${domain.siteFiles ? ` · Folder: ${domain.siteFiles}` : ""}`}
-          >
+          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
             <DomainStatusDot domain={domain} destination={destination} />
             {domain.cms && domain.cms !== "unknown" && (
-              <span title={domain.framework ?? cmsLabel(domain.cms)}>
-                {domain.cms === "git" ? (
-                  <CodeIcon className="size-3" />
-                ) : (
-                  <GlobeIcon className="size-3" />
-                )}
-              </span>
+              <Tooltip>
+                <TooltipTrigger
+                  render={<span role="img" aria-label={domain.framework ?? cmsLabel(domain.cms)} />}
+                >
+                  {domain.cms === "git" ? (
+                    <CodeIcon className="size-3" />
+                  ) : (
+                    <GlobeIcon className="size-3" />
+                  )}
+                </TooltipTrigger>
+                <TooltipPopup>{domain.framework ?? cmsLabel(domain.cms)}</TooltipPopup>
+              </Tooltip>
             )}
             {domain.siteFiles && (
-              <span title={`Folder: ${domain.siteFiles}`}>
-                <FolderIcon className="size-3" />
-              </span>
+              <Tooltip>
+                <TooltipTrigger
+                  render={<span role="img" aria-label={`Folder: ${domain.siteFiles}`} />}
+                >
+                  <FolderIcon className="size-3" />
+                </TooltipTrigger>
+                <TooltipPopup>Folder: {domain.siteFiles}</TooltipPopup>
+              </Tooltip>
             )}
           </span>
         }

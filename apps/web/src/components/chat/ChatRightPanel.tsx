@@ -4,6 +4,7 @@ import { RightPanelSheet } from "../RightPanelSheet";
 import { RightPanelTabs, type RightPanelTabsProps } from "../RightPanelTabs";
 
 type ChatRightPanelProps = Omit<RightPanelTabsProps, "mode" | "inlineSize" | "maximized"> & {
+  readonly hideAddSurface?: boolean;
   readonly inlineLayoutControls?: ReactNode;
   readonly sheet: boolean;
   readonly maximized: boolean;

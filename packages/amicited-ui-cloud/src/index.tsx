@@ -217,22 +217,26 @@ export function AmicitedConnectPanel({
               </div>
             )}
             <Row
-              title={pending ? "Connecting…" : "Connection · Not connected"}
+              title="Connection · Not connected"
               description="Your local tools always work without an account."
               control={
-                <Button
-                  variant="default"
-                  disabled={pending}
-                  onClick={() => void run(actions.connectOAuth)}
-                >
-                  {pending ? "Connecting…" : connectLabel}
-                </Button>
+                pending ? null : (
+                  <Button
+                    variant="default"
+                    disabled={pending}
+                    onClick={() => void run(actions.connectOAuth)}
+                  >
+                    {connectLabel}
+                  </Button>
+                )
               }
             />
             {pending && (
               <div role="status">
                 Waiting for you to finish in your browser…{" "}
-                <Button onClick={() => void run(actions.disconnect)}>Cancel</Button>
+                <Button variant="outline" onClick={() => void run(actions.disconnect)}>
+                  Cancel
+                </Button>
               </div>
             )}
             <Disclosure label="Use an API key instead">

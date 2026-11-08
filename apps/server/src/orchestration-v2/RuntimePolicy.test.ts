@@ -1,3 +1,6 @@
+import { AmicitedCloud } from "../amicited/Cloud.ts";
+import { CloudClient } from "@amicited/cloud-client";
+import { DomainConnections } from "@amicited/cloud-client/domains";
 import { assert, it } from "@effect/vitest";
 import {
   type ManagedPolicySummary,
@@ -187,3 +190,61 @@ it.layer(
     }),
   );
 });
+
+for (const failedRead of [false, true]) {
+  const domains = new DomainConnections({
+    read: async () => {
+      if (failedRead) throw new Error("Cannot read domains");
+      return [
+        {
+          projectId,
+          hostname: "example.com",
+          brand: "",
+          connectionRef: projectId,
+          siteFiles: "/project-root",
+        },
+      ];
+    },
+    write: async () => {},
+    secrets: () => ({ read: async () => undefined, write: async () => {}, clear: async () => {} }),
+    legacy: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+    client: () => {
+      throw new Error("No network expected");
+    },
+    changed: () => {},
+  });
+  const cloud = new CloudClient({
+    secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+    openExternal: async () => {
+      throw new Error("No browser expected");
+    },
+  });
+  cloud.domains = domains;
+  it.layer(layerWithPolicy().pipe(Layer.provide(Layer.succeed(AmicitedCloud, cloud))))(
+    `site runtime boundary (metadata failure: ${failedRead})`,
+    (it) => {
+      it.effect("supervises full-access turns, including another resolution for a queued run", () =>
+        Effect.gen(function* () {
+          const policy = yield* RuntimePolicy.RuntimePolicyV2;
+          const now = yield* DateTime.now;
+          const thread = makeThread({ now, worktreePath: null });
+          for (const queued of [false, true]) {
+            const resolved = yield* policy.resolve({
+              thread: { ...thread, title: queued ? "Queued run" : "Immediate run" },
+              modelSelection,
+            });
+            assert.equal(resolved.runtimeMode, "approval-required");
+            assert.equal(resolved.cwd, "/project-root");
+          }
+          if (!failedRead) {
+            const unrelated = yield* policy.resolve({
+              thread: { ...thread, projectId: ProjectId.make("unrelated") },
+              modelSelection,
+            });
+            assert.equal(unrelated.runtimeMode, "full-access");
+          }
+        }),
+      );
+    },
+  );
+}

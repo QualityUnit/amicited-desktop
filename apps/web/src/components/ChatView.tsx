@@ -4062,6 +4062,7 @@ export default function ChatView(props: ChatViewProps) {
           onCloseAllSurfaces={closeAllRightPanelSurfacesStable}
           onMoveSurface={moveRightPanelSurfaceStable}
           onCopyFilePath={copyRightPanelFilePathStable}
+          hideAddSurface={!developerMode}
           onAddBrowser={() => createBrowserSurface()}
           onAddBrowserInProfile={createBrowserSurfaceStable}
           onAddTerminal={addTerminalSurfaceStable}

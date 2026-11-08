@@ -496,6 +496,7 @@ try {
       .getByRole("dialog", { name: "New domain", exact: true })
       .waitFor({ state: "hidden" });
     await page.getByText("site.example", { exact: true }).first().waitFor();
+    await page.locator(".am-composer-context").getByText("site.example", { exact: true }).waitFor();
     await capture("38-sidebar-cms-folder");
     await page.evaluate(async () => {
       const { serverEnvironment, primaryServerSettingsAtom } = await import(
@@ -588,7 +589,8 @@ try {
     await page.getByRole("textbox", { name: "Git URL", exact: true }).fill(bare);
     await capture("38-clone-flow");
     await page.getByRole("button", { name: "Clone site files", exact: true }).click();
-    await page.getByText(/^Copied to .*Detected Next.js/).waitFor();
+    await page.getByText(/^Copied to /).waitFor();
+    await page.getByText(/Detected Next.js/).waitFor();
     await capture("38-clone-done");
     await page.getByRole("button", { name: "Create domain", exact: true }).click();
     await page

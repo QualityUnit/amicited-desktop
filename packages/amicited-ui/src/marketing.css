@@ -115,7 +115,8 @@
   }
   .am-composer-context {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
     align-items: center;
     gap: 4px;
     padding: 0;
@@ -390,4 +391,26 @@
 .am-chat-brand button[aria-label="Go back"],
 .am-chat-brand button[aria-label="Go forward"] {
   display: none;
+}
+
+.am-composer-context > span {
+  flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.am-composer-context .am-cloud-actions {
+  flex-wrap: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+.am-composer-context .am-cloud-actions > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.am-composer-context .am-cloud-actions > button {
+  flex-shrink: 0;
 }

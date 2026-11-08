@@ -262,17 +262,22 @@ export function derivePendingThreadRequests(
     const item = projection.turnItems.findLast(
       (candidate) => candidate.type === "approval_request" && candidate.requestId === request.id,
     );
-    const relatedFile =
+    const exactFile =
       request.kind === "file-change"
         ? projection.turnItems.findLast(
-            (candidate) =>
-              candidate.type === "file_change" &&
-              (candidate.nodeId === request.nodeId ||
-                (item &&
-                  candidate.runId === item.runId &&
-                  candidate.providerTurnId === item.providerTurnId)),
+            (candidate) => candidate.type === "file_change" && candidate.nodeId === request.nodeId,
           )
         : undefined;
+    const turnFiles =
+      request.kind === "file-change" && item
+        ? projection.turnItems.filter(
+            (candidate) =>
+              candidate.type === "file_change" &&
+              candidate.runId === item.runId &&
+              candidate.providerTurnId === item.providerTurnId,
+          )
+        : [];
+    const relatedFile = exactFile ?? (turnFiles.length === 1 ? turnFiles[0] : undefined);
     approvals.push({
       requestId: request.id,
       requestKind: request.kind,

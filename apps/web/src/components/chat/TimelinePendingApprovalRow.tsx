@@ -1,3 +1,6 @@
+import { formatWorkspaceRelativePath } from "../../filePathDisplay";
+import { readDomain } from "../../marketingDomainStore";
+import { useThreadShell } from "../../state/entities";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingApprovalCard, useMarketingApproval } from "../../marketingChat";
 import {
@@ -42,18 +45,19 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
     use(TimelineRowCtx);
   const marketer = useWorkspaceMode() === "marketer";
   const siteEdit = marketer && approval.requestKind === "file-change";
-  const files = approval.files?.map((path) =>
-    workspaceRoot && path.startsWith(`${workspaceRoot}/`)
-      ? path.slice(workspaceRoot.length + 1)
-      : path,
-  );
+  const thread = useThreadShell(threadRef);
+  const siteFolder =
+    threadRef &&
+    thread?.projectId &&
+    readDomain(threadRef.environmentId, thread.projectId)?.siteFiles;
+  const files = approval.files?.map((path) => formatWorkspaceRelativePath(path, workspaceRoot));
   const siteAction = marketer
     ? approval.requestKind === "file-change"
       ? files?.length
-        ? `Edit ${files.length} ${files.length === 1 ? "file" : "files"} in your site: ${files.slice(0, 2).join(", ")}${files.length > 2 ? ` and ${files.length - 2} more` : ""}`
-        : "Edit files in your site"
+        ? `Edit ${files.length} ${files.length === 1 ? "file" : "files"} in ${siteFolder ? "your site" : "this folder"}: ${files.slice(0, 2).join(", ")}${files.length > 2 ? ` and ${files.length - 2} more` : ""}`
+        : `Edit files in ${siteFolder ? "your site" : "this folder"}`
       : approval.requestKind === "command"
-        ? "Run a command in your site folder"
+        ? `Run a command in ${siteFolder ? "your site folder" : "this folder"}`
         : null
     : null;
   const marketingInput = useMarketingApproval(threadRef, approval.requestId);

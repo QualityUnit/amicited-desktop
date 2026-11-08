@@ -6,6 +6,11 @@ import { EnvironmentId } from "@t3tools/contracts";
 import type { Connection } from "@amicited/cloud-client/model";
 import { render } from "../test/render";
 const state = vi.hoisted(() => ({
+  projectRoots: [] as string[],
+  folderPath: "/fixture/site",
+  inspectPath: null as
+    | null
+    | ((path: string) => Promise<{ _tag: "Success"; value: { git: boolean; framework: string } }>),
   clonePhase: "done" as "done" | "failed" | null,
   connections: new Map<string, Connection>(),
   failSave: false,
@@ -37,13 +42,15 @@ vi.mock("./state/projectClones", async (original) => ({
 }));
 vi.mock("./state/entities", async (original) => ({
   ...(await original<typeof import("./state/entities")>()),
+  useProjects: () =>
+    state.projectRoots.map((workspaceRoot) => ({ environmentId: "local", workspaceRoot })),
   useServerConfigs: () => new Map([["local", { newProjectsRoot: "/fixture/clones" }]]),
 }));
 vi.mock("./localApi", async (original) => ({
   ...(await original<typeof import("./localApi")>()),
   createLocalApi: () => ({
     shell: { openExternal: async () => {} },
-    dialogs: { pickFolder: async () => "/fixture/site" },
+    dialogs: { pickFolder: async () => state.folderPath },
   }),
 }));
 vi.mock("./hooks/useHandleNewThread", () => ({ useNewThreadHandler: () => async () => {} }));
@@ -61,6 +68,7 @@ vi.mock("./state/use-atom-command", () => ({
         workspaceRoot?: string;
         remoteUrl?: string;
         destinationPath?: string;
+        path?: string;
       };
     }) => {
       state.requests.push({
@@ -73,6 +81,8 @@ vi.mock("./state/use-atom-command", () => ({
       });
       if (command.label === "environment-data:source-control:project-clone-start")
         return { _tag: "Success", value: { cwd: input?.destinationPath } };
+      if (command.label === "domains:inspect" && state.inspectPath)
+        return state.inspectPath(input?.path ?? "");
       if (command.label === "domains:inspect")
         return { _tag: "Success", value: { git: true, framework: "Next.js" } };
       if (command.label === "environment-data:projects:create-new")
@@ -273,72 +283,90 @@ it("uses the chosen site folder as the T3 project workspaceRoot", async () => {
   state.emptyDomains = false;
 });
 
-it.each(["skip", "folder", "website", "close", "expired", "failed-folder"])(
-  "isolates clone source when %s",
-  async (transition) => {
-    state.emptyDomains = true;
-    state.requests.length = 0;
-    state.clonePhase = transition === "failed-folder" ? "failed" : "done";
-    const props = { open: true, onOpenChange: () => {}, destination: EnvironmentId.make("local") };
-    await using screen = await render(<NewDomainDialog {...props} />);
-    await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "first.example");
-    await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
-    await userEvent.click(page.getByRole("option", { name: "Clone from a Git URL" }));
-    await userEvent.fill(screen.getByRole("textbox", { name: "Git URL" }), "/fixture/bare.git");
-    await userEvent.click(screen.getByRole("button", { name: "Clone site files", exact: true }));
+it.each([
+  "skip",
+  "folder",
+  "website",
+  "close",
+  "expired",
+  "failed-folder",
+  "git-url",
+  "existing-destination",
+])("isolates clone source when %s", async (transition) => {
+  state.emptyDomains = true;
+  state.projectRoots =
+    transition === "existing-destination" ? ["/fixture/clones/first.example"] : [];
+  state.requests.length = 0;
+  state.clonePhase = transition === "failed-folder" ? "failed" : "done";
+  const props = { open: true, onOpenChange: () => {}, destination: EnvironmentId.make("local") };
+  await using screen = await render(<NewDomainDialog {...props} />);
+  await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "first.example");
+  await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
+  await userEvent.click(page.getByRole("option", { name: "Clone from a Git URL" }));
+  await userEvent.fill(screen.getByRole("textbox", { name: "Git URL" }), "/fixture/bare.git");
+  await userEvent.click(screen.getByRole("button", { name: "Clone site files", exact: true }));
+  await expect
+    .element(screen.getByRole("button", { name: "Clone site files", exact: true }))
+    .toBeDisabled();
+  if (transition === "expired") {
+    await expect.element(screen.getByText(/Copied to/)).toBeVisible();
+    state.clonePhase = null;
+    await screen.rerender(<NewDomainDialog {...props} />);
+    await expect
+      .element(screen.getByRole("button", { name: "Create domain", exact: true }))
+      .toBeEnabled();
+  } else if (transition === "close") {
+    await userEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await expect.element(screen.getByText("Reuse previously copied site files")).toBeVisible();
+    await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+    return;
+  } else if (transition === "existing-destination") {
+    expect(state.requests.find((r) => r.remoteUrl)?.destinationPath).toBe(
+      "/fixture/clones/first.example-2",
+    );
+    state.projectRoots = [];
+    return;
+  } else if (transition === "git-url") {
+    await screen.getByRole("textbox", { name: "Git URL" }).fill("/fixture/other.git");
     await expect
       .element(screen.getByRole("button", { name: "Clone site files", exact: true }))
-      .toBeDisabled();
-    if (transition === "expired") {
-      await expect.element(screen.getByText(/Copied to/)).toBeVisible();
-      state.clonePhase = null;
-      await screen.rerender(<NewDomainDialog {...props} />);
-      await expect
-        .element(screen.getByRole("button", { name: "Create domain", exact: true }))
-        .toBeEnabled();
-    } else if (transition === "close") {
-      await userEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
-      await expect.element(screen.getByText("Reuse previously copied site files")).toBeVisible();
-      await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
-      return;
-    } else if (transition === "website") {
-      await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "second.example");
-      await expect
-        .element(screen.getByRole("button", { name: "Clone site files", exact: true }))
-        .toBeEnabled();
-      return;
-    } else {
-      await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
-      await userEvent.click(
-        page.getByRole("option", {
-          name: transition === "skip" ? "Skip for now" : "Use a folder on this computer",
-        }),
-      );
-      if (transition !== "skip")
-        await userEvent.click(screen.getByRole("button", { name: "Choose folder", exact: true }));
-    }
-    await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
-    await vi.waitFor(() =>
-      expect(state.requests.some((r) => r.label === "domains:save")).toBe(true),
-    );
-    if (transition === "skip")
-      expect(state.requests.some((r) => r.label === "environment-data:projects:create-new")).toBe(
-        true,
-      );
-    if (transition === "folder" || transition === "failed-folder")
-      expect(state.requests).toContainEqual(
-        expect.objectContaining({
-          label: "environment-data:commands:project:create",
-          workspaceRoot: "/fixture/site",
-        }),
-      );
-    await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+      .toBeEnabled();
+    return;
+  } else if (transition === "website") {
+    await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "second.example");
     await expect
-      .element(screen.getByRole("combobox", { name: "Site files", exact: true }))
-      .toHaveTextContent("Skip for now");
-    state.emptyDomains = false;
-  },
-);
+      .element(screen.getByRole("button", { name: "Clone site files", exact: true }))
+      .toBeEnabled();
+    return;
+  } else {
+    await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
+    await userEvent.click(
+      page.getByRole("option", {
+        name: transition === "skip" ? "Skip for now" : "Use a folder on this computer",
+      }),
+    );
+    if (transition !== "skip")
+      await userEvent.click(screen.getByRole("button", { name: "Choose folder", exact: true }));
+  }
+  await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
+  await vi.waitFor(() => expect(state.requests.some((r) => r.label === "domains:save")).toBe(true));
+  if (transition === "skip")
+    expect(state.requests.some((r) => r.label === "environment-data:projects:create-new")).toBe(
+      true,
+    );
+  if (transition === "folder" || transition === "failed-folder")
+    expect(state.requests).toContainEqual(
+      expect.objectContaining({
+        label: "environment-data:commands:project:create",
+        workspaceRoot: "/fixture/site",
+      }),
+    );
+  await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+  await expect
+    .element(screen.getByRole("combobox", { name: "Site files", exact: true }))
+    .toHaveTextContent("Skip for now");
+  state.emptyDomains = false;
+});
 
 it.each(["folder", "clone"])(
   "creates consecutive domains with independent %s sources",
@@ -403,3 +431,117 @@ it.each(["folder", "clone"])(
     state.emptyDomains = false;
   },
 );
+
+it.each(["failed-save", "reused-copy"])(
+  "drops the pending project after changing folder: %s",
+  async (source) => {
+    state.emptyDomains = true;
+    state.requests.length = 0;
+    state.folderPath = "/fixture/site";
+    state.clonePhase = "done";
+    await using screen = await render(<NewDomainDialog open onOpenChange={() => {}} />);
+    await screen.getByLabelText("Website", { exact: true }).fill("first.example");
+    await screen.getByRole("combobox", { name: "Site files", exact: true }).click();
+    await page
+      .getByRole("option", {
+        name: source === "failed-save" ? "Use a folder on this computer" : "Clone from a Git URL",
+      })
+      .click();
+    if (source === "reused-copy") {
+      await screen.getByRole("textbox", { name: "Git URL" }).fill("/fixture/bare.git");
+      await screen.getByRole("button", { name: "Clone site files", exact: true }).click();
+      await expect.element(screen.getByText(/^Copied to/)).toBeVisible();
+      await screen.getByRole("button", { name: "Cancel", exact: true }).click();
+      await screen.getByLabelText("Website", { exact: true }).fill("second.example");
+      await screen.getByText("Reuse previously copied site files").click();
+      await screen.getByRole("button", { name: "Use this copy", exact: true }).click();
+    } else {
+      await screen.getByRole("button", { name: "Choose folder", exact: true }).click();
+      state.failSave = true;
+      await screen.getByRole("button", { name: "Create domain", exact: true }).click();
+      await expect.element(screen.getByRole("alert")).toBeVisible();
+    }
+    state.folderPath = "/fixture/other";
+    await screen.getByRole("button", { name: /^Change folder/ }).click();
+    await screen.getByRole("button", { name: "Create domain", exact: true }).click();
+    await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+    const saves = state.requests.filter((r) => r.label === "domains:save");
+    const created = state.requests.findLast((r) => r.workspaceRoot === "/fixture/other");
+    expect(created).toBeDefined();
+    expect(saves.at(-1)?.projectId).toBe(created?.projectId);
+    if (source === "failed-save") expect(saves[0]?.projectId).not.toBe(saves[1]?.projectId);
+    state.folderPath = "/fixture/site";
+    state.emptyDomains = false;
+  },
+);
+
+it("consumes a reused copy after saving and preserves the first domain on reopen", async () => {
+  state.emptyDomains = true;
+  state.requests.length = 0;
+  state.clonePhase = "done";
+  const props = { open: true, onOpenChange: () => {} };
+  await using screen = await render(<NewDomainDialog {...props} />);
+  await screen.getByLabelText("Website", { exact: true }).fill("first.example");
+  await screen.getByRole("combobox", { name: "Site files", exact: true }).click();
+  await page.getByRole("option", { name: "Clone from a Git URL" }).click();
+  await screen.getByRole("textbox", { name: "Git URL" }).fill("/fixture/bare.git");
+  await screen.getByRole("button", { name: "Clone site files", exact: true }).click();
+  await expect.element(screen.getByText(/^Copied to/)).toBeVisible();
+  await screen.getByRole("button", { name: "Cancel", exact: true }).click();
+  await screen.getByLabelText("Website", { exact: true }).fill("first.example");
+  await screen.getByText("Reuse previously copied site files").click();
+  await screen.getByRole("button", { name: "Use this copy", exact: true }).click();
+  await screen.getByRole("button", { name: "Create domain", exact: true }).click();
+  await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+  await screen.rerender(<NewDomainDialog {...props} open={false} />);
+  await screen.rerender(<NewDomainDialog {...props} />);
+  await expect
+    .element(screen.getByText("Reuse previously copied site files"))
+    .not.toBeInTheDocument();
+  await screen.getByLabelText("Website", { exact: true }).fill("second.example");
+  await screen.getByRole("button", { name: "Create domain", exact: true }).click();
+  await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+  const saves = state.requests.filter((r) => r.label === "domains:save");
+  expect(saves.map((r) => r.website)).toEqual(["first.example", "second.example"]);
+  expect(saves[0]?.projectId).not.toBe(saves[1]?.projectId);
+  state.emptyDomains = false;
+});
+
+it("ignores a folder inspection that completes after a newer choice", async () => {
+  state.emptyDomains = true;
+  state.requests.length = 0;
+  let resolveFirst!: (value: {
+    _tag: "Success";
+    value: { git: boolean; framework: string };
+  }) => void;
+  const firstPromise = new Promise<{ _tag: "Success"; value: { git: boolean; framework: string } }>(
+    (resolve) => {
+      resolveFirst = resolve;
+    },
+  );
+  state.inspectPath = (path) =>
+    path === "/fixture/first"
+      ? firstPromise
+      : Promise.resolve({ _tag: "Success", value: { git: true, framework: "Astro" } });
+  try {
+    await using screen = await render(<NewDomainDialog open onOpenChange={() => {}} />);
+    await screen.getByLabelText("Website", { exact: true }).fill("site.example");
+    await screen.getByRole("combobox", { name: "Site files", exact: true }).click();
+    await page.getByRole("option", { name: "Use a folder on this computer" }).click();
+    const path = screen.getByRole("textbox", { name: "Folder path" });
+    await path.fill("/fixture/first");
+    await userEvent.tab();
+    await path.fill("/fixture/second");
+    await userEvent.tab();
+    await expect.element(screen.getByText(/Detected Astro/)).toBeVisible();
+    resolveFirst({ _tag: "Success", value: { git: true, framework: "Next.js" } });
+    await screen.getByRole("button", { name: "Create domain", exact: true }).click();
+    await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+    expect(state.requests.filter((r) => r.workspaceRoot).map((r) => r.workspaceRoot)).toEqual([
+      "/fixture/second",
+    ]);
+  } finally {
+    state.inspectPath = null;
+    state.emptyDomains = false;
+  }
+});
