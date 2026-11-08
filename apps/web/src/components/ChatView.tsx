@@ -1,3 +1,4 @@
+import { Button } from "./ui/button";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { ChildThreadApprovals } from "./chat/ChildThreadApprovals";
 import { workspaceAreaProps } from "../lib/workspaceFocus";
@@ -3311,7 +3312,7 @@ export default function ChatView(props: ChatViewProps) {
   const threadPanelHeaderControl = developerMode ? (
     <ThreadPanelHeaderControl {...panelToggleControlProps} />
   ) : null;
-  const panelLayoutControls = (
+  const panelLayoutControls = developerMode ? (
     <WorkspaceTitlebarControls
       showMaximizeControl={!shouldUsePlanSidebarSheet}
       rightPanelOpen={rightPanelOpen}
@@ -3321,7 +3322,7 @@ export default function ChatView(props: ChatViewProps) {
     >
       {panelToggleControls}
     </WorkspaceTitlebarControls>
-  );
+  ) : null;
   const workspaceFileDropHandlers = makeWorkspaceFileDropHandlers({
     setDragActive: setIsWorkspaceFileDragActive,
     addFiles: addDroppedFilesToComposer,
@@ -3998,7 +3999,7 @@ export default function ChatView(props: ChatViewProps) {
         )}
       </div>
 
-      {developerMode && rightPanelPresent && activeThreadRef && !embedded ? (
+      {rightPanelPresent && activeThreadRef && !embedded ? (
         <ChatRightPanel
           sheet={shouldUsePlanSidebarSheet}
           workspaceLayoutElement={workspaceLayoutElement}
@@ -4009,6 +4010,18 @@ export default function ChatView(props: ChatViewProps) {
           keybindings={keybindings}
           getShortcutContext={getShortcutContextStable}
           maximized={rightPanelMaximized}
+          inlineLayoutControls={
+            !developerMode ? (
+              <Button
+                variant="outline"
+                size="xs"
+                aria-label="Close review"
+                onClick={closePreviewPanelStable}
+              >
+                Close
+              </Button>
+            ) : undefined
+          }
           layoutControls={
             rightPanelOpen ? (
               <div className="mr-px flex items-center gap-1">
@@ -4017,6 +4030,16 @@ export default function ChatView(props: ChatViewProps) {
                   onToggle={toggleRightPanelMaximizedStable}
                 />
                 {panelToggleControls}
+                {!developerMode && (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    aria-label="Close review"
+                    onClick={closePreviewPanelStable}
+                  >
+                    Close
+                  </Button>
+                )}
               </div>
             ) : null
           }

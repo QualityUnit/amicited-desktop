@@ -54,6 +54,7 @@ export interface ThreadPendingApproval {
   readonly requestKind: ProviderRequestKind;
   readonly createdAt: string;
   readonly detail?: string;
+  readonly files?: ReadonlyArray<string>;
   readonly reason?: string;
   readonly fullAccessOverride?: ProviderApprovalFullAccessOverride;
   readonly appName?: string;
@@ -261,9 +262,29 @@ export function derivePendingThreadRequests(
     const item = projection.turnItems.findLast(
       (candidate) => candidate.type === "approval_request" && candidate.requestId === request.id,
     );
+    const relatedFile =
+      request.kind === "file-change"
+        ? projection.turnItems.findLast(
+            (candidate) =>
+              candidate.type === "file_change" &&
+              (candidate.nodeId === request.nodeId ||
+                (item &&
+                  candidate.runId === item.runId &&
+                  candidate.providerTurnId === item.providerTurnId)),
+          )
+        : undefined;
     approvals.push({
       requestId: request.id,
       requestKind: request.kind,
+      ...(relatedFile?.type === "file_change"
+        ? {
+            files: [
+              ...new Set(
+                relatedFile.changes?.map((change) => change.path) ?? [relatedFile.fileName],
+              ),
+            ],
+          }
+        : {}),
       createdAt: DateTime.formatIso(request.createdAt),
       ...(item?.type === "approval_request" && item.prompt ? { detail: item.prompt } : {}),
       ...(item?.type === "approval_request" && item.reason ? { reason: item.reason } : {}),

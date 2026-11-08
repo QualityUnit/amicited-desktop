@@ -5,7 +5,9 @@ it.each([
   [["next.config.ts"], undefined, "Next.js"],
   [["astro.config.mjs"], undefined, "Astro"],
   [["hugo.toml"], undefined, "Hugo"],
-  [["config.yaml"], undefined, "Hugo"],
+  [["config.yaml"], undefined, null],
+  [["config.yaml", "content"], undefined, "Hugo"],
+  [["config.toml", "archetypes"], undefined, "Hugo"],
   [["_config.yml"], undefined, "Jekyll"],
   [["docusaurus.config.js"], undefined, "Docusaurus"],
   [[".eleventy.js"], undefined, "Eleventy"],
@@ -28,4 +30,9 @@ it("requires approval for connected sites and preserves developer settings", () 
     "Next.js",
   );
   expect(domainInstruction({ cms: "git", siteFiles: "/site" })).toContain("only after approval");
+});
+
+it("does not invent an admin or CMS for an unknown site", () => {
+  expect(domainInstruction({ cms: "unknown" })).not.toContain("uses Not sure");
+  expect(domainInstruction({ cms: "unknown" })).not.toContain("its admin");
 });

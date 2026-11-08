@@ -1,5 +1,5 @@
 import { resultTitle } from "./experience.js";
-import { PanelLeftClose, PanelLeftOpen, Wrench, PlugZap, Settings, History } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Wrench, PlugZap, Settings } from "lucide-react";
 import { useState, useContext, type ReactNode, type ComponentProps } from "react";
 import { AmICitedMark } from "./brand.js";
 import { MarketingUiContext, MarketingTooltip, MarketingButton } from "./primitives.js";
@@ -34,13 +34,6 @@ export function MarketingShell({
     () => localStorage.getItem("amicited.rail-collapsed") === "true",
   );
   const collapsed = sidebar?.collapsed ?? localCollapsed;
-  const expand = () => {
-    if (sidebar) sidebar.expand();
-    else {
-      setCollapsed(false);
-      localStorage.setItem("amicited.rail-collapsed", "false");
-    }
-  };
   if (mode === "developer") return children;
   return (
     <div
@@ -53,15 +46,7 @@ export function MarketingShell({
           {brandHeader ?? <AmICitedMark />}
         </div>
         <nav aria-label="Chat history" className="am-chat-history">
-          {collapsed ? (
-            <MarketingTooltip label="Chat history">
-              <MarketingButton aria-label="Chat history" onClick={expand}>
-                <History size={16} />
-              </MarketingButton>
-            </MarketingTooltip>
-          ) : (
-            history
-          )}
+          {history}
         </nav>
         {footer ?? (
           <nav aria-label="Workspace">

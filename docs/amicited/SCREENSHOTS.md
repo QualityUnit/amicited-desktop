@@ -155,3 +155,9 @@ captures. Site-edit evidence uses the free Replay showcase approval; the capture
 harness applies the proposed fixture-file change after approval so the normal
 checkpoint service and diff UI observe a real disk change. This is controlled
 fixture evidence, not an actual model editing a production site.
+
+Wave 39 uses `.amicited-shots/r37/`. The site-files journey clicks Review,
+expands the changed file in the upstream diff, and closes the panel, capturing
+both themes. Abandoned local clone copies are offered for reuse; fixtures never
+use production repositories. Runtime, UI and cloud-account limitations must be
+reported separately from the captures.

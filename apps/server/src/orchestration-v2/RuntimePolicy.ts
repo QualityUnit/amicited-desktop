@@ -1,3 +1,4 @@
+import { siteRuntimeMode } from "../amicited/siteRuntimePolicy.ts";
 import {
   isRuntimeModeAbove,
   managedRuntimeModeCeilingMessage,
@@ -185,7 +186,10 @@ export const layerFromProjectStore: Layer.Layer<
             ),
           ));
         return ProviderAdapter.ProviderAdapterV2RuntimePolicy.make({
-          runtimeMode: providerRuntimeMode(input.thread.runtimeMode, supportedRuntimeModes),
+          runtimeMode: providerRuntimeMode(
+            yield* siteRuntimeMode(input.thread.projectId, input.thread.runtimeMode),
+            supportedRuntimeModes,
+          ),
           interactionMode: input.thread.interactionMode,
           cwd,
           ...(maxRuntimeMode === undefined ? {} : { maxRuntimeMode }),

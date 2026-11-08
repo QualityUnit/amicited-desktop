@@ -79,7 +79,12 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
         className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-(--control-radius) px-(--sidebar-row-content-inset) text-left outline-none hover:bg-sidebar-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <ProjectFavicon project={group} className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-sidebar-foreground/90">
+        <span
+          className={cn(
+            "flex-1 text-sm font-medium text-sidebar-foreground/90",
+            status ? "shrink-0" : "min-w-0 truncate",
+          )}
+        >
           {group.displayName}
         </span>
         {props.status}

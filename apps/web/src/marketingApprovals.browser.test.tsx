@@ -83,7 +83,9 @@ it("matches streamed approvals independent of key order and replaces the waiting
     .element(screen.getByRole("complementary", { name: "AmICited approval" }))
     .toBeVisible();
   await expect.element(screen.getByText("Running site health")).not.toBeInTheDocument();
-  await screen.getByRole("button", { name: "Allow free checks in this chat", exact: true }).click();
+  await screen
+    .getByRole("button", { name: "Allow these checks in this chat", exact: true })
+    .click();
   await expect
     .element(screen.getByRole("complementary", { name: "AmICited approval" }))
     .not.toBeInTheDocument();

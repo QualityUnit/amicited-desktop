@@ -7,7 +7,7 @@ import {
 import { ShieldIcon } from "lucide-react";
 import { memo, use } from "react";
 import { type PendingApproval } from "../../session-logic";
-import { InlineButton } from "../ui/button";
+import { Button, InlineButton } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { ComposerPendingApprovalActions } from "./ComposerPendingApprovalActions";
 import { ToolActivityIconView, type WorkEntryIconName } from "./TimelineToolActivityIcon";
@@ -38,12 +38,20 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
 }: {
   approval: PendingApproval;
 }) {
-  const { respondingRequestIds, canOperateThread, onRespondToApproval, threadRef } =
+  const { respondingRequestIds, canOperateThread, onRespondToApproval, threadRef, workspaceRoot } =
     use(TimelineRowCtx);
   const marketer = useWorkspaceMode() === "marketer";
+  const siteEdit = marketer && approval.requestKind === "file-change";
+  const files = approval.files?.map((path) =>
+    workspaceRoot && path.startsWith(`${workspaceRoot}/`)
+      ? path.slice(workspaceRoot.length + 1)
+      : path,
+  );
   const siteAction = marketer
     ? approval.requestKind === "file-change"
-      ? "Edit your site files"
+      ? files?.length
+        ? `Edit ${files.length} ${files.length === 1 ? "file" : "files"} in your site: ${files.slice(0, 2).join(", ")}${files.length > 2 ? ` and ${files.length - 2} more` : ""}`
+        : "Edit files in your site"
       : approval.requestKind === "command"
         ? "Run a command in your site folder"
         : null
@@ -79,14 +87,24 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
       label={
         <>
           {siteAction && <span className="text-sm">{siteAction}</span>}
-          <code
-            aria-label={presentation.detailLabel}
-            className="block max-h-40 min-w-0 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-foreground select-text! wrap-anywhere [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
-            data-approval-detail="complete"
-            tabIndex={0}
-          >
-            {approval.detail || presentation.label}
-          </code>
+          {siteEdit && (
+            <details>
+              <summary className="cursor-pointer text-xs text-muted-foreground">More</summary>
+              <pre className="whitespace-pre-wrap text-xs">
+                {approval.detail || presentation.label}
+              </pre>
+            </details>
+          )}
+          {!siteEdit && (
+            <code
+              aria-label={presentation.detailLabel}
+              className="block max-h-40 min-w-0 overflow-auto whitespace-pre-wrap font-mono text-xs leading-5 text-foreground select-text! wrap-anywhere [scrollbar-width:thin] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/70"
+              data-approval-detail="complete"
+              tabIndex={0}
+            >
+              {approval.detail || presentation.label}
+            </code>
+          )}
         </>
       }
     >
@@ -109,15 +127,44 @@ export const TimelinePendingApprovalRow = memo(function TimelinePendingApprovalR
                   <span aria-hidden className="text-muted-foreground">
                     ·
                   </span>
-                  <ComposerPendingApprovalActions
-                    presentation="inline"
-                    requestId={approval.requestId}
-                    disabled={!canOperateThread}
-                    isResponding={respondingRequestIds.includes(approval.requestId)}
-                    canRespond={canRespond}
-                    options={approval.options}
-                    onRespondToApproval={onRespondToApproval}
-                  />
+                  {siteEdit ? (
+                    <>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={
+                          !canOperateThread || respondingRequestIds.includes(approval.requestId)
+                        }
+                        onClick={() => {
+                          void onRespondToApproval(approval.requestId, "decline");
+                        }}
+                      >
+                        Decline
+                      </Button>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        disabled={
+                          !canOperateThread || respondingRequestIds.includes(approval.requestId)
+                        }
+                        onClick={() => {
+                          void onRespondToApproval(approval.requestId, "accept");
+                        }}
+                      >
+                        Allow once
+                      </Button>
+                    </>
+                  ) : (
+                    <ComposerPendingApprovalActions
+                      presentation="inline"
+                      requestId={approval.requestId}
+                      disabled={!canOperateThread}
+                      isResponding={respondingRequestIds.includes(approval.requestId)}
+                      canRespond={canRespond}
+                      options={approval.options}
+                      onRespondToApproval={onRespondToApproval}
+                    />
+                  )}
                 </>
               ) : null}
             </>

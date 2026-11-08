@@ -622,3 +622,14 @@ it("loads only child approvals and retains their destination across environments
   unmount();
   registry.dispose();
 });
+
+it("shows the file list belonging to an edit approval", () => {
+  const base = projection.turnItems[0]!;
+  if (base.type !== "user_input_request") throw new Error("Expected question fixture");
+  const request = { ...projection.runtimeRequests[0]!, kind: "file-change" as const };
+  const result = derivePendingThreadRequests({
+    runtimeRequests: [request],
+    turnItems: [{ ...base, type: "file_change", fileName: "src/math.ts", nodeId: request.nodeId }],
+  });
+  expect(result.approvals[0]?.files).toEqual(["src/math.ts"]);
+});

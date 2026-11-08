@@ -386,6 +386,7 @@ try {
       ["dark", 1344, 1016],
       ["light", 1440, 900],
     ] as const) {
+      console.log(`Capturing ${name} ${theme} ${width}`);
       await page.setViewportSize({ width, height });
       await page.evaluate(
         (theme) => document.documentElement.classList.toggle("dark", theme === "dark"),
@@ -566,9 +567,16 @@ try {
     );
     await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).waitFor();
     await capture("38-changed-files-review");
+    await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).click();
+    await page.getByRole("button", { name: "Close review", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Expand src/math.ts", exact: true }).click();
+    await page.getByRole("button", { name: "Collapse src/math.ts", exact: true }).waitFor();
+    await capture("39-review-diff-open");
+    await page.getByRole("button", { name: "Close review", exact: true }).click();
+    await capture("39-review-diff-closed");
 
     await page.goto(url + "/settings/general");
-    await page.getByText(`Folder: ${site}`, { exact: false }).first().waitFor();
+    await page.getByText("Folder:", { exact: false }).first().waitFor();
     await capture("38-settings-domains");
     await page.goto(url + "/");
     await page.getByRole("button", { name: "New domain", exact: true }).first().click();
@@ -580,7 +588,7 @@ try {
     await page.getByRole("textbox", { name: "Git URL", exact: true }).fill(bare);
     await capture("38-clone-flow");
     await page.getByRole("button", { name: "Clone site files", exact: true }).click();
-    await page.getByText("Site files copied.", { exact: true }).waitFor();
+    await page.getByText(/^Copied to .*Detected Next.js/).waitFor();
     await capture("38-clone-done");
     await page.getByRole("button", { name: "Create domain", exact: true }).click();
     await page
@@ -764,7 +772,7 @@ try {
 
       await capture("03g-cloud-approval-live");
       await page
-        .getByRole("button", { name: "Allow free checks in this chat", exact: true })
+        .getByRole("button", { name: "Allow these checks in this chat", exact: true })
         .click();
       await page.getByText(/View prompts on example.com/).waitFor();
       await page.getByRole("button", { name: "Allow", exact: true }).click();

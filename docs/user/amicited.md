@@ -33,7 +33,8 @@ the site. Folders without Git history are allowed.
 
 Connected site chats run in that folder and ask for your OK before edits. Changed
 files · Review opens the diff after a turn. Publishing is your choice; the app
-does not commit or push automatically. With no connected files, the assistant
+does not commit or push automatically. Close returns to the chat. If you close
+New domain after copying a repository, reopen it to reuse that copy. With no connected files, the assistant
 gives CMS instructions rather than claiming to edit the website.
 
 To change a domain's folder, choose Create a new domain from this folder in its

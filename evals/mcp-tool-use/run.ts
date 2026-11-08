@@ -291,7 +291,7 @@ export const McpToolUseCase = Schema.Struct({
     /** delegate_task `role` for a delegated child. T3 builds the child's first message from it. */
     delegateRole: Schema.optional(OrchestratorMcpTaskRole),
     context: Schema.optional(Schema.String),
-    siteContext: Schema.optional(Schema.Literals(["wordpress", "next"])),
+    siteContext: Schema.optional(Schema.Literals(["wordpress", "next", "unknown"])),
     priorTurns: Schema.optional(
       Schema.Array(
         Schema.Struct({
@@ -1019,7 +1019,7 @@ export const buildMessages = (sample: Sample) => {
     ? domainInstruction(
         cmsContext === "next"
           ? { cms: "git", siteFiles: "/home/user/site", framework: "Next.js" }
-          : { cms: "wordpress" },
+          : { cms: cmsContext === "unknown" ? "unknown" : "wordpress" },
       )
     : "";
   const userText =

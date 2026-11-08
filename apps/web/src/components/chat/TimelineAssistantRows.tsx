@@ -369,9 +369,13 @@ function AssistantChangedFilesSectionInner({
 
   if (marketer)
     return (
-      <Button variant="ghost" size="sm" onClick={() => onOpenTurnDiff(turnSummary.runId)}>
+      <button
+        type="button"
+        className="cursor-pointer text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        onClick={() => onOpenTurnDiff(turnSummary.runId)}
+      >
         Changed {checkpointFiles.length} {checkpointFiles.length === 1 ? "file" : "files"} · Review
-      </Button>
+      </button>
     );
 
   return (

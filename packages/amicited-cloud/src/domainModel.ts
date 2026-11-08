@@ -16,7 +16,7 @@ export function normalizeDomain(website: string, brand = "") {
     hostname.split(".").some((label) => !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label))
   )
     throw new Error("Enter a website like example.com.");
-  return { hostname, brand: brand.trim() || hostname.split(".")[0]!.replace(/-/g, " ") };
+  return { hostname, brand: brand.trim() };
 }
 
 export function threadsForDomain<T extends { projectId: string; environmentId: string }>(
@@ -57,11 +57,15 @@ export const cmsOptions = [
   ["ghost", "Ghost"],
   ["headless", "Headless CMS (Contentful, Sanity, Strapi…)"],
   ["git", "Git-based site (Next.js, Astro, Hugo, Jekyll, Gatsby, Eleventy, Docusaurus…)"],
-  ["unknown", "Other / not sure"],
+  ["unknown", "Not sure"],
 ] as const;
 export type Cms = (typeof cmsOptions)[number][0];
 export function cmsLabel(cms: Cms = "unknown") {
-  return cmsOptions.find(([value]) => value === cms)?.[1] ?? "Not sure";
+  return cms === "git"
+    ? "Git-based site"
+    : cms === "headless"
+      ? "Headless CMS"
+      : (cmsOptions.find(([value]) => value === cms)?.[1] ?? "Not sure");
 }
 export function detectFramework(files: readonly string[], packageJson?: string): string | null {
   let dependencies: Record<string, unknown> = {};
@@ -77,13 +81,17 @@ export function detectFramework(files: readonly string[], packageJson?: string):
     ["Docusaurus", "@docusaurus/core", /^docusaurus\.config\./],
     ["Gatsby", "gatsby", /^gatsby-config\./],
     ["Eleventy", "@11ty/eleventy", /^(?:\.eleventy\.(?:js|cjs)|eleventy\.config\.)/],
-    ["Hugo", "", /^(?:hugo\.(?:toml|yaml|yml|json)|config\.(?:toml|yaml|yml))$/],
+    ["Hugo", "", /^hugo\.(?:toml|yaml|yml|json)$/],
     ["Jekyll", "", /^_config\.ya?ml$/],
   ] as const;
   return (
     frameworks.find(
-      ([, dependency, pattern]) =>
-        (dependency && dependency in dependencies) || files.some((file) => pattern.test(file)),
+      ([name, dependency, pattern]) =>
+        (dependency && dependency in dependencies) ||
+        files.some((file) => pattern.test(file)) ||
+        (name === "Hugo" &&
+          files.some((file) => /^config\.(toml|ya?ml)$/.test(file)) &&
+          files.some((file) => /^(content|archetypes)\/?$/.test(file))),
     )?.[0] ?? null
   );
 }
@@ -93,6 +101,8 @@ export function domainInstruction(domain?: {
   framework?: string | null;
 }) {
   if (!domain) return "";
+  if (!domain.cms || domain.cms === "unknown")
+    return `The CMS is unknown; ask if it matters. ${domain.siteFiles ? "Site files are connected at the workspace root. Read and propose edits only after approval. Never commit or push unless explicitly asked." : "Site files are not connected; do not claim you can edit the site."}`;
   if (domain.siteFiles)
     return `This site uses ${domain.cms === "git" ? (domain.framework ?? "a Git-based site") : cmsLabel(domain.cms)}${domain.cms !== "git" && domain.framework ? ` (site files: ${domain.framework})` : ""}. Site files are connected at the workspace root. Read and propose edits only after approval. Never commit or push unless explicitly asked.`;
   return `This site uses ${cmsLabel(domain.cms)}. Site files are not connected. Give steps for its admin; do not claim you can edit the site.`;

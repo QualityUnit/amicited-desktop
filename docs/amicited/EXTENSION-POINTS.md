@@ -502,3 +502,17 @@ Existing chats, checkpoints, credentials and files stay with the original projec
 
 `apps/web/src/marketingDomainStore.ts` and `@amicited/ui-marketing/mode` provide
 dependency-light readers so project creation does not import the domain UI recursively.
+
+Wave 39 site-file corrections:
+
+- `apps/server/src/orchestration-v2/Orchestrator.ts`: resolves the domain's supervised mode on thread creation and message/queued-run dispatch, independent of client.
+- `apps/server/src/orchestration-v2/RuntimePolicy.ts`: applies the same domain policy when resolving provider execution, including recovery.
+- `packages/client-runtime/src/state/threadRequests.ts`: carries the related file-change paths into pending approvals.
+- `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: prioritizes the hostname when a custom domain status is supplied.
+- `apps/web/src/components/ChatView.tsx`: renders upstream diff panels in marketer mode with an explicit Close control.
+- `apps/web/src/components/chat/TimelinePendingApprovalRow.tsx`: presents relative file names and compact outline approval actions, with raw details under More.
+- `apps/web/src/components/chat/TimelineAssistantRows.tsx`: uses an aligned, underlined Review action.
+
+- `apps/web/src/components/chat/ChatRightPanel.tsx`: accepts optional inline layout controls for the marketer diff close action.
+
+- `apps/web/src/components/DiffWorkerPoolProvider.tsx`: initializes both diff themes so a theme switch cannot render before its theme reaches the workers.

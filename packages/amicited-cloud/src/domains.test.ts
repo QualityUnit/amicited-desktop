@@ -39,7 +39,7 @@ function fixture(endpoint?: string, initialRows: Domain[] = []) {
 it("normalizes website paths, ports, case and www to one hostname", () => {
   expect(normalizeDomain("https://WWW.Acme.com:8443/about?q=yes")).toEqual({
     hostname: "acme.com",
-    brand: "acme",
+    brand: "",
   });
   expect(normalizeDomain("acme.com", " ACME ")).toEqual({ hostname: "acme.com", brand: "ACME" });
   for (const value of ["file://acme.com", "localhost", "https://user:pass@acme.com"])

@@ -4,7 +4,7 @@ import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 import * as Schema from "effect/Schema";
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { getRenderedAppearance, subscribeRenderedAppearance } from "../hooks/useTheme";
-import { resolveDiffThemeName } from "../lib/diffRendering";
+import { DIFF_THEME_NAMES, resolveDiffThemeName } from "../lib/diffRendering";
 import { PREFERRED_HIGHLIGHTER } from "../lib/syntaxHighlighting";
 
 export class DiffWorkerError extends Schema.TaggedError<DiffWorkerError>()("DiffWorkerError", {
@@ -64,7 +64,8 @@ function createDiffWorkerPool(poolSize: number) {
       totalASTLRUCacheSize: 240,
     },
     {
-      theme: themeName,
+      // CodeView can enqueue fallback-theme renders before its per-file options arrive.
+      theme: { light: "pierre-light", dark: "pierre-dark" },
       preferredHighlighter: PREFERRED_HIGHLIGHTER,
       tokenizeMaxLineLength: 1_000,
       useTokenTransformer: true,
@@ -91,7 +92,7 @@ function DiffWorkerReady({ children }: { children?: ReactNode }) {
   const workerPool = useWorkerPool();
   const [readyPool, setReadyPool] = useState<WorkerPoolManager>();
   const ready = workerPool
-    ? readyPool === workerPool || workerPool.isInitialized() || !workerPool.isWorkingPool()
+    ? readyPool === workerPool || !workerPool.isWorkingPool()
     : typeof window === "undefined";
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- initializes the diff worker pool and marks it ready when its async startup settles
@@ -102,7 +103,16 @@ function DiffWorkerReady({ children }: { children?: ReactNode }) {
     const finish = () => {
       if (mounted) setReadyPool(workerPool);
     };
-    void workerPool.initialize().then(finish, finish);
+    void workerPool
+      .initialize()
+      .then(async () => {
+        await workerPool.setRenderOptions({
+          ...workerPool.getDiffRenderOptions(),
+          theme: DIFF_THEME_NAMES,
+        });
+        finish();
+      })
+      .catch(finish);
     return () => {
       mounted = false;
     };

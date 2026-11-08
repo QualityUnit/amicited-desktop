@@ -163,7 +163,7 @@ function CloudApproval({
                     [
                       "acceptForSession",
                       request.free
-                        ? "Allow free checks in this chat"
+                        ? "Allow these checks in this chat"
                         : "Allow AmICited lookups in this chat",
                     ],
                   ] as const)

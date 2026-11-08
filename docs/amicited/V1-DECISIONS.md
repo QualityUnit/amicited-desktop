@@ -29,3 +29,8 @@ Domains record a CMS and optional connected site folder. Existing domains defaul
 to Not sure and retain their managed folders. Connected marketer sites use T3's
 approval-required runtime mode; commit and push are never automatic. Replacing
 site files creates another domain so existing chats keep their working directory.
+
+Connected domain folders require server-enforced supervised execution on every
+client and transport. Developer mode cannot bypass this domain policy. A copied
+repository abandoned in the New domain dialog is retained with an explicit reuse
+offer in that dialog; changing source or hostname clears its pending identity.

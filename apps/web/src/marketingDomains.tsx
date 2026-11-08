@@ -1,3 +1,6 @@
+import { isDesktopLocalConnectionTarget, desktopLocalBackendId } from "./connection/desktopLocal";
+import { useEnvironment } from "./state/environments";
+/* oxlint-disable t3code/no-native-title-tooltip -- The implementation brief explicitly requests title tooltips for full folder paths and compact CMS icons. */
 import { newProjectId } from "./lib/utils";
 import { cmsOptions, cmsLabel, type Cms } from "@amicited/cloud-client/domainModel";
 import {
@@ -35,7 +38,7 @@ import { createLocalApi } from "./localApi";
 import { projectEnvironment } from "./state/projects";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, FolderIcon, CodeIcon, GlobeIcon } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import {
@@ -93,6 +96,10 @@ export function useDomains(destination?: EnvironmentId | null) {
   }, [environmentId]);
   return { rows, environmentId, refresh };
 }
+function displayFolder(path: string) {
+  const homePath = path.replace(/^(?:\/Users\/[^/]+|\/home\/[^/]+)(?=\/|$)/, "~");
+  return homePath.length > 64 ? `${homePath.slice(0, 24)}…${homePath.slice(-36)}` : homePath;
+}
 export function NewDomainDialog({
   open,
   onOpenChange,
@@ -105,6 +112,11 @@ export function NewDomainDialog({
   onOpenChange(value: boolean): void;
 }) {
   const { environmentId, refresh } = useDomains(destination);
+  const environment = useEnvironment(environmentId);
+  const desktopFolderPicker =
+    !!window.desktopBridge &&
+    !!environment &&
+    isDesktopLocalConnectionTarget(environment.entry.target);
   const create = useAtomCommand(projectEnvironment.createNew);
   const addFolder = useOrchestrationCommand(projectEnvironment.create);
   const startClone = useAtomCommand(sourceControlEnvironment.startProjectClone);
@@ -120,12 +132,66 @@ export function NewDomainDialog({
   const [fileChoice, setFileChoice] = useState("skip");
   const [gitUrl, setGitUrl] = useState("");
   const [cloneId, setCloneId] = useState<ProjectId | null>(null);
-  const clone = useProjectClone(
+  const [website, setWebsite] = useState(editing?.hostname ?? "");
+  const [brand, setBrand] = useState(editing?.brand ?? "");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const pendingProject = useRef<{
+    environmentId: EnvironmentId;
+    cloneId?: ProjectId;
+    projectId: ProjectId;
+  } | null>(null);
+  const liveClone = useProjectClone(
     environmentId && cloneId ? scopeProjectRef(environmentId, cloneId) : null,
   );
+  const [completedClone, setCompletedClone] = useState<typeof liveClone>(null);
+  const clone = liveClone ?? completedClone;
+  const [savedCopies, setSavedCopies] = useState<Array<{ id: ProjectId; path: string }>>([]);
+  const sourceVersion = useRef(0);
+  const invalidateSource = () => {
+    sourceVersion.current++;
+    if (cloneId && siteFiles)
+      setSavedCopies((rows) =>
+        rows.some((r) => r.id === cloneId) ? rows : [...rows, { id: cloneId, path: siteFiles }],
+      );
+    setCloneId(null);
+    setCompletedClone(null);
+    pendingProject.current = null;
+    setSiteFiles("");
+    setValidatedPath("");
+    setFramework(null);
+    setFolderNote("");
+    setError("");
+  };
+  const resetDraft = () => {
+    sourceVersion.current++;
+    setWebsite(editing?.hostname ?? "");
+    setBrand(editing?.brand ?? "");
+    setCms(editing?.cms ?? "unknown");
+    setSiteFiles(editing?.siteFiles ?? "");
+    setFramework(editing?.framework ?? null);
+    setValidatedPath("");
+    setFolderNote("");
+    setFileChoice("skip");
+    setGitUrl("");
+    setCloneId(null);
+    setCompletedClone(null);
+    pendingProject.current = null;
+    setError("");
+  };
+  const closeDialog = (value: boolean) => {
+    if (busy) return;
+    if (!value) {
+      invalidateSource();
+      resetDraft();
+    }
+    onOpenChange(value);
+  };
   const chooseFolder = async (path: string) => {
     if (!environmentId || !path) return;
+    const version = sourceVersion.current;
     const result = await inspectFolder({ environmentId, input: { path } });
+    if (version !== sourceVersion.current) return;
     if (result._tag !== "Success") {
       setError("Could not read this folder. Check the path and try again.");
       return;
@@ -139,21 +205,23 @@ export function NewDomainDialog({
     );
     setError("");
   };
+  const retainCompletion = useEffectEvent(async () => {
+    if (liveClone?.phase !== "done") return;
+    const version = sourceVersion.current;
+    await chooseFolder(siteFiles);
+    if (version === sourceVersion.current) setCompletedClone(liveClone);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Persist completion of the external clone tracker before its snapshot expires.
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Retaining an external completion snapshot is required after the tracker expires it.
+    if (liveClone?.phase === "done") void retainCompletion();
+  }, [liveClone?.phase]);
   const register = useAtomCommand(save);
   const canCreate = useAtomValue(projectEnvironment.createNew.permissionAtom(environmentId));
   const canSave = useAtomValue(save.permissionAtom(environmentId));
   const newThread = useNewThreadHandler();
-  const [website, setWebsite] = useState(editing?.hostname ?? "");
-  const [brand, setBrand] = useState(editing?.brand ?? "");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const pendingProject = useRef<{
-    environmentId: EnvironmentId;
-    hostname: string;
-    projectId: ProjectId;
-  } | null>(null);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={closeDialog}>
       <DialogPopup>
         <DialogHeader>
           <DialogTitle>{editing ? "Edit domain" : "New domain"}</DialogTitle>
@@ -186,7 +254,7 @@ export function NewDomainDialog({
                 let projectId = editing
                   ? ProjectId.make(editing.projectId)
                   : pendingProject.current?.environmentId === environmentId &&
-                      pendingProject.current.hostname === domain.hostname
+                      pendingProject.current.cloneId === (cloneId ?? undefined)
                     ? pendingProject.current.projectId
                     : undefined;
                 if (!projectId) {
@@ -208,7 +276,7 @@ export function NewDomainDialog({
                   projectId = siteFiles
                     ? candidateId
                     : (created.value as { projectId: ProjectId }).projectId;
-                  pendingProject.current = { environmentId, hostname: domain.hostname, projectId };
+                  pendingProject.current = { environmentId, projectId };
                 }
                 const result = await register({
                   environmentId,
@@ -230,8 +298,8 @@ export function NewDomainDialog({
                 pendingProject.current = null;
                 await refresh();
                 onOpenChange(false);
-                setWebsite("");
-                setBrand("");
+                setSavedCopies((rows) => rows.filter((r) => r.id !== cloneId));
+                resetDraft();
                 if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
               })()
                 .catch((error) =>
@@ -246,9 +314,13 @@ export function NewDomainDialog({
               Website
               <Input
                 required
+                disabled={busy}
                 autoFocus
                 value={website}
-                onChange={(event) => setWebsite(event.target.value)}
+                onChange={(event) => {
+                  if (!editing) invalidateSource();
+                  setWebsite(event.target.value);
+                }}
                 placeholder="example.com"
               />
             </label>
@@ -259,13 +331,13 @@ export function NewDomainDialog({
             <label>
               CMS
               <Select
+                disabled={busy}
                 value={cms}
                 onValueChange={(value) => {
                   if (value) {
                     setCms(value);
                     if (!editing && !["git", "headless", "unknown"].includes(value)) {
-                      setSiteFiles("");
-                      setFramework(null);
+                      invalidateSource();
                       setFileChoice("skip");
                     }
                   }
@@ -296,13 +368,12 @@ export function NewDomainDialog({
                 <fieldset className="flex flex-col gap-2">
                   <legend>Site files</legend>
                   <Select
+                    disabled={busy}
                     value={fileChoice}
                     onValueChange={(value) => {
                       if (value) {
+                        invalidateSource();
                         setFileChoice(value);
-                        setSiteFiles("");
-                        setFramework(null);
-                        setFolderNote("");
                       }
                     }}
                   >
@@ -330,28 +401,40 @@ export function NewDomainDialog({
                         variant="outline"
                         onClick={() => {
                           void createLocalApi()
-                            .dialogs.pickFolder()
+                            .dialogs.pickFolder(
+                              environment && desktopFolderPicker
+                                ? {
+                                    targetEnvironmentId: desktopLocalBackendId(
+                                      environment.entry.target,
+                                    )!,
+                                  }
+                                : undefined,
+                            )
                             .then((path) => {
                               if (path) return chooseFolder(path);
                             })
                             .catch(() => setError("Could not open the folder picker."));
                         }}
                       >
-                        Choose folder
+                        {siteFiles
+                          ? `Change folder (${siteFiles.split(/[\\/]/).pop()})`
+                          : "Choose folder"}
                       </Button>
-                      <Input
-                        aria-label="Folder path"
-                        placeholder="/Users/you/Sites/acme"
-                        value={siteFiles}
-                        onChange={(event) => {
-                          setSiteFiles(event.target.value);
-                          setFramework(null);
-                          setFolderNote("");
-                        }}
-                        onBlur={() => {
-                          void chooseFolder(siteFiles);
-                        }}
-                      />
+                      {!desktopFolderPicker && (
+                        <Input
+                          aria-label="Folder path"
+                          placeholder="/Users/you/Sites/acme"
+                          value={siteFiles}
+                          onChange={(event) => {
+                            setSiteFiles(event.target.value);
+                            setFramework(null);
+                            setFolderNote("");
+                          }}
+                          onBlur={() => {
+                            void chooseFolder(siteFiles);
+                          }}
+                        />
+                      )}
                     </>
                   )}
                   {fileChoice === "clone" && (
@@ -391,7 +474,7 @@ export function NewDomainDialog({
                               projectId,
                               title: hostname,
                               remoteUrl: gitUrl.trim(),
-                              destinationPath: `${root}/site-${projectId}`,
+                              destinationPath: `${root}/${hostname}`,
                               createdAt: new Date().toISOString(),
                             },
                           })
@@ -406,7 +489,7 @@ export function NewDomainDialog({
                               setSiteFiles(result.value.cwd);
                               pendingProject.current = {
                                 environmentId,
-                                hostname,
+                                cloneId: projectId,
                                 projectId,
                               };
                             })
@@ -442,13 +525,19 @@ export function NewDomainDialog({
                           Try copying again
                         </Button>
                       )}
+                      {clone?.error && (
+                        <details>
+                          <summary>More</summary>
+                          <pre className="whitespace-pre-wrap text-xs">{clone.error}</pre>
+                        </details>
+                      )}
                       {clone && (
                         <p role="status">
                           {clone.phase === "running"
                             ? `Copying site files… ${clone.percent ?? 0}%`
                             : clone.phase === "done"
-                              ? "Site files copied."
-                              : `Could not copy site files: ${clone.error ?? "Copy cancelled. Try again from a new domain."}`}
+                              ? `Copied to ${displayFolder(siteFiles)}${framework ? ` · Detected ${framework}` : ""}`
+                              : "Could not copy the site. Check the Git URL and your access, then retry."}
                         </p>
                       )}
                     </>
@@ -460,15 +549,39 @@ export function NewDomainDialog({
                   )}
                   {siteFiles && (
                     <p className="text-sm text-muted-foreground">
-                      Edits need your OK. Review changes in this chat before publishing.
+                      Changes stay in this folder. Nothing is published or pushed for you.
                     </p>
                   )}
                 </fieldset>
               )
             )}
+            {savedCopies.length > 0 && (
+              <details>
+                <summary>Reuse previously copied site files</summary>
+                {savedCopies.map((copy) => (
+                  <div key={copy.id}>
+                    <span title={copy.path}>{displayFolder(copy.path)}</span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="xs"
+                      onClick={() => {
+                        invalidateSource();
+                        setFileChoice("folder");
+                        if (environmentId)
+                          pendingProject.current = { environmentId, projectId: copy.id };
+                        void chooseFolder(copy.path);
+                      }}
+                    >
+                      Use this copy
+                    </Button>
+                  </div>
+                ))}
+              </details>
+            )}
             {error && <p role="alert">{error}</p>}
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="ghost" onClick={() => closeDialog(false)}>
                 Cancel
               </Button>
               <Button
@@ -760,7 +873,23 @@ export function DomainsSettings() {
             <SettingsRow
               key={domain.projectId}
               title={domain.hostname}
-              description={`${domain.brand} · ${cmsLabel(domain.cms)} · ${domain.siteFiles ? `Folder: ${domain.siteFiles}` : "Site files: Not connected"}`}
+              description={
+                <span className="block min-w-0">
+                  <span>
+                    {[
+                      domain.brand,
+                      domain.framework ?? (domain.cms !== "unknown" ? cmsLabel(domain.cms) : ""),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                  <span className="block truncate" title={domain.siteFiles ?? undefined}>
+                    {domain.siteFiles
+                      ? `Folder: ${displayFolder(domain.siteFiles)}`
+                      : "Site files: Not connected"}
+                  </span>
+                </span>
+              }
               control={
                 environmentId ? (
                   <div className="flex items-center gap-2">
@@ -926,9 +1055,11 @@ function DomainProjectActions({
           editing={domain}
         />
       )}
-      {newFromFolder && (
-        <NewDomainDialog open onOpenChange={setNewFromFolder} destination={destination} />
-      )}
+      <NewDomainDialog
+        open={newFromFolder}
+        onOpenChange={setNewFromFolder}
+        destination={destination}
+      />
       <Dialog open={renaming} onOpenChange={setRenaming}>
         <DialogPopup>
           <DialogHeader>
@@ -1008,15 +1139,20 @@ export function DomainThreadGroup({
             aria-label={`${cmsLabel(domain.cms)}${domain.siteFiles ? ` · Folder: ${domain.siteFiles}` : ""}`}
           >
             <DomainStatusDot domain={domain} destination={destination} />
-            {domain.framework ??
-              (domain.cms === "git"
-                ? "Git"
-                : domain.cms === "headless"
-                  ? "Headless CMS"
-                  : domain.cms === "unknown" || !domain.cms
-                    ? "Not sure"
-                    : cmsLabel(domain.cms))}
-            {domain.siteFiles ? " · Folder" : ""}
+            {domain.cms && domain.cms !== "unknown" && (
+              <span title={domain.framework ?? cmsLabel(domain.cms)}>
+                {domain.cms === "git" ? (
+                  <CodeIcon className="size-3" />
+                ) : (
+                  <GlobeIcon className="size-3" />
+                )}
+              </span>
+            )}
+            {domain.siteFiles && (
+              <span title={`Folder: ${domain.siteFiles}`}>
+                <FolderIcon className="size-3" />
+              </span>
+            )}
           </span>
         }
       />
