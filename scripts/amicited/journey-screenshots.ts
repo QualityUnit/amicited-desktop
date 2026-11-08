@@ -545,36 +545,38 @@ try {
         );
     });
 
-    await page.reload();
-    await page.getByTestId("composer-editor").waitFor();
-    await waitForOperate();
-    await page.evaluate(() =>
-      (
-        window as unknown as {
-          t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
-        }
-      ).t3dev.replay("showcase"),
-    );
-    await page.getByRole("group", { name: "File change approval", exact: true }).waitFor();
-    await capture("38-site-edit-approval");
-    await page
-      .getByRole("group", { name: "File change approval", exact: true })
-      .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
-      .first()
-      .click();
-    await NodeFSP.writeFile(
-      NodePath.join(site, "src/math.ts"),
-      "export const clamp = (n: number) => Math.max(0, n);\n",
-    );
-    await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).waitFor();
-    await capture("38-changed-files-review");
-    await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).click();
-    await page.getByRole("button", { name: "Close review", exact: true }).waitFor();
-    await page.getByRole("button", { name: "Expand src/math.ts", exact: true }).click();
-    await page.getByRole("button", { name: "Collapse src/math.ts", exact: true }).waitFor();
-    await capture("39-review-diff-open");
-    await page.getByRole("button", { name: "Close review", exact: true }).click();
-    await capture("39-review-diff-closed");
+    if (process.env.AMICITED_CAPTURE_FULL_ACCESS !== "1") {
+      await page.reload();
+      await page.getByTestId("composer-editor").waitFor();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("showcase"),
+      );
+      await page.getByRole("group", { name: "File change approval", exact: true }).waitFor();
+      await capture("38-site-edit-approval");
+      await page
+        .getByRole("group", { name: "File change approval", exact: true })
+        .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
+        .first()
+        .click();
+      await NodeFSP.writeFile(
+        NodePath.join(site, "src/math.ts"),
+        "export const clamp = (n: number) => Math.max(0, n);\n",
+      );
+      await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).waitFor();
+      await capture("38-changed-files-review");
+      await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).click();
+      await page.getByRole("button", { name: "Close review", exact: true }).waitFor();
+      await page.getByRole("button", { name: "Expand src/math.ts", exact: true }).click();
+      await page.getByRole("button", { name: "Collapse src/math.ts", exact: true }).waitFor();
+      await capture("39-review-diff-open");
+      await page.getByRole("button", { name: "Close review", exact: true }).click();
+      await capture("39-review-diff-closed");
+    }
     const siteThreadRoute = page.url();
     if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
       await page.goto(url + "/marketing-settings");
@@ -593,7 +595,6 @@ try {
           }
         ).t3dev.replay("marketing-cloud", "full-access");
       });
-      await page.getByRole("button", { name: "Permissions: Full access", exact: true }).waitFor();
       await page.getByText(/Delete prompt on example.com/).waitFor();
       await capture("47-site-full-access-free-check-and-destructive-confirmation");
       await NodeFSP.writeFile(
@@ -604,7 +605,7 @@ try {
         NodePath.join(out, "47-site-cloud-calls.json"),
         JSON.stringify(fixtureCalls, null, 2),
       );
-      await page.getByRole("button", { name: "Decline", exact: true }).click();
+      await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
       await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
       await capture("47-site-access-mode-selector");
       await page.keyboard.press("Escape");
@@ -1046,10 +1047,9 @@ try {
         ).t3dev.replay("marketing-cloud", fullAccess ? "full-access" : undefined);
       }, process.env.AMICITED_CAPTURE_FULL_ACCESS === "1");
       if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
-        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).waitFor();
         await page.getByText(/Delete prompt on example.com/).waitFor();
         await capture("47-full-access-free-check-and-destructive-confirmation");
-        await page.getByRole("button", { name: "Decline", exact: true }).click();
+        await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
         await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
         await capture("47-access-mode-selector");
         await page.keyboard.press("Escape");
