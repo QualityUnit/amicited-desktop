@@ -630,7 +630,6 @@ try {
       .waitFor();
     await capture("03l-brand-visibility-summary");
     await page.getByText("Report expired: not found", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "Allow", exact: true }).click();
     await page
       .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
       .waitFor();
