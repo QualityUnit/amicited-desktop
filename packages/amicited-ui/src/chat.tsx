@@ -329,6 +329,8 @@ export function CloudToolResultCard({
       }
     }
   }
+  const failed =
+    result.isError === true || ["failure", "failed", "error"].includes(String(data.status));
   const discovery = ["list_toolsets", "search_tools", "describe_tool"].includes(cloud.tool);
   const names: Record<string, string> = {
     site_health: "site health",
@@ -350,7 +352,7 @@ export function CloudToolResultCard({
     : undefined;
   const title = discovery
     ? "Looked up AmICited tools"
-    : `${result.isError ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(cloud.arguments)}`;
+    : `${failed ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(cloud.arguments)}`;
   const summary =
     [
       data.message,
@@ -369,13 +371,13 @@ export function CloudToolResultCard({
   return (
     <article className="am-tool-card" aria-label="AmICited tool result">
       <MarketingWorkDisclosure label={title}>
-        {!result.isError && <p>{summary}</p>}
+        {!failed && <p>{summary}</p>}
         <details>
           <summary>Technical details</summary>
           <pre>{JSON.stringify(cloud.result, null, 2)}</pre>
         </details>
       </MarketingWorkDisclosure>
-      {result.isError === true && <p role="alert">{summary}</p>}
+      {failed && <p role="alert">{summary}</p>}
       {structured.kind === "amicited-upgrade" && (
         <MarketingButton variant="outline" onClick={onStartTrial}>
           Start 7-day free trial
@@ -413,7 +415,11 @@ export function cloudSummary(data: Record<string, unknown>) {
       .filter(Boolean)
       .join(" · ");
   }
-  if (Array.isArray(data.queries))
+  if (
+    Array.isArray(data.queries) &&
+    !["failure", "failed", "error"].includes(String(data.status)) &&
+    (data.queries.length > 0 || data.status === "success")
+  )
     return `${data.queries.length} related searches${
       data.queries.length
         ? `: ${data.queries

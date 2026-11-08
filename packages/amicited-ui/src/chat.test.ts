@@ -109,6 +109,8 @@ it("summarizes provider results and query fan-out without inventing failed measu
   ).toBe(
     "Mentioned by ChatGPT and Perplexity · Could not check Gemini · Average visibility 62/100",
   );
+  expect(cloudSummary({ status: "failure", queries: [] })).toBeUndefined();
+  expect(cloudSummary({ status: "pending", queries: [] })).toBeUndefined();
   expect(cloudSummary({ queries: [{ query_text: "best CRM", category: "comparison" }] })).toBe(
     "1 related searches: best CRM",
   );
