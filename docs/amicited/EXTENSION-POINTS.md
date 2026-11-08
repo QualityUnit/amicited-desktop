@@ -457,7 +457,7 @@ existing named-project service under the environment's T3 home. No patch files.
 - `apps/web/src/components/AppSidebarLayout.tsx`: exports the existing sidebar control with optional marketer action labels; keyboard/menu behavior is shared.
 - `apps/web/src/components/sidebar/SidebarThreadHeader.tsx`: optional new-project label, keeping the upstream icon and tooltip.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: optional connection status, actions and New chat label; marketer groups use the upstream project snapshot builder and folder header.
-- `apps/web/src/components/DevReplayHost.tsx`: marketer captures prefer the current registered domain over the implicit scratch project.
+- `apps/web/src/components/DevReplayHost.tsx` and `vite-env.d.ts`: marketer captures prefer the current registered domain over the implicit scratch project. The dev console accepts an explicit runtime mode for permission evidence; its default stays supervised.
 - `apps/server/src/project/ProjectService.ts`: optional onProjectDeleted lifecycle hook after the existing project deletion commits, shared by UI and MCP callers.
 - `apps/server/src/server.ts`: provides the AmICited domain cleanup implementation through the project lifecycle hook.
 - `apps/web/src/components/chat/{ChatComposer.tsx,useComposerSend.ts}` and `marketingChat.tsx`: thread project determines the website context and connection warning.

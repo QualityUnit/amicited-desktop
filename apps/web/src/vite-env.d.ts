@@ -29,7 +29,10 @@ declare global {
     /** Dev builds only, from DevReplayHost. Agents call these from the browser console. */
     t3dev?: {
       readonly replayScenarios: () => ReadonlyArray<string>;
-      readonly replay: (scenario?: string) => Promise<ThreadId>;
+      readonly replay: (
+        scenario?: string,
+        runtimeMode?: import("@t3tools/contracts").RuntimeMode,
+      ) => Promise<ThreadId>;
     };
   }
 }

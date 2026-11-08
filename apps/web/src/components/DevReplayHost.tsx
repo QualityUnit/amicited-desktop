@@ -3,7 +3,7 @@ import { readWorkspaceMode } from "@amicited/ui-marketing";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { ProviderInstanceId, type ThreadId } from "@t3tools/contracts";
+import { ProviderInstanceId, type RuntimeMode, type ThreadId } from "@t3tools/contracts";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState } from "react";
 
@@ -55,7 +55,10 @@ export function DevReplayHost() {
       : undefined) ??
     environmentProjects[0];
 
-  const replay = async (scenario?: string): Promise<ThreadId> => {
+  const replay = async (
+    scenario?: string,
+    runtimeMode: RuntimeMode = "approval-required",
+  ): Promise<ThreadId> => {
     const model = scenario ?? scenarios[0]?.slug;
     if (environmentId === null || project === undefined || model === undefined) {
       throw new Error("Replay needs a dev server with a project and the Replay (dev) provider.");
@@ -73,14 +76,14 @@ export function DevReplayHost() {
         threadId,
         message: { messageId: newMessageId(), role: "user", text: title, attachments: [] },
         modelSelection,
-        runtimeMode: "approval-required",
+        runtimeMode,
         interactionMode: "default",
         bootstrap: {
           createThread: {
             projectId: project.id,
             title,
             modelSelection,
-            runtimeMode: "approval-required",
+            runtimeMode,
             interactionMode: "default",
             branch: null,
             worktreePath: null,
@@ -105,7 +108,7 @@ export function DevReplayHost() {
   useEffect(() => {
     window.t3dev = {
       replayScenarios: () => listScenarios(),
-      replay: (scenario) => replayFromConsole(scenario),
+      replay: (scenario, runtimeMode) => replayFromConsole(scenario, runtimeMode),
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;

@@ -549,9 +549,11 @@ try {
     await page.getByTestId("composer-editor").waitFor();
     await waitForOperate();
     await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "showcase",
-      ),
+      (
+        window as unknown as {
+          t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+        }
+      ).t3dev.replay("showcase"),
     );
     await page.getByRole("group", { name: "File change approval", exact: true }).waitFor();
     await capture("38-site-edit-approval");
@@ -574,28 +576,39 @@ try {
     await page.getByRole("button", { name: "Close review", exact: true }).click();
     await capture("39-review-diff-closed");
     const siteThreadRoute = page.url();
-      if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
-        await page.goto(url + "/marketing-settings");
-        await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
-        await page.getByText("Use an API key instead", { exact: true }).click();
-        await page.getByLabel("Workspace API key").fill("capture-only");
-        await page.getByRole("button", { name: "Connect with key", exact: true }).click();
-        await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
-        await page.goto(siteThreadRoute);
-        await page.getByTestId("composer-editor").waitFor();
-        await waitForOperate();
-        await page.evaluate(() => {
-          void (
-            window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }
-          ).t3dev.replay("marketing-cloud");
-        });
-        await page.getByText(/Delete prompt on example.com/).waitFor();
-        await capture("47-site-full-access-free-check-and-destructive-confirmation");
-        await page.getByRole("button", { name: "Decline", exact: true }).click();
-        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
-        await capture("47-site-access-mode-selector");
-        await page.keyboard.press("Escape");
-      }
+    if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
+      await page.goto(url + "/marketing-settings");
+      await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+      await page.getByText("Use an API key instead", { exact: true }).click();
+      await page.getByLabel("Workspace API key").fill("capture-only");
+      await page.getByRole("button", { name: "Connect with key", exact: true }).click();
+      await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+      await page.goto(siteThreadRoute);
+      await page.getByTestId("composer-editor").waitFor();
+      await waitForOperate();
+      await page.evaluate(() => {
+        void (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-cloud", "full-access");
+      });
+      await page.getByRole("button", { name: "Permissions: Full access", exact: true }).waitFor();
+      await page.getByText(/Delete prompt on example.com/).waitFor();
+      await capture("47-site-full-access-free-check-and-destructive-confirmation");
+      await NodeFSP.writeFile(
+        NodePath.join(out, "47-site-cloud-transcript.txt"),
+        await page.locator("body").innerText(),
+      );
+      await NodeFSP.writeFile(
+        NodePath.join(out, "47-site-cloud-calls.json"),
+        JSON.stringify(fixtureCalls, null, 2),
+      );
+      await page.getByRole("button", { name: "Decline", exact: true }).click();
+      await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
+      await capture("47-site-access-mode-selector");
+      await page.keyboard.press("Escape");
+    }
 
     if (process.env.AMICITED_CAPTURE_THREAD_CONTEXT === "1") {
       await capture("45-site-folder-location");
@@ -943,9 +956,11 @@ try {
       await page.getByRole("button", { name: "Expand sidebar" }).click();
       await waitForOperate();
       await page.evaluate(() =>
-        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing",
-        ),
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing"),
       );
       await page.getByText("Thinking…", { exact: true }).waitFor();
       await capture("03b-thinking");
@@ -977,9 +992,11 @@ try {
       );
       const offerChatUrl = page.url();
       await page.evaluate(() =>
-        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing-hidden",
-        ),
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-hidden"),
       );
       await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
       await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
@@ -1020,16 +1037,16 @@ try {
       await page
         .getByText("Connected · access confirmed on your next check", { exact: true })
         .waitFor();
-      if (process.env.AMICITED_CAPTURE_FULL_ACCESS !== "1") {
-        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
-        await page.getByRole("menuitemradio", { name: "Ask before acting", exact: true }).click();
-      }
-      await page.evaluate(() => {
-        void (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing-cloud",
-        );
-      });
+      await waitForOperate();
+      await page.evaluate((fullAccess) => {
+        void (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-cloud", fullAccess ? "full-access" : undefined);
+      }, process.env.AMICITED_CAPTURE_FULL_ACCESS === "1");
       if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
+        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).waitFor();
         await page.getByText(/Delete prompt on example.com/).waitFor();
         await capture("47-full-access-free-check-and-destructive-confirmation");
         await page.getByRole("button", { name: "Decline", exact: true }).click();
@@ -1110,9 +1127,11 @@ try {
       await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
       await waitForOperate();
       await page.evaluate(() =>
-        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing",
-        ),
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing"),
       );
       await page
         .getByRole("article", { name: "Marketing tool result" })
@@ -1271,9 +1290,11 @@ try {
       await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
       await waitForOperate();
       await page.evaluate(() =>
-        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing-failed",
-        ),
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-failed"),
       );
       await page
         .getByText("Could not check: the website did not respond. Try again later.", {
@@ -1286,9 +1307,11 @@ try {
       await capture("09-failed-tool");
       await waitForOperate();
       await page.evaluate(() =>
-        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing-approval",
-        ),
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-approval"),
       );
 
       await capture("10-pending-approval");
@@ -1302,9 +1325,11 @@ try {
         .waitFor();
       await waitForOperate();
       await page.evaluate(() =>
-        (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-          "marketing-readability-approval",
-        ),
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-readability-approval"),
       );
       await page.getByRole("group", { name: "Marketing approval" }).waitFor();
       await capture("10b-readability-approval");
@@ -1506,9 +1531,11 @@ try {
     await page.getByTestId("composer-editor").waitFor();
     await waitForOperate();
     await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "marketing-auth",
-      ),
+      (
+        window as unknown as {
+          t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+        }
+      ).t3dev.replay("marketing-auth"),
     );
     await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
     await capture("12-sign-in-recovery");
@@ -1550,9 +1577,11 @@ try {
     await capture("reference-t3-empty-chat");
     await waitForOperate();
     await page.evaluate(() =>
-      (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
-        "showcase",
-      ),
+      (
+        window as unknown as {
+          t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+        }
+      ).t3dev.replay("showcase"),
     );
     await page
       .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })

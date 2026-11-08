@@ -30,7 +30,9 @@ it("supplies the current website as context while preserving the user's stored t
     framework: "Next.js",
   });
   expect(marketingWebsiteInstructions(repoContext?.records ?? [])).toContain("Next.js");
-  expect(marketingWebsiteInstructions(repoContext?.records ?? [])).toContain("only after approval");
+  expect(marketingWebsiteInstructions(repoContext?.records ?? [])).toContain(
+    "Agents can edit files in this folder",
+  );
   expect(text).toBe("Audit my website");
 });
 
