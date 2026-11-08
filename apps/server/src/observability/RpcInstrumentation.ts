@@ -15,6 +15,11 @@ const RPC_AGGREGATES = {
   "amicited.cloud.resetAccess": "amicited",
   "amicited.cloud.subscribeApprovals": "server",
   "amicited.cloud.pendingApprovals": "amicited",
+  "amicited.domains.status": "amicited",
+  "amicited.domains.reuse": "amicited",
+  "amicited.domains.list": "amicited",
+  "amicited.domains.save": "amicited",
+  "amicited.domains.connection": "amicited",
   "amicited.cloud.status": "amicited",
   "amicited.cloud.summary": "amicited",
   "amicited.cloud.connectOAuth": "amicited",
@@ -241,6 +246,7 @@ const DEFAULT_RPC_SPAN_ATTRIBUTES = {
   "rpc.system": "effect-rpc",
 } as const;
 const RPC_METHODS_WITH_TRACING_DISABLED: ReadonlySet<string> = new Set([
+  "amicited.domains.connection",
   "amicited.cloud.connectApiKey",
   "amicited.cloud.connectOAuth",
   WS_METHODS.serverGetTraceDiagnostics,

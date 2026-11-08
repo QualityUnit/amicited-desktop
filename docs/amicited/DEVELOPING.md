@@ -137,3 +137,11 @@ message with a typed failure code. Transport/authentication errors use connectio
 recovery. Tool annotations are cached for the credential session, and an unknown
 name refreshes the catalogue. Subscription navigation and window focus invalidate
 cached plan access without probing a paid endpoint.
+
+Domain projects use the existing named-project command and store their metadata
+in `userdata/amicited-domains.json` under the isolated T3 home. Credentials stay
+in keyring entries for that state directory and connection reference; do not copy
+OAuth refresh tokens to reuse an account. Domain metadata tests and MCP fixtures
+run offline against loopback services. The browser regression in
+`marketingDomains.browser.test.tsx` covers the peer connection update that makes
+an existing account available immediately after another domain connects.

@@ -1,7 +1,14 @@
+import { page, userEvent } from "vite-plus/test/browser";
+import { SidebarProvider } from "./components/ui/sidebar";
+import { MarketerShell } from "./marketing";
 import "./index.css";
 
 import { MarketingShell } from "@amicited/ui-marketing";
-import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
+import {
+  AmicitedConnectPanel,
+  AmicitedUpsellCard,
+  DomainConnectionWarning,
+} from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { expect, it, vi } from "vite-plus/test";
 import { render } from "../test/render";
@@ -209,6 +216,11 @@ it("keeps chat history and secondary navigation available when collapsed", async
     expect(navigate).toHaveBeenCalledWith("/env/chat");
     await screen.getByRole("button", { name: "Collapse sidebar" }).click();
     await expect.element(screen.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
+    await screen.getByRole("button", { name: "Expand sidebar" }).click();
+    await expect.element(screen.getByRole("link", { name: "Campaign audit" })).toBeVisible();
+    await screen.getByRole("button", { name: "Collapse sidebar" }).click();
+    await screen.getByRole("button", { name: "Chat history" }).click();
+    await expect.element(screen.getByRole("link", { name: "Campaign audit" })).toBeVisible();
     await screen.getByRole("link", { name: "Tools", exact: true }).click();
     expect(navigate).toHaveBeenCalledWith("/tools");
   } finally {
@@ -377,4 +389,76 @@ it("cancels browser waiting and ignores the old OAuth completion", async () => {
   await pending;
   expect(disconnect).toHaveBeenCalledOnce();
   expect(changed).toHaveBeenCalledTimes(1);
+});
+
+it("shows domain connection warnings without blocking chat, and remembers dismissal per domain", async () => {
+  const connect = vi.fn();
+  const key = "amicited.test.domain-warning";
+  localStorage.removeItem(key);
+  localStorage.removeItem("amicited.cloud.upsell");
+  try {
+    await using screen = await render(
+      <DomainConnectionWarning
+        hostname="acme.com"
+        storageKey={key}
+        connection={{ state: "disconnected" }}
+        ui={ui}
+        onConnect={connect}
+        onCancel={() => {}}
+      />,
+    );
+    await expect
+      .element(
+        screen.getByText("AmICited isn't connected for acme.com. Free local tools still work."),
+      )
+      .toBeVisible();
+    await screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
+    expect(connect).toHaveBeenCalledOnce();
+    await screen.getByRole("button", { name: "Dismiss AmICited warning for acme.com" }).click();
+    expect(localStorage.getItem(key)).toBe("hidden");
+    await expect
+      .element(screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }))
+      .not.toBeInTheDocument();
+    await screen.rerender(
+      <DomainConnectionWarning
+        key="other"
+        hostname="other.com"
+        storageKey={key + "other"}
+        connection={{ state: "connected", workspace: "Account", scopes: [] }}
+        ui={ui}
+        onConnect={connect}
+        onCancel={() => {}}
+      />,
+    );
+    await expect
+      .element(screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }))
+      .not.toBeInTheDocument();
+  } finally {
+    localStorage.removeItem(key);
+    localStorage.removeItem(key + "other");
+  }
+});
+
+it("uses the upstream sidebar state for clicks, history and its keyboard shortcut", async () => {
+  await page.viewport(1280, 800);
+  using _platform = vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+  await using screen = await render(
+    <SidebarProvider>
+      <MarketerShell path="/home" navigate={() => {}} history={<p>Domain chats</p>}>
+        <h1>Chat</h1>
+      </MarketerShell>
+    </SidebarProvider>,
+  );
+  await screen.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  await screen.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+  await expect.element(screen.getByText("Domain chats")).toBeVisible();
+  await screen.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  await screen.getByRole("button", { name: "Chat history", exact: true }).click();
+  await expect.element(screen.getByText("Domain chats")).toBeVisible();
+  await userEvent.keyboard("{Meta>}b{/Meta}");
+  await expect
+    .element(screen.getByRole("button", { name: "Expand sidebar", exact: true }))
+    .toBeVisible();
+  await userEvent.keyboard("{Meta>}b{/Meta}");
+  await expect.element(screen.getByText("Domain chats")).toBeVisible();
 });

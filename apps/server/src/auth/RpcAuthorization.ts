@@ -40,6 +40,8 @@ type WsRpcMethod = RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"];
 export const RPC_REQUIRED_SCOPES = {
   "amicited.cloud.pendingApprovals": AuthOrchestrationReadScope,
   "amicited.cloud.subscribeApprovals": AuthOrchestrationReadScope,
+  "amicited.domains.status": AuthOrchestrationReadScope,
+  "amicited.domains.list": AuthOrchestrationReadScope,
   "amicited.cloud.status": AuthOrchestrationReadScope,
   "amicited.cloud.summary": AuthOrchestrationReadScope,
   "amicited.tools.list": AuthOrchestrationReadScope,

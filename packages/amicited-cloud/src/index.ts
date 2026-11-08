@@ -1,3 +1,4 @@
+import type { DomainConnections } from "./domains.ts";
 import { isUsefulResult, marketingTarget } from "@amicited/tools-core";
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
@@ -82,6 +83,14 @@ export function toolFailure(message: string) {
   };
 }
 export class CloudClient {
+  domains?: DomainConnections;
+  forProject(projectId: string | undefined): CloudClient {
+    return projectId && this.domains ? this.domains.client(projectId) : this;
+  }
+  notifyApprovals() {
+    this.approvalListeners.forEach((listener) => listener());
+  }
+
   async connectionForRequest(request: string, offersAllowed: boolean, firstWin: boolean) {
     const connection = await this.status();
     if (connection.state === "connected")
@@ -144,8 +153,16 @@ export class CloudClient {
       this.approvalListeners.delete(listener);
     };
   }
-  pendingApprovals() {
-    return [...this.approvals.entries()].map(([requestId, request]) => ({
+  pendingApprovals(): Array<{
+    requestId: string;
+    threadId: string;
+    tool: string;
+    free: boolean;
+    readOnly: boolean;
+    arguments: Record<string, unknown>;
+    message: string;
+  }> {
+    const own = [...this.approvals.entries()].map(([requestId, request]) => ({
       requestId,
       threadId: request.threadId,
       tool: request.tool,
@@ -154,6 +171,17 @@ export class CloudClient {
       arguments: request.arguments,
       message: `${cloudAction(request.tool, request.arguments, request.readOnly, this.resources.get(request.threadId))} with AmICited? ${request.free ? "Uses a few workspace credits. No paid plan needed; welcome credits cover new accounts." : request.readOnly ? "Uses workspace credits." : "Changes your workspace and uses workspace credits."}`,
     }));
+    return [
+      ...own,
+      ...(this.domains?.allClients().flatMap((client) => client.pendingApprovals()) ?? []),
+    ];
+  }
+  releaseThread(threadId: string) {
+    for (const request of this.approvals.values())
+      if (request.threadId === threadId) request.resolve("cancelled");
+    this.freeGrants.delete(threadId);
+    this.readGrants.delete(threadId);
+    this.resources.delete(threadId);
   }
   private cancelApprovals() {
     for (const request of this.approvals.values()) request.resolve("cancelled");
@@ -262,13 +290,23 @@ export class CloudClient {
       ],
     };
   }
-  async answerApproval(requestId: string, decision: "decline" | "accept" | "acceptForSession") {
+  async answerApproval(
+    requestId: string,
+    decision: "decline" | "accept" | "acceptForSession",
+  ): Promise<{ accepted: boolean }> {
     const request = this.approvals.get(requestId);
-    if (!request) throw new Error("This approval is no longer pending.");
+    if (!request) {
+      const owner = this.domains
+        ?.allClients()
+        .find((client) => client.pendingApprovals().some((row) => row.requestId === requestId));
+      if (owner) return owner.answerApproval(requestId, decision);
+      throw new Error("This approval is no longer pending.");
+    }
     request.resolve(decision);
     return { accepted: decision !== "decline" };
   }
   async close() {
+    await Promise.all(this.domains?.allClients().map((client) => client.close()) ?? []);
     ++this.generation;
     this.cancelApprovals();
     this.resources.clear();

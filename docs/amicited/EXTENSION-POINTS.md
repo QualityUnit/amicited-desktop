@@ -71,8 +71,8 @@ upstream settings and navigation remain available through Developer features.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: friendly subscription label; the existing popup retains advanced model selection.
 - `apps/web/src/components/chat/useThreadLifecycle.tsx`: labels completed marketer tasks Done.
 
-The website and brand are browser-local preferences. Workspace folders and tasks
-use the existing authenticated project commands. The latest tool result is retained
+Website and brand belong to the domain project in the server-owned metadata store.
+Workspace folders and tasks use the existing authenticated project commands. The latest tool result is retained
 for the current browser session; durable result history is still deferred.
 The completed assistant response mounts the optional compact cloud offer after
 the free result and summary. Local
@@ -430,7 +430,7 @@ are recovered from the server after remount; restart cancels them safely.
 - `apps/server/src/auth/RpcAuthorization.ts`: permits orchestration readers to see pending cloud approvals; answering remains settings-write protected.
 - `apps/web/src/components/chat/ChatComposer.tsx`: displays pending cloud requests at the normal composer approval location.
 - `apps/web/src/marketing.tsx`: shows Needs your OK for threads waiting on a cloud decision.
-- `packages/amicited-ui/src/marketing.css`: the native collapsed rail retains its wider header because macOS traffic lights and the toggle occupy the same top row; matching 48px would overlap those controls.
+- `packages/amicited-ui/src/marketing.css`: the collapsed rail is 48px; the upstream floating toggle keeps the fullscreen-aware native control inset independently of the rail width.
 
 - `scripts/amicited/electron-screenshots.mjs`: disables the viewport resize overlay and compares matching sidebar title elements.
 - `apps/web/src/marketingOffer.browser.test.tsx`: supplies the additional cloud adapter exports in the existing isolated mock.
@@ -444,3 +444,34 @@ are recovered from the server after remount; restart cancels them safely.
 - `apps/web/src/rpc/amicitedApprovals.tsx`: isolated cloud approval adapter shared by work rows and the timeline fallback; `marketingApprovals.browser.test.tsx` verifies pushed updates and argument matching.
 
 - `apps/web/src/components/chat/ComposerControlsBar.tsx`: pending cloud approvals replace the stale Replay step label with Needs your OK.
+
+## Domain projects
+
+Domain metadata and keyring routing belong to `@amicited/cloud-client` and are
+stored separately from upstream project contracts. Domain folders use T3's
+existing named-project service under the environment's T3 home. No patch files.
+
+- `apps/web/src/marketingDomains.tsx`: environment RPC adapter, domain creation and project lifecycle controls; uses existing project commands and native dialog/settings components.
+- `apps/web/src/marketing.tsx`: groups existing thread shells by domain project ID and shares SidebarProvider visibility with the upstream floating control.
+- `apps/web/src/components/AppSidebarLayout.tsx`: exports the existing sidebar control with optional marketer action labels; keyboard/menu behavior is shared.
+- `apps/web/src/components/sidebar/SidebarThreadHeader.tsx`: optional new-project label, keeping the upstream icon and tooltip.
+- `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: optional connection status, actions and New chat label; marketer groups use the upstream project snapshot builder and folder header.
+- `apps/web/src/components/DevReplayHost.tsx`: marketer captures prefer the current domain over the implicit scratch project.
+- `apps/server/src/project/ProjectService.ts`: optional domain cleanup after the existing project deletion commits, shared by UI and MCP callers.
+- `apps/web/src/components/chat/{ChatComposer.tsx,useComposerSend.ts}` and `marketingChat.tsx`: thread project determines the website context and connection warning.
+- `apps/server/src/amicited/{Cloud.ts,CloudToolkit.ts}` and `mcp/toolkits/marketing/handlers.ts`: project-scoped keyring clients and connection-tool status; approvals aggregate through the existing stream.
+- `apps/server/src/ws.ts`: domain metadata and connection RPC forwarding, with existing-project validation.
+- `packages/contracts/src/clientRpcPermissions.ts`, `apps/server/src/auth/RpcAuthorization.ts`, `apps/server/src/observability/RpcInstrumentation.ts`: authorization and telemetry registration; credential-bearing calls are excluded from tracing.
+- `apps/web/src/rpc/amicitedCloud.tsx`: domain settings and current-thread promotion actions.
+
+The old browser website migrates into a first named project. The old keyring
+credential moves to that first domain; it is cleared only after the destination
+write succeeds. A durable migration marker protects later developer connections
+from being migrated again. Metadata and local tools remain available if the
+keyring is unavailable. Explicit account reuse shares a server-side credential reference
+to avoid copying rotating OAuth refresh tokens. Disconnecting one shared domain
+detaches it without revoking the other domain's credential. Grants and pending
+approvals for that domain's bound threads are released.
+
+Free discovery does not expose a workspace-domain list. Matching is learned
+from a user-approved `list_domains` result, without an extra paid status probe.

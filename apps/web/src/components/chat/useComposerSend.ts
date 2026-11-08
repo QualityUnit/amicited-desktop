@@ -1,10 +1,11 @@
+import { readDomain } from "../../marketingDomains";
 import {
   readMarketingReport,
   clearMarketingReport,
   withMarketingWebsite,
   withMarketingReport,
 } from "../../marketingContext";
-import { readBrand, readWorkspaceMode } from "@amicited/ui-marketing";
+import { readWorkspaceMode } from "@amicited/ui-marketing";
 import { isClearComposerCommand, parseSideChatCommand } from "@t3tools/shared/composerTrigger";
 import { armFreshSession, disarmFreshSession, readFreshSessionArm } from "./freshSessionArms";
 import {
@@ -928,7 +929,12 @@ export function useComposerSend(input: ComposerSendInput) {
               attachmentId: attachmentIds[index] ?? attachment.id,
             })),
           }),
-          readWorkspaceMode() === "marketer" ? readBrand()?.website : undefined,
+          readWorkspaceMode() === "marketer"
+            ? (() => {
+                const domain = readDomain(environmentId, activeProject?.id);
+                return domain ? `https://${domain.hostname}` : undefined;
+              })()
+            : undefined,
           isLocalDraftThread,
           readWorkspaceMode() === "marketer",
         ),

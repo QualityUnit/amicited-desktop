@@ -8,7 +8,7 @@ Developer mode retains the upstream presentation.
 Marketer navigation reuses T3’s sidebar brand chrome and search row. Chat history
 uses shell summaries, preserving rename, archive, restore and confirmed deletion
 without loading each conversation. Footer destinations use quiet icon controls.
-Project grouping and developer controls stay hidden in marketer mode.
+Marketer projects are domains: T3-managed folders hold their files, and collapsible domain headers group their chats. Developer controls stay in developer mode.
 
 The upstream breadcrumb, draft heading, composer and transcript supply the chat.
 Website and subscription controls and four quiet starter suggestions sit below

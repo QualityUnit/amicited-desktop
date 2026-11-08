@@ -13,6 +13,11 @@ const state = vi.hoisted(() => ({
   connected: false,
   dismissed: false,
 }));
+vi.mock("./marketingDomains", () => ({
+  useDomains: () => ({ rows: [] }),
+  NewDomainDialog: () => null,
+  DomainConnection: () => null,
+}));
 vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => null,
   useMarketingTask: () => ({ startTask: async () => {} }),

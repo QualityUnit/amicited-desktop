@@ -1,3 +1,6 @@
+import { DomainsSettings, useDomainConnection } from "../marketingDomains";
+import { useThreadRouteRef } from "../hooks/useThreadRouteTarget";
+import { useThreadShell } from "../state/entities";
 export {
   CloudPendingApprovals,
   CloudUnclaimedApprovals,
@@ -18,9 +21,8 @@ import {
   useSyncExternalStore,
   type ComponentProps,
 } from "react";
-import { useAtomValue } from "@effect/atom-react";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
-import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
+import { AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { type Connection } from "@amicited/cloud-client/model";
 import type { WinResult } from "@amicited/cloud-client/upsell";
@@ -68,10 +70,6 @@ const oauth = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.connectOAuth",
   label: "cloud:oauth",
 });
-const key = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.cloud.connectApiKey",
-  label: "cloud:key",
-});
 const disconnect = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.disconnect",
   label: "cloud:disconnect",
@@ -95,6 +93,10 @@ const refreshSubscription = () => {
 function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
+  const ref = useThreadRouteRef();
+  const shell = useThreadShell(ref);
+  const projectId = shell?.projectId;
+  const domain = useDomainConnection(environmentId, projectId);
   const read = useAtomCommand(status);
   const reset = useAtomCommand(resetAccess);
   const readStatus = useEffectEvent(read);
@@ -132,7 +134,7 @@ function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read status from the destination environment on entry.
   useEffect(() => {
-    if (!environmentId) return;
+    if (!environmentId || projectId) return;
     let active = true;
     void readStatus({ environmentId, input: undefined }).then((result) => {
       if (active)
@@ -149,8 +151,14 @@ function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
     return () => {
       active = false;
     };
-  }, [environmentId]);
-  return { environmentId, connection, setConnection };
+  }, [environmentId, projectId]);
+  return {
+    environmentId,
+    projectId,
+    domain,
+    connection: projectId ? domain.connection : connection,
+    setConnection: projectId ? domain.setConnection : setConnection,
+  };
 }
 export function CloudFooter({
   result,
@@ -159,7 +167,7 @@ export function CloudFooter({
   result: WinResult;
   destination?: import("@t3tools/contracts").EnvironmentId | undefined;
 }) {
-  const { environmentId, connection, setConnection } = useCloud(destination);
+  const { environmentId, projectId, domain, connection, setConnection } = useCloud(destination);
   const doOAuth = useAtomCommand(oauth);
   const doDisconnect = useAtomCommand(disconnect);
 
@@ -199,12 +207,20 @@ export function CloudFooter({
       openExternal={openExternal}
       connection={connection}
       onCancel={() => {
+        if (projectId) {
+          void domain.update("disconnect");
+          return;
+        }
         if (environmentId)
           void doDisconnect({ environmentId, input: undefined }).then((r) => {
             if (r._tag === "Success") setConnection(r.value);
           });
       }}
       onConnect={() => {
+        if (projectId) {
+          void domain.update("oauth");
+          return;
+        }
         if (!environmentId) return;
         setConnection({ state: "connecting" });
         void doOAuth({ environmentId, input: undefined }).then((r) =>
@@ -223,65 +239,7 @@ export function CloudFooter({
   );
 }
 function CloudSettings() {
-  const { environmentId, connection, setConnection } = useCloud();
-  const doOAuth = useAtomCommand(oauth);
-  const doKey = useAtomCommand(key);
-  const doDisconnect = useAtomCommand(disconnect);
-  const canOAuth = useAtomValue(oauth.permissionAtom(environmentId));
-  const canKey = useAtomValue(key.permissionAtom(environmentId));
-  const canDisconnect = useAtomValue(disconnect.permissionAtom(environmentId));
-  const startOAuth = useEffectEvent(async () => {
-    if (
-      !environmentId ||
-      !canOAuth ||
-      sessionStorage.getItem("amicited.connect-requested") !== "true"
-    )
-      return;
-    sessionStorage.removeItem("amicited.connect-requested");
-    setConnection({ state: "connecting" });
-    const result = await doOAuth({ environmentId, input: undefined });
-    if (result._tag === "Success") setConnection(result.value);
-  });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- External connect requests share the settings OAuth action.
-  useEffect(() => {
-    if (!environmentId || !canOAuth) return;
-    void startOAuth();
-    const start = () => void startOAuth();
-    window.addEventListener("amicited-connect", start);
-    return () => window.removeEventListener("amicited-connect", start);
-  }, [environmentId, canOAuth]);
-  if (!connection || !environmentId) return <p>Reading AmICited connection…</p>;
-  return (
-    <div className="am-cloud-settings">
-      <fieldset disabled={connection.state === "connected" ? !canDisconnect : !canOAuth || !canKey}>
-        <AmicitedConnectPanel
-          connection={connection}
-          ui={ui}
-          openExternal={(url) =>
-            url.includes("/subscription") ? openCloudSubscription(environmentId) : openExternal(url)
-          }
-          onChange={setConnection}
-          actions={{
-            connectOAuth: async () => {
-              const r = await doOAuth({ environmentId, input: undefined });
-              if (r._tag !== "Success") throw new Error("Connection failed");
-              return r.value;
-            },
-            connectApiKey: async (apiKey) => {
-              const r = await doKey({ environmentId, input: { apiKey } });
-              if (r._tag !== "Success") throw new Error("Connection failed");
-              return r.value;
-            },
-            disconnect: async () => {
-              const r = await doDisconnect({ environmentId, input: undefined });
-              if (r._tag !== "Success") throw new Error("Disconnect failed");
-              return r.value;
-            },
-          }}
-        />
-      </fieldset>
-    </div>
-  );
+  return <DomainsSettings />;
 }
 function promotionsAllowed(connection: Connection | null) {
   try {

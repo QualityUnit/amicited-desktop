@@ -312,7 +312,7 @@ function registerAppShellCommands(router: AnyRouter, shellElement: Element): () 
   };
 }
 
-function SidebarControl() {
+export function SidebarControl({ marketer = false }: { marketer?: boolean } = {}) {
   const router = useRouter();
   const usagePageOpen = useLocation({ select: (location) => location.pathname === "/usage" });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
@@ -389,7 +389,13 @@ function SidebarControl() {
                 "pointer-events-auto",
                 isSidebarVisible && stageBackdropVariant && "relative top-auto translate-y-0",
               )}
-              aria-label="Toggle main sidebar"
+              aria-label={
+                marketer
+                  ? isSidebarVisible
+                    ? "Collapse sidebar"
+                    : "Expand sidebar"
+                  : "Toggle main sidebar"
+              }
             />
           }
         />

@@ -7,6 +7,8 @@
     "./rpc": "./src/rpc.ts",
     "./upsell": "./src/upsell.ts",
     "./model": "./src/model.ts",
+    "./domainModel": "./src/domainModel.ts",
+    "./domains": "./src/domains.ts",
     "./capture": "./src/capture.ts"
   },
   "scripts": {

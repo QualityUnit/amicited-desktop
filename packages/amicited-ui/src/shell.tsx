@@ -13,6 +13,7 @@ export function MarketingShell({
   footer,
   headerTitle,
   desktop,
+  sidebar,
 }: {
   children: ReactNode;
   path: string;
@@ -26,11 +27,20 @@ export function MarketingShell({
   footer?: ReactNode;
   headerTitle?: string | undefined;
   desktop?: boolean;
+  sidebar?: { collapsed: boolean; toggle: () => void; expand: () => void; control: ReactNode };
 }) {
   const { Breadcrumb } = useContext(MarketingUiContext);
-  const [collapsed, setCollapsed] = useState(
+  const [localCollapsed, setCollapsed] = useState(
     () => localStorage.getItem("amicited.rail-collapsed") === "true",
   );
+  const collapsed = sidebar?.collapsed ?? localCollapsed;
+  const expand = () => {
+    if (sidebar) sidebar.expand();
+    else {
+      setCollapsed(false);
+      localStorage.setItem("amicited.rail-collapsed", "false");
+    }
+  };
   if (mode === "developer") return children;
   return (
     <div
@@ -41,25 +51,27 @@ export function MarketingShell({
       <aside data-app-sidebar="" className="am-chat-sidebar" aria-label="Chat sidebar">
         <div className={`am-chat-brand ${desktop ? "drag-region" : ""}`}>
           {brandHeader ?? <AmICitedMark />}
-          <div className="am-sidebar-toggle">
-            <MarketingButton
-              size="icon-sm"
-              variant={collapsed ? "row" : "header"}
-              className="relative top-auto translate-y-0"
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              onClick={() => {
-                setCollapsed(!collapsed);
-                localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
-              }}
-            >
-              {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            </MarketingButton>
-          </div>
+          {sidebar?.control ?? (
+            <div className="am-sidebar-toggle">
+              <MarketingButton
+                size="icon-sm"
+                variant={collapsed ? "row" : "header"}
+                className="relative top-auto translate-y-0"
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                onClick={() => {
+                  setCollapsed(!collapsed);
+                  localStorage.setItem("amicited.rail-collapsed", String(!collapsed));
+                }}
+              >
+                {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </MarketingButton>
+            </div>
+          )}
         </div>
         <nav aria-label="Chat history" className="am-chat-history">
           {collapsed ? (
             <MarketingTooltip label="Chat history">
-              <MarketingButton aria-label="Chat history" onClick={() => setCollapsed(false)}>
+              <MarketingButton aria-label="Chat history" onClick={expand}>
                 <History size={16} />
               </MarketingButton>
             </MarketingTooltip>

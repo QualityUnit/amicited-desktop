@@ -1,4 +1,4 @@
-import { CloudApprovalExpired } from "@amicited/cloud-client/rpc";
+import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as MarketingTools from "@amicited/tools/service";
@@ -97,7 +97,7 @@ import {
   PersistChatAttachmentsError,
   RpcClientId,
   EnvironmentAuthorizationError,
-  type ProjectId,
+  ProjectId,
   type ProviderDriverKind,
   type ProviderInstanceId,
   ThreadId,
@@ -2013,6 +2013,67 @@ export const layerWsRpc = (
         Effect.provide(MarketingToolsLive.layer),
       );
       const handlers = ServerWsRpcGroup.of({
+        "amicited.domains.list": () =>
+          Effect.tryPromise({
+            try: () => cloud.domains?.metadata() ?? Promise.resolve([]),
+            catch: () =>
+              new DomainFailure({ message: "Could not read your domains. Please try again." }),
+          }),
+        "amicited.domains.save": ({ projectId, website, brand }) =>
+          projectService.getById(ProjectId.make(projectId)).pipe(
+            Effect.mapError(
+              () => new DomainFailure({ message: "This domain project no longer exists." }),
+            ),
+            Effect.flatMap(() =>
+              Effect.tryPromise({
+                try: async () => {
+                  if (!cloud.domains) throw new Error("Domains unavailable");
+                  return cloud.domains.register(projectId, website, brand);
+                },
+                catch: () =>
+                  new DomainFailure({
+                    message: "Could not save this domain. Check the website and try again.",
+                  }),
+              }),
+            ),
+          ),
+        "amicited.domains.status": ({ projectId }) =>
+          Effect.tryPromise({
+            try: async () => {
+              await cloud.domains?.list();
+              return cloud.forProject(projectId).status();
+            },
+            catch: () => new DomainFailure({ message: "Could not read the domain connection." }),
+          }),
+        "amicited.domains.reuse": ({ projectId, sourceProjectId }) =>
+          Effect.tryPromise({
+            try: async () => {
+              await cloud.domains?.reuse(projectId, sourceProjectId);
+              return cloud.forProject(projectId).status();
+            },
+            catch: () =>
+              new DomainFailure({ message: "Could not use that account. Please connect again." }),
+          }),
+        "amicited.domains.connection": ({ projectId, action, apiKey }) =>
+          Effect.tryPromise({
+            try: async () => {
+              await cloud.domains?.list();
+              const client = cloud.forProject(projectId);
+              return apiKey
+                ? client.connectApiKey(apiKey)
+                : action === "oauth"
+                  ? client.connectOAuth()
+                  : action === "disconnect"
+                    ? cloud.domains
+                      ? cloud.domains.disconnect(projectId)
+                      : client.disconnect()
+                    : client.status();
+            },
+            catch: () =>
+              new DomainFailure({
+                message: "Could not update the AmICited connection for this domain.",
+              }),
+          }),
         // AmICited cloud: credentials stay inside the server.
         "amicited.cloud.answerApproval": ({ requestId, decision }) =>
           Effect.tryPromise({

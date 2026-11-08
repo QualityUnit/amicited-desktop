@@ -16,7 +16,10 @@ export interface CloudUi {
   Disclosure?: ComponentType<{ label: ReactNode; children: ReactNode }>;
   Group?: ComponentType<{ children: ReactNode }>;
   Button: ComponentType<
-    ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "outline" | "link" }
+    ButtonHTMLAttributes<HTMLButtonElement> & {
+      variant?: "default" | "outline" | "link";
+      size?: "xs" | "sm";
+    }
   >;
   Input: ComponentType<Omit<InputHTMLAttributes<HTMLInputElement>, "size">>;
 }
@@ -89,12 +92,14 @@ export function AmicitedUpsellCard({
 }
 export function AmicitedConnectPanel({
   connection,
+  connectLabel = "Connect with AmICited",
   actions,
   onChange,
   openExternal,
   ui: { Button, Input, Disclosure = FallbackDisclosure, Group = FallbackGroup, Row = FallbackRow },
 }: {
   connection: Connection;
+  connectLabel?: string;
   actions: CloudActions;
   onChange(connection: Connection): void;
   openExternal(url: string): void;
@@ -199,7 +204,7 @@ export function AmicitedConnectPanel({
                   disabled={pending}
                   onClick={() => void run(actions.connectOAuth)}
                 >
-                  {pending ? "Connecting…" : "Connect with AmICited"}
+                  {pending ? "Connecting…" : connectLabel}
                 </Button>
               }
             />
@@ -319,5 +324,60 @@ function FallbackRow({
       <p>{description}</p>
       {control}
     </div>
+  );
+}
+
+export function DomainConnectionWarning({
+  hostname,
+  canConnect = true,
+  storageKey,
+  connection,
+  onConnect,
+  onCancel,
+  ui: { Button },
+}: {
+  hostname: string;
+  canConnect?: boolean;
+  storageKey: string;
+  connection: Connection | null;
+  onConnect(): void;
+  onCancel(): void;
+  ui: Pick<CloudUi, "Button">;
+}) {
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(storageKey) === "hidden");
+  const [allowed] = useState(() =>
+    createUpsellGate(localStorage, sessionStorage).eligible(true, Date.now()),
+  );
+  if (!connection || connection.state === "connected" || dismissed || !allowed) return null;
+  return (
+    <aside className="am-cloud-actions">
+      <span>
+        {connection.state === "connecting"
+          ? "Waiting for you to finish in your browser…"
+          : `AmICited isn't connected for ${hostname}. Free local tools still work.`}
+      </span>
+      {connection.state === "connecting" ? (
+        <Button type="button" size="xs" variant="link" disabled={!canConnect} onClick={onCancel}>
+          Cancel
+        </Button>
+      ) : (
+        <Button type="button" size="xs" variant="link" disabled={!canConnect} onClick={onConnect}>
+          Connect AmICited (free)
+        </Button>
+      )}
+      <Button
+        type="button"
+        size="xs"
+        variant="link"
+        aria-label={`Dismiss AmICited warning for ${hostname}`}
+        onClick={() => {
+          localStorage.setItem(storageKey, "hidden");
+          setDismissed(true);
+        }}
+      >
+        Dismiss
+      </Button>
+      {connection.state === "error" && <span role="alert">{connection.message}</span>}
+    </aside>
   );
 }

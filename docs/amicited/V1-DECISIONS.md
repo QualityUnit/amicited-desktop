@@ -19,3 +19,8 @@ Upstream changes use small, self-contained extension points listed in
 `docs/amicited/EXTENSION-POINTS.md`. No patch files are required (overrides §2).
 
 Free discovery does not report plan entitlement. Show access as unconfirmed until a paid-tool success or subscription refusal establishes full or free access. Never spend a paid call to probe status.
+
+Domains are T3 projects in marketer mode. Domain metadata and connections are
+AmICited-owned and keyed by project ID; developer directory projects retain
+the upstream flow. This owner decision supersedes the global browser website
+preference described in earlier waves and the specification snapshot.

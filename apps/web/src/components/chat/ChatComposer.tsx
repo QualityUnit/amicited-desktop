@@ -1,7 +1,7 @@
 import { getOnboardingProviderState } from "../../onboarding/providerReadiness.logic";
 import { createPortal } from "react-dom";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer suggestion styles come from @amicited/ui-marketing. */
-import { marketingStarters, readBrand } from "@amicited/ui-marketing";
+import { marketingStarters } from "@amicited/ui-marketing";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { MarketingComposerContext } from "../../marketingChat";
@@ -3645,6 +3645,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         ? createPortal(
             <>
               <MarketingComposerContext
+                projectId={activeProjectId}
                 destination={environmentId}
                 selectedInstanceId={selectedInstanceId}
                 onConnected={setMarketingPendingSend}
@@ -3662,7 +3663,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                       key={prompt}
                       onClick={() => {
                         setPrompt(prompt);
-                        if (readBrand() && activeProjectId && environmentId)
+                        if (activeProjectId && environmentId)
                           void openMarketingDraft(scopeProjectRef(environmentId, activeProjectId), {
                             prompt,
                             sendImmediately: true,

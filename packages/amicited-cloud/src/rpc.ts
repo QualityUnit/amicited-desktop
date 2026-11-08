@@ -29,7 +29,47 @@ const PendingApproval = Schema.Struct({
   arguments: Schema.Record(Schema.String, Schema.Unknown),
   message: Schema.String,
 });
+export class DomainFailure extends Schema.TaggedError<DomainFailure>()("DomainFailure", {
+  message: Schema.String,
+}) {}
+export const DomainRecord = Schema.Struct({
+  projectId: Schema.String,
+  hostname: Schema.String,
+  brand: Schema.String,
+  connectionRef: Schema.String,
+  domainId: Schema.optionalKey(Schema.String),
+});
 export const cloudRpcs = [
+  Rpc.make("amicited.domains.list", { success: Schema.Array(DomainRecord), error: DomainFailure }),
+  Rpc.make("amicited.domains.save", {
+    payload: {
+      projectId: Schema.String,
+      website: Schema.String,
+      brand: Schema.optionalKey(Schema.String),
+    },
+    success: DomainRecord,
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.status", {
+    payload: { projectId: Schema.String },
+    success: CloudConnection,
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.reuse", {
+    payload: { projectId: Schema.String, sourceProjectId: Schema.String },
+    success: CloudConnection,
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.connection", {
+    payload: {
+      projectId: Schema.String,
+      action: Schema.Literals(["status", "oauth", "disconnect"]),
+      apiKey: Schema.optionalKey(Schema.String),
+    },
+    success: CloudConnection,
+    error: DomainFailure,
+  }),
+
   Rpc.make("amicited.cloud.subscribeApprovals", {
     success: Schema.Array(PendingApproval),
     stream: true,

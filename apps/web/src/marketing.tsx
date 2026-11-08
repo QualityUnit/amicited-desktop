@@ -1,6 +1,15 @@
+import { threadsForDomain } from "@amicited/cloud-client/domainModel";
+import { buildSidebarProjectSnapshots } from "./sidebarProjectGrouping";
+import {
+  NewDomainDialog,
+  DomainsSettings,
+  DomainMigration,
+  DomainThreadGroup,
+  useDomains,
+} from "./marketingDomains";
 import { CloudDisclosure } from "./rpc/amicitedApprovals";
 import { useCloudApprovals } from "./rpc/amicitedCloud";
-import { useWindowControlsInsetStyle } from "./components/AppSidebarLayout";
+import { SidebarControl, useWindowControlsInsetStyle } from "./components/AppSidebarLayout";
 import { isElectron } from "./env";
 import { ToggleGroup, Toggle } from "./components/ui/toggle-group";
 import { SettingsGroup } from "./components/settings/SettingsGroup";
@@ -31,8 +40,10 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarProvider,
+  useSidebar,
+  useSidebarVisibility,
 } from "./components/ui/sidebar";
-import { AmICitedMark, readBrand } from "@amicited/ui-marketing";
+import { AmICitedMark } from "@amicited/ui-marketing";
 import { Archive } from "lucide-react";
 import { useRef } from "react";
 import { useNowMinute } from "./hooks/useNowMinute";
@@ -51,7 +62,7 @@ import {
   saveMarketingReport,
   marketingHistoryStatus,
 } from "./marketingContext";
-import { useThreadShells } from "./state/entities";
+import { useProjects, useThreadShells } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -70,7 +81,7 @@ import { Link } from "@tanstack/react-router";
 import { CloudPage } from "./rpc/amicitedCloud";
 
 import { useComposerDraftStore } from "./composerDraftStore";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 import type { ServerProvider } from "@t3tools/contracts";
@@ -280,7 +291,8 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
       <SidebarProvider style={windowControlsInsetStyle}>
-        <MarketingShell
+        <DomainMigration />
+        <MarketerShell
           desktop={isElectron}
           footer={
             <SidebarFooter>
@@ -359,19 +371,42 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           ) : (
             children
           )}
-        </MarketingShell>
+        </MarketerShell>
       </SidebarProvider>
     </MarketingUiContext>
   ) : (
     children
   );
 }
+export function MarketerShell(props: ComponentProps<typeof MarketingShell>) {
+  const { toggleSidebar, setOpen, setOpenMobile, isMobile } = useSidebar();
+  const visible = useSidebarVisibility();
+  return (
+    <MarketingShell
+      {...props}
+      sidebar={{
+        collapsed: !visible,
+        toggle: toggleSidebar,
+        expand: () => (isMobile ? setOpenMobile(true) : setOpen(true)),
+        control: <SidebarControl marketer />,
+      }}
+    />
+  );
+}
+
 export function MarketingHome() {
   const environmentId = usePrimaryEnvironmentId();
   const environment = usePrimaryEnvironment();
   const scratch = useScratchProject();
+  const domains = useDomains();
+  const newThread = useNewThreadHandler();
+  const [newDomainOpen, setNewDomainOpen] = useState(false);
   const open = useEffectEvent(async () => {
-    if (environmentId) await scratch.startScratchThread(environmentId);
+    if (!environmentId) return;
+    const domain = domains.rows[0];
+    if (domain) await newThread(scopeProjectRef(environmentId, ProjectId.make(domain.projectId)));
+    else if (scratch.scratchWorkspaceRootFor(environmentId))
+      await scratch.startScratchThread(environmentId);
   });
   const [error, setError] = useState("");
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Open the implicit workspace through the existing project service once the environment connects.
@@ -379,6 +414,17 @@ export function MarketingHome() {
     if (environment?.connection.phase === "connected")
       void open().catch(() => setError("Could not open your chat. Please try again."));
   }, [environment?.connection.phase]);
+  if (
+    environment?.connection.phase === "connected" &&
+    !scratch.scratchWorkspaceRootFor(environmentId) &&
+    !domains.rows.length
+  )
+    return (
+      <div className="am-page">
+        <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
+        <Button onClick={() => setNewDomainOpen(true)}>New domain</Button>
+      </div>
+    );
   return error ? <p role="alert">{error}</p> : <p role="status">Opening your chat…</p>;
 }
 
@@ -477,7 +523,7 @@ const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void
   <Switch aria-label="Developer features" checked={checked} onCheckedChange={onChange} />
 );
 export function MarketingSettings() {
-  return <MarketingSettingsView modeControl={renderModeSwitch} />;
+  return <MarketingSettingsView modeControl={renderModeSwitch} domains={<DomainsSettings />} />;
 }
 
 export function MarketingFirstRun() {
@@ -742,6 +788,21 @@ function MarketingHistory({
   const update = useOrchestrationCommand(threadEnvironment.updateMetadata);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [title, setTitle] = useState("");
+  const domains = useDomains();
+  const projects = useProjects();
+  const projectGroups = buildSidebarProjectSnapshots({
+    projects,
+    settings: { sidebarProjectGroupingMode: "separate", sidebarProjectGroupingOverrides: {} },
+    primaryEnvironmentId: domains.environmentId,
+    resolveEnvironmentLabel: () => null,
+  });
+  const target = useThreadRouteTarget();
+  const active = activeThreads.find(
+    (thread) => target?.kind === "server" && thread.id === target.threadRef.threadId,
+  );
+  const activeDomain = domains.rows.find((domain) => domain.projectId === active?.projectId);
+  const newThread = useNewThreadHandler();
+  const [newDomainOpen, setNewDomainOpen] = useState(false);
   const sorted = threads.toSorted((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
   return (
     <div className="am-flat-history">
@@ -758,8 +819,15 @@ function MarketingHistory({
             <Archive />
           </SidebarHeaderIconButton>
         }
-        onNewProject={() => {}}
-        onNewThread={() => void navigate({ to: "/new" })}
+        newProjectLabel="New domain"
+        onNewProject={() => setNewDomainOpen(true)}
+        onNewThread={() =>
+          activeDomain && domains.environmentId
+            ? void newThread(
+                scopeProjectRef(domains.environmentId, ProjectId.make(activeDomain.projectId)),
+              )
+            : void navigate({ to: "/new" })
+        }
         newThreadDisabled={false}
         newThreadShortcutLabel={null}
         newThreadInProjectShortcutLabel={null}
@@ -774,17 +842,45 @@ function MarketingHistory({
         onClearSearch={() => setSearch("")}
         newThreadLabel="New chat"
         searchLabel="Search chats"
-        hideNewProject
       />
+      <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
       {!threads.length && (
         <p className="am-history-empty">{archived ? "No archived chats" : "No chats yet"}</p>
       )}
-      {["Chats"].map((group) => {
-        const rows = sorted.filter((thread) =>
-          thread.title.toLowerCase().includes(search.toLowerCase()),
+      {[
+        ...domains.rows
+          .filter((domain) =>
+            projects.some((project) => project.id === domain.projectId && !project.archivedAt),
+          )
+          .map((domain) => ({
+            key: domain.projectId,
+            snapshot: projectGroups.find((group) => group.id === domain.projectId),
+            title:
+              projects.find((project) => project.id === domain.projectId)?.title ?? domain.hostname,
+            domain,
+          })),
+        { key: "no-domain", title: "No domain", domain: undefined, snapshot: undefined },
+      ].map((group) => {
+        const rows = threadsForDomain(
+          sorted.filter((thread) => thread.title.toLowerCase().includes(search.toLowerCase())),
+          domains.rows,
+          domains.environmentId,
+          group.domain?.projectId,
         );
-        return rows.length ? (
-          <section key={group}>
+        return rows.length || group.domain ? (
+          <DomainThreadGroup
+            key={group.key}
+            snapshot={group.snapshot}
+            domain={group.domain}
+            destination={domains.environmentId}
+            threads={rows}
+            onNew={() => {
+              if (domains.environmentId && group.domain)
+                void newThread(
+                  scopeProjectRef(domains.environmentId, ProjectId.make(group.domain.projectId)),
+                );
+            }}
+          >
             {rows.map((thread) => {
               const ref = scopeThreadRef(thread.environmentId, thread.id);
               const key = thread.environmentId + thread.id;
@@ -930,7 +1026,7 @@ function MarketingHistory({
                 </div>
               );
             })}
-          </section>
+          </DomainThreadGroup>
         ) : null;
       })}
     </div>
@@ -955,7 +1051,7 @@ function MarketingHistoryStatus({
   const time = relative === "just now" ? "now" : relative.replace(/ ago$/, "");
   return (
     <small className="am-history-status" data-status={status}>
-      <span className="min-w-0 flex-1 truncate">{readBrand()?.name ?? "Your workspace"}</span>
+      <span className="min-w-0 flex-1" />
       <span
         className={`am-history-status-slot flex shrink-0 items-center gap-1 ${status === "Working" ? "text-info-foreground" : status === "Needs your OK" ? "text-warning-foreground" : status === "Couldn't check" || status === "Sign in needed" ? "text-error-foreground" : ""}`}
       >

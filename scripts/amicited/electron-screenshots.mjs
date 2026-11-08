@@ -180,8 +180,7 @@ try {
         timeline: "[data-thread-find-text] p",
         brandHeader:
           '.am-chat-brand > div:first-child, [data-slot="sidebar"] > div:has(a[aria-label="T3 Code home"])',
-        collapseToggle:
-          '.am-sidebar-toggle > button, [data-sidebar-control] button[aria-label="Toggle main sidebar"]',
+        collapseToggle: "[data-sidebar-control] button",
         contextLine: '.am-composer-context button, button[aria-label^="Permissions:"]',
         selectionBounds:
           '.am-history-row:has([aria-current="page"]), [data-sidebar-row][aria-current="page"]',
@@ -280,7 +279,7 @@ try {
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
   await capture("empty-chat");
   const marketerInset = await page.evaluate(() => {
-    const toggle = document.querySelector(".am-sidebar-toggle");
+    const toggle = document.querySelector("[data-sidebar-control]");
     const brand = document.querySelector("[data-amicited-brand]");
     return {
       left: toggle.getBoundingClientRect().left,
@@ -292,14 +291,24 @@ try {
   });
   await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
   const collapsedInset = await page.evaluate(() => {
-    const toggle = document.querySelector(".am-sidebar-toggle").getBoundingClientRect();
+    const toggle = document.querySelector("[data-sidebar-control]").getBoundingClientRect();
     const rail = document.querySelector(".am-chat-sidebar").getBoundingClientRect();
     return { left: toggle.left, right: toggle.right, railRight: rail.right };
   });
-  if (collapsedInset.left !== marketerInset.left || collapsedInset.right > collapsedInset.railRight)
+  if (collapsedInset.left !== marketerInset.left || collapsedInset.right > 1344)
     throw new Error("Collapsed rail overlaps the native controls or clips its toggle");
   await capture("collapsed-native-controls");
   await page.getByRole("button", { name: "Expand sidebar", exact: true }).click();
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).waitFor();
+  await capture("expanded-after-click");
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).click();
+  await page.getByRole("button", { name: "Chat history", exact: true }).click();
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).waitFor();
+  await page.keyboard.press("Meta+b");
+  await page.getByRole("button", { name: "Expand sidebar", exact: true }).waitFor();
+  await page.keyboard.press("Meta+b");
+  await page.getByRole("button", { name: "Collapse sidebar", exact: true }).waitFor();
+  await capture("expanded-after-shortcut");
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.reload();
   await page.getByRole("link", { name: "T3 Code home", exact: true }).waitFor();
@@ -344,6 +353,7 @@ try {
   });
   await page.reload();
   await page.getByTestId("composer-editor").waitFor();
+  await page.getByTestId("sidebar-project-folder").filter({ hasText: "example.com" }).waitFor();
   await page.evaluate(() => window.t3dev.replay("marketing"));
   await page.getByRole("article", { name: "Marketing tool result" }).waitFor({ timeout: 120000 });
   await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();

@@ -1,3 +1,5 @@
+import { readDomain } from "../marketingDomains";
+import { readWorkspaceMode } from "@amicited/ui-marketing";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
@@ -40,6 +42,9 @@ export function DevReplayHost() {
   const environmentProjects = projects.filter((project) => project.environmentId === environmentId);
   const project =
     environmentProjects.find((candidate) => candidate.id === routeThread?.projectId) ??
+    (readWorkspaceMode() === "marketer"
+      ? environmentProjects.find((candidate) => readDomain(candidate.environmentId, candidate.id))
+      : undefined) ??
     environmentProjects[0];
 
   const replay = async (scenario?: string): Promise<ThreadId> => {

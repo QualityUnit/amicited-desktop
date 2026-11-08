@@ -42,8 +42,10 @@ const call = Effect.fn("AmicitedCloud.proxy")(function* (
   tool: string,
   args: Record<string, unknown>,
 ) {
-  yield* readCaller();
-  const cloud = yield* AmicitedCloud;
+  const caller = yield* readCaller();
+  const root = yield* AmicitedCloud;
+  yield* Effect.promise(() => root.domains?.list() ?? Promise.resolve([]));
+  const cloud = root.forProject(caller.caller?.projectId);
   const result = yield* Effect.tryPromise({
     try: () => cloud.call(tool, args),
     catch: () =>
@@ -61,12 +63,16 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
 }) {
   const caller = yield* readCaller();
   yield* assertLiveCaller(caller);
-  const cloud = yield* AmicitedCloud;
+  const root = yield* AmicitedCloud;
+  yield* Effect.promise(() => root.domains?.list() ?? Promise.resolve([]));
+  const cloud = root.forProject(caller.caller?.projectId);
   if (!caller.scope.thread)
     return yield* new OrchestratorMcpFailure({
       code: "capability_denied",
       message: "Run AmICited actions from a thread so the user can approve them.",
     });
+  if (caller.caller?.projectId)
+    root.domains?.bindThread(caller.caller.projectId, caller.scope.thread.threadId);
   const result = yield* Effect.tryPromise({
     try: async (signal) => {
       const policy = await cloud.toolPolicy(params.tool);
@@ -95,6 +101,10 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
           "Could not check this AmICited tool. Check your connection and discover its name first.",
       }),
   });
+  if (params.tool === "list_domains" && caller.caller?.projectId)
+    yield* Effect.promise(
+      () => root.domains?.rememberDomain(caller.caller!.projectId, result) ?? Promise.resolve(),
+    ).pipe(Effect.ignoreCause({ log: true }));
   return {
     kind: "amicited-cloud-result",
     tool: params.tool,

@@ -1,3 +1,4 @@
+import { domainToolInput } from "@amicited/cloud-client/domainModel";
 import { usefulMarketingResult } from "@amicited/cloud-client";
 import { AmicitedCloud } from "../../../amicited/Cloud.ts";
 import { unavailable } from "../../threadAccess.ts";
@@ -11,12 +12,20 @@ import { MarketingToolkit } from "./tools.ts";
 export const layer = McpToolAccess.toLayer(MarketingToolkit, {
   amicited_connection: McpToolAccess.reads(({ request }) =>
     Effect.gen(function* () {
-      const cloud = yield* AmicitedCloud;
+      const root = yield* AmicitedCloud;
+      let cloud = root;
+      let domain: import("@amicited/cloud-client/domains").Domain | undefined;
       const scope = yield* McpInvocationContext.McpInvocationContext;
       let offersAllowed = false;
       let firstWin = false;
       if (scope.thread) {
         const threads = yield* ThreadManagementService.ThreadManagementService;
+        const shell = yield* threads
+          .getThreadShell(scope.thread.threadId)
+          .pipe(Effect.mapError(unavailable));
+        const domains = yield* Effect.promise(() => root.domains?.list() ?? Promise.resolve([]));
+        domain = domains.find((row) => row.projectId === shell?.projectId);
+        cloud = root.forProject(shell?.projectId);
         const records = yield* threads
           .getThreadRecords(scope.thread.threadId, ["messages", "turnItems"])
           .pipe(Effect.mapError(unavailable));
@@ -37,9 +46,17 @@ export const layer = McpToolAccess.toLayer(MarketingToolkit, {
             usefulMarketingResult(item.output),
         );
       }
-      return yield* Effect.promise(() =>
+      const connection = yield* Effect.promise(() =>
         cloud.connectionForRequest(request, offersAllowed, firstWin),
       );
+      return {
+        ...connection,
+        ...(domain
+          ? {
+              domain: { hostname: domain.hostname, brand: domain.brand, domainId: domain.domainId },
+            }
+          : {}),
+      };
     }),
   ),
   marketing_tools_search: McpToolAccess.reads((input) =>
@@ -66,8 +83,11 @@ export const layer = McpToolAccess.toLayer(MarketingToolkit, {
       const thread = yield* threads
         .getThreadShell(scope.thread.threadId)
         .pipe(Effect.mapError(unavailable));
+      const cloud = yield* AmicitedCloud;
+      const domains = yield* Effect.promise(() => cloud.domains?.metadata() ?? Promise.resolve([]));
+      const domain = domains.find((row) => row.projectId === thread?.projectId);
       return yield* service
-        .run(input.name, input.input)
+        .run(input.name, domainToolInput(input.name, input.input, domain))
         .pipe(Effect.provideService(MarketingCaller, { selection: thread?.modelSelection }));
     }),
   ),

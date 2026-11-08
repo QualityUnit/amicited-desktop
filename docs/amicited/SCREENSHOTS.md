@@ -131,3 +131,11 @@ reached, `production-oauth-boundary.json` records that limitation.
 Wave 33 uses `.amicited-shots/r31/`. Live cloud evidence includes inline credit approvals, a read-only chat grant, and provider-shaped brand visibility with start/poll consolidation. `AMICITED_CAPTURE_OAUTH=1` records the redacted authorization URL after the production browser launcher succeeds; it opens the real browser and cancels without submitting a form. It no longer substitutes a launcher shim. Explicit Replay capture holds long recorded states for thirty seconds to allow all three viewport captures under host load.
 
 `AMICITED_SKIP_REPORT_PROBE=1` scopes the native harness to its UI and cloud captures without sending the separate report-question follow-ups. Report dispatch remains covered by the full browser journey; report a scoped native run as such.
+
+Wave 36 uses `.amicited-shots/r34/`. The website-editor capture now shows the
+New domain dialog. Native evidence adds the 48px rail with the upstream floating
+control, reopen by click/history/shortcut, two domain groups and persisted chats,
+the disconnected warning, and Settings → Domains. The same-account captures use
+an isolated loopback MCP fixture and test-only workspace keys; they do not imply
+production account access. Native title-bar clearance is measured in Electron;
+renderer captures omit the macOS traffic lights.

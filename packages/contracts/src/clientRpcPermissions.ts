@@ -15,6 +15,9 @@ import { WS_METHODS } from "./rpc.ts";
 
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
+  "amicited.domains.reuse": AuthSettingsWriteScope,
+  "amicited.domains.save": AuthSettingsWriteScope,
+  "amicited.domains.connection": AuthSettingsWriteScope,
   "amicited.cloud.connectOAuth": AuthSettingsWriteScope,
   "amicited.cloud.connectApiKey": AuthSettingsWriteScope,
   "amicited.cloud.resetAccess": AuthSettingsWriteScope,

@@ -420,11 +420,7 @@ try {
       if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
         await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
       if (name === "02c-website-popover") {
-        await page.getByRole("button", { name: "Save website", exact: true }).waitFor();
-        await page.waitForFunction(() => {
-          const starters = document.querySelector(".am-starters");
-          return !starters || getComputedStyle(starters).visibility === "hidden";
-        });
+        await page.getByRole("button", { name: "Create domain", exact: true }).waitFor();
       }
       if (name === "05a-chat-hover") {
         const row = page.locator(".am-history-row").first();
@@ -515,10 +511,10 @@ try {
     await page.getByPlaceholder("Search models...").waitFor();
     await capture("02e-model-picker");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "example.com", exact: true }).click();
-    await page.getByRole("button", { name: "Save website" }).waitFor();
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByRole("button", { name: "Create domain" }).waitFor();
     await capture("02c-website-popover");
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
     await page.getByRole("button", { name: "Collapse sidebar" }).click();
     for (const label of ["Settings", "Tools", "AmICited"]) {
       const button = page.getByRole("link", { name: label, exact: true });
@@ -582,10 +578,16 @@ try {
     await page.getByRole("region", { name: "Tool result" }).waitFor();
     await capture("04-full-result");
     await page.goto(marketingChatUrl);
-    await page.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
-    await page.getByText("Waiting for you to finish in your browser…", { exact: true }).waitFor();
+    await page
+      .getByRole("button", { name: "Connect AmICited (free)", exact: true })
+      .first()
+      .click();
+    await page
+      .getByText("Waiting for you to finish in your browser…", { exact: true })
+      .first()
+      .waitFor();
     await capture("03j-connect-waiting-live");
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
     await page.goto(url + "/marketing-settings");
     await page.getByText("Use an API key instead", { exact: true }).click();
     await page.getByLabel("Workspace API key").fill("capture-only");
@@ -706,7 +708,7 @@ try {
     await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
     await page.getByRole("alertdialog").waitFor();
     await capture("05c-delete-confirmation");
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
     await page
       .getByRole("button", { name: /Chat actions for/ })
       .first()
@@ -768,7 +770,7 @@ try {
         await page.getByRole("button", { name: "Connect with AmICited" }).first().waitFor();
       }
       if (path === "/settings/general")
-        await page.getByRole("textbox", { name: "Website URL", exact: true }).waitFor();
+        await page.getByRole("heading", { name: "Domains", exact: true }).waitFor();
       await capture(name!);
       if (path === "/marketing-settings") {
         for (const state of ["waiting", "free", "upgrade", "full"]) {
@@ -1092,8 +1094,8 @@ try {
   await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.addStyleTag({ content: "* { transition: none !important; }" });
   await page.setViewportSize({ width: 1344, height: 1016 });
-  await page.getByRole("button", { name: "example.com", exact: true }).click();
-  await page.getByRole("dialog", { name: "Website" }).waitFor();
+  await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+  await page.getByRole("dialog", { name: "New domain" }).waitFor();
   await page.screenshot({ path: NodePath.join(out, "13-fresh-dark-1344.png") });
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.goto(url + "/");

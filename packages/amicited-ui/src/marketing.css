@@ -24,9 +24,6 @@
     overflow: auto;
     padding: 8px;
   }
-  .am-flat-history > div:first-child button[aria-label="Add project"] {
-    display: none;
-  }
   .am-chat-sidebar nav[aria-label="Workspace"] {
     display: flex;
     align-items: center;
@@ -51,9 +48,9 @@
     overflow: auto;
   }
   .am-chat-collapsed .am-chat-sidebar {
-    width: max(48px, calc(var(--workspace-controls-left) + 36px));
+    width: 48px;
   }
-  .am-chat-collapsed .am-chat-brand > div:not(.am-sidebar-toggle),
+  .am-chat-collapsed .am-chat-brand > div:not(.am-sidebar-toggle):not([data-sidebar-control]),
   .am-chat-collapsed .am-chat-brand > span {
     visibility: hidden;
   }

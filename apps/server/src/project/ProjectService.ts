@@ -1,3 +1,4 @@
+import { AmicitedCloud } from "../amicited/Cloud.ts";
 import {
   CommandId,
   type OrchestrationProjectShell,
@@ -515,6 +516,13 @@ export const make = Effect.gen(function* () {
       yield* commit({ type: "project.delete", commandId: input.commandId, projectId });
       if (isFirstDelete) {
         yield* clearProjectSettingsOverrides(projectId);
+      }
+      const cloud = yield* Effect.serviceOption(AmicitedCloud);
+      if (Option.isSome(cloud) && cloud.value.domains) {
+        const domains = cloud.value.domains;
+        yield* Effect.promise(() => domains.forget(projectId)).pipe(
+          Effect.ignoreCause({ log: true }),
+        );
       }
       yield* projectEnrichment.invalidate([existing.value.workspaceRoot]);
       return yield* readCommitted(projectId);

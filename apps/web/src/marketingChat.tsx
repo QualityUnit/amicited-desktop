@@ -1,8 +1,8 @@
+import { useDomains, NewDomainDialog, DomainConnection } from "./marketingDomains";
 import { WorkLogRow } from "./components/chat/WorkLog";
 import { ComposerPendingApprovalActions } from "./components/chat/ComposerPendingApprovalActions";
 import { Shield } from "lucide-react";
 import { Globe } from "lucide-react";
-import { Popover, PopoverTrigger, PopoverPopup } from "./components/ui/popover";
 import { whatYouAreMissing } from "@amicited/cloud-client/upsell";
 import { createMarketingResend } from "./marketingRecovery";
 import { useOrchestrationCommand } from "./state/use-orchestration-command";
@@ -38,10 +38,6 @@ import {
   CloudToolResultCard,
   marketingToolResult,
   marketingOfferResult,
-  readBrand,
-  saveBrand,
-  normalizeWebsite,
-  MarketingInput,
   MarketingCallState,
   MarketingButton,
   resultTitle,
@@ -52,11 +48,13 @@ import { MarketingSubscriptions, useMarketingTask } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
 export function MarketingComposerContext({
   destination,
+  projectId,
   onSelected,
   onConnected,
   selectedInstanceId,
 }: {
   destination?: EnvironmentId | null | undefined;
+  projectId?: string | null | undefined;
   selectedInstanceId: string;
   onConnected: (selection: import("@t3tools/contracts").ModelSelection) => void;
   onSelected: (selection: import("@t3tools/contracts").ModelSelection) => void;
@@ -90,71 +88,34 @@ export function MarketingComposerContext({
   useEffect(() => {
     if (connecting && connectionReady && !connectionSent.current) finishConnection();
   }, [connecting, connectionReady]);
-  const [brand, setBrand] = useState(readBrand);
-  const [editingWebsite, setEditingWebsite] = useState(false);
-  const [websiteDraft, setWebsiteDraft] = useState(() => readBrand()?.website ?? "");
-  const [websiteError, setWebsiteError] = useState("");
+  const { rows: domains } = useDomains(environmentId);
+  const domain = domains.find((row) => row.projectId === projectId);
+  const [newDomainOpen, setNewDomainOpen] = useState(false);
   return (
-    <div data-am-website-open={editingWebsite}>
+    <div>
+      <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
       <div className="am-composer-context">
-        <Popover open={editingWebsite} onOpenChange={setEditingWebsite}>
-          <PopoverTrigger render={<MarketingButton size="xs" variant="link" type="button" />}>
+        {domain ? (
+          <span>{domain.hostname}</span>
+        ) : (
+          <MarketingButton
+            type="button"
+            size="xs"
+            variant="link"
+            onClick={() => setNewDomainOpen(true)}
+          >
             <Globe size={14} />
-            {brand?.website.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? "Add your website"}
-          </PopoverTrigger>
-          {editingWebsite && (
-            <PopoverPopup
-              align="start"
-              side="bottom"
-              width="md"
-              aria-label="Website"
-              data-amicited-tokens=""
-              data-amicited-popup=""
-            >
-              <div data-amicited-tokens="" className="am-website-editor">
-                <label>
-                  Website
-                  <MarketingInput
-                    value={websiteDraft}
-                    onChange={(e) => setWebsiteDraft(e.target.value)}
-                    autoFocus
-                    required
-                  />
-                </label>
-                <div className="am-website-actions">
-                  <MarketingButton
-                    size="xs"
-                    variant="default"
-                    type="button"
-                    onClick={() => {
-                      try {
-                        const next = normalizeWebsite(websiteDraft);
-                        const updated = { ...next, name: brand?.name ?? next.name };
-                        saveBrand(updated);
-                        setBrand(updated);
-                        setEditingWebsite(false);
-                        setWebsiteError("");
-                      } catch {
-                        setWebsiteError("Enter a website like example.com.");
-                      }
-                    }}
-                  >
-                    Save website
-                  </MarketingButton>
-                  <MarketingButton
-                    size="xs"
-                    variant="link"
-                    type="button"
-                    onClick={() => setEditingWebsite(false)}
-                  >
-                    Cancel
-                  </MarketingButton>
-                </div>
-                <p role="alert">{websiteError}</p>
-              </div>
-            </PopoverPopup>
-          )}
-        </Popover>
+            Add domain
+          </MarketingButton>
+        )}
+        {domain && environmentId && (
+          <DomainConnection
+            key={domain.projectId}
+            domain={domain}
+            destination={environmentId}
+            quiet
+          />
+        )}
         {!ready && (
           <>
             <MarketingButton
