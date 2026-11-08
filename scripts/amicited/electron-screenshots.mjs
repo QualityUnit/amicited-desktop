@@ -87,7 +87,7 @@ const boot = NodePath.join(home, "boot.cjs");
 // Desktop resolves macOS profiles from NodeOS.homedir, overriding --user-data-dir.
 NodeFS.writeFileSync(
   boot,
-  `require('node:os').homedir=()=>${JSON.stringify(home)};require(${JSON.stringify(NodePath.join(root, "apps/desktop/dist-electron/main.cjs"))});require('electron').app.on('web-contents-created',(_,w)=>w.on('did-finish-load',()=>{if(w.getURL().startsWith('t3code-dev:'))console.log('NATIVE_RENDERER_READY')}));`,
+  `require('node:os').homedir=()=>${JSON.stringify(home)};require(${JSON.stringify(NodePath.join(root, "apps/desktop/dist-electron/main.cjs"))});require('electron').app.on('web-contents-created',(_,w)=>w.on('did-finish-load',()=>{if(w.getURL().startsWith('t3code-dev:')){w.closeDevTools();console.log('NATIVE_RENDERER_READY')}}));`,
 );
 let child, browser;
 try {
@@ -145,6 +145,7 @@ try {
     deviceScaleFactor: 2,
     mobile: false,
   });
+  await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
   const fonts = await page.evaluate(async () => {
     const values = {};
     for (const family of ["-apple-system", "system-ui"])
@@ -272,7 +273,15 @@ try {
       await page.evaluate(() => document.fonts.ready);
       if (["empty-chat", "tool-card-turn", "reference-t3-turn"].includes(name))
         parity[`${name}-${theme}`] = await readStyles();
-      await page.screenshot({ path: NodePath.join(out, `electron-${name}-${theme}-1344.png`) });
+      await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
+      const screenshot = await cdp.send("Page.captureScreenshot", {
+        format: "png",
+        captureBeyondViewport: false,
+      });
+      NodeFS.writeFileSync(
+        NodePath.join(out, `electron-${name}-${theme}-1344.png`),
+        Buffer.from(screenshot.data, "base64"),
+      );
     }
   }
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
