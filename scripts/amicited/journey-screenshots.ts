@@ -89,6 +89,11 @@ const fixture = NodeHttp.createServer(async (req, res) => {
         ? {
             tools: [
               {
+                name: "delete_prompt",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: true },
+              },
+              {
                 name: "list_prompts",
                 inputSchema: { type: "object" },
                 annotations: { readOnlyHint: true, destructiveHint: false },
@@ -313,6 +318,7 @@ const env: NodeJS.ProcessEnv = {
   T3CODE_DEV_SEED: "0",
   T3CODE_DEV_REPLAY_CAPTURE: "1",
   T3CODE_PORT_OFFSET: "173",
+  AMICITED_CAPTURE_FULL_ACCESS: process.env.AMICITED_CAPTURE_FULL_ACCESS ?? "",
   T3CODE_DEV_AMICITED_ENDPOINT: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
 };
 delete env.VITE_HTTP_URL;
@@ -439,6 +445,8 @@ try {
     }
   };
   if (process.env.AMICITED_CAPTURE_SITE_FILES === "1") {
+    await page.getByTestId("composer-editor").waitFor();
+    await waitForOperate();
     const fixtureRoot = await NodeFSP.mkdtemp(
       NodePath.join(NodeOS.tmpdir(), "amicited-site-capture-"),
     );
@@ -539,6 +547,7 @@ try {
 
     await page.reload();
     await page.getByTestId("composer-editor").waitFor();
+    await waitForOperate();
     await page.evaluate(() =>
       (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
         "showcase",
@@ -564,8 +573,31 @@ try {
     await capture("39-review-diff-open");
     await page.getByRole("button", { name: "Close review", exact: true }).click();
     await capture("39-review-diff-closed");
+    const siteThreadRoute = page.url();
+      if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
+        await page.goto(url + "/marketing-settings");
+        await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+        await page.getByText("Use an API key instead", { exact: true }).click();
+        await page.getByLabel("Workspace API key").fill("capture-only");
+        await page.getByRole("button", { name: "Connect with key", exact: true }).click();
+        await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+        await page.goto(siteThreadRoute);
+        await page.getByTestId("composer-editor").waitFor();
+        await waitForOperate();
+        await page.evaluate(() => {
+          void (
+            window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }
+          ).t3dev.replay("marketing-cloud");
+        });
+        await page.getByText(/Delete prompt on example.com/).waitFor();
+        await capture("47-site-full-access-free-check-and-destructive-confirmation");
+        await page.getByRole("button", { name: "Decline", exact: true }).click();
+        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
+        await capture("47-site-access-mode-selector");
+        await page.keyboard.press("Escape");
+      }
+
     if (process.env.AMICITED_CAPTURE_THREAD_CONTEXT === "1") {
-      const siteThreadRoute = page.url();
       await capture("45-site-folder-location");
       for (const [name, delta] of [
         ["narrow", -1000],
@@ -988,49 +1020,62 @@ try {
       await page
         .getByText("Connected · access confirmed on your next check", { exact: true })
         .waitFor();
+      if (process.env.AMICITED_CAPTURE_FULL_ACCESS !== "1") {
+        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
+        await page.getByRole("menuitemradio", { name: "Ask before acting", exact: true }).click();
+      }
       await page.evaluate(() => {
         void (window as unknown as { t3dev: { replay(s: string): Promise<unknown> } }).t3dev.replay(
           "marketing-cloud",
         );
       });
-      await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+      if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
+        await page.getByText(/Delete prompt on example.com/).waitFor();
+        await capture("47-full-access-free-check-and-destructive-confirmation");
+        await page.getByRole("button", { name: "Decline", exact: true }).click();
+        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
+        await capture("47-access-mode-selector");
+        await page.keyboard.press("Escape");
+      } else {
+        await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
 
-      await capture("03g-cloud-approval-live");
-      await page
-        .getByRole("button", { name: "Allow these checks in this chat", exact: true })
-        .click();
-      await page.getByText(/View prompts on example.com/).waitFor();
-      await page.getByRole("button", { name: "Allow", exact: true }).click();
-      await page.getByText(/The free site health check is complete/).waitFor();
-      await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
-      await capture("03e-cloud-site-health");
-      await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
-      await page
-        .getByText(/Checked brand visibility on example.com/)
-        .first()
-        .waitFor();
-      await capture("03k-brand-visibility-merged");
-      await page
-        .getByRole("button", { name: /Checked brand visibility on example.com/ })
-        .first()
-        .click();
-      await page
-        .getByText(/Mentioned by ChatGPT and Perplexity/)
-        .first()
-        .waitFor();
-      await capture("03l-brand-visibility-summary");
-      await page.getByText("Report expired: not found", { exact: true }).waitFor();
-      await page
-        .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
-        .waitFor();
-      await capture("03m-failed-poll");
-      await capture("03h-paid-approval-live");
-      await page.getByRole("button", { name: "Allow", exact: true }).click();
-      await page
-        .getByText("Needs a Pro plan or trial. Free checks still work.", { exact: true })
-        .first()
-        .waitFor();
-      await capture("03i-subscription-refusal-live");
+        await capture("03g-cloud-approval-live");
+        await page
+          .getByRole("button", { name: "Allow these checks in this chat", exact: true })
+          .click();
+        await page.getByText(/View prompts on example.com/).waitFor();
+        await page.getByRole("button", { name: "Allow", exact: true }).click();
+        await page.getByText(/The free site health check is complete/).waitFor();
+        await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
+        await capture("03e-cloud-site-health");
+        await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+        await page
+          .getByText(/Checked brand visibility on example.com/)
+          .first()
+          .waitFor();
+        await capture("03k-brand-visibility-merged");
+        await page
+          .getByRole("button", { name: /Checked brand visibility on example.com/ })
+          .first()
+          .click();
+        await page
+          .getByText(/Mentioned by ChatGPT and Perplexity/)
+          .first()
+          .waitFor();
+        await capture("03l-brand-visibility-summary");
+        await page.getByText("Report expired: not found", { exact: true }).waitFor();
+        await page
+          .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
+          .waitFor();
+        await capture("03m-failed-poll");
+        await capture("03h-paid-approval-live");
+        await page.getByRole("button", { name: "Allow", exact: true }).click();
+        await page
+          .getByText("Needs a Pro plan or trial. Free checks still work.", { exact: true })
+          .first()
+          .waitFor();
+        await capture("03i-subscription-refusal-live");
+      }
       await NodeFSP.writeFile(
         NodePath.join(out, "cloud-live-transcript.txt"),
         await page.locator("body").innerText(),
@@ -1320,6 +1365,7 @@ try {
         await page.getByRole("button", { name: "New chat", exact: true }).click();
         await page.waitForURL(/\/draft\//);
         await page.getByTestId("composer-editor").waitFor();
+        await waitForOperate();
         await page.evaluate(async () => {
           const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
           const state = useComposerDraftStore.getState();

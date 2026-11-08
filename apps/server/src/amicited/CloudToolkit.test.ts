@@ -9,7 +9,8 @@ import { AmicitedCloud } from "./Cloud.ts";
 import { CloudToolkit, layer } from "./CloudToolkit.ts";
 import * as McpInvocationContext from "../mcp/McpInvocationContext.ts";
 import * as McpToolAccess from "../mcp/McpToolAccess.ts";
-import { liveThreadsLayer } from "../mcp/McpToolAccess.testkit.ts";
+import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
+import { liveThreadShell, liveThreadsLayer } from "../mcp/McpToolAccess.testkit.ts";
 const encodeCall = Schema.encodeUnknownEffect(
   Schema.toCodecJson(Schema.toEncoded(CloudToolkit.tools.amicited_cloud_call.successSchema)),
 );
@@ -203,7 +204,10 @@ it.effect("keeps a real approval pending until the user declines and encodes the
     });
     const dependencies = Layer.mergeAll(
       Layer.succeed(AmicitedCloud, cloud),
-      liveThreadsLayer,
+      Layer.mock(ThreadManagement.ThreadManagementService)({
+        getThreadShell: (id) =>
+          Effect.succeed(liveThreadShell(id, { runtimeMode: "approval-required" })),
+      }),
       Layer.succeed(McpInvocationContext.McpInvocationContext, {
         environmentId: EnvironmentId.make("cloud-test"),
         requestNamespace: "cloud-test",

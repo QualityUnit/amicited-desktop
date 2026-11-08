@@ -404,6 +404,8 @@ function runAgent(): void {
           undefined,
           { timeout: 11 * 60_000, signal },
         );
+        const finalTool =
+          process.env.AMICITED_CAPTURE_FULL_ACCESS === "1" ? "delete_prompt" : "prompt_analytics";
         const toolCallId = NodeCrypto.randomUUID();
         send({
           method: "session/update",
@@ -416,7 +418,7 @@ function runAgent(): void {
               kind: "other",
               status: "pending",
               rawInput: {
-                tool: "prompt_analytics",
+                tool: finalTool,
                 arguments: {
                   domain_id: "capture-domain",
                   prompt_id: "3f9c0000-0000-4000-8000-000000000001",
@@ -429,7 +431,7 @@ function runAgent(): void {
           {
             name: "amicited_cloud_call",
             arguments: {
-              tool: "prompt_analytics",
+              tool: finalTool,
               arguments: {
                 domain_id: "capture-domain",
                 prompt_id: "3f9c0000-0000-4000-8000-000000000001",

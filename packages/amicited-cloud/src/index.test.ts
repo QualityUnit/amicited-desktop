@@ -632,3 +632,32 @@ it("builds an authorization request satisfying FlowHunt resource, registration a
   });
   expect(await cloud.connectOAuth()).toMatchObject({ state: "error", code: "access_denied" });
 });
+
+it("runs free checks, paid reads and writes in full access but confirms every destructive call", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make();
+  await cloud.connectApiKey("key");
+  cloud.toolPolicy = async (name) => ({ needsApproval: name !== "paid_read", destructive: false });
+  for (const tool of ["free_site_health_start", "paid_read", "paid_write"]) {
+    expect(
+      await cloud.requestCall("thread", tool, {}, undefined, "full-access"),
+    ).not.toHaveProperty("isError", true);
+    expect(cloud.pendingApprovals()).toEqual([]);
+    expect(fake.calls).toContain(tool);
+  }
+  cloud.toolPolicy = async () => ({ needsApproval: true, destructive: true });
+  for (const decision of ["acceptForSession", "decline"] as const) {
+    const waiting = Promise.withResolvers<void>();
+    const stop = cloud.subscribeApprovals(() => {
+      if (cloud.pendingApprovals().length) waiting.resolve();
+    });
+    const call = cloud.requestCall("thread", "delete_prompt", {}, undefined, "full-access");
+    await waiting.promise;
+    expect(cloud.pendingApprovals()).toHaveLength(1);
+    await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, decision);
+    const result = await call;
+    expect(result.isError === true).toBe(decision === "decline");
+    stop();
+  }
+  expect(fake.calls.filter((name) => name === "delete_prompt")).toHaveLength(1);
+});

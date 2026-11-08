@@ -1,5 +1,3 @@
-import { AmicitedCloud } from "../amicited/Cloud.ts";
-import { resolveSiteRuntimeMode } from "../amicited/siteRuntimePolicy.ts";
 import {
   isRuntimeModeAbove,
   managedRuntimeModeCeilingMessage,
@@ -148,7 +146,6 @@ export const layerFromProjectStore: Layer.Layer<
 > = Layer.effect(
   RuntimePolicyV2,
   Effect.gen(function* () {
-    const cloud = yield* Effect.serviceOption(AmicitedCloud);
     const projects = yield* ProjectStore.ProjectStoreV2;
     const providerInstances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
     // The same ceiling the orchestrator enforces, fixed for the server's life.
@@ -188,17 +185,7 @@ export const layerFromProjectStore: Layer.Layer<
             ),
           ));
         return ProviderAdapter.ProviderAdapterV2RuntimePolicy.make({
-          runtimeMode: providerRuntimeMode(
-            Option.isSome(cloud)
-              ? yield* resolveSiteRuntimeMode(
-                  cloud.value,
-                  input.thread.projectId,
-                  input.thread.runtimeMode,
-                  cwd,
-                )
-              : input.thread.runtimeMode,
-            supportedRuntimeModes,
-          ),
+          runtimeMode: providerRuntimeMode(input.thread.runtimeMode, supportedRuntimeModes),
           interactionMode: input.thread.interactionMode,
           cwd,
           ...(maxRuntimeMode === undefined ? {} : { maxRuntimeMode }),

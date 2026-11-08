@@ -589,7 +589,8 @@ export function NewDomainDialog({
                   )}
                   {siteFiles && (
                     <p className="text-sm text-muted-foreground">
-                      Changes stay in this folder. Nothing is published or pushed for you.
+                      Agents can edit files in this folder. Nothing is published or pushed for you.
+                      Review changes in the chat.
                     </p>
                   )}
                 </fieldset>
@@ -911,7 +912,7 @@ export function DomainsSettings() {
       <h2>Domains</h2>
       {readFailed && (
         <p role="status" className="text-sm text-muted-foreground">
-          Couldn't read your domains. Edits in site folders may not ask first.
+          Couldn't read your domains. Try again to load their details.
         </p>
       )}
       <SettingsGroup>

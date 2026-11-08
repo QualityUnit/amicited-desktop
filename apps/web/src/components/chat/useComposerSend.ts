@@ -1,4 +1,3 @@
-import { domainRuntimeMode } from "@amicited/cloud-client/domainModel";
 import { readDomain } from "../../marketingDomains";
 import {
   readMarketingReport,
@@ -372,11 +371,7 @@ export function useComposerSend(input: ComposerSendInput) {
     (store) => store.setEnvironmentContexts,
   );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
-  const runtimeMode = domainRuntimeMode(
-    readWorkspaceMode() === "marketer",
-    readDomain(environmentId, activeProject?.id),
-    configuredRuntimeMode,
-  );
+  const runtimeMode = configuredRuntimeMode;
   const sendToMultipleModels = useMultipleModelSend({
     environmentId,
     routeThreadKey,

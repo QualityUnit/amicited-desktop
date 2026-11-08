@@ -102,15 +102,8 @@ export function domainInstruction(domain?: {
 }) {
   if (!domain) return "";
   if (!domain.cms || domain.cms === "unknown")
-    return `The CMS is unknown; ask if it matters. ${domain.siteFiles ? "Site files are connected at the workspace root. Read and propose edits only after approval. Never commit or push unless explicitly asked." : "Site files are not connected; do not claim you can edit the site."}`;
+    return `The CMS is unknown; ask if it matters. ${domain.siteFiles ? "Site files are connected at the workspace root. Agents can edit files in this folder. Nothing is published or pushed for you. Review changes in the chat. Never commit or push unless explicitly asked." : "Site files are not connected; do not claim you can edit the site."}`;
   if (domain.siteFiles)
-    return `This site uses ${domain.cms === "git" ? (domain.framework ?? "a Git-based site") : cmsLabel(domain.cms)}${domain.cms !== "git" && domain.framework ? ` (site files: ${domain.framework})` : ""}. Site files are connected at the workspace root. Read and propose edits only after approval. Never commit or push unless explicitly asked.`;
+    return `This site uses ${domain.cms === "git" ? (domain.framework ?? "a Git-based site") : cmsLabel(domain.cms)}${domain.cms !== "git" && domain.framework ? ` (site files: ${domain.framework})` : ""}. Site files are connected at the workspace root. Agents can edit files in this folder. Nothing is published or pushed for you. Review changes in the chat. Never commit or push unless explicitly asked.`;
   return `This site uses ${cmsLabel(domain.cms)}. Site files are not connected. Give steps for its admin; do not claim you can edit the site.`;
-}
-export function domainRuntimeMode<T extends string>(
-  marketer: boolean,
-  domain: { siteFiles?: string | null } | undefined,
-  fallback: T,
-) {
-  return marketer && domain?.siteFiles ? "approval-required" : fallback;
 }

@@ -26,11 +26,8 @@ the upstream flow. This owner decision supersedes the global browser website
 preference described in earlier waves and the specification snapshot.
 
 Domains record a CMS and optional connected site folder. Existing domains default
-to Not sure and retain their managed folders. Connected marketer sites use T3's
-approval-required runtime mode; commit and push are never automatic. Replacing
-site files creates another domain so existing chats keep their working directory.
+to Not sure and retain their managed folders. Agents use T3's normal Full access default, including connected site folders. Users can choose Ask before acting per thread. Agents can edit files in this folder. Nothing is published or pushed for you. Review changes in the chat. Replacing site files creates another domain so existing chats keep their working directory.
 
-Connected domain folders require server-enforced supervised execution on every
-client and transport. Developer mode cannot bypass this domain policy. A copied
-repository abandoned in the New domain dialog is retained with an explicit reuse
-offer in that dialog; changing source or hostname clears its pending identity.
+Full access runs AmICited reads and writes without app approval cards. Destructive actions still require one confirmation per call; chat grants never cover them. Ask before acting retains app approvals and chat grants. Agents mention workspace credit use in their replies.
+
+A copied repository abandoned in the New domain dialog is retained with an explicit reuse offer in that dialog; changing source or hostname clears its pending identity.

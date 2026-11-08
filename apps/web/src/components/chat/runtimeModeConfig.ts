@@ -1,3 +1,4 @@
+import { readWorkspaceMode } from "@amicited/ui-marketing/mode";
 import {
   managedRuntimeModeDenial,
   type ManagedPolicySummary,
@@ -51,7 +52,13 @@ export function resolveRuntimeModeOptions(
   managedPolicy: ManagedPolicySummary | undefined,
 ) {
   return modes.map((mode) => {
-    const option = { mode, ...runtimeModeConfig[mode] };
+    const option = {
+      mode,
+      ...runtimeModeConfig[mode],
+      ...(readWorkspaceMode() === "marketer" && mode === "approval-required"
+        ? { label: "Ask before acting" }
+        : {}),
+    };
     const disabledReason = managedRuntimeModeDenial(managedPolicy, mode);
     return disabledReason === undefined ? option : { ...option, disabledReason };
   });

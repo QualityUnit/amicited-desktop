@@ -205,7 +205,6 @@ for (const failedRead of [false, true]) {
         },
       ];
     },
-    readSiteMembership: async () => [{ projectId, siteFiles: "/project-root" }],
     write: async () => {},
     secrets: () => ({ read: async () => undefined, write: async () => {}, clear: async () => {} }),
     legacy: { read: async () => undefined, write: async () => {}, clear: async () => {} },
@@ -224,29 +223,32 @@ for (const failedRead of [false, true]) {
   it.layer(layerWithPolicy().pipe(Layer.provide(Layer.succeed(AmicitedCloud, cloud))))(
     `site runtime boundary (metadata failure: ${failedRead})`,
     (it) => {
-      it.effect(
-        "supervises site turns and preserves unrelated project modes at the shared runtime boundary",
-        () =>
-          Effect.gen(function* () {
-            const policy = yield* RuntimePolicy.RuntimePolicyV2;
-            const now = yield* DateTime.now;
-            const thread = makeThread({ now, worktreePath: null });
-            const resolved = yield* policy.resolve({ thread, modelSelection });
-            assert.equal(resolved.runtimeMode, "approval-required");
-            assert.equal(resolved.cwd, "/project-root");
-            for (const runtimeMode of ["full-access", "auto"] as const) {
-              const unrelated = yield* policy.resolve({
-                thread: {
-                  ...thread,
-                  projectId: ProjectId.make("unrelated"),
-                  worktreePath: "/unrelated",
-                  runtimeMode,
-                },
-                modelSelection,
-              });
-              assert.equal(unrelated.runtimeMode, runtimeMode);
-            }
-          }),
+      it.effect("preserves selected modes for site turns and unrelated projects", () =>
+        Effect.gen(function* () {
+          const policy = yield* RuntimePolicy.RuntimePolicyV2;
+          const now = yield* DateTime.now;
+          const thread = makeThread({ now, worktreePath: null, runtimeMode: "full-access" });
+          const resolved = yield* policy.resolve({ thread, modelSelection });
+          assert.equal(resolved.runtimeMode, thread.runtimeMode);
+          assert.equal(resolved.cwd, "/project-root");
+          const supervised = yield* policy.resolve({
+            thread: { ...thread, runtimeMode: "approval-required" },
+            modelSelection,
+          });
+          assert.equal(supervised.runtimeMode, "approval-required");
+          for (const runtimeMode of ["full-access", "auto"] as const) {
+            const unrelated = yield* policy.resolve({
+              thread: {
+                ...thread,
+                projectId: ProjectId.make("unrelated"),
+                worktreePath: "/unrelated",
+                runtimeMode,
+              },
+              modelSelection,
+            });
+            assert.equal(unrelated.runtimeMode, runtimeMode);
+          }
+        }),
       );
     },
   );

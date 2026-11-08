@@ -565,6 +565,34 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
     assert.isFalse(overrides.allowedTools?.includes(ClaudeAdapterV2.CLAUDE_T3_MCP_TOOL_WILDCARD));
   });
 
+  it("pre-allows every app MCP toolkit in full access", () => {
+    const policy = ClaudeAdapterV2.claudeRuntimeQueryPolicyForRuntimePolicy(
+      ProviderAdapter.ProviderAdapterV2RuntimePolicy.make({
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        cwd: "/workspace",
+      }),
+    );
+    assert.equal(policy.permissionMode, "bypassPermissions");
+    const overrides = ClaudeAdapterV2.claudeMcpQueryOverrides({
+      mcpSession: mcpSessionFor(ThreadId.make("marketing")),
+      readOnlySandbox: false,
+    });
+    for (const tool of [
+      "marketing_tools_search",
+      "marketing_tools_run",
+      "amicited_connection",
+      "amicited_cloud_discover",
+      "amicited_cloud_call",
+    ]) {
+      assert.isTrue(
+        overrides.allowedTools?.some((pattern) =>
+          new RegExp(`^${pattern.replaceAll("*", ".*")}$`).test(`mcp__t3-code__${tool}`),
+        ),
+      );
+    }
+  });
+
   it("invalidates live-query reuse when MCP credentials rotate", () => {
     const threadId = ThreadId.make("thread-claude-mcp-credential-rotation");
     const mcpSession = mcpSessionFor(threadId);

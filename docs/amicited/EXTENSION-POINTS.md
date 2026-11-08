@@ -216,7 +216,7 @@ connection primitives inherit T3’s tokens. No upstream UI-kit variants remain.
 - `apps/web/src/components/ChatView.tsx`: hands an explicit marketer send intent to the existing composer send operation.
 - `apps/web/src/components/chat/DraftHeroProjectHeading.tsx` and `DraftHeroHeadline.tsx`: gate task wording and the no-project escape on workspace mode.
 - `apps/web/src/components/chat/ChatHeader.tsx`: adds marketer task breadcrumbs, the workspace label and the marketer workspace segment with the existing breadcrumb primitives.
-- `apps/web/src/components/chat/ComposerFooterControls.tsx` and `apps/web/src/components/ComposerContextPermissions.tsx`: hide advanced permission chips in marketer mode; server permission enforcement is unchanged.
+- `apps/web/src/components/chat/ComposerFooterControls.tsx` and `apps/web/src/components/ComposerContextPermissions.tsx`: show the native access selector in marketer mode; server permission enforcement is unchanged.
 - `apps/web/src/marketingNavigation.tsx`: routes standalone marketing UI events through TanStack Router.
 - `apps/web/src/routes/__root.tsx`: mounts the navigation bridge for both onboarding and the marketer shell.
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: marketer-only connection progress and readiness copy, suppressing developer setup details.
@@ -402,7 +402,7 @@ the next message. Developer messages carry no marketing promotion context.
 
 Wave 30 keeps existing cloud RPC and toolkit seams and adds:
 
-- `apps/web/src/components/chat/ComposerModelEffort.tsx`: marketer footer omits workflow and access controls.
+- `apps/web/src/components/chat/ComposerModelEffort.tsx`: marketer footer exposes the native access selector and omits workflow controls.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: hides Replay in production marketer mode.
 - `apps/web/src/components/chat/TimelineWorkEntryRow.tsx`: sends cloud tool results through the marketer renderer.
 - `evals/mcp-tool-use/run.ts`: includes real cloud proxy declarations in the evaluator.
@@ -489,7 +489,6 @@ from a user-approved `list_domains` result, without an extra paid status probe.
 - `apps/web/src/marketingDomains.tsx`: T3 select and native folder picker; folder projects use the upstream project-create command and Git URLs use source-control clone with its existing progress stream and managed projects root.
 - `apps/server/src/ws.ts`: authenticated folder-inspection RPC forwards to the AmICited site-files inspector. Metadata saves validate the connected path against the destination project root.
 - `packages/contracts/src/clientRpcPermissions.ts` and `apps/server/src/observability/RpcInstrumentation.ts`: settings-write authorization and telemetry for inspection.
-- `apps/web/src/hooks/useHandleNewThread.ts` and `components/chat/useComposerSend.ts`: connected marketer sites select upstream approval-required runtime mode at creation and send; developer settings remain upstream.
 - `apps/web/src/components/chat/TimelineAssistantRows.tsx`: marketer changed-files row opens the existing turn diff.
 - `evals/mcp-tool-use/run.ts`: CMS fixtures import the production domain instruction rather than copying it.
 
@@ -506,7 +505,6 @@ dependency-light readers so project creation does not import the domain UI recur
 
 Wave 39 site-file corrections:
 
-- `apps/server/src/orchestration-v2/RuntimePolicy.ts`: enforces domain supervision at provider execution, including queued turns and recovery; metadata failures use independent site membership and managed-folder boundaries to preserve unrelated project modes.
 - `packages/client-runtime/src/state/threadRequests.ts`: carries the related file-change paths into pending approvals.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: prioritizes the hostname when a custom domain status is supplied.
 - `apps/web/src/components/ChatView.tsx`: renders upstream diff panels in marketer mode with an explicit Close control.
@@ -518,7 +516,7 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/DiffWorkerPoolProvider.tsx`: initializes both diff themes so a theme switch cannot render before its theme reaches the workers.
 
 - `apps/web/src/components/RightPanelTabs.tsx` and `components/chat/ChatRightPanel.tsx`: optional add-menu visibility for the marketer review panel.
-- `apps/server/src/orchestration-v2/RuntimePolicy.test.ts`: verifies site supervision and metadata failure at the runtime boundary.
+- `apps/server/src/orchestration-v2/RuntimePolicy.test.ts`: verifies selected access modes remain unchanged for site folders even when metadata is unavailable.
 
 - `apps/web/src/filePathDisplay.ts`: optional workspace-label omission for marketer file rows and approvals, matching the review diff.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.browser.test.tsx`: verifies short hostnames fit at rest and visible status icons and actions do not overlap on hover or focus, for short and long hostnames.
@@ -537,3 +535,5 @@ Wave 39 site-file corrections:
 
 - `apps/web/src/components/{Sidebar,AppSidebarLayout}.browser.test.tsx` and `components/ui/sidebar.browser.test.tsx`: cover marketer lifecycle menus and shelves, drag limits and saved width after remount.
 - `apps/web/test/fakeEnvironment.ts`: optional shell metadata on test threads supports full-app PR and location fixtures without external calls.
+
+- `apps/web/src/components/chat/{ComposerFooterControls,ComposerModelEffort}.tsx` and `runtimeModeConfig.ts`: marketer composer and model picker expose upstream permissions with the Ask before acting label.

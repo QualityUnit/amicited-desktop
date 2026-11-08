@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { detectFramework, domainInstruction, domainRuntimeMode } from "./domainModel.ts";
+import { detectFramework, domainInstruction } from "./domainModel.ts";
 
 it.each([
   [["next.config.ts"], undefined, "Next.js"],
@@ -20,16 +20,13 @@ it.each([
 ])("detects site framework from %j", (files, json, expected) => {
   expect(detectFramework(files, json)).toBe(expected);
 });
-it("requires approval for connected sites and preserves developer settings", () => {
-  expect(domainRuntimeMode(true, { siteFiles: "/site" }, "full-access")).toBe("approval-required");
-  expect(domainRuntimeMode(false, { siteFiles: "/site" }, "full-access")).toBe("full-access");
-  expect(domainRuntimeMode(true, {}, "auto")).toBe("auto");
+it("describes connected site access without requiring approval", () => {
   expect(domainInstruction({ cms: "wordpress" })).toContain("WordPress");
   expect(domainInstruction({ cms: "wordpress" })).toContain("do not claim you can edit");
   expect(domainInstruction({ cms: "git", siteFiles: "/site", framework: "Next.js" })).toContain(
     "Next.js",
   );
-  expect(domainInstruction({ cms: "git", siteFiles: "/site" })).toContain("only after approval");
+  expect(domainInstruction({ cms: "git", siteFiles: "/site" })).toContain("Agents can edit files");
 });
 
 it("does not invent an admin or CMS for an unknown site", () => {

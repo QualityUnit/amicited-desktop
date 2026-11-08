@@ -151,7 +151,7 @@ export class CloudClient {
         access: connection.access ?? "unknown",
         tools: ["amicited_cloud_discover", "amicited_cloud_call"],
         instruction:
-          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. Free checks use a small amount of workspace credits, covered by a new account’s welcome credits; no paid plan is needed. The app requests user approval for external writes and paid tools. Paid reads also use workspace credits; mention the cost before long read loops. Never claim a tool ran unless its call succeeded.",
+          "Use amicited_cloud_discover with list_toolsets, search_tools and describe_tool, then amicited_cloud_call with the real tool name and arguments, including free_* tools. Free checks use a small amount of workspace credits, covered by a new account’s welcome credits; no paid plan is needed. Run requested tools directly. Full access permits reads and writes; only destructive actions ask for confirmation. Ask before acting mode keeps app approvals and chat grants. Mention workspace credit use in your reply. Never claim a tool ran unless its call succeeded.",
       };
     if (!offersAllowed)
       return {
@@ -243,6 +243,11 @@ export class CloudClient {
     tool: string,
     args: Record<string, unknown>,
     signal?: AbortSignal,
+    runtimeMode:
+      | "full-access"
+      | "approval-required"
+      | "auto"
+      | "auto-accept-edits" = "approval-required",
   ) {
     const generation = this.generation;
     if (
@@ -261,8 +266,9 @@ export class CloudClient {
     if (signal?.aborted || generation !== this.generation) return this.approvalFailure("cancelled");
     const readOnly = !policy.needsApproval && !policy.destructive;
     if (
+      (runtimeMode === "full-access" && !policy.destructive) ||
       (!free && readOnly && this.readGrants.has(threadId)) ||
-      (free && !policy.needsApproval) ||
+      (free && !policy.needsApproval && !policy.destructive) ||
       (free && this.freeGrants.has(threadId) && !policy.destructive)
     )
       return this.threadCall(threadId, tool, args);

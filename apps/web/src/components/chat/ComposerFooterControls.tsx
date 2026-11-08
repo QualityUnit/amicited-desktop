@@ -46,7 +46,7 @@ export const ComposerFooterModeControls = memo(function ComposerFooterModeContro
 }) {
   const size = props.size ?? "sm";
   const accessDisplay =
-    useWorkspaceMode() === "marketer" ? "hidden" : (props.accessDisplay ?? "label");
+    useWorkspaceMode() === "marketer" ? "label" : (props.accessDisplay ?? "label");
   const composerFloatingLayerProps = useComposerMenuProps();
   const [open, setOpen] = useComposerMenuState(props.hidden);
   const permissionsChipRef = useRef<HTMLButtonElement>(null);

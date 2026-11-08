@@ -684,13 +684,11 @@ export function ComposerPickerFooter(props: {
     <div className="flex flex-wrap items-center gap-2 border-t border-border/70 bg-muted/40 px-3 py-2">
       {!marketer && props.traits ? <SpeedControl traits={props.traits} /> : null}
       {!marketer && props.traits ? <UltracodeControl traits={props.traits} /> : null}
-      {!marketer && (
-        <PermissionsMenu
-          runtimeMode={props.runtimeMode}
-          options={props.runtimeModeOptions}
-          onChange={props.onRuntimeModeChange}
-        />
-      )}
+      <PermissionsMenu
+        runtimeMode={props.runtimeMode}
+        options={props.runtimeModeOptions}
+        onChange={props.onRuntimeModeChange}
+      />
     </div>
   );
 }

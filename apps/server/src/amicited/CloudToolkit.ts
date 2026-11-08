@@ -31,7 +31,7 @@ export const CloudToolkit = Toolkit.make(
   Tool.make("amicited_cloud_call", {
     ...shared,
     description:
-      "Call a discovered AmICited tool using its schema, including free_* tools. Free checks need no paid plan but spend workspace credits; welcome credits cover new accounts. Only users approve: the app asks for writes and paid calls. Chat grants cover free checks or paid reads, never other writes or destructive actions. A plan refusal leaves free checks available.",
+      "Call a discovered AmICited tool using its schema, including free_* tools. Free checks need no paid plan but spend workspace credits; welcome credits cover new accounts. Run requested tools directly and mention credit use in your reply. In Full access, reads and writes run immediately; destructive actions still ask once. Ask before acting mode uses app approvals and chat grants. A plan refusal leaves free checks available.",
     parameters: Schema.Struct({
       tool: Schema.String,
       arguments: Schema.Record(Schema.String, Schema.Unknown),
@@ -93,6 +93,7 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
         params.tool,
         params.arguments,
         signal,
+        caller.limits.runtimeMode,
       );
     },
     catch: () =>
