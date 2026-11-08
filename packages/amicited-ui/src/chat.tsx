@@ -369,12 +369,13 @@ export function CloudToolResultCard({
   return (
     <article className="am-tool-card" aria-label="AmICited tool result">
       <MarketingWorkDisclosure label={title}>
-        <p>{summary}</p>
+        {!result.isError && <p>{summary}</p>}
         <details>
           <summary>Technical details</summary>
           <pre>{JSON.stringify(cloud.result, null, 2)}</pre>
         </details>
       </MarketingWorkDisclosure>
+      {result.isError === true && <p role="alert">{summary}</p>}
       {structured.kind === "amicited-upgrade" && (
         <MarketingButton variant="outline" onClick={onStartTrial}>
           Start 7-day free trial

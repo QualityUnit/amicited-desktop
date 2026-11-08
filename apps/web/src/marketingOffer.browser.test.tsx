@@ -138,28 +138,36 @@ it("merges a start and poll when the timeline omits their outputs", async () => 
       }) as unknown as OrchestrationV2ProjectedTurnItem,
   );
   state.details = Object.fromEntries(
-    state.items.map((projected, index) => [
-      projected.sourceItemId,
-      {
-        item: {
-          ...projected.item,
-          outputOmitted: false,
-          output: {
-            kind: "amicited-cloud-result",
-            tool: `free_brand_visibility_${index === 0 ? "start" : "get"}`,
-            result: {
-              structuredContent: {
-                run_id: "brand-1",
-                status: index === 0 ? "pending" : "success",
-                providers: [
-                  { provider: "chatgpt", status: "success", mentioned: true, visibility_score: 62 },
-                ],
+    state.items.map((projected, index) => {
+      if (projected.item.type !== "dynamic_tool") throw new Error("Expected a cloud call fixture");
+      return [
+        projected.sourceItemId,
+        {
+          item: {
+            ...projected.item,
+            outputOmitted: false,
+            output: {
+              kind: "amicited-cloud-result",
+              tool: `free_brand_visibility_${index === 0 ? "start" : "get"}`,
+              result: {
+                structuredContent: {
+                  run_id: "brand-1",
+                  status: index === 0 ? "pending" : "success",
+                  providers: [
+                    {
+                      provider: "chatgpt",
+                      status: "success",
+                      mentioned: true,
+                      visibility_score: 62,
+                    },
+                  ],
+                },
               },
             },
           },
         },
-      },
-    ]),
+      ];
+    }),
   );
   await using screen = await render(
     <>

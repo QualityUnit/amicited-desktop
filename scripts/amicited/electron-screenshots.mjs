@@ -389,7 +389,7 @@ try {
               ? { state: "connecting" }
               : {
                   state: "connected",
-                  workspace: "Your AmICited workspace",
+                  workspace: "your AmICited workspace",
                   scopes: [],
                   access: "free",
                 },
@@ -398,7 +398,7 @@ try {
     }, state);
     if (state === "waiting")
       await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
-    else await page.getByText(/Connected to Your AmICited workspace/).waitFor();
+    else await page.getByText(/Connected to your AmICited workspace/).waitFor();
     await capture("cloud-" + state);
   }
   await page.evaluate(() => window.t3dev.replay("marketing-cloud"));

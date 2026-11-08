@@ -738,7 +738,7 @@ try {
           );
           if (state === "waiting")
             await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
-          else await page.getByText(/Connected to Your AmICited workspace/).waitFor();
+          else await page.getByText(/Connected to your AmICited workspace/).waitFor();
           await capture("07-cloud-" + state);
         }
       }
