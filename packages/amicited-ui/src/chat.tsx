@@ -354,20 +354,23 @@ export function CloudToolResultCard({
     ? "Looked up AmICited tools"
     : `${failed ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${names[base] ?? base.replaceAll("_", " ")}${marketingTarget(cloud.arguments)}`;
   const summary =
-    [
-      data.message,
-      data.error,
-      data.nextStep,
-      cloudSummary(data),
-      data.summary,
-      typeof score === "number" ? `Score: ${score}/100` : undefined,
-      fixes,
-      data.status,
-    ]
-      .filter((v): v is string => typeof v === "string")
-      .slice(0, 3)
-      .join(" · ") ||
-    (discovery ? "Found tools and their required inputs." : "AmICited returned the check results.");
+    data.code === "plan_required"
+      ? "Needs a Pro plan or trial. Free checks still work."
+      : [
+          data.message,
+          data.error,
+          data.nextStep,
+          cloudSummary(data),
+          data.summary,
+          typeof score === "number" ? `Score: ${score}/100` : undefined,
+          fixes,
+        ]
+          .filter((v): v is string => typeof v === "string")
+          .slice(0, 3)
+          .join(" · ") ||
+        (discovery
+          ? "Found tools and their required inputs."
+          : "AmICited returned the check results.");
   return (
     <article className="am-tool-card" aria-label="AmICited tool result">
       <MarketingWorkDisclosure label={title}>
@@ -387,11 +390,16 @@ export function CloudToolResultCard({
   );
 }
 
+const providerList = (names: string[]) =>
+  new Intl.ListFormat("en", { style: "long", type: "conjunction" })
+    .format(names)
+    .replace(/, and /, " and ");
+
 export function cloudSummary(data: Record<string, unknown>) {
   if (Array.isArray(data.providers)) {
     const rows = data.providers.map(record);
     const name = (row: Record<string, unknown>) =>
-      ({ chatgpt: "ChatGPT", perplexity: "Perplexity", gemini: "Gemini" })[
+      ({ chatgpt: "ChatGPT", perplexity: "Perplexity", gemini: "Gemini", deepseek: "DeepSeek" })[
         String(row.provider).toLowerCase() as "chatgpt"
       ] ?? String(row.provider);
     const mentioned = rows
@@ -405,9 +413,9 @@ export function cloudSummary(data: Record<string, unknown>) {
       .filter((row) => row.status === "success")
       .flatMap((row) => (typeof row.visibility_score === "number" ? [row.visibility_score] : []));
     return [
-      mentioned.length ? `Mentioned by ${mentioned.join(" and ")}` : undefined,
-      absent.length ? `Not mentioned by ${absent.join(" and ")}` : undefined,
-      failed.length ? `Could not check ${failed.join(" and ")}` : undefined,
+      mentioned.length ? `Mentioned by ${providerList(mentioned)}` : undefined,
+      absent.length ? `Not mentioned by ${providerList(absent)}` : undefined,
+      failed.length ? `Could not check ${providerList(failed)}` : undefined,
       scores.length
         ? `Average visibility ${Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)}/100`
         : undefined,

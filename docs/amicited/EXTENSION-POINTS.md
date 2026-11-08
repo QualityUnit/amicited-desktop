@@ -298,7 +298,7 @@ This supersedes the earlier dashboard landing and website-first flow above.
 assistant identity bridge records driver identity separately from instance IDs;
 the offer compares friendly assistant names against the measured scope.
 
-- `apps/web/src/components/chat/MessagesTimeline.tsx`: opts marketer mode into keeping marketing-result turns unfolded; developer mode retains upstream folding.
+- `apps/web/src/components/chat/MessagesTimeline.tsx`: opts marketer mode into keeping marketing-result turns unfolded and shows unclaimed cloud approvals at the timeline end in both modes; developer mode retains upstream folding.
 - `apps/web/src/components/chat/useComposerSend.ts`: preserves user text and adds website context separately on the first message.
 - `apps/web/src/components/chat/MessagesTimeline.logic.test.ts`: covers keeping results visible and refreshing completed folded entries.
 - `apps/web/src/components/ChatView.browser.test.tsx`: extends the existing draft fixture with marketer-mode starters while retaining developer assertions.
@@ -440,3 +440,5 @@ are recovered from the server after remount; restart cancels them safely.
 - `scripts/amicited/electron-screenshots.mjs`: uses the installed Electron binary and optionally captures the production OAuth login boundary in an isolated browser.
 
 - `packages/client-runtime/src/rpc/client.ts`: registers the AmICited approval snapshot stream as a destination-environment subscription.
+
+- `apps/web/src/rpc/amicitedApprovals.tsx`: isolated cloud approval adapter shared by work rows and the timeline fallback; `marketingApprovals.browser.test.tsx` verifies pushed updates and argument matching.

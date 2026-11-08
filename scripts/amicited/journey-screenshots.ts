@@ -104,7 +104,17 @@ const fixture = NodeHttp.createServer(async (req, res) => {
                 annotations: { readOnlyHint: false, destructiveHint: false },
               },
               {
-                name: "paid_refusal",
+                name: "free_query_fanout_start",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: false },
+              },
+              {
+                name: "free_query_fanout_get",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
+                name: "prompt_analytics",
                 inputSchema: { type: "object" },
                 annotations: { readOnlyHint: true, destructiveHint: false },
               },
@@ -119,67 +129,78 @@ const fixture = NodeHttp.createServer(async (req, res) => {
             content: [
               {
                 type: "text",
-                text: rpc.params.name.startsWith("free_brand_visibility")
-                  ? JSON.stringify({
-                      run_id: "free-brand-1",
-                      workspace_id: "capture",
-                      website: "https://example.com",
-                      domain: "example.com",
-                      brand_name: "Example",
-                      status: rpc.params.name.endsWith("_start") ? "pending" : "success",
-                      providers: [
-                        {
-                          provider: "chatgpt",
-                          status: "success",
-                          mentioned: true,
-                          visibility_score: 74,
-                        },
-                        {
-                          provider: "perplexity",
-                          status: "success",
-                          mentioned: true,
-                          visibility_score: 50,
-                        },
-                        {
-                          provider: "gemini",
-                          status: "success",
-                          mentioned: false,
-                          visibility_score: 0,
-                        },
-                      ],
-                      competitive_landscape: [],
-                      error: null,
-                    })
-                  : rpc.params.name === "paid_refusal"
-                    ? "This tool requires a Pro plan or upgrade"
-                    : rpc.params.name === "free_site_health_get"
-                      ? JSON.stringify({
-                          run_id: "replay-site-health",
-                          workspace_id: "capture",
-                          target: "https://example.com",
-                          status: "success",
-                          report: { score: 72, fixes: [{ title: "Add an AI website guide" }] },
-                        })
-                      : JSON.stringify(
-                          rpc.params.name === "free_site_health_start"
-                            ? {
+                text:
+                  rpc.params.name === "free_query_fanout_start"
+                    ? JSON.stringify({ run_id: "expired-query-1", status: "pending" })
+                    : rpc.params.name === "free_query_fanout_get"
+                      ? "Report expired: not found"
+                      : rpc.params.name.startsWith("free_brand_visibility")
+                        ? JSON.stringify({
+                            run_id: "free-brand-1",
+                            workspace_id: "capture",
+                            website: "https://example.com",
+                            domain: "example.com",
+                            domain_id: "capture-domain",
+                            brand_name: "Example",
+                            status: rpc.params.name.endsWith("_start") ? "pending" : "success",
+                            providers: [
+                              {
+                                provider: "chatgpt",
+                                status: "success",
+                                mentioned: true,
+                                visibility_score: 74,
+                              },
+                              {
+                                provider: "perplexity",
+                                status: "success",
+                                mentioned: true,
+                                visibility_score: 50,
+                              },
+                              {
+                                provider: "gemini",
+                                status: "success",
+                                mentioned: false,
+                                visibility_score: 0,
+                              },
+                            ],
+                            competitive_landscape: [],
+                            error: null,
+                          })
+                        : rpc.params.name === "prompt_analytics"
+                          ? "`prompt_analytics` needs an AmICited subscription, and this workspace does not have one yet. On the free plan this connection runs the free tools only: brand visibility, query fan-out, llms.txt generator, site health and AI watermark detection and removal (the `free_tools` toolset; see list_toolsets). A Pro plan or the trial unlocks every AmICited tool on this endpoint: daily tracking of how ChatGPT, Gemini, Perplexity and Google AI Overviews cite the brand, share of voice against competitors, the sources AI answers cite, AI-crawler site audits, Search Console, GA4 and ad-platform reports, and content the agent can write and publish. FlowHunt's AI Studio adds its own MCP endpoint for building and running AI agents and flows. Tell the user they can upgrade at https://app.flowhunt.io/amicited/subscription."
+                          : rpc.params.name === "free_site_health_get"
+                            ? JSON.stringify({
                                 run_id: "replay-site-health",
                                 workspace_id: "capture",
-                                status: "pending",
-                                report: null,
-                              }
-                            : {
-                                tools: [
-                                  {
-                                    name: "free_site_health_start",
-                                    inputSchema: { type: "object", required: ["request"] },
-                                  },
-                                ],
-                              },
-                        ),
+                                target: "https://example.com",
+                                status: "success",
+                                report: {
+                                  score: 72,
+                                  fixes: [{ title: "Add an AI website guide" }],
+                                },
+                              })
+                            : JSON.stringify(
+                                rpc.params.name === "free_site_health_start"
+                                  ? {
+                                      run_id: "replay-site-health",
+                                      workspace_id: "capture",
+                                      status: "pending",
+                                      report: null,
+                                    }
+                                  : {
+                                      tools: [
+                                        {
+                                          name: "free_site_health_start",
+                                          inputSchema: { type: "object", required: ["request"] },
+                                        },
+                                      ],
+                                    },
+                              ),
               },
             ],
-            ...(rpc.params.name === "paid_refusal" ? { isError: true } : {}),
+            ...(["prompt_analytics", "free_query_fanout_get"].includes(rpc.params.name)
+              ? { isError: true }
+              : {}),
           };
   res
     .writeHead(200, { "Content-Type": "application/json" })
@@ -205,7 +226,7 @@ const fixtureClient = new CloudClient({
 let cloudFixtures;
 try {
   await fixtureClient.connectApiKey("capture-only");
-  const upgrade = await fixtureClient.call("paid_refusal");
+  const upgrade = await fixtureClient.call("prompt_analytics");
   const free = await fixtureClient.status();
   const policy = await fixtureClient.toolPolicy("free_site_health_get");
   if (policy.needsApproval) throw new Error("Fixture read unexpectedly needs approval");
@@ -562,7 +583,7 @@ try {
       );
     });
     await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
-    await page.getByText("Needs your OK", { exact: true }).first().waitFor();
+
     await capture("03g-cloud-approval-live");
     await page.getByRole("button", { name: "Allow free checks in this chat", exact: true }).click();
     await page.getByText(/The free site health check is complete/).waitFor();
@@ -583,10 +604,12 @@ try {
       .first()
       .waitFor();
     await capture("03l-brand-visibility-summary");
+    await page.getByText("Report expired: not found", { exact: true }).waitFor();
+    await capture("03m-failed-poll");
     await capture("03h-paid-approval-live");
     await page.getByRole("button", { name: "Allow", exact: true }).click();
     await page
-      .getByText("This tool requires a Pro plan or upgrade", { exact: false })
+      .getByText("Needs a Pro plan or trial. Free checks still work.", { exact: true })
       .first()
       .waitFor();
     await capture("03i-subscription-refusal-live");
@@ -794,7 +817,7 @@ try {
         "marketing-approval",
       ),
     );
-    await page.getByText("Needs your OK", { exact: true }).first().waitFor();
+
     await capture("10-pending-approval");
     await page
       .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })

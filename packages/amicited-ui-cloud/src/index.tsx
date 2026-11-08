@@ -132,7 +132,7 @@ export function AmicitedConnectPanel({
                   ? connection.access === "full"
                     ? "Full AmICited access is unlocked."
                     : connection.access === "free"
-                      ? "Free AmICited tools are unlocked: brand visibility, query fan-out, llms.txt, site health and watermark detection."
+                      ? "No-plan checks use workspace credits; welcome credits cover new accounts."
                       : "We’ll confirm access on your next AmICited check."
                   : "Your local tools always work without an account."
               }
@@ -152,7 +152,7 @@ export function AmicitedConnectPanel({
                 description={
                   trialOpened
                     ? "Trial started? We’ll confirm on your next AmICited check."
-                    : "One-off checks use workspace credits. Welcome credits cover new accounts; no paid plan needed."
+                    : "Add daily prompt and citation tracking, competitor history and the full tool set. The 7-day trial needs a card, then continues at EUR 120/month."
                 }
                 control={
                   <Button

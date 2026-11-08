@@ -114,80 +114,91 @@ it.each([
   },
 );
 
-it("merges a start and poll when the timeline omits their outputs", async () => {
-  state.items = ["start", "get"].map(
-    (step, ordinal) =>
-      ({
-        sourceThreadId: threadRef.threadId,
-        sourceItemId: `cloud-${step}`,
-        item: {
-          id: `cloud-${step}`,
-          type: "dynamic_tool",
-          runId: "cloud-run",
-          ordinal,
-          toolName: "amicited_cloud_call",
-          status: "completed",
-          updatedAt: DateTime.makeUnsafe(0),
-          input: {
-            tool: `free_brand_visibility_${step}`,
-            arguments:
-              step === "start" ? { request: { website: "acme.com" } } : { run_id: "brand-1" },
-          },
-          outputOmitted: true,
-        },
-      }) as unknown as OrchestrationV2ProjectedTurnItem,
-  );
-  state.details = Object.fromEntries(
-    state.items.map((projected, index) => {
-      if (projected.item.type !== "dynamic_tool") throw new Error("Expected a cloud call fixture");
-      return [
-        projected.sourceItemId,
-        {
+it.each([false, true])(
+  "merges a start and poll with omitted outputs, including failure %s",
+  async (failed) => {
+    state.items = ["start", "get"].map(
+      (step, ordinal) =>
+        ({
+          sourceThreadId: threadRef.threadId,
+          sourceItemId: `cloud-${step}`,
           item: {
-            ...projected.item,
-            outputOmitted: false,
-            output: {
-              kind: "amicited-cloud-result",
-              tool: `free_brand_visibility_${index === 0 ? "start" : "get"}`,
-              result: {
-                structuredContent: {
-                  run_id: "brand-1",
-                  status: index === 0 ? "pending" : "success",
-                  providers: [
-                    {
-                      provider: "chatgpt",
-                      status: "success",
-                      mentioned: true,
-                      visibility_score: 62,
-                    },
-                  ],
+            id: `cloud-${step}`,
+            type: "dynamic_tool",
+            runId: "cloud-run",
+            ordinal,
+            toolName: "amicited_cloud_call",
+            status: "completed",
+            updatedAt: DateTime.makeUnsafe(0),
+            input: {
+              tool: `free_brand_visibility_${step}`,
+              arguments:
+                step === "start" ? { request: { website: "acme.com" } } : { run_id: "brand-1" },
+            },
+            outputOmitted: true,
+          },
+        }) as unknown as OrchestrationV2ProjectedTurnItem,
+    );
+    state.details = Object.fromEntries(
+      state.items.map((projected, index) => {
+        if (projected.item.type !== "dynamic_tool")
+          throw new Error("Expected a cloud call fixture");
+        return [
+          projected.sourceItemId,
+          {
+            item: {
+              ...projected.item,
+              outputOmitted: false,
+              output: {
+                kind: "amicited-cloud-result",
+                tool: `free_brand_visibility_${index === 0 ? "start" : "get"}`,
+                result: {
+                  ...(failed && index === 1 ? { isError: true } : {}),
+                  structuredContent:
+                    failed && index === 1
+                      ? { message: "Report expired", code: "not_found" }
+                      : {
+                          run_id: "brand-1",
+                          status: index === 0 ? "pending" : "success",
+                          providers: [
+                            {
+                              provider: "chatgpt",
+                              status: "success",
+                              mentioned: true,
+                              visibility_score: 62,
+                            },
+                          ],
+                        },
                 },
               },
             },
           },
-        },
-      ];
-    }),
-  );
-  await using screen = await render(
-    <>
-      {state.items.map((projected) => (
-        <MarketingTranscriptCard
-          key={projected.item.id}
-          projectedItem={projected}
-          environmentId={threadRef.environmentId}
-          output={undefined}
-        />
-      ))}
-    </>,
-  );
-  await expect
-    .element(screen.getByRole("article", { name: "AmICited tool result" }))
-    .toBeInTheDocument();
-  await expect
-    .element(screen.getByText("Checked brand visibility on acme.com"))
-    .toBeInTheDocument();
-  await expect
-    .element(screen.getByText("Started checking brand visibility on acme.com"))
-    .not.toBeInTheDocument();
-});
+        ];
+      }),
+    );
+    await using screen = await render(
+      <>
+        {state.items.map((projected) => (
+          <MarketingTranscriptCard
+            key={projected.item.id}
+            projectedItem={projected}
+            environmentId={threadRef.environmentId}
+            output={undefined}
+          />
+        ))}
+      </>,
+    );
+    await expect
+      .element(screen.getByRole("article", { name: "AmICited tool result" }))
+      .toBeInTheDocument();
+    await expect
+      .element(
+        screen.getByText(`${failed ? "Could not check" : "Checked"} brand visibility on acme.com`),
+      )
+      .toBeInTheDocument();
+    if (failed) await expect.element(screen.getByRole("alert")).toHaveTextContent("Report expired");
+    await expect
+      .element(screen.getByText("Started checking brand visibility on acme.com"))
+      .not.toBeInTheDocument();
+  },
+);

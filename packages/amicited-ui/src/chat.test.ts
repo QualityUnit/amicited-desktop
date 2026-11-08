@@ -109,6 +109,15 @@ it("summarizes provider results and query fan-out without inventing failed measu
   ).toBe(
     "Mentioned by ChatGPT and Perplexity · Could not check Gemini · Average visibility 62/100",
   );
+  expect(
+    cloudSummary({
+      providers: ["chatgpt", "gemini", "deepseek"].map((provider) => ({
+        provider,
+        status: "success",
+        mentioned: true,
+      })),
+    }),
+  ).toBe("Mentioned by ChatGPT, Gemini and DeepSeek");
   expect(cloudSummary({ status: "failure", queries: [] })).toBeUndefined();
   expect(cloudSummary({ status: "pending", queries: [] })).toBeUndefined();
   expect(cloudSummary({ queries: [{ query_text: "best CRM", category: "comparison" }] })).toBe(
@@ -129,7 +138,9 @@ it("keeps the approved target on a plan refusal and recognizes matching poll run
       structuredContent: {
         kind: "amicited-upgrade",
         url: "https://app.flowhunt.io/amicited/subscription",
-        message: "Pro plan required",
+        code: "plan_required",
+        message:
+          "`list_domains` needs an AmICited subscription, and this workspace does not have one yet. On the free plan this connection runs the free tools only: brand visibility, query fan-out, llms.txt generator, site health and AI watermark detection and removal (the `free_tools` toolset; see list_toolsets). A Pro plan or the trial unlocks every AmICited tool on this endpoint: daily tracking of how ChatGPT, Gemini, Perplexity and Google AI Overviews cite the brand, share of voice against competitors, the sources AI answers cite, AI-crawler site audits, Search Console, GA4 and ad-platform reports, and content the agent can write and publish. FlowHunt's AI Studio adds its own MCP endpoint for building and running AI agents and flows. Tell the user they can upgrade at https://app.flowhunt.io/amicited/subscription.",
       },
     },
   };
@@ -137,6 +148,7 @@ it("keeps the approved target on a plan refusal and recognizes matching poll run
     createElement(CloudToolResultCard, { cloud: refusal, onStartTrial() {} }),
   );
   expect(markup).toContain("brand visibility on acme.com");
+  expect(markup).toContain('role="alert">Needs a Pro plan or trial. Free checks still work.');
   expect(markup).not.toContain("visibility on app.flowhunt.io");
   for (const result of [
     { structuredContent: { run_id: "brand-1", status: "pending" } },

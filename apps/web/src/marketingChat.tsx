@@ -298,7 +298,12 @@ export function MarketingTranscriptCard({
     cloudRunId(peerOutput) === input.arguments.run_id
   )
     return null;
-  if (input?.tool?.endsWith("_start") && runId && cloudRunId(peerOutput) === runId)
+  if (
+    input?.tool?.endsWith("_start") &&
+    runId &&
+    peerItem?.type === "dynamic_tool" &&
+    (peerItem.input as { arguments?: { run_id?: string } })?.arguments?.run_id === runId
+  )
     cloud = cloudToolResult(peerOutput) ?? cloud;
   if (cloud)
     return (
@@ -312,7 +317,7 @@ export function MarketingTranscriptCard({
                 ? projectedItem.item.input
                 : cloud.arguments,
         }}
-        onStartTrial={openCloudSubscription}
+        onStartTrial={() => openCloudSubscription(environmentId)}
       />
     );
   if (
@@ -321,16 +326,14 @@ export function MarketingTranscriptCard({
     projectedItem.item.toolName?.includes("amicited_cloud_call")
   )
     return (
-      <>
-        <CloudPendingApprovals
-          tool={input?.tool}
-          arguments={input?.arguments}
-          threadRef={
-            environmentId ? { environmentId, threadId: projectedItem.sourceThreadId } : null
-          }
-        />
-        <MarketingCallState status={status} input={projectedItem.item.input} output={output} />
-      </>
+      <CloudPendingApprovals
+        tool={input?.tool}
+        arguments={input?.arguments}
+        threadRef={environmentId ? { environmentId, threadId: projectedItem.sourceThreadId } : null}
+        fallback={
+          <MarketingCallState status={status} input={projectedItem.item.input} output={output} />
+        }
+      />
     );
   if (!result)
     return (

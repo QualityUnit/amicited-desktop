@@ -328,6 +328,8 @@ function runAgent(): void {
           for (const [tool, args] of [
             ["free_brand_visibility_start", { request: { website: "https://example.com" } }],
             ["free_brand_visibility_get", { run_id: "free-brand-1" }],
+            ["free_query_fanout_start", { request: { query: "brand recommendations" } }],
+            ["free_query_fanout_get", { run_id: "expired-query-1" }],
           ] as const) {
             const toolCallId = NodeCrypto.randomUUID();
             send({
@@ -405,12 +407,21 @@ function runAgent(): void {
               title: "amicited_cloud_call",
               kind: "other",
               status: "pending",
-              rawInput: { tool: "paid_refusal", arguments: {} },
+              rawInput: {
+                tool: "prompt_analytics",
+                arguments: { domain_id: "capture-domain", prompt_id: "Brand recommendations" },
+              },
             },
           },
         });
         const result = await cloudClient.callTool(
-          { name: "amicited_cloud_call", arguments: { tool: "paid_refusal", arguments: {} } },
+          {
+            name: "amicited_cloud_call",
+            arguments: {
+              tool: "prompt_analytics",
+              arguments: { domain_id: "capture-domain", prompt_id: "Brand recommendations" },
+            },
+          },
           undefined,
           { timeout: 11 * 60_000, signal },
         );

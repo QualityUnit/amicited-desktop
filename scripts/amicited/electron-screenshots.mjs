@@ -374,6 +374,7 @@ try {
     );
     await page.getByTestId("composer-editor").fill("Thanks, keep this for the next campaign.");
     await page.getByTestId("composer-editor").press("Enter");
+    await page.getByText("Thanks, keep this for the next campaign.", { exact: true }).waitFor();
   }
   await page.getByRole("link", { name: "Tools", exact: true }).click();
   await page.getByRole("button", { name: "Content tools", exact: true }).click();
@@ -408,6 +409,19 @@ try {
   await page.evaluate(() => window.t3dev.replay("marketing-cloud"));
   await page.getByText(/The free site health check is complete/).waitFor();
   await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
+  await page.evaluate(() =>
+    window.dispatchEvent(
+      new CustomEvent("amicited-cloud-evidence", {
+        detail: {
+          state: "connected",
+          workspace: "your AmICited workspace",
+          scopes: [],
+          access: "free",
+        },
+      }),
+    ),
+  );
+  await page.getByText("AmICited connected", { exact: true }).waitFor();
   await capture("cloud-site-health");
 
   await page.getByRole("link", { name: "Tools", exact: true }).click();
@@ -441,6 +455,8 @@ try {
         .evaluate((element) => element.scrollIntoView({ block: "center" }));
       await capture("real-haiku-turn");
     }
+  }
+  if (process.env.AMICITED_SKIP_REPORT_PROBE !== "1") {
     const { DatabaseSync } = await import("node:sqlite");
     const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
       readOnly: true,

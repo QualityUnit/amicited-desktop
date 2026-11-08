@@ -1,7 +1,7 @@
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
 import { expect, it, vi } from "vite-plus/test";
-import { CloudClient, errorState } from "./index.ts";
+import { CloudClient, errorState, cloudAction } from "./index.ts";
 async function fixture() {
   let stored: string | undefined;
   let refusal = "";
@@ -464,6 +464,69 @@ it("grants paid reads per chat, always asks for writes, and refuses known free a
     structuredContent: { code: "plan_required" },
   });
   expect(cloud.pendingApprovals()).toEqual([]);
+  stop();
+  await cloud.disconnect();
+});
+
+it("cancels during final MCP validation and never publishes the stale session", async () => {
+  await using fake = await fixture();
+  const validating = Promise.withResolvers<void>();
+  const aborted = Promise.withResolvers<void>();
+  const nativeFetch = globalThis.fetch;
+  using _fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (typeof init?.body === "string" && init.body.includes('"name":"list_toolsets"')) {
+      validating.resolve();
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener(
+          "abort",
+          () => {
+            aborted.resolve();
+            reject(new Error("cancelled"));
+          },
+          { once: true },
+        );
+      });
+    }
+    return nativeFetch(url, init);
+  });
+  const cloud = fake.make();
+  const connecting = cloud.connectOAuth();
+  await validating.promise;
+  expect(await cloud.disconnect()).toEqual({ state: "disconnected" });
+  await aborted.promise;
+  expect(await connecting).toEqual({ state: "disconnected" });
+  expect(fake.stored).toBeUndefined();
+  expect(await cloud.status()).toEqual({ state: "disconnected" });
+});
+
+it("names paid actions and resolves resources learned in the same chat", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make();
+  await cloud.connectApiKey("key");
+  cloud.toolPolicy = async () => ({ needsApproval: false, destructive: false });
+  let waiting = Promise.withResolvers<void>();
+  const stop = cloud.subscribeApprovals(() => {
+    if (cloud.pendingApprovals().length) waiting.resolve();
+  });
+  const domains = cloud.requestCall("thread", "list_domains", {});
+  await waiting.promise;
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "acceptForSession");
+  await domains;
+  cloud.toolPolicy = async () => ({ needsApproval: true, destructive: true });
+  waiting = Promise.withResolvers<void>();
+  const deletion = cloud.requestCall("thread", "delete_prompt", {
+    domain_id: "domain-1",
+    prompt_id: "prompt-unknown",
+  });
+  await waiting.promise;
+  expect(cloud.pendingApprovals()[0]!.message).toContain(
+    "Delete prompt for example.com / prompt-unknown",
+  );
+  await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, "decline");
+  await deletion;
+  expect(cloudAction("list_domains", {})).toBe("View domains");
+  expect(cloudAction("get_brand_report", {})).toBe("View brand report");
+  expect(cloudAction("create_prompts", {}, false)).toBe("Change prompts");
   stop();
   await cloud.disconnect();
 });

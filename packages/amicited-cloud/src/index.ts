@@ -134,6 +134,7 @@ export class CloudClient {
       ) => void;
     }
   >();
+  private resources = new Map<string, Map<string, string>>();
   private freeGrants = new Set<string>();
   private readGrants = new Set<string>();
   private approvalListeners = new Set<() => void>();
@@ -151,7 +152,7 @@ export class CloudClient {
       free: request.free,
       readOnly: request.readOnly,
       arguments: request.arguments,
-      message: `${cloudAction(request.tool, request.arguments)} with AmICited? ${request.free ? "Uses a few workspace credits. No paid plan needed; welcome credits cover new accounts." : request.readOnly ? "Uses workspace credits." : "Changes your workspace and uses workspace credits."}`,
+      message: `${cloudAction(request.tool, request.arguments, request.readOnly, this.resources.get(request.threadId))} with AmICited? ${request.free ? "Uses a few workspace credits. No paid plan needed; welcome credits cover new accounts." : request.readOnly ? "Uses workspace credits." : "Changes your workspace and uses workspace credits."}`,
     }));
   }
   private cancelApprovals() {
@@ -185,7 +186,7 @@ export class CloudClient {
       (free && !policy.needsApproval) ||
       (free && this.freeGrants.has(threadId) && !policy.destructive)
     )
-      return this.call(tool, args);
+      return this.threadCall(threadId, tool, args);
     const id = NodeCrypto.randomUUID();
     const decision = await new Promise<
       "decline" | "accept" | "acceptForSession" | "timeout" | "cancelled"
@@ -211,7 +212,30 @@ export class CloudClient {
     if (decision === "acceptForSession" && free && !policy.destructive)
       this.freeGrants.add(threadId);
     if (decision === "acceptForSession" && !free && readOnly) this.readGrants.add(threadId);
-    return this.call(tool, args);
+    return this.threadCall(threadId, tool, args);
+  }
+  private async threadCall(threadId: string, tool: string, args: Record<string, unknown>) {
+    const result = await this.call(tool, args);
+    if (!result.isError) {
+      const known = this.resources.get(threadId) ?? new Map<string, string>();
+      const visit = (value: unknown) => {
+        if (Array.isArray(value)) {
+          value.forEach(visit);
+          return;
+        }
+        const row = record(value);
+        const name =
+          row.name ?? row.domain ?? row.domain_name ?? row.prompt ?? row.prompt_text ?? row.text;
+        for (const id of [row.id, row.domain_id, row.prompt_id])
+          if (typeof id === "string" && typeof name === "string") known.set(id, name);
+        Object.values(row)
+          .filter((v) => v && typeof v === "object")
+          .forEach(visit);
+      };
+      visit(toolData(result));
+      this.resources.set(threadId, known);
+    }
+    return result;
   }
   private approvalFailure(reason: "decline" | "timeout" | "cancelled") {
     return {
@@ -238,6 +262,7 @@ export class CloudClient {
   async close() {
     ++this.generation;
     this.cancelApprovals();
+    this.resources.clear();
     this.freeGrants.clear();
     this.readGrants.clear();
     this.cancelOAuth?.();
@@ -315,7 +340,14 @@ export class CloudClient {
     credential: Credential,
     run: (client: Client) => Promise<T>,
     persist = (value: Credential) => this.options.secrets.write(JSON.stringify(value)),
+    attempt?: { signal: AbortSignal; generation: number; fetchFn: typeof fetch },
   ): Promise<T> {
+    const generation = attempt?.generation ?? this.generation;
+    const check = () => {
+      attempt?.signal.throwIfAborted();
+      if (generation !== this.generation) throw new Error("Authentication cancelled");
+    };
+    check();
     const key = JSON.stringify(credential);
     if (this.session?.key === key && (!credential.expiresAt || credential.expiresAt > Date.now()))
       return run(this.session.client);
@@ -337,25 +369,38 @@ export class CloudClient {
       credential.expiresAt <= Date.now() &&
       credential.tokens?.refresh_token
     )
-      await auth(provider, { serverUrl: this.endpoint() });
+      await auth(provider, {
+        serverUrl: this.endpoint(),
+        ...(attempt ? { fetchFn: attempt.fetchFn } : {}),
+      });
     const transport = new StreamableHTTPClientTransport(this.endpoint(), {
+      ...(attempt ? { fetch: attempt.fetchFn } : {}),
       ...(provider ? { authProvider: provider } : {}),
       ...(credential.apiKey
         ? { requestInit: { headers: { Authorization: `Bearer ${credential.apiKey}` } } }
         : {}),
     });
     const client = new Client({ name: "amicited-desktop", version: "1.0.0" });
+    const closeAttempt = () => {
+      void client.close();
+    };
+    attempt?.signal.addEventListener("abort", closeAttempt, { once: true });
     try {
       // The SDK transport declares optional sessionId as string | undefined.
       await client.connect(
         transport as import("@modelcontextprotocol/sdk/shared/transport.js").Transport,
       );
+      check();
+      const result = await run(client);
+      check();
       this.session = { key: JSON.stringify(credential), client };
+      return result;
     } catch (error) {
       await client.close();
       throw error;
+    } finally {
+      attempt?.signal.removeEventListener("abort", closeAttempt);
     }
-    return run(client);
   }
   private async invoke(client: Client, name: string, args: Record<string, unknown>) {
     const result = await client.callTool({ name, arguments: args });
@@ -369,9 +414,15 @@ export class CloudClient {
       );
     return result;
   }
-  private async validate(credential: Credential) {
-    const result = await this.withClient(credential, (client) =>
-      this.invoke(client, "list_toolsets", {}),
+  private async validate(
+    credential: Credential,
+    attempt?: { signal: AbortSignal; generation: number; fetchFn: typeof fetch },
+  ) {
+    const result = await this.withClient(
+      credential,
+      (client) => this.invoke(client, "list_toolsets", {}),
+      undefined,
+      attempt,
     );
     if (result.isError) throw new Error(JSON.stringify(result.content));
     this.checkedAt = Date.now();
@@ -413,6 +464,7 @@ export class CloudClient {
   }
   async connectApiKey(apiKey: string): Promise<Connection> {
     this.cancelApprovals();
+    this.resources.clear();
     this.freeGrants.clear();
     this.readGrants.clear();
     if (this.current.state === "connecting") return this.current;
@@ -433,6 +485,7 @@ export class CloudClient {
   }
   async connectOAuth(): Promise<Connection> {
     this.cancelApprovals();
+    this.resources.clear();
     this.freeGrants.clear();
     this.readGrants.clear();
     if (this.current.state === "connecting") return this.current;
@@ -505,7 +558,11 @@ export class CloudClient {
         authorizationCode: await codePromise,
         fetchFn,
       });
-      const connected = await this.validate(credential);
+      const connected = await this.validate(credential, {
+        signal: controller.signal,
+        generation,
+        fetchFn,
+      });
       await this.serial(async () => {
         if (generation !== this.generation) return;
         await this.options.secrets.write(JSON.stringify(credential));
@@ -523,6 +580,7 @@ export class CloudClient {
   async disconnect(): Promise<Connection> {
     ++this.generation;
     this.cancelApprovals();
+    this.resources.clear();
     this.freeGrants.clear();
     this.readGrants.clear();
     this.cancelOAuth?.();
@@ -645,12 +703,32 @@ export function usefulMarketingResult(output: unknown) {
   );
 }
 
-export function cloudAction(tool: string, args: Record<string, unknown>) {
+export function cloudAction(
+  tool: string,
+  args: Record<string, unknown>,
+  readOnly = true,
+  resources?: ReadonlyMap<string, string>,
+) {
   const input = record(args.request ?? args);
-  const target = input.website ?? input.target ?? input.query;
+  const targets = [input.website ?? input.target ?? input.query, input.domain_id, input.prompt_id]
+    .filter((v): v is string => typeof v === "string")
+    .map((id) => resources?.get(id) ?? id);
+  const free = tool.startsWith("free_");
   const action = tool
     .replace(/^free_/, "")
     .replace(/_(start|get)$/, "")
+    .replace(/^(get|list|delete|remove|create|update|set|edit)_/, "")
     .replaceAll("_", " ");
-  return `Check ${action}${typeof target === "string" ? ` for ${target}` : ""}`;
+  const verb = /^(delete|remove)_/.test(tool)
+    ? "Delete"
+    : free
+      ? "Check"
+      : readOnly
+        ? /^(get|list)_/.test(tool)
+          ? "View"
+          : "Check"
+        : /^(create|update|set|edit)_/.test(tool)
+          ? "Change"
+          : "Run";
+  return `${verb} ${action}${targets.length ? ` for ${targets.join(" / ")}` : ""}`;
 }

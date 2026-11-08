@@ -665,20 +665,7 @@ export function WorkGroupToggleTimelineRow({
       <WorkGroupHeader
         label={
           workspaceMode === "marketer" && row.marketingEntries !== undefined
-            ? [...new Set(marketingTitles)].join(", ") ||
-              (row.marketingEntries?.some((entry) => {
-                const payload = entry.structuredPayload;
-                const input = payload?.type === "dynamic_tool" ? payload.input : undefined;
-                return (
-                  input !== null &&
-                  typeof input === "object" &&
-                  "tool" in input &&
-                  typeof input.tool === "string" &&
-                  input.tool.startsWith("free_site_health_")
-                );
-              })
-                ? "Site health check"
-                : "AmICited results")
+            ? [...new Set(marketingTitles)].join(", ") || "AmICited results"
             : row.summary
         }
         iconName={row.toolSurface ?? toolGroupSummaryIconName(row.summaryKind)}

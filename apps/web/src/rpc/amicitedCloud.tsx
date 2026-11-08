@@ -1,15 +1,13 @@
-import { WorkLogRow } from "../components/chat/WorkLog";
-import { InlineButton } from "../components/ui/button";
-import { AsyncResult, Atom } from "effect/reactivity";
-import * as Option from "effect/Option";
+export {
+  CloudPendingApprovals,
+  CloudUnclaimedApprovals,
+  useCloudApprovals,
+} from "./amicitedApprovals";
+import { CloudDisclosure } from "./amicitedApprovals";
 
-import { ComposerPendingApprovalActions } from "../components/chat/ComposerPendingApprovalActions";
-import { RuntimeRequestId } from "@t3tools/contracts";
 import { Switch } from "../components/ui/switch";
 import { SettingsRow } from "../components/settings/settingsLayout";
 
-import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../components/ui/collapsible";
-import { ChevronRight } from "lucide-react";
 import { SettingsGroup } from "../components/settings/SettingsGroup";
 import { marketingNavigate } from "@amicited/ui-marketing";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes belong to @amicited/ui-marketing. */
@@ -21,10 +19,7 @@ import {
   type ComponentProps,
 } from "react";
 import { useAtomValue } from "@effect/atom-react";
-import {
-  createEnvironmentRpcCommand,
-  createEnvironmentRpcSubscriptionAtomFamily,
-} from "@t3tools/client-runtime/state/runtime";
+import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import { AmicitedConnectPanel, AmicitedUpsellCard } from "@amicited/ui-cloud";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { type Connection } from "@amicited/cloud-client/model";
@@ -38,23 +33,7 @@ import { Input } from "../components/ui/input";
 const CloudButton = (props: ComponentProps<typeof MarketingButton>) => (
   <MarketingButton {...props} />
 );
-function CloudDisclosure({
-  label,
-  children,
-}: {
-  label: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Collapsible>
-      <CollapsibleTrigger className="group flex items-center gap-2 text-sm text-muted-foreground">
-        <ChevronRight className="size-3 group-data-open:rotate-90" />
-        {label}
-      </CollapsibleTrigger>
-      <CollapsiblePanel animate={false}>{children}</CollapsiblePanel>
-    </Collapsible>
-  );
-}
+
 const ui = {
   Button: CloudButton,
   Input,
@@ -74,145 +53,12 @@ const resetAccess = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.resetAccess",
   label: "cloud:reset-access",
 });
-export function openCloudSubscription() {
-  window.dispatchEvent(new Event("amicited-subscription-opened"));
-  subscriptionPending = true;
-  openExternal("https://app.flowhunt.io/amicited/subscription");
-}
-const approval = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.cloud.answerApproval",
-  label: "cloud:approval",
-});
-const approvalStream = createEnvironmentRpcSubscriptionAtomFamily(connectionAtomRuntime, {
-  tag: "amicited.cloud.subscribeApprovals",
-  label: "cloud:approvals",
-  idleTtlMs: 0,
-});
-const emptyPending: readonly PendingCloudApproval[] = [];
-type PendingCloudApproval = {
-  requestId: string;
-  threadId: string;
-  tool: string;
-  free: boolean;
-  readOnly: boolean;
-  arguments: Record<string, unknown>;
-  message: string;
-};
-const noApprovals = Atom.make(AsyncResult.success(emptyPending));
-export function useCloudApprovals(
-  environmentId: import("@t3tools/contracts").EnvironmentId | null | undefined,
+export function openCloudSubscription(
+  environmentId?: import("@t3tools/contracts").EnvironmentId | null,
 ) {
-  const value = useAtomValue(
-    environmentId ? approvalStream({ environmentId, input: undefined }) : noApprovals,
-  );
-  return Option.getOrElse(AsyncResult.value(value), () => emptyPending);
-}
-export function CloudPendingApprovals({
-  threadRef,
-  tool,
-  arguments: args,
-}: {
-  threadRef: import("@t3tools/contracts").ScopedThreadRef | null;
-  tool?: unknown;
-  arguments?: unknown;
-}) {
-  const requests = useCloudApprovals(threadRef?.environmentId);
-  return requests
-    .filter(
-      (request) =>
-        request.threadId === threadRef?.threadId &&
-        (tool === undefined ||
-          (request.tool === tool && JSON.stringify(request.arguments) === JSON.stringify(args))),
-    )
-    .map((request) => (
-      <CloudApproval
-        key={request.requestId}
-        request={request}
-        tool={request.tool}
-        environmentId={threadRef?.environmentId}
-      />
-    ));
-}
-function CloudApproval({
-  request,
-  environmentId: destination,
-}: {
-  request: {
-    requestId: string;
-    message: string;
-    free: boolean;
-    readOnly?: boolean;
-    arguments?: Record<string, unknown>;
-  };
-  tool: string;
-  environmentId?: import("@t3tools/contracts").EnvironmentId | undefined;
-}) {
-  const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const environmentId = destination ?? primaryEnvironmentId;
-  const answer = useAtomCommand(approval);
-  const allowed = useAtomValue(approval.permissionAtom(environmentId));
-  const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState(false);
-  return (
-    <aside aria-label="AmICited approval">
-      <WorkLogRow label={request.message} wrapLabel>
-        <div className="ms-7.5 flex flex-wrap items-center gap-2 text-xs">
-          <span>Needs your OK</span>
-          <ComposerPendingApprovalActions
-            requestId={RuntimeRequestId.make(request.requestId)}
-            isResponding={busy}
-            canRespond={allowed}
-            options={[
-              { decision: "decline", label: "Don’t allow" },
-              { decision: "accept", label: "Allow" },
-            ]}
-            onRespondToApproval={async (_, decision) => {
-              if (
-                !environmentId ||
-                (decision !== "accept" && decision !== "decline" && decision !== "acceptForSession")
-              )
-                return;
-              setBusy(true);
-              const response = await answer({
-                environmentId,
-                input: { requestId: request.requestId, decision },
-              });
-              setBusy(false);
-              if (response._tag !== "Success") setFailure(true);
-            }}
-          />
-          {(request.free || request.readOnly) && (
-            <InlineButton
-              disabled={busy || !allowed}
-              onClick={async () => {
-                if (!environmentId) return;
-                setBusy(true);
-                const response = await answer({
-                  environmentId,
-                  input: { requestId: request.requestId, decision: "acceptForSession" },
-                });
-                if (response._tag !== "Success") {
-                  setFailure(true);
-                  setBusy(false);
-                }
-              }}
-            >
-              {request.free
-                ? "Allow free checks in this chat"
-                : "Allow AmICited lookups in this chat"}
-            </InlineButton>
-          )}
-        </div>
-        <details className="ms-7.5 text-xs">
-          <summary>Inputs</summary>
-          <pre>{JSON.stringify(request.arguments, null, 2)}</pre>
-        </details>
-        {failure && (
-          <p role="alert">Could not answer this approval. It may no longer be pending.</p>
-        )}
-      </WorkLogRow>
-    </aside>
-  );
+  window.dispatchEvent(new Event("amicited-subscription-opened"));
+  subscriptionPending = environmentId ?? undefined;
+  openExternal("https://app.flowhunt.io/amicited/subscription");
 }
 const status = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.cloud.status",
@@ -238,12 +84,13 @@ const subscribeCloud = (listener: () => void) => {
     cloudListeners.delete(listener);
   };
 };
-let subscriptionPending = false;
-const focusRefreshers = new Set<() => void>();
+let subscriptionPending: string | undefined;
+const focusRefreshers = new Map<string, Set<() => void>>();
 const refreshSubscription = () => {
   if (!subscriptionPending) return;
-  subscriptionPending = false;
-  focusRefreshers.forEach((refresh) => refresh());
+  const refresh = focusRefreshers.get(subscriptionPending)?.values().next().value;
+  subscriptionPending = undefined;
+  refresh?.();
 };
 function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
   const primary = usePrimaryEnvironmentId();
@@ -267,17 +114,21 @@ function useCloud(destination?: import("@t3tools/contracts").EnvironmentId) {
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- A trial can start in the external browser while the app is unfocused.
   useEffect(() => {
+    if (!environmentId) return;
     const refresh = () => void resetOnFocus();
     const evidence = (event: Event) => updateConnection((event as CustomEvent<Connection>).detail);
     if (import.meta.env.DEV) window.addEventListener("amicited-cloud-evidence", evidence);
     if (focusRefreshers.size === 0) window.addEventListener("focus", refreshSubscription);
-    focusRefreshers.add(refresh);
+    const refreshers = focusRefreshers.get(environmentId) ?? new Set<() => void>();
+    refreshers.add(refresh);
+    focusRefreshers.set(environmentId, refreshers);
     return () => {
       window.removeEventListener("amicited-cloud-evidence", evidence);
-      focusRefreshers.delete(refresh);
+      refreshers.delete(refresh);
+      if (!refreshers.size) focusRefreshers.delete(environmentId);
       if (focusRefreshers.size === 0) window.removeEventListener("focus", refreshSubscription);
     };
-  }, []);
+  }, [environmentId]);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read status from the destination environment on entry.
   useEffect(() => {
@@ -333,7 +184,7 @@ export function CloudFooter({
           </span>
         )}
         {connection.access !== "full" && showTrial && (
-          <CloudButton variant="outline" onClick={openCloudSubscription}>
+          <CloudButton variant="outline" onClick={() => openCloudSubscription(environmentId)}>
             Start 7-day free trial
           </CloudButton>
         )}
@@ -407,7 +258,7 @@ function CloudSettings() {
           connection={connection}
           ui={ui}
           openExternal={(url) =>
-            url.includes("/subscription") ? openCloudSubscription() : openExternal(url)
+            url.includes("/subscription") ? openCloudSubscription(environmentId) : openExternal(url)
           }
           onChange={setConnection}
           actions={{
@@ -453,8 +304,8 @@ export function CloudToolPromotions({ connection }: { connection: Connection | n
     <section className="am-card">
       <h2>Works better with AmICited</h2>
       <p>
-        Connect for free brand visibility, query fan-out, llms.txt, site health and watermark
-        detection. A trial or Pro adds daily tracking and the full set.
+        Connect for no-plan checks that use workspace credits; welcome credits cover new accounts. A
+        trial or Pro adds daily tracking and the full set.
       </p>
       <div className="am-quick">
         {[
@@ -524,9 +375,9 @@ export function CloudPage() {
   return (
     <section className="am-card am-cloud-page">
       <p className="am-hint">
-        Connect AmICited for free tools for brand visibility across AI assistants, query fan-out,
-        llms.txt, site health and watermark detection. A 7-day trial or Pro adds daily prompt and
-        citation tracking, competitors, SEO reports and audits.
+        Connect AmICited for checks using workspace credits: brand visibility across AI assistants,
+        query fan-out, llms.txt, site health and watermark detection. A 7-day trial or Pro adds
+        daily prompt and citation tracking, competitors, SEO reports and audits.
       </p>
       <CloudSettings />
       <SettingsGroup>
