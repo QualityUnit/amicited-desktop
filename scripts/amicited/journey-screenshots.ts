@@ -774,6 +774,7 @@ try {
         await page.getByRole("heading", { name: "Domains", exact: true }).waitFor();
       await capture(name!);
       if (path === "/marketing-settings") {
+        await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
         for (const state of ["waiting", "free", "upgrade", "full"]) {
           await page.evaluate(
             async ({ state, fixtures }) => {
