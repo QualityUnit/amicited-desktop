@@ -34,7 +34,8 @@ try {
   };
   const start = page.getByRole("button", { name: "Get started", exact: true });
   if (await start.count()) await start.click();
-  else await page.evaluate(() => window.dispatchEvent(new Event("amicited-assistant-setup")));
+  else if ((await page.getByRole("article", { name: "Claude", exact: true }).count()) === 0)
+    await page.evaluate(() => window.dispatchEvent(new Event("amicited-assistant-setup")));
   const claude = page.getByRole("article", { name: "Claude", exact: true });
   const chatgpt = page.getByRole("article", { name: "ChatGPT", exact: true });
   await claude.waitFor();
@@ -56,7 +57,17 @@ try {
   const signIn = chatgpt.getByRole("button", { name: "Sign in", exact: true });
   if (await signIn.count()) {
     await signIn.click();
-    await chatgpt.getByText(/Signing in…/).waitFor();
+    await Promise.race([
+      chatgpt.getByText(/Signing in…/).waitFor(),
+      chatgpt.getByRole("alert").waitFor(),
+    ]);
+    if (await chatgpt.getByRole("alert").isVisible()) {
+      await capture(
+        "05c-sign-in-failed",
+        "Actual sign-in failure; browser waiting state was not reached in this attempt.",
+      );
+      throw new Error("Sign-in failed; inspect the captured app error.");
+    }
     await capture(
       "05-browser-sign-in-opened",
       "Managed ChatGPT browser sign-in started; no credentials entered.",
