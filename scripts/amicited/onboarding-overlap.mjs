@@ -68,14 +68,9 @@ try {
   await page.evaluate(() => window.t3dev.replay("marketing-readability-approval"));
   await page.getByRole("group", { name: "Marketing approval" }).waitFor();
   await matrix("approval");
-  await page
-    .getByTestId("composer-editor")
-    .fill("After this, draft a LinkedIn post about our website.");
-  await page.getByTestId("composer-editor").press("Enter");
-  await matrix("approval-queue");
   await capture(
     "sidebar-many-chats",
-    "Long domain with more than ten persisted chats, Working and Settled shelves.",
+    "Long domain with more than ten persisted chats and the Settled shelf.",
   );
   await page.getByRole("button", { name: "Don't allow", exact: true }).click();
   const queuedThread = await page.evaluate(() => window.t3dev.replay("showcase"));
