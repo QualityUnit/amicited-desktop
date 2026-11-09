@@ -1,3 +1,5 @@
+import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
+import type { ServerProvider } from "@t3tools/contracts";
 import { domainInstruction, type Cms } from "@amicited/cloud-client/domainModel";
 import { createUpsellGate } from "@amicited/cloud-client/upsell";
 import { marketingSignInError, marketingToolResult } from "@amicited/ui-marketing";
@@ -304,4 +306,8 @@ export function marketingSubcheckCovered(
 
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+export function hasReadyMarketingAssistant(providers: readonly ServerProvider[]) {
+  return providers.some((provider) => getOnboardingProviderState(provider) === "ready");
 }

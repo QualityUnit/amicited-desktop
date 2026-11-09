@@ -119,13 +119,14 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
   const content =
     props.mode === "existing" && props.presentation === "onboarding" ? (
       <CodexWelcomeCard
+        marketing={props.marketing}
         title={
           props.marketing ? "ChatGPT" : props.displayName || props.provider?.displayName || "Codex"
         }
         description={
           props.marketing && !existingReady ? (
             props.provider?.installed ? (
-              "Installed, sign-in needed"
+              "Sign-in needed"
             ) : (
               "Not installed"
             )
@@ -173,7 +174,7 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
                   props.onModeChange("managed");
                 }}
               >
-                {props.marketing ? "Sign in" : "Continue with ChatGPT"}
+                {props.marketing ? "Sign in to ChatGPT" : "Continue with ChatGPT"}
               </ChatGptConnectionButton>
             </ManagedControl>
           )
@@ -667,7 +668,7 @@ function ManagedCodexSetup({
   const waitingControl = (
     <Button
       size="sm"
-      variant={remoteWeb ? "default" : "outline"}
+      variant={marketing ? "ghost-muted" : remoteWeb ? "default" : "outline"}
       className={presentation === "onboarding" ? "min-w-44" : undefined}
       disabled={
         handoffQuery.data?.phase === "finished"
@@ -680,19 +681,21 @@ function ManagedCodexSetup({
         else if (url) void openPage(url, auth?.flowId ?? null, clientCallback);
       }}
     >
-      {finishingSignIn
-        ? "Finishing sign-in..."
-        : handoffQuery.data?.phase === "finished"
-          ? transferFailed
-            ? "Retry connection"
-            : "Finishing sign-in..."
-          : auth?.phase === "waiting"
-            ? remoteWeb
-              ? "Open ChatGPT sign-in"
-              : "Open sign-in page"
-            : presentation === "onboarding"
-              ? "Open sign-in page"
-              : "Signing in..."}
+      {marketing && !finishingSignIn && handoffQuery.data?.phase !== "finished"
+        ? "Open browser again"
+        : finishingSignIn
+          ? "Finishing sign-in..."
+          : handoffQuery.data?.phase === "finished"
+            ? transferFailed
+              ? "Retry connection"
+              : "Finishing sign-in..."
+            : auth?.phase === "waiting"
+              ? remoteWeb
+                ? "Open ChatGPT sign-in"
+                : "Open sign-in page"
+              : presentation === "onboarding"
+                ? "Open sign-in page"
+                : "Signing in..."}
     </Button>
   );
   const callbackCompletion =
@@ -812,6 +815,7 @@ function ManagedCodexSetup({
       <>
         {accountPicker}
         <CodexWelcomeCard
+          marketing={marketing}
           title={marketing ? "ChatGPT" : displayName || provider?.displayName || "Codex"}
           description={
             marketing && !authenticated ? (
@@ -820,7 +824,7 @@ function ManagedCodexSetup({
               ) : authActive ? (
                 "Signing in… Complete sign-in in your browser."
               ) : installed ? (
-                "Installed, sign-in needed"
+                "Sign-in needed"
               ) : (
                 "Not installed"
               )
@@ -867,7 +871,14 @@ function ManagedCodexSetup({
                 Ready
               </span>
             ) : authActive ? (
-              waitingControl
+              marketing ? (
+                <>
+                  <Button disabled>Waiting for browser…</Button>
+                  {waitingControl}
+                </>
+              ) : (
+                waitingControl
+              )
             ) : (
               <ChatGptConnectionButton
                 size="sm"
@@ -882,13 +893,15 @@ function ManagedCodexSetup({
                 }}
               >
                 {installActive || pending
-                  ? "Setting up..."
+                  ? marketing && installActive
+                    ? "Installing…"
+                    : "Setting up..."
                   : hasSavedAccount
                     ? "Reconnect account"
                     : marketing
                       ? installed
-                        ? "Sign in"
-                        : "Install"
+                        ? "Sign in to ChatGPT"
+                        : "Install ChatGPT"
                       : "Continue with ChatGPT"}
               </ChatGptConnectionButton>
             )
@@ -1176,12 +1189,14 @@ function CodexSignInDescription({
 }
 
 function CodexWelcomeCard({
+  marketing,
   title,
   description,
   control,
   secondaryControl,
   children,
 }: {
+  readonly marketing?: boolean | undefined;
   readonly title: string;
   readonly description: ReactNode;
   readonly control?: ReactNode;
@@ -1189,6 +1204,45 @@ function CodexWelcomeCard({
   readonly children?: ReactNode;
 }) {
   const footer = Children.toArray(children);
+  const marketingStatus =
+    typeof description === "string"
+      ? description.startsWith("Signing in")
+        ? "Waiting for sign-in…"
+        : description
+      : "Ready";
+  if (marketing)
+    return (
+      <div data-am="am-assistant-tile">
+        <div data-am="am-assistant-top">
+          <OpenAI className="size-10 shrink-0 fill-foreground" />
+          <h3>ChatGPT</h3>
+          <span
+            data-am="am-assistant-status"
+            data-state={
+              marketingStatus.includes("…")
+                ? "busy"
+                : marketingStatus === "Ready"
+                  ? "ready"
+                  : marketingStatus === "Not installed"
+                    ? "missing"
+                    : "signin"
+            }
+          >
+            {marketingStatus}
+          </span>
+        </div>
+        <p>
+          {marketingStatus === "Not installed"
+            ? "Installs in about a minute."
+            : "Finish signing in in your browser."}
+        </p>
+        <div data-am="am-assistant-action">
+          {control}
+          {secondaryControl}
+        </div>
+        {footer.length > 0 && <div>{footer}</div>}
+      </div>
+    );
   return (
     <div className="rounded-lg border border-border bg-background px-4 py-4">
       <div className="flex flex-wrap items-center gap-3">

@@ -1,3 +1,4 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   type EnvironmentId,
   type ProviderInstanceId,
@@ -52,7 +53,9 @@ export function getProviderStatusBannerKey(status: ServerProvider | null): strin
 export function shouldShowProviderStatusBanner(
   status: ServerProvider | null,
   dismissedBannerKey: string | null,
+  mode: "marketer" | "developer" = "developer",
 ): boolean {
+  if (mode === "marketer") return false;
   const bannerKey = getProviderStatusBannerKey(status);
   return bannerKey !== null && bannerKey !== dismissedBannerKey;
 }
@@ -104,6 +107,7 @@ export const ProviderStatusBanner = memo(function ProviderStatusBanner({
   onOpenProviderSetup?: (instanceId: ProviderInstanceId) => void;
   status: ServerProvider | null;
 }) {
+  const mode = useWorkspaceMode();
   const canRefresh = useAtomValue(serverEnvironment.refreshProviders.permissionAtom(environmentId));
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
     label: "Refresh provider status",
@@ -123,7 +127,7 @@ export const ProviderStatusBanner = memo(function ProviderStatusBanner({
     setIsRefreshing(false);
   };
 
-  if (!status || getProviderStatusBannerKey(status) === null) {
+  if (!shouldShowProviderStatusBanner(status, null, mode) || !status) {
     return null;
   }
 

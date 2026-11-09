@@ -425,7 +425,7 @@ export function DomainConnectionWarning({
       <span>
         {connection.state === "connecting"
           ? "Waiting for you to finish in your browser…"
-          : "AmICited isn’t connected. Free local tools still work."}
+          : "Not connected"}
       </span>
       {connection.state === "connecting" ? (
         <Button type="button" size="xs" variant="link" disabled={!canConnect} onClick={onCancel}>
@@ -446,7 +446,7 @@ export function DomainConnectionWarning({
           setDismissed(true);
         }}
       >
-        Dismiss
+        ×
       </Button>
       {connection.state === "error" && (
         <ConnectionError

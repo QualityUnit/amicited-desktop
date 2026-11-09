@@ -281,88 +281,89 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   return mode === "marketer" ? (
     <MarketingUiContext value={marketingUi}>
-      <AppSidebarLayout
-        marketer
-        sidebarContent={
-          <>
-            <SidebarChromeHeader
-              isElectron={isElectron}
-              brand={
-                <span
-                  data-amicited-brand=""
-                  className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white"
-                >
-                  <AmICitedMark />
-                </span>
-              }
-            />
-            <MarketingHistory archived={archived} setArchived={setArchived} />
-            <SidebarFooter>
-              <div className="flex gap-2">
-                {[
-                  ["Settings", "/settings/general", Settings],
-                  ["Tools", "/tools", Wrench],
-                  ["AmICited", "/marketing-settings", PlugZap],
-                ].map(([label, href, Icon]) => (
-                  <SidebarMenuButton
-                    key={String(label)}
-                    size="icon"
-                    aria-label={String(label)}
-                    render={<a href={String(href)} />}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      void navigate({ to: String(href) });
-                    }}
+      <MarketingSetupHost>
+        <AppSidebarLayout
+          marketer
+          sidebarContent={
+            <>
+              <SidebarChromeHeader
+                isElectron={isElectron}
+                brand={
+                  <span
+                    data-amicited-brand=""
+                    className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white"
                   >
-                    {typeof Icon !== "string" && Icon && <Icon />}
-                  </SidebarMenuButton>
-                ))}
-              </div>
-            </SidebarFooter>
-          </>
-        }
-      >
-        <DomainMigration />
-        <MarketingSetupHost />
-        <MarketerShell
-          externalSidebar
-          desktop={isElectron}
-          headerTitle={archived ? "Archived chats" : undefined}
-          mode={mode}
-          taskView={taskTarget !== null}
-          path={path}
-          hash={hash}
-          navigate={(path) => {
-            setArchived(false);
-            void navigate({ to: path });
-          }}
+                    <AmICitedMark />
+                  </span>
+                }
+              />
+              <MarketingHistory archived={archived} setArchived={setArchived} />
+              <SidebarFooter>
+                <div className="flex gap-2">
+                  {[
+                    ["Settings", "/settings/general", Settings],
+                    ["Tools", "/tools", Wrench],
+                    ["AmICited", "/marketing-settings", PlugZap],
+                  ].map(([label, href, Icon]) => (
+                    <SidebarMenuButton
+                      key={String(label)}
+                      size="icon"
+                      aria-label={String(label)}
+                      render={<a href={String(href)} />}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void navigate({ to: String(href) });
+                      }}
+                    >
+                      {typeof Icon !== "string" && Icon && <Icon />}
+                    </SidebarMenuButton>
+                  ))}
+                </div>
+              </SidebarFooter>
+            </>
+          }
         >
-          {archived ? (
-            <MarketingArchive />
-          ) : path === "/marketing-settings" ? (
-            <CloudPage />
-          ) : path === "/settings/general" ? (
-            <MarketingSettings />
-          ) : path.startsWith("/settings") ? (
-            <MarketingSettings />
-          ) : path === "/usage" ? (
-            <div className="am-page">
-              <h1>Your AI plan usage</h1>
-              <p>
-                These limits come from your AI subscriptions. Local website checks do not use your
-                AI allowance.
-              </p>
-              <section className="am-card">
-                <MarketingSubscriptions usageLink={false} />
-              </section>
-            </div>
-          ) : ["/pull-requests", "/source-control"].includes(path) ? (
-            <MarketingHome />
-          ) : (
-            children
-          )}
-        </MarketerShell>
-      </AppSidebarLayout>
+          <DomainMigration />
+          <MarketerShell
+            externalSidebar
+            desktop={isElectron}
+            headerTitle={archived ? "Archived chats" : undefined}
+            mode={mode}
+            taskView={taskTarget !== null}
+            path={path}
+            hash={hash}
+            navigate={(path) => {
+              setArchived(false);
+              void navigate({ to: path });
+            }}
+          >
+            {archived ? (
+              <MarketingArchive />
+            ) : path === "/marketing-settings" ? (
+              <CloudPage />
+            ) : path === "/settings/general" ? (
+              <MarketingSettings />
+            ) : path.startsWith("/settings") ? (
+              <MarketingSettings />
+            ) : path === "/usage" ? (
+              <div className="am-page">
+                <h1>Your AI plan usage</h1>
+                <p>
+                  These limits come from your AI subscriptions. Local website checks do not use your
+                  AI allowance.
+                </p>
+                <section className="am-card">
+                  <MarketingSubscriptions usageLink={false} />
+                </section>
+              </div>
+            ) : ["/pull-requests", "/source-control"].includes(path) ? (
+              <MarketingHome />
+            ) : (
+              children
+            )}
+          </MarketerShell>
+        </AppSidebarLayout>
+      </MarketingSetupHost>
     </MarketingUiContext>
   ) : (
     children
@@ -602,11 +603,13 @@ export function useMarketingTask() {
 }
 export function MarketingSubscriptions({
   usageLink = true,
+  showIntro = true,
   onSelected,
   destination,
 }: {
   destination?: import("@t3tools/contracts").EnvironmentId | null | undefined;
   usageLink?: boolean;
+  showIntro?: boolean;
   initialDriver?: "claudeAgent" | "codex";
   onSelected?: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
@@ -637,10 +640,12 @@ export function MarketingSubscriptions({
   };
   return (
     <>
-      <p className="text-sm text-muted-foreground">
-        Use your existing Claude or ChatGPT subscription. No API key. Your login stays on this
-        computer.
-      </p>
+      {showIntro && (
+        <p className="text-sm text-muted-foreground">
+          Use your existing Claude or ChatGPT subscription. No API key. Your login stays on this
+          computer.
+        </p>
+      )}
       <div className="am-assistant-grid">
         {(["claudeAgent", "codex"] as const).map((driver) => {
           const provider = providers.find((p) => p.driver === driver);
@@ -649,41 +654,58 @@ export function MarketingSubscriptions({
           const label = driver === "codex" ? "ChatGPT" : "Claude";
           const weekly = provider?.usageLimits?.windows.find((w) => w.kind === "weekly");
           return (
-            <article className="am-assistant-card" key={driver} aria-label={label}>
+            <article
+              className="am-assistant-card"
+              data-selected={
+                ready && settings.textGenerationModelSelection?.instanceId === provider?.instanceId
+              }
+              key={driver}
+              aria-label={label}
+            >
               {ready ? (
-                <>
-                  <ProviderInstanceIcon
-                    driverKind={ProviderDriverKind.make(driver)}
-                    displayName={label}
-                    iconClassName="size-8"
-                  />
-                  <h3>{label}</h3>
-                  <p role="status">Ready</p>
-                  <ProviderModelPicker
-                    environmentId={environmentId ?? null}
-                    activeInstanceId={selection.instanceId}
-                    model={selection.model}
-                    lockedProvider={ProviderDriverKind.make(driver)}
-                    instanceEntries={entries.filter((e) => e.driverKind === driver)}
-                    modelOptionsByInstance={
-                      new Map(
-                        entries.map((e) => [
-                          e.instanceId,
-                          getAppModelOptionsForInstance(settings, e),
-                        ]),
-                      )
-                    }
-                    onInstanceModelChange={(instanceId, model) =>
-                      void choose({ instanceId, model })
-                    }
-                  />
-                  {weekly && <p>{Math.round(100 - weekly.usedPercent)}% left this week</p>}
-                  <Button onClick={() => void choose(selection)}>
-                    {settings.textGenerationModelSelection?.instanceId === provider?.instanceId
-                      ? `${label} selected`
-                      : `Use ${label}`}
-                  </Button>
-                </>
+                <div className="am-assistant-tile">
+                  <div data-am="am-assistant-top">
+                    <ProviderInstanceIcon
+                      driverKind={ProviderDriverKind.make(driver)}
+                      displayName={label}
+                      iconClassName="size-10"
+                    />
+                    <h3>{label}</h3>
+                    <span data-am="am-assistant-status" data-state="ready">
+                      Ready
+                    </span>
+                  </div>
+                  <p>
+                    {weekly
+                      ? `${Math.round(100 - weekly.usedPercent)}% left this week`
+                      : "Your subscription is ready."}
+                  </p>
+                  {settings.textGenerationModelSelection?.instanceId === provider?.instanceId ? (
+                    <>
+                      <span className="text-sm">✓ Selected</span>{" "}
+                      <ProviderModelPicker
+                        environmentId={environmentId ?? null}
+                        activeInstanceId={selection.instanceId}
+                        model={selection.model}
+                        lockedProvider={ProviderDriverKind.make(driver)}
+                        instanceEntries={entries.filter((e) => e.driverKind === driver)}
+                        modelOptionsByInstance={
+                          new Map(
+                            entries.map((e) => [
+                              e.instanceId,
+                              getAppModelOptionsForInstance(settings, e),
+                            ]),
+                          )
+                        }
+                        onInstanceModelChange={(instanceId, model) =>
+                          void choose({ instanceId, model })
+                        }
+                      />
+                    </>
+                  ) : (
+                    <Button onClick={() => void choose(selection)}>Use {label}</Button>
+                  )}
+                </div>
               ) : environmentId ? (
                 <ConnectedAgentsStep
                   environmentId={environmentId}

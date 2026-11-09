@@ -292,3 +292,32 @@ it("folds audit sections only for the same target and turn", async () => {
     marketingSubcheckCovered(project("content.readability", "https://example.com"), [audit]),
   ).toBe(false);
 });
+
+it("does not offer assistant setup when another subscription is ready", async () => {
+  const { hasReadyMarketingAssistant } = await import("./marketingContext");
+  const { ProviderDriverKind, ProviderInstanceId } = await import("@t3tools/contracts");
+  const signedOut = {
+    instanceId: ProviderInstanceId.make("codex"),
+    driver: ProviderDriverKind.make("codex"),
+    enabled: true,
+    installed: true,
+    version: "1.0.0",
+    status: "error" as const,
+    auth: { status: "unauthenticated" as const },
+    models: [],
+    slashCommands: [],
+    skills: [],
+    checkedAt: "2026-11-09T12:00:00.000Z",
+  };
+  const ready = {
+    ...signedOut,
+    instanceId: ProviderInstanceId.make("claude"),
+    driver: ProviderDriverKind.make("claudeAgent"),
+    status: "ready" as const,
+    auth: { status: "authenticated" as const },
+  };
+  expect(hasReadyMarketingAssistant([])).toBe(false);
+  expect(hasReadyMarketingAssistant([signedOut])).toBe(false);
+  expect(hasReadyMarketingAssistant([signedOut, ready])).toBe(true);
+  expect(hasReadyMarketingAssistant([signedOut, { ...ready, enabled: false }])).toBe(false);
+});

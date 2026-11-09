@@ -1059,6 +1059,48 @@ function AgentCard({
   const summary = getProviderSummary(provider);
   const providerState = getOnboardingProviderState(provider);
 
+  if (marketingDriver)
+    return (
+      <div data-am="am-assistant-tile">
+        <div data-am="am-assistant-top">
+          <ProviderInstanceIcon
+            driverKind={ProviderDriverKind.make(driver)}
+            displayName={displayName}
+            iconClassName="size-10"
+          />
+          <h3>{displayName}</h3>
+          <span
+            data-am="am-assistant-status"
+            data-state={terminalOpen ? "busy" : provider?.installed ? "signin" : "missing"}
+          >
+            {terminalOpen
+              ? provider?.installed
+                ? "Waiting for sign-in…"
+                : "Installing…"
+              : provider?.installed
+                ? "Sign-in needed"
+                : "Not installed"}
+          </span>
+        </div>
+        <p>
+          {terminalOpen
+            ? "Finish signing in in your browser if asked."
+            : provider?.installed
+              ? "Connect your existing subscription."
+              : "Installs in about a minute."}
+        </p>
+        <Button disabled={terminalOpen || !terminalAvailable} onClick={() => void onOpenTerminal()}>
+          {terminalOpen && <Spinner aria-hidden="true" />}
+          {terminalOpen
+            ? provider?.installed
+              ? "Waiting for browser…"
+              : "Installing…"
+            : provider?.installed
+              ? `Sign in to ${displayName}`
+              : `Install ${displayName}`}
+        </Button>
+      </div>
+    );
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-4">
       <ProviderInstanceIcon
@@ -1247,7 +1289,12 @@ function AgentInstallTerminal({
   return (
     <div
       data-thread-terminal-drawer
-      className="mt-4 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground"
+      data-automatic={automatic}
+      className={
+        automatic
+          ? ""
+          : "mt-4 overflow-hidden rounded-lg border border-border/70 bg-background text-foreground"
+      }
     >
       <div className="flex items-center justify-between border-b border-border/60 bg-background/60 px-3 py-1.5">
         <span className="text-2xs font-medium text-muted-foreground">
@@ -1290,10 +1337,10 @@ function AgentInstallTerminal({
           </Button>
         </div>
       </div>
-      {automatic && <progress aria-label="Assistant setup progress" className="w-full" />}
+
       {automatic ? (
         <details>
-          <summary className="px-3 py-2 text-xs">Setup details</summary>
+          <summary className="px-3 py-2 text-xs">Show details</summary>
           {viewport}
         </details>
       ) : (

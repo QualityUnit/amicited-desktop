@@ -1,5 +1,5 @@
+import { AmICitedMark } from "@amicited/ui-marketing";
 import { usePrimarySettings } from "./hooks/useSettings";
-import { resolveAppModelSelectionState } from "./modelSelection";
 import { lastDomains } from "./marketingDomainStore";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { useThreadShell } from "./state/entities";
@@ -67,24 +67,14 @@ export function AssistantSetupDialog({
     </Dialog>
   );
 }
-export function MarketingSetupHost() {
+export function MarketingSetupHost({ children }: { children?: import("react").ReactNode }) {
   const domains = useDomains();
   const environmentId = usePrimaryEnvironmentId();
   const providers = useEnvironmentProviders();
   const settings = usePrimarySettings();
   const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null);
   const preferredModel = selectedModel ?? settings.textGenerationModelSelection;
-  const readyProviders = environmentId
-    ? (providers.get(environmentId) ?? []).filter(
-        (p) =>
-          ["claudeAgent", "codex"].includes(p.driver) && getOnboardingProviderState(p) === "ready",
-      )
-    : [];
-  const setupModel =
-    readyProviders.length === 0 ||
-    readyProviders.some((p) => p.instanceId === preferredModel?.instanceId)
-      ? preferredModel
-      : resolveAppModelSelectionState(settings, readyProviders.slice(0, 1));
+  const setupModel = preferredModel;
   const environment = useEnvironment(environmentId);
   const phase = environment?.connection.phase;
   const ready =
@@ -93,7 +83,9 @@ export function MarketingSetupHost() {
       .get(environmentId)
       ?.some(
         (p) =>
-          ["claudeAgent", "codex"].includes(p.driver) && getOnboardingProviderState(p) === "ready",
+          ["claudeAgent", "codex"].includes(p.driver) &&
+          p.instanceId === preferredModel?.instanceId &&
+          getOnboardingProviderState(p) === "ready",
       );
   const load = useAtomCommand(readSetup);
   const save = useAtomCommand(writeSetup);
@@ -108,7 +100,7 @@ export function MarketingSetupHost() {
   const activeProject = thread?.projectId ?? draft?.projectId;
   const [assistant, setAssistant] = useState(false);
   const [error, setError] = useState("");
-  const [websiteOpen, setWebsiteOpen] = useState(false);
+
   const loadSetup = useEffectEvent(load);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- First-run completion is read from the environment-owned AmICited store.
   useEffect(() => {
@@ -169,93 +161,127 @@ export function MarketingSetupHost() {
         setupModel ? { modelSelection: setupModel } : undefined,
       );
   };
+  if (finished === null && domains.rows.length === 0)
+    return <main data-am="am-setup-loading">Loading your workspace…</main>;
+  if (!step)
+    return (
+      <>
+        {children}
+        <AssistantSetupDialog open={assistant} onOpenChange={setAssistant} />
+      </>
+    );
+  const titles = {
+    welcome: "Welcome to AmICited",
+    assistant: "Choose your AI assistant",
+    website: "Add your website",
+    cloud: "Connect AmICited (free)",
+  };
+  const back = () =>
+    setStep(step === "assistant" ? "welcome" : step === "website" ? "assistant" : "website");
   return (
-    <>
-      <AssistantSetupDialog open={assistant} onOpenChange={setAssistant} />
-      <NewDomainDialog
-        open={websiteOpen}
-        onOpenChange={setWebsiteOpen}
-        onCreated={() => {
-          setWebsiteOpen(false);
-          setStep("cloud");
-        }}
-      />
-      <Dialog
-        open={step !== null && !websiteOpen}
-        onOpenChange={(open) => {
-          if (!open) void finish();
-        }}
-      >
-        <DialogPopup className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {step === "welcome"
-                ? "Welcome to AmICited"
-                : step === "assistant"
-                  ? "Choose your assistant"
-                  : step === "website"
-                    ? "Add your website"
-                    : "Connect AmICited (free)"}
-            </DialogTitle>
-            <DialogDescription>
-              {step === "welcome"
-                ? "Your AI workspace for marketing. From a question to a useful next step."
-                : step === "assistant"
-                  ? "First, connect the assistant that will answer your questions."
-                  : step === "website"
-                    ? "Keep your chats, brand and site files together in a domain."
-                    : "Free tools use workspace credits; welcome credits cover your first checks. A 7-day trial (card required) and Pro at €120/month are optional."}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogPanel>
-            <div className="space-y-4">
-              {step === "assistant" && (
-                <MarketingSubscriptions usageLink={false} onSelected={setSelectedModel} />
+    <main data-am="am-setup" data-onboarding-surface="" aria-label="AmICited setup">
+      <div data-am="am-setup-column">
+        <div data-am="am-setup-brand">
+          <AmICitedMark />
+        </div>
+        <nav aria-label="Setup progress" data-am="am-setup-progress">
+          {(["assistant", "website", "cloud"] as const).map((item, i) => (
+            <span key={item} aria-current={step === item ? "step" : undefined}>
+              {["welcome", "assistant", "website", "cloud"].indexOf(step) > i + 1 ? "✓ " : ""}
+              {["Assistant", "Website", "AmICited"][i]}
+            </span>
+          ))}
+        </nav>
+        <header>
+          <h1>{titles[step]}</h1>
+          <p className="text-sm text-muted-foreground">
+            {step === "welcome"
+              ? "Your AI workspace for marketing. From a question to a useful next step."
+              : step === "website"
+                ? "Keep your chats, brand and site files together in a domain."
+                : step === "cloud"
+                  ? "Your local tools always work without an account."
+                  : "Uses your existing Claude or ChatGPT subscription. No API key; your login stays on this computer."}
+          </p>
+        </header>
+        <div data-am="am-setup-body">
+          {step === "assistant" && (
+            <MarketingSubscriptions
+              usageLink={false}
+              showIntro={false}
+              onSelected={setSelectedModel}
+            />
+          )}
+          {step === "website" && (
+            <NewDomainDialog
+              open
+              inline
+              onOpenChange={() => {}}
+              onCreated={() => setStep("cloud")}
+            />
+          )}
+          {step === "cloud" && (
+            <div data-am="am-setup-cloud">
+              <ul>
+                <li>Check how AI assistants mention your brand</li>
+                <li>Find website and content opportunities</li>
+                <li>Keep your marketing checks together</li>
+              </ul>
+              <p>
+                Free tools use workspace credits; welcome credits cover your first checks. Optional
+                7-day trial (card required), then Pro €120/month.
+              </p>
+              {domain && environmentId ? (
+                <DomainConnection domain={domain} destination={environmentId} onboarding />
+              ) : (
+                <p>Add a website to connect AmICited. You can do this later in Settings.</p>
               )}
-              {step === "cloud" && domain && environmentId && (
-                <DomainConnection domain={domain} destination={environmentId} />
-              )}
-              {error && <p role="alert">{error}</p>}
-              <div className="flex flex-wrap gap-2">
-                {step !== "welcome" && (
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      setStep(
-                        step === "assistant"
-                          ? "welcome"
-                          : step === "website"
-                            ? "assistant"
-                            : "website",
-                      )
-                    }
-                  >
-                    Back
-                  </Button>
-                )}
-                {step === "welcome" && (
-                  <Button onClick={() => setStep("assistant")}>Get started</Button>
-                )}
-                {step === "assistant" && (
-                  <Button disabled={!ready} onClick={() => setStep("website")}>
-                    Continue
-                  </Button>
-                )}
-                {step === "website" && (
-                  <Button onClick={() => setWebsiteOpen(true)}>Add website</Button>
-                )}
-                {step === "cloud" && <Button onClick={() => void finish()}>Start chatting</Button>}
-                <Button
-                  variant="ghost"
-                  onClick={() => (step === "assistant" ? setStep("website") : void finish())}
-                >
-                  {step === "assistant" ? "Set up later (chats need an assistant)" : "Skip for now"}
-                </Button>
-              </div>
             </div>
-          </DialogPanel>
-        </DialogPopup>
-      </Dialog>
-    </>
+          )}
+          {error && <p role="alert">{error}</p>}
+        </div>
+        <footer data-am="am-setup-footer">
+          <Button variant="ghost" disabled={step === "welcome"} onClick={back}>
+            Back
+          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              onClick={() =>
+                step === "assistant"
+                  ? setStep("website")
+                  : step === "website"
+                    ? setStep("cloud")
+                    : void finish()
+              }
+            >
+              {step === "assistant" ? "Set up later" : "Skip"}
+            </Button>
+            {step === "website" ? (
+              <Button type="submit" form="amicited-onboarding-domain">
+                Continue
+              </Button>
+            ) : (
+              <Button
+                disabled={step === "assistant" && (!ready || !setupModel)}
+                onClick={() =>
+                  step === "welcome"
+                    ? setStep("assistant")
+                    : step === "assistant"
+                      ? setStep("website")
+                      : void finish()
+                }
+              >
+                {step === "welcome"
+                  ? "Get started"
+                  : step === "cloud"
+                    ? "Start chatting"
+                    : "Continue"}
+              </Button>
+            )}
+          </div>
+        </footer>
+      </div>
+    </main>
   );
 }

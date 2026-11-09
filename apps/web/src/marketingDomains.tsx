@@ -125,7 +125,9 @@ export function NewDomainDialog({
   destination,
   editing,
   onCreated,
+  inline = false,
 }: {
+  inline?: boolean;
   onCreated?: () => void;
   editing?: Domain;
   destination?: EnvironmentId | null | undefined;
@@ -253,7 +255,398 @@ export function NewDomainDialog({
   const canCreate = useAtomValue(projectEnvironment.createNew.permissionAtom(environmentId));
   const canSave = useAtomValue(save.permissionAtom(environmentId));
   const newThread = useNewThreadHandler();
-  return (
+  const form = (
+    <form
+      id={inline ? "amicited-onboarding-domain" : undefined}
+      className="flex flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (
+          !environmentId ||
+          busy ||
+          !canCreate ||
+          !canSave ||
+          (fileChoice === "folder" && (!siteFiles || validatedPath !== siteFiles)) ||
+          (fileChoice === "clone" && clone?.phase !== "done")
+        )
+          return;
+        void (async () => {
+          setBusy(true);
+          setError("");
+          const domain = normalizeDomain(website, brand);
+          const detected =
+            clone?.phase === "done" && siteFiles
+              ? await inspectFolder({ environmentId, input: { path: siteFiles } })
+              : null;
+          let projectId = editing
+            ? ProjectId.make(editing.projectId)
+            : pendingProject.current?.environmentId === environmentId &&
+                pendingProject.current.cloneId === (cloneId ?? undefined)
+              ? pendingProject.current.projectId
+              : undefined;
+          if (!projectId) {
+            const candidateId = newProjectId();
+            const created = siteFiles
+              ? await addFolder({
+                  environmentId,
+                  input: {
+                    projectId: candidateId,
+                    title: domain.hostname,
+                    workspaceRoot: siteFiles,
+                  },
+                })
+              : await create({ environmentId, input: { name: domain.hostname } });
+            if (created._tag !== "Success") {
+              setError("Could not create this domain. Please try again.");
+              return;
+            }
+            projectId = siteFiles
+              ? candidateId
+              : (created.value as { projectId: ProjectId }).projectId;
+            pendingProject.current = { environmentId, projectId, root: siteFiles };
+          }
+          const result = await register({
+            environmentId,
+            input: {
+              projectId,
+              website: domain.hostname,
+              brand: domain.brand,
+              cms: detected?._tag === "Success" && detected.value.framework ? "git" : cms,
+              siteFiles: siteFiles || null,
+              framework: detected?._tag === "Success" ? detected.value.framework : framework,
+            },
+          });
+          if (result._tag !== "Success") {
+            setError(
+              "The folder was created, but its domain could not be saved. Please try again.",
+            );
+            return;
+          }
+          pendingProject.current = null;
+          await refresh();
+          onOpenChange(false);
+          setSavedCopies((rows) => rows.filter((r) => r.id !== projectId));
+          resetDraft();
+          if (onCreated) onCreated();
+          else if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
+        })()
+          .catch((error) =>
+            setError(error instanceof Error ? error.message : "Could not create this domain."),
+          )
+          .then(() => setBusy(false));
+      }}
+    >
+      <label>
+        Website
+        <Input
+          required
+          disabled={busy}
+          autoFocus
+          value={website}
+          onChange={(event) => {
+            if (!editing) invalidateSource();
+            setWebsite(event.target.value);
+            if (!brandEdited) setBrand(guessBrandName(event.target.value));
+          }}
+          placeholder="example.com"
+        />
+      </label>
+      <DomainHint website={website} />
+      <label>
+        Brand name (optional)
+        <Input
+          value={brand}
+          onChange={(event) => {
+            setBrandEdited(true);
+            setBrand(event.target.value);
+          }}
+        />
+      </label>
+      <CmsGrid
+        value={cms}
+        disabled={busy}
+        onChange={(value) => {
+          setCms(value);
+          if (!editing && !["git", "headless", "unknown"].includes(value)) {
+            invalidateSource();
+            setFileChoice("skip");
+          }
+        }}
+      />
+      {editing ? (
+        <p className="text-sm text-muted-foreground">
+          {editing.siteFiles ? `Folder: ${editing.siteFiles}` : "Site files: Not connected"}.
+          Existing chats keep their original folder. To connect different site files, create a new
+          domain from that folder.
+        </p>
+      ) : (
+        ["git", "headless", "unknown"].includes(cms) && (
+          <fieldset className="flex min-w-0 max-w-full flex-col gap-2 [&>*]:min-w-0 [&>*]:max-w-full">
+            <legend>Site files</legend>
+            <Select
+              disabled={busy}
+              value={fileChoice}
+              onValueChange={(value) => {
+                if (value) {
+                  invalidateSource();
+                  setFileChoice(value);
+                }
+              }}
+            >
+              <SelectTrigger aria-label="Site files">
+                <SelectValue>
+                  {() =>
+                    fileChoice === "skip"
+                      ? "Skip for now"
+                      : fileChoice === "folder"
+                        ? "Use a folder on this computer"
+                        : "Clone from a Git URL"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup>
+                <SelectItem value="skip">Skip for now</SelectItem>
+                <SelectItem value="folder">Use a folder on this computer</SelectItem>
+                <SelectItem value="clone">Clone from a Git URL</SelectItem>
+              </SelectPopup>
+            </Select>
+            {fileChoice === "folder" && (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    void createLocalApi()
+                      .dialogs.pickFolder(
+                        desktopBackend !== null
+                          ? { targetEnvironmentId: desktopBackend }
+                          : undefined,
+                      )
+                      .then((path) => {
+                        if (path) return chooseFolder(path);
+                      })
+                      .catch(() => setError("Could not open the folder picker."));
+                  }}
+                >
+                  {siteFiles ? "Change folder" : "Choose folder"}
+                </Button>
+                {siteFiles && (
+                  <p className="truncate text-sm text-muted-foreground">
+                    {siteFiles.split(/[\\/]/).pop()}
+                  </p>
+                )}
+                {!desktopFolderPicker && !validatedPath && (
+                  <Input
+                    disabled={busy}
+                    aria-label="Folder path"
+                    placeholder="/Users/you/Sites/acme"
+                    value={siteFiles}
+                    onChange={(event) => {
+                      sourceVersion.current++;
+                      if (pendingProject.current?.root !== event.target.value)
+                        pendingProject.current = null;
+                      setValidatedPath("");
+                      setSiteFiles(event.target.value);
+                      setFramework(null);
+                      setFolderNote("");
+                    }}
+                    onBlur={() => {
+                      void chooseFolder(siteFiles);
+                    }}
+                  />
+                )}
+              </>
+            )}
+            {fileChoice === "clone" && (
+              <>
+                <Input
+                  disabled={busy || clone?.phase === "running"}
+                  aria-label="Git URL"
+                  placeholder="https://github.com/team/site.git"
+                  value={gitUrl}
+                  onChange={(event) => {
+                    invalidateSource();
+                    setGitUrl(event.target.value);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!!cloneId || !gitUrl.trim()}
+                  onClick={() => {
+                    if (!environmentId) return;
+                    const root = configs.get(environmentId)?.newProjectsRoot;
+                    if (!root) {
+                      setError(
+                        "The folder for new sites is unavailable. Try again after reconnecting.",
+                      );
+                      return;
+                    }
+                    let hostname: string;
+                    try {
+                      hostname = normalizeDomain(website).hostname;
+                    } catch {
+                      setError("Enter a website like example.com before copying site files.");
+                      return;
+                    }
+                    const roots = new Set(
+                      projects
+                        .filter((p) => p.environmentId === environmentId)
+                        .map((p) => p.workspaceRoot),
+                    );
+                    let destinationPath = `${root}/${hostname}`;
+                    for (let suffix = 2; roots.has(destinationPath); suffix++)
+                      destinationPath = `${root}/${hostname}-${suffix}`;
+                    const projectId = newProjectId();
+                    silenceProjectCloneToasts(scopeProjectRef(environmentId, projectId));
+                    setBusy(true);
+                    void startClone({
+                      environmentId,
+                      input: {
+                        projectId,
+                        title: hostname,
+                        remoteUrl: gitUrl.trim(),
+                        destinationPath,
+                        createdAt: new Date().toISOString(),
+                      },
+                    })
+                      .then((result) => {
+                        if (result._tag !== "Success") {
+                          setError(
+                            /destination.*exists/i.test(String(squashAtomCommandFailure(result)))
+                              ? "A folder for this website already exists. Choose that folder, or use a different website name."
+                              : "Could not copy the site. Check the Git URL and your access, then try again.",
+                          );
+                          return;
+                        }
+                        setCloneId(projectId);
+                        setSiteFiles(result.value.cwd);
+                        pendingProject.current = {
+                          environmentId,
+                          cloneId: projectId,
+                          projectId,
+                          root: result.value.cwd,
+                        };
+                      })
+                      .catch(() =>
+                        setError("Could not copy the site. Check the website and Git URL."),
+                      )
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  Clone site files
+                </Button>
+                {clone && clone.phase === "running" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      if (environmentId && cloneId)
+                        void cancelClone({ environmentId, input: { projectId: cloneId } });
+                    }}
+                  >
+                    Cancel copy
+                  </Button>
+                )}
+                {clone && (clone.phase === "failed" || clone.phase === "cancelled") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (environmentId && cloneId)
+                        void retryClone({ environmentId, input: { projectId: cloneId } });
+                    }}
+                  >
+                    Try copying again
+                  </Button>
+                )}
+                {clone?.error && (
+                  <details>
+                    <summary>More</summary>
+                    <pre className="whitespace-pre-wrap text-xs">{clone.error}</pre>
+                  </details>
+                )}
+                {clone && (
+                  <p role="status" className="truncate text-sm text-muted-foreground">
+                    {clone.phase === "running"
+                      ? `Copying site files… ${clone.percent ?? 0}%`
+                      : clone.phase === "done"
+                        ? `Copied to ${displayFolder(siteFiles)}`
+                        : /destination.*exists/i.test(clone.error ?? "")
+                          ? "A folder for this website already exists. Choose that folder, or use a different website name."
+                          : "Could not copy the site. Check the Git URL and your access, then retry."}
+                  </p>
+                )}
+              </>
+            )}
+            {folderNote && (
+              <p role="status" className="text-sm text-muted-foreground">
+                {folderNote}
+              </p>
+            )}
+            {siteFiles && (
+              <p className="text-sm text-muted-foreground">
+                Agents can edit files in this folder. Nothing is published or pushed for you. Review
+                changes in the chat.
+              </p>
+            )}
+          </fieldset>
+        )
+      )}
+      {savedCopies.some((copy) => !registeredDomains.some((d) => d.projectId === copy.id)) && (
+        <details className="min-w-0 max-w-full">
+          <summary>Reuse previously copied site files</summary>
+          {savedCopies
+            .filter((copy) => !registeredDomains.some((d) => d.projectId === copy.id))
+            .map((copy) => (
+              <div key={copy.id} className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{displayFolder(copy.path)}</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    invalidateSource();
+                    setFileChoice("folder");
+                    if (environmentId)
+                      pendingProject.current = {
+                        environmentId,
+                        projectId: copy.id,
+                        root: copy.path,
+                      };
+                    void chooseFolder(copy.path);
+                  }}
+                >
+                  Use this copy
+                </Button>
+              </div>
+            ))}
+        </details>
+      )}
+      {error && <p role="alert">{error}</p>}
+      <div className={inline ? "hidden" : "flex justify-end gap-2"}>
+        <Button type="button" variant="ghost" onClick={() => closeDialog(false)}>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={
+            busy ||
+            !canCreate ||
+            !canSave ||
+            (fileChoice !== "skip" && !siteFiles) ||
+            (fileChoice === "folder" && validatedPath !== siteFiles) ||
+            (!!cloneId && clone?.phase !== "done")
+          }
+        >
+          {busy ? "Saving…" : editing ? "Save domain" : "Create domain"}
+        </Button>
+      </div>
+    </form>
+  );
+  return inline ? (
+    form
+  ) : (
     <Dialog open={open} onOpenChange={closeDialog}>
       <DialogPopup>
         <DialogHeader>
@@ -262,400 +655,7 @@ export function NewDomainDialog({
             Keep this website’s chats and AmICited connection together.
           </DialogDescription>
         </DialogHeader>
-        <DialogPanel>
-          <form
-            className="flex flex-col gap-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (
-                !environmentId ||
-                busy ||
-                !canCreate ||
-                !canSave ||
-                (fileChoice === "folder" && (!siteFiles || validatedPath !== siteFiles)) ||
-                (fileChoice === "clone" && clone?.phase !== "done")
-              )
-                return;
-              void (async () => {
-                setBusy(true);
-                setError("");
-                const domain = normalizeDomain(website, brand);
-                const detected =
-                  clone?.phase === "done" && siteFiles
-                    ? await inspectFolder({ environmentId, input: { path: siteFiles } })
-                    : null;
-                let projectId = editing
-                  ? ProjectId.make(editing.projectId)
-                  : pendingProject.current?.environmentId === environmentId &&
-                      pendingProject.current.cloneId === (cloneId ?? undefined)
-                    ? pendingProject.current.projectId
-                    : undefined;
-                if (!projectId) {
-                  const candidateId = newProjectId();
-                  const created = siteFiles
-                    ? await addFolder({
-                        environmentId,
-                        input: {
-                          projectId: candidateId,
-                          title: domain.hostname,
-                          workspaceRoot: siteFiles,
-                        },
-                      })
-                    : await create({ environmentId, input: { name: domain.hostname } });
-                  if (created._tag !== "Success") {
-                    setError("Could not create this domain. Please try again.");
-                    return;
-                  }
-                  projectId = siteFiles
-                    ? candidateId
-                    : (created.value as { projectId: ProjectId }).projectId;
-                  pendingProject.current = { environmentId, projectId, root: siteFiles };
-                }
-                const result = await register({
-                  environmentId,
-                  input: {
-                    projectId,
-                    website: domain.hostname,
-                    brand: domain.brand,
-                    cms: detected?._tag === "Success" && detected.value.framework ? "git" : cms,
-                    siteFiles: siteFiles || null,
-                    framework: detected?._tag === "Success" ? detected.value.framework : framework,
-                  },
-                });
-                if (result._tag !== "Success") {
-                  setError(
-                    "The folder was created, but its domain could not be saved. Please try again.",
-                  );
-                  return;
-                }
-                pendingProject.current = null;
-                await refresh();
-                onOpenChange(false);
-                setSavedCopies((rows) => rows.filter((r) => r.id !== projectId));
-                resetDraft();
-                if (onCreated) onCreated();
-                else if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
-              })()
-                .catch((error) =>
-                  setError(
-                    error instanceof Error ? error.message : "Could not create this domain.",
-                  ),
-                )
-                .then(() => setBusy(false));
-            }}
-          >
-            <label>
-              Website
-              <Input
-                required
-                disabled={busy}
-                autoFocus
-                value={website}
-                onChange={(event) => {
-                  if (!editing) invalidateSource();
-                  setWebsite(event.target.value);
-                  if (!brandEdited) setBrand(guessBrandName(event.target.value));
-                }}
-                placeholder="example.com"
-              />
-            </label>
-            <DomainHint website={website} />
-            <label>
-              Brand name (optional)
-              <Input
-                value={brand}
-                onChange={(event) => {
-                  setBrandEdited(true);
-                  setBrand(event.target.value);
-                }}
-              />
-            </label>
-            <CmsGrid
-              value={cms}
-              disabled={busy}
-              onChange={(value) => {
-                setCms(value);
-                if (!editing && !["git", "headless", "unknown"].includes(value)) {
-                  invalidateSource();
-                  setFileChoice("skip");
-                }
-              }}
-            />
-            {editing ? (
-              <p className="text-sm text-muted-foreground">
-                {editing.siteFiles ? `Folder: ${editing.siteFiles}` : "Site files: Not connected"}.
-                Existing chats keep their original folder. To connect different site files, create a
-                new domain from that folder.
-              </p>
-            ) : (
-              ["git", "headless", "unknown"].includes(cms) && (
-                <fieldset className="flex min-w-0 max-w-full flex-col gap-2 [&>*]:min-w-0 [&>*]:max-w-full">
-                  <legend>Site files</legend>
-                  <Select
-                    disabled={busy}
-                    value={fileChoice}
-                    onValueChange={(value) => {
-                      if (value) {
-                        invalidateSource();
-                        setFileChoice(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger aria-label="Site files">
-                      <SelectValue>
-                        {() =>
-                          fileChoice === "skip"
-                            ? "Skip for now"
-                            : fileChoice === "folder"
-                              ? "Use a folder on this computer"
-                              : "Clone from a Git URL"
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup>
-                      <SelectItem value="skip">Skip for now</SelectItem>
-                      <SelectItem value="folder">Use a folder on this computer</SelectItem>
-                      <SelectItem value="clone">Clone from a Git URL</SelectItem>
-                    </SelectPopup>
-                  </Select>
-                  {fileChoice === "folder" && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          void createLocalApi()
-                            .dialogs.pickFolder(
-                              desktopBackend !== null
-                                ? { targetEnvironmentId: desktopBackend }
-                                : undefined,
-                            )
-                            .then((path) => {
-                              if (path) return chooseFolder(path);
-                            })
-                            .catch(() => setError("Could not open the folder picker."));
-                        }}
-                      >
-                        {siteFiles ? "Change folder" : "Choose folder"}
-                      </Button>
-                      {siteFiles && (
-                        <p className="truncate text-sm text-muted-foreground">
-                          {siteFiles.split(/[\\/]/).pop()}
-                        </p>
-                      )}
-                      {!desktopFolderPicker && !validatedPath && (
-                        <Input
-                          disabled={busy}
-                          aria-label="Folder path"
-                          placeholder="/Users/you/Sites/acme"
-                          value={siteFiles}
-                          onChange={(event) => {
-                            sourceVersion.current++;
-                            if (pendingProject.current?.root !== event.target.value)
-                              pendingProject.current = null;
-                            setValidatedPath("");
-                            setSiteFiles(event.target.value);
-                            setFramework(null);
-                            setFolderNote("");
-                          }}
-                          onBlur={() => {
-                            void chooseFolder(siteFiles);
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
-                  {fileChoice === "clone" && (
-                    <>
-                      <Input
-                        disabled={busy || clone?.phase === "running"}
-                        aria-label="Git URL"
-                        placeholder="https://github.com/team/site.git"
-                        value={gitUrl}
-                        onChange={(event) => {
-                          invalidateSource();
-                          setGitUrl(event.target.value);
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!!cloneId || !gitUrl.trim()}
-                        onClick={() => {
-                          if (!environmentId) return;
-                          const root = configs.get(environmentId)?.newProjectsRoot;
-                          if (!root) {
-                            setError(
-                              "The folder for new sites is unavailable. Try again after reconnecting.",
-                            );
-                            return;
-                          }
-                          let hostname: string;
-                          try {
-                            hostname = normalizeDomain(website).hostname;
-                          } catch {
-                            setError("Enter a website like example.com before copying site files.");
-                            return;
-                          }
-                          const roots = new Set(
-                            projects
-                              .filter((p) => p.environmentId === environmentId)
-                              .map((p) => p.workspaceRoot),
-                          );
-                          let destinationPath = `${root}/${hostname}`;
-                          for (let suffix = 2; roots.has(destinationPath); suffix++)
-                            destinationPath = `${root}/${hostname}-${suffix}`;
-                          const projectId = newProjectId();
-                          silenceProjectCloneToasts(scopeProjectRef(environmentId, projectId));
-                          setBusy(true);
-                          void startClone({
-                            environmentId,
-                            input: {
-                              projectId,
-                              title: hostname,
-                              remoteUrl: gitUrl.trim(),
-                              destinationPath,
-                              createdAt: new Date().toISOString(),
-                            },
-                          })
-                            .then((result) => {
-                              if (result._tag !== "Success") {
-                                setError(
-                                  /destination.*exists/i.test(
-                                    String(squashAtomCommandFailure(result)),
-                                  )
-                                    ? "A folder for this website already exists. Choose that folder, or use a different website name."
-                                    : "Could not copy the site. Check the Git URL and your access, then try again.",
-                                );
-                                return;
-                              }
-                              setCloneId(projectId);
-                              setSiteFiles(result.value.cwd);
-                              pendingProject.current = {
-                                environmentId,
-                                cloneId: projectId,
-                                projectId,
-                                root: result.value.cwd,
-                              };
-                            })
-                            .catch(() =>
-                              setError("Could not copy the site. Check the website and Git URL."),
-                            )
-                            .finally(() => setBusy(false));
-                        }}
-                      >
-                        Clone site files
-                      </Button>
-                      {clone && clone.phase === "running" && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => {
-                            if (environmentId && cloneId)
-                              void cancelClone({ environmentId, input: { projectId: cloneId } });
-                          }}
-                        >
-                          Cancel copy
-                        </Button>
-                      )}
-                      {clone && (clone.phase === "failed" || clone.phase === "cancelled") && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            if (environmentId && cloneId)
-                              void retryClone({ environmentId, input: { projectId: cloneId } });
-                          }}
-                        >
-                          Try copying again
-                        </Button>
-                      )}
-                      {clone?.error && (
-                        <details>
-                          <summary>More</summary>
-                          <pre className="whitespace-pre-wrap text-xs">{clone.error}</pre>
-                        </details>
-                      )}
-                      {clone && (
-                        <p role="status" className="truncate text-sm text-muted-foreground">
-                          {clone.phase === "running"
-                            ? `Copying site files… ${clone.percent ?? 0}%`
-                            : clone.phase === "done"
-                              ? `Copied to ${displayFolder(siteFiles)}`
-                              : /destination.*exists/i.test(clone.error ?? "")
-                                ? "A folder for this website already exists. Choose that folder, or use a different website name."
-                                : "Could not copy the site. Check the Git URL and your access, then retry."}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {folderNote && (
-                    <p role="status" className="text-sm text-muted-foreground">
-                      {folderNote}
-                    </p>
-                  )}
-                  {siteFiles && (
-                    <p className="text-sm text-muted-foreground">
-                      Agents can edit files in this folder. Nothing is published or pushed for you.
-                      Review changes in the chat.
-                    </p>
-                  )}
-                </fieldset>
-              )
-            )}
-            {savedCopies.some(
-              (copy) => !registeredDomains.some((d) => d.projectId === copy.id),
-            ) && (
-              <details className="min-w-0 max-w-full">
-                <summary>Reuse previously copied site files</summary>
-                {savedCopies
-                  .filter((copy) => !registeredDomains.some((d) => d.projectId === copy.id))
-                  .map((copy) => (
-                    <div key={copy.id} className="flex min-w-0 items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate">{displayFolder(copy.path)}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        onClick={() => {
-                          invalidateSource();
-                          setFileChoice("folder");
-                          if (environmentId)
-                            pendingProject.current = {
-                              environmentId,
-                              projectId: copy.id,
-                              root: copy.path,
-                            };
-                          void chooseFolder(copy.path);
-                        }}
-                      >
-                        Use this copy
-                      </Button>
-                    </div>
-                  ))}
-              </details>
-            )}
-            {error && <p role="alert">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="ghost" onClick={() => closeDialog(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  busy ||
-                  !canCreate ||
-                  !canSave ||
-                  (fileChoice !== "skip" && !siteFiles) ||
-                  (fileChoice === "folder" && validatedPath !== siteFiles) ||
-                  (!!cloneId && clone?.phase !== "done")
-                }
-              >
-                {busy ? "Saving…" : editing ? "Save domain" : "Create domain"}
-              </Button>
-            </div>
-          </form>
-        </DialogPanel>
+        <DialogPanel>{form}</DialogPanel>
       </DialogPopup>
     </Dialog>
   );
@@ -714,7 +714,9 @@ export function DomainConnection({
   domain,
   destination,
   quiet = false,
+  onboarding = false,
 }: {
+  onboarding?: boolean;
   domain: Domain;
   destination: EnvironmentId;
   quiet?: boolean;
@@ -736,6 +738,54 @@ export function DomainConnection({
   const connected = connection?.state === "connected";
   const command = useAtomCommand(connectionCommand);
   const [chooseAccount, setChooseAccount] = useState(false);
+  const connectionPanel = connection && (
+    <fieldset disabled={!canConnect}>
+      <AmicitedConnectPanel
+        connection={connection}
+        connectLabel={source ? "Connect a different account" : "Connect AmICited (free)"}
+        ui={{
+          Button,
+          Input,
+          Row: SettingsRow,
+          Group: SettingsGroup,
+          Disclosure: CloudDisclosure,
+        }}
+        onChange={setConnection}
+        openExternal={(url) => {
+          if (url === "https://app.flowhunt.io/amicited/subscription")
+            openCloudSubscription(destination, domain.projectId);
+          else void createLocalApi().shell.openExternal(url);
+        }}
+        actions={{
+          connectOAuth: async () => {
+            const result = await command({
+              environmentId: destination,
+              input: { projectId: domain.projectId, action: "oauth" },
+            });
+            if (result._tag !== "Success") throw new Error("Connection failed");
+            return result.value;
+          },
+          connectApiKey: async (apiKey) => {
+            const result = await command({
+              environmentId: destination,
+              input: { projectId: domain.projectId, action: "oauth", apiKey },
+            });
+            if (result._tag !== "Success") throw new Error("Connection failed");
+            return result.value;
+          },
+          disconnect: async () => {
+            const result = await command({
+              environmentId: destination,
+              input: { projectId: domain.projectId, action: "disconnect" },
+            });
+            if (result._tag !== "Success") throw new Error("Disconnect failed");
+            return result.value;
+          },
+        }}
+      />
+    </fieldset>
+  );
+  if (onboarding) return connectionPanel;
   if (quiet)
     return (
       <>
@@ -856,55 +906,7 @@ export function DomainConnection({
           <DialogHeader>
             <DialogTitle>AmICited for {domain.hostname}</DialogTitle>
           </DialogHeader>
-          <DialogPanel>
-            {connection && (
-              <fieldset disabled={!canConnect}>
-                <AmicitedConnectPanel
-                  connection={connection}
-                  connectLabel={source ? "Connect a different account" : "Connect with AmICited"}
-                  ui={{
-                    Button,
-                    Input,
-                    Row: SettingsRow,
-                    Group: SettingsGroup,
-                    Disclosure: CloudDisclosure,
-                  }}
-                  onChange={setConnection}
-                  openExternal={(url) => {
-                    if (url === "https://app.flowhunt.io/amicited/subscription")
-                      openCloudSubscription(destination, domain.projectId);
-                    else void createLocalApi().shell.openExternal(url);
-                  }}
-                  actions={{
-                    connectOAuth: async () => {
-                      const result = await command({
-                        environmentId: destination,
-                        input: { projectId: domain.projectId, action: "oauth" },
-                      });
-                      if (result._tag !== "Success") throw new Error("Connection failed");
-                      return result.value;
-                    },
-                    connectApiKey: async (apiKey) => {
-                      const result = await command({
-                        environmentId: destination,
-                        input: { projectId: domain.projectId, action: "oauth", apiKey },
-                      });
-                      if (result._tag !== "Success") throw new Error("Connection failed");
-                      return result.value;
-                    },
-                    disconnect: async () => {
-                      const result = await command({
-                        environmentId: destination,
-                        input: { projectId: domain.projectId, action: "disconnect" },
-                      });
-                      if (result._tag !== "Success") throw new Error("Disconnect failed");
-                      return result.value;
-                    },
-                  }}
-                />
-              </fieldset>
-            )}
-          </DialogPanel>
+          <DialogPanel>{connectionPanel}</DialogPanel>
         </DialogPopup>
       </Dialog>
     </>

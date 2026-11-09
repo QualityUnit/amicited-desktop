@@ -1,3 +1,4 @@
+import { assertCaptureReady, applicationPage } from "./onboarding-proof.mjs";
 // Run onboarding-launch.mjs first, then DEBUG_PORT=<port> node scripts/amicited/onboarding-capture.mjs <output-dir>.
 import * as NodeModule from "node:module";
 import * as NodeFS from "node:fs";
@@ -14,11 +15,9 @@ try {
     timeout: 15000,
   });
   const context = browser.contexts()[0];
-  const page =
-    context.pages().find((p) => p.url().startsWith("t3code-dev:")) ??
-    context.pages().find((p) => !p.url().startsWith("devtools:"));
-  if (!page) throw new Error("Electron has no application page.");
-  page.setDefaultTimeout(15000);
+  const page = await applicationPage(context);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  page.setDefaultTimeout(60000);
   const cdp = await context.newCDPSession(page);
   await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
   await cdp.send("Emulation.setDeviceMetricsOverride", {
@@ -29,10 +28,12 @@ try {
   });
   const capture = async (name, description, dark = true) => {
     await page.evaluate(() => document.documentElement.classList.remove("dark"));
+    await assertCaptureReady(page, cdp);
     await page.screenshot({ path: NodePath.join(out, `${name}.png`) });
     index.push(`- ${name}.png: ${description}`);
     if (dark) {
       await page.evaluate(() => document.documentElement.classList.add("dark"));
+      await assertCaptureReady(page, cdp);
       await page.screenshot({ path: NodePath.join(out, `${name}-dark.png`) });
       index.push(`- ${name}-dark.png: Same screen in dark theme.`);
       await page.evaluate(() => document.documentElement.classList.remove("dark"));
@@ -48,9 +49,9 @@ try {
   if (process.env.AMICITED_TRY_INSTALL === "1") {
     await page
       .getByRole("article", { name: "Claude", exact: true })
-      .getByRole("button", { name: "Install", exact: true })
+      .getByRole("button", { name: "Install Claude", exact: true })
       .click();
-    await page.getByText("Installing…", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Installing…", exact: true }).waitFor();
     await capture("04-installing", "Real Claude installation started by clicking Install.");
     throw new Error(
       "Complete the real browser sign-in before continuing; rerun with AMICITED_TRY_INSTALL unset in a ready profile.",
@@ -58,12 +59,9 @@ try {
   }
   const next = page.getByRole("button", { name: "Continue", exact: true });
   if (await next.isEnabled()) await next.click();
-  else
-    await page
-      .getByRole("button", { name: "Set up later (chats need an assistant)", exact: true })
-      .click();
+  else await page.getByRole("button", { name: "Set up later", exact: true }).click();
   await capture("05-website", "Website step; add a website or skip.");
-  await page.getByRole("button", { name: "Add website", exact: true }).click();
+
   await page.getByRole("textbox", { name: "Website", exact: true }).fill("www.flowhunt.io");
   await capture(
     "06-domain",
@@ -79,7 +77,7 @@ try {
   await capture("06c-cms-keyboard", "CMS grid with keyboard selection and focus.");
   await page.getByRole("radio", { name: /Git-based site/ }).click();
   await capture("07-site-files", "Git-based sites offer folder, clone or skip.");
-  await page.getByRole("button", { name: "Create domain", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Start chatting", exact: true }).waitFor();
   await capture("08-cloud", "Optional per-domain AmICited connection, credits and pricing.");
   await page.getByRole("button", { name: "Start chatting", exact: true }).click();
@@ -132,8 +130,14 @@ try {
       const { appAtomRegistry } = await import("/src/rpc/atomRegistry.ts");
       return appAtomRegistry
         .get(primaryServerProvidersAtom)
-        .some((p) => p.instanceId === "devReplay" && p.status === "ready");
+        .some(
+          (p) =>
+            p.instanceId === "devReplay" &&
+            p.status === "ready" &&
+            p.models.some((m) => m.slug === "marketing"),
+        );
     });
+    await page.waitForFunction(() => window.t3dev.replayScenarios().includes("marketing"));
     await page.evaluate(() => window.t3dev.replay("marketing", "full-access"));
     await page
       .getByRole("article", { name: "Marketing tool result" })

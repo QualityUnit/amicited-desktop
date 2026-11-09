@@ -1,3 +1,4 @@
+import { assertCaptureReady, applicationPage } from "./onboarding-proof.mjs";
 // Continue onboarding-capture.mjs on a native window with a domain and Replay (dev) configured.
 import * as NodeModule from "node:module";
 import * as NodePath from "node:path";
@@ -11,19 +12,31 @@ NodeFS.mkdirSync(out, { recursive: true });
 const browser = await chromium.connectOverCDP(`http://localhost:${process.env.DEBUG_PORT ?? 9333}`);
 try {
   const ctx = browser.contexts()[0];
-  const page = ctx.pages().find((p) => p.url().startsWith("t3code-dev:"));
+  const page = await applicationPage(ctx);
+  await page.emulateMedia({ reducedMotion: "reduce" });
   page.setDefaultTimeout(120000);
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
   const index = [];
   const capture = async (name, description) => {
     await page.evaluate(() => document.documentElement.classList.remove("dark"));
-    await page.screenshot({ animations: "disabled" });
+    await assertCaptureReady(page, cdp);
     await page.screenshot({ animations: "disabled", path: NodePath.join(out, `${name}.png`) });
     index.push(`- ${name}.png: ${description}`);
     NodeFS.writeFileSync(NodePath.join(out, "overlap-index.md"), index.join("\n") + "\n");
   };
   const matrix = async (state) => {
+    await page.evaluate(async () => {
+      const { cache, publish } = await import("/src/marketingDomainStore.ts");
+      const { readPrimaryEnvironmentId } = await import("/src/state/environments.ts");
+      const environmentId = readPrimaryEnvironmentId();
+      publish(
+        environmentId,
+        cache
+          .get(environmentId)
+          .map((domain) => ({ ...domain, hostname: "very-long-brand-name-example.co.uk" })),
+      );
+    });
     for (const width of [860, 1100, 1344, 1710]) {
       await cdp.send("Emulation.setDeviceMetricsOverride", {
         width,
@@ -33,7 +46,7 @@ try {
       });
       await capture(
         `context-${state}-${width}`,
-        `${state} with a long domain, ${width} CSS pixels; current build.`,
+        `${state} with a long domain, ${width} CSS pixels; Replay scenario model, not a production model.`,
       );
     }
   };
@@ -41,9 +54,15 @@ try {
     const { threadEnvironment } = await import("/src/state/threads.ts");
     const { appAtomRegistry } = await import("/src/rpc/atomRegistry.ts");
     const { readPrimaryEnvironmentId } = await import("/src/state/environments.ts");
-    const { cache } = await import("/src/marketingDomainStore.ts");
+    const { cache, publish } = await import("/src/marketingDomainStore.ts");
     const environmentId = readPrimaryEnvironmentId();
     const projectId = cache.get(environmentId)[0].projectId;
+    publish(
+      environmentId,
+      cache
+        .get(environmentId)
+        .map((domain) => ({ ...domain, hostname: "very-long-brand-name-example.co.uk" })),
+    );
     for (let i = 1; i <= 12; i++) {
       const threadId = crypto.randomUUID();
       const result = await threadEnvironment.create.run(appAtomRegistry, {
@@ -64,6 +83,11 @@ try {
         await threadEnvironment.settle.run(appAtomRegistry, { environmentId, input: { threadId } });
     }
   });
+  await matrix("thread");
+  await page.evaluate(() => {
+    window.location.hash = "/new";
+  });
+  await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
   await matrix("empty");
   await page.evaluate(() => window.t3dev.replay("marketing-readability-approval"));
   await page.getByRole("group", { name: "Marketing approval" }).waitFor();

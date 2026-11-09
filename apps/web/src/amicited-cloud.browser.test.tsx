@@ -365,9 +365,7 @@ it("shows domain connection warnings without blocking chat, and remembers dismis
         onCancel={() => {}}
       />,
     );
-    await expect
-      .element(screen.getByText("AmICited isn’t connected. Free local tools still work."))
-      .toBeVisible();
+    await expect.element(screen.getByText("Not connected")).toBeVisible();
     await screen.getByRole("button", { name: "Connect AmICited (free)", exact: true }).click();
     expect(connect).toHaveBeenCalledOnce();
     createUpsellGate(localStorage, sessionStorage).snooze(4102444800000);

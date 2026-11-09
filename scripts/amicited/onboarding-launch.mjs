@@ -49,7 +49,7 @@ await new Promise((resolve, reject) => {
 const boot = NodePath.join(home, "boot.cjs");
 NodeFS.writeFileSync(
   boot,
-  `require('node:os').homedir=()=>${JSON.stringify(home)};require(${JSON.stringify(NodePath.join(root, "apps/desktop/dist-electron/main.cjs"))});`,
+  `require('node:os').homedir=()=>${JSON.stringify(home)};require(${JSON.stringify(NodePath.join(root, "apps/desktop/dist-electron/main.cjs"))});require("electron").app.on("web-contents-created",(_,w)=>w.on("did-finish-load",()=>w.closeDevTools()));`,
 );
 const { ensureElectronRuntime } =
   await import("../../apps/desktop/scripts/ensure-electron-runtime.mjs");
@@ -118,6 +118,10 @@ child.stderr.on("data", (chunk) => {
         deviceScaleFactor: 2,
         mobile: false,
       });
+      await session.send("Overlay.setShowViewportSizeOnResize", { show: false });
+      await session.send("Overlay.disable");
+      const { assertCaptureReady } = await import("./onboarding-proof.mjs");
+      await assertCaptureReady(page, session);
       await page.screenshot({ path: process.env.AMICITED_BOOT_CAPTURE });
       NodeFS.writeFileSync(
         `${process.env.AMICITED_BOOT_CAPTURE}.txt`,

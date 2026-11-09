@@ -600,11 +600,10 @@ it("shows welcome after a fresh environment connects without domains, setup or a
     publish("local", []);
     await screen.rerender(<MarketingSetupHost />);
     await expect
-      .element(screen.getByRole("heading", { name: "Choose your assistant" }))
+      .element(screen.getByRole("heading", { name: "Choose your AI assistant" }))
       .toBeVisible();
-    await screen
-      .getByRole("button", { name: "Set up later (chats need an assistant)", exact: true })
-      .click();
+    await screen.getByRole("button", { name: "Set up later", exact: true }).click();
+    state.emptyDomains = false;
     publish("local", [
       {
         projectId: "first-domain",
@@ -613,7 +612,8 @@ it("shows welcome after a fresh environment connects without domains, setup or a
         connectionRef: "first-domain",
       },
     ]);
-    await screen.getByRole("button", { name: "Skip for now", exact: true }).click();
+    await screen.getByRole("button", { name: "Skip", exact: true }).click();
+    await screen.getByRole("button", { name: "Start chatting", exact: true }).click();
     await vi.waitFor(() =>
       expect(state.threadSelections).toEqual([{ instanceId: "codex", model: "gpt-6-luna" }]),
     );

@@ -29,6 +29,8 @@ const provider: ServerProvider = {
 describe("compatibility banners", () => {
   it("shows and dismisses a warning on a healthy provider, then clears it after policy relaxation", () => {
     expect(shouldShowProviderStatusBanner(provider, null)).toBe(true);
+    expect(shouldShowProviderStatusBanner(provider, null, "marketer")).toBe(false);
+    expect(shouldShowProviderStatusBanner(provider, null, "developer")).toBe(true);
     expect(shouldShowProviderStatusBanner(provider, getProviderStatusBannerKey(provider))).toBe(
       false,
     );

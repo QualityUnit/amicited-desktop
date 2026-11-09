@@ -1,3 +1,4 @@
+import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { AssistantSetupDialog } from "./marketingSetup";
 import { resolveEffectiveRuntimeMode } from "./components/chat/runtimeModeConfig";
 import { useDomains, NewDomainDialog, DomainConnection } from "./marketingDomains";
@@ -27,6 +28,7 @@ import {
 } from "@t3tools/client-runtime/work-log/item-detail";
 import { usePrimaryEnvironmentId, useEnvironmentProviders } from "./state/environments";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
+import { hasReadyMarketingAssistant } from "./marketingContext";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer styles are owned by @amicited/ui-marketing. */
 import { useState, useEffect, useEffectEvent } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
@@ -50,7 +52,6 @@ export function MarketingComposerContext({
   projectId,
   onSelected,
   onConnected,
-  selectedInstanceId,
 }: {
   destination?: EnvironmentId | null | undefined;
   projectId?: string | null | undefined;
@@ -62,10 +63,9 @@ export function MarketingComposerContext({
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
   const providers = useEnvironmentProviders();
-  const selected = environmentId
-    ? providers.get(environmentId)?.find((p) => p.instanceId === selectedInstanceId)
-    : undefined;
-  const ready = selected && getOnboardingProviderState(selected) === "ready";
+  const ready = environmentId
+    ? hasReadyMarketingAssistant(providers.get(environmentId) ?? [])
+    : false;
   const selectAssistant = useEffectEvent(onSelected);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Setup can select an assistant outside this composer while preserving its draft.
   useEffect(() => {
@@ -89,7 +89,13 @@ export function MarketingComposerContext({
       <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
       <div className="am-composer-context">
         {domain ? (
-          <span>{domain.hostname}</span>
+          <Tooltip>
+            <TooltipTrigger render={<span className="am-context-domain" />}>
+              <Globe size={14} />
+              <span>{domain.hostname}</span>
+            </TooltipTrigger>
+            <TooltipPopup>{domain.hostname}</TooltipPopup>
+          </Tooltip>
         ) : (
           <MarketingButton
             type="button"

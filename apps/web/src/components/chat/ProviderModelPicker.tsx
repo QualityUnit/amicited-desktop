@@ -1,3 +1,4 @@
+import { formatModelSlugName } from "@t3tools/shared/model";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
@@ -114,6 +115,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   effortColumn?: ReactNode;
   footer?: ReactNode;
 }) {
+  const marketer = useWorkspaceMode() === "marketer";
   const composerFloatingLayerProps = useComposerMenuProps();
   const [uncontrolledIsMenuOpen, setUncontrolledIsMenuOpen] = useState(false);
   const isMenuOpen = props.open ?? uncontrolledIsMenuOpen;
@@ -143,8 +145,10 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
       ? "Choose model"
       : props.model || "Choose model";
   const triggerLabel = selectedModel
-    ? `${getDisplayModelName(selectedModel)}${selectedModel.isUnavailable ? " (Unavailable)" : ""}`
-    : triggerTitle;
+    ? `${marketer && selectedModel.name === selectedModel.slug ? formatModelSlugName(selectedModel.slug) : getDisplayModelName(selectedModel)}${selectedModel.isUnavailable ? " (Unavailable)" : ""}`
+    : marketer
+      ? formatModelSlugName(props.model)
+      : triggerTitle;
   const showInstanceBadge =
     activeEntry !== null && shouldShowInstanceBadge(activeEntry, props.instanceEntries);
 
@@ -237,7 +241,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     .filter(Boolean)
     .join(" · ");
 
-  const marketer = useWorkspaceMode() === "marketer";
   const triggerText =
     props.triggerLabel ?? multipleLabel ?? (marketer ? triggerLabel : triggerTitle);
   const triggerTextProps = {
@@ -434,7 +437,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
         touchBackdrop
       >
         {props.effortColumn ? (
-          <DockedPickerContext value={{ modelLabel: triggerTitle }}>
+          <DockedPickerContext value={{ modelLabel: marketer ? triggerLabel : triggerTitle }}>
             <div className="flex max-h-(--available-height) flex-col">
               {/* One fixed height, so a model with more options never resizes the popup. Short
                   windows shrink it and keep the footer. */}

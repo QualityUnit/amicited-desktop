@@ -566,3 +566,7 @@ Wave 39 site-file corrections:
 shares the same domain editor across setup, New domain and Edit domain.
 
 - `apps/web/src/components/settings/CodexSetupSection.tsx`: optional marketer presentation names ChatGPT, explains setup state and omits CLI choices while preserving the managed install and browser sign-in path.
+
+- `apps/web/src/components/chat/ProviderStatusBanner.tsx`: hides developer provider diagnostics in marketer mode, where assistant setup and the composer own recovery; developer behavior is unchanged.
+- `apps/web/src/components/chat/ProviderStatusBanner.test.ts`: covers the mode boundary alongside existing provider status cases.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx`: the marketer docked composer uses the provider's full model display name.

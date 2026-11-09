@@ -393,35 +393,14 @@
   display: none;
 }
 
-.am-composer-context > span {
-  flex-shrink: 0;
-  max-width: 30%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.am-composer-context .am-cloud-actions {
-  flex-wrap: nowrap;
-  min-width: 0;
-  flex: 1;
-}
-.am-composer-context .am-cloud-actions > span:nth-child(2) {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.am-composer-context .am-cloud-actions > button {
-  flex-shrink: 0;
-}
-
 .am-cms-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   margin-top: 8px;
 }
 .am-cms-tile {
+  grid-column: span 2;
   position: relative;
   display: flex;
   align-items: center;
@@ -471,30 +450,239 @@
   font-size: 18px;
   font-weight: 600;
 }
-.am-composer-context {
-  flex-wrap: wrap;
-  align-items: flex-start;
-  row-gap: 6px;
-}
-.am-composer-context > span {
-  flex-basis: 100%;
-  max-width: 100%;
-}
-.am-composer-context .am-cloud-actions > span:first-child {
-  display: none;
-}
-.am-composer-context .am-cloud-actions {
-  flex-wrap: wrap;
-}
-.am-composer-context .am-cloud-actions > span:nth-child(2) {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
 @media (max-width: 600px) {
   .am-assistant-grid {
     grid-template-columns: 1fr;
   }
   .am-cms-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+[data-am="am-setup"],
+[data-am="am-setup-loading"] {
+  min-height: 100dvh;
+  background: var(--background);
+  color: var(--foreground);
+  padding: 48px 24px;
+  overflow: auto;
+}
+[data-am="am-setup-column"] {
+  width: min(100%, 620px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 96px);
+}
+[data-am="am-setup-brand"] {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 32px;
+}
+[data-am="am-setup-progress"] {
+  display: flex;
+  gap: 20px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-bottom: 32px;
+}
+[data-am="am-setup-progress"] [aria-current] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+[data-am="am-setup"] h1 {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+[data-am="am-setup-body"] {
+  padding: 24px 0;
+  flex: 1;
+}
+[data-am="am-setup-footer"] {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+[data-am="am-setup-cloud"] {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+  font-size: 14px;
+}
+[data-am="am-setup-cloud"] ul {
+  list-style: disc;
+  padding-left: 16px;
+}
+.am-assistant-card {
+  padding: 16px;
+}
+.am-assistant-card > section,
+.am-assistant-card > section > div:first-of-type {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+:is(.am-assistant-tile, [data-am="am-assistant-tile"]) {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  min-height: 188px;
+}
+[data-am="am-assistant-top"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+[data-am="am-assistant-top"] h3,
+.am-assistant-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+[data-am="am-assistant-status"] {
+  font-size: 10px;
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: var(--muted);
+  white-space: nowrap;
+  margin-left: auto;
+}
+[data-am="am-assistant-status"][data-state="signin"] {
+  color: var(--warning-foreground);
+  background: color-mix(in oklab, var(--warning) 15%, var(--background));
+}
+[data-am="am-assistant-status"][data-state="busy"] {
+  color: var(--primary);
+  background: var(--accent);
+}
+:is(.am-assistant-tile, [data-am="am-assistant-tile"]) > p {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  flex: 1;
+}
+[data-am="am-assistant-action"] {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+[data-am="am-assistant-action"] button {
+  width: 100%;
+}
+[data-am="am-assistant-action"] > button:not(:first-child) {
+  width: auto;
+  align-self: center;
+}
+.am-cms-tile {
+  height: 76px;
+  align-content: center;
+}
+.am-cms-tile small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.am-cms-tile:nth-last-child(-n + 4) {
+  grid-column: span 3;
+}
+.am-composer-context {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  container-type: inline-size;
+}
+.am-composer-context > .am-context-domain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  max-width: 35%;
+  min-width: 0;
+}
+.am-context-domain > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.am-context-domain svg {
+  flex-shrink: 0;
+}
+.am-composer-context .am-cloud-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.am-composer-context .am-cloud-actions > span:first-child {
+  display: inline;
+}
+.am-composer-context .am-cloud-actions > span:nth-child(2) {
+  white-space: nowrap;
+}
+.am-composer-context button {
+  white-space: nowrap;
+}
+@container (max-width: 540px) {
+  .am-composer-context .am-cloud-actions > span:nth-child(2) {
+    display: none;
+  }
+}
+
+.am-assistant-card[data-selected="true"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+[data-am="am-assistant-status"][data-state="ready"] {
+  color: var(--success-foreground);
+  background: var(--success);
+}
+[data-automatic="true"] > div:first-child {
+  display: none;
+}
+[data-automatic="true"] summary {
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+[data-am="am-setup-brand"] svg {
+  width: 18px;
+  height: 18px;
+}
+
+[data-onboarding-surface] {
+  height: 100dvh;
+}
+[data-onboarding-surface] input[type="radio"] {
+  opacity: 0;
+}
+
+[data-am="am-setup-column"] {
+  height: calc(100dvh - 96px);
+  min-height: 0;
+}
+[data-am="am-setup-body"] {
+  overflow: auto;
+  min-height: 0;
+}
+[data-am="am-setup-footer"],
+[data-am="am-setup-progress"],
+[data-am="am-setup-brand"],
+[data-am="am-setup-column"] > header {
+  flex-shrink: 0;
+}
+[data-am="am-setup-cloud"] [data-slot="settings-group"] {
+  border: 0;
+  box-shadow: none;
+}
+
+@container (max-width: 540px) {
+  .am-composer-context .am-cloud-actions > span:first-child {
+    display: none;
   }
 }
