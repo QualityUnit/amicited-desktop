@@ -767,7 +767,8 @@ function MarketingHistory({
         onNewDomain={() => setNewDomainOpen(true)}
         resolveThreadLocation={(thread) => {
           const folder = domains.rows.find((row) => row.projectId === thread.projectId)?.siteFiles;
-          return folder ? folder.split(/[\\/]/).filter(Boolean).at(-1) : null;
+          const location = thread.worktreePath ?? folder;
+          return location ? location.split(/[\\/]/).filter(Boolean).at(-1) : null;
         }}
         archiveAction={
           <SidebarHeaderIconButton

@@ -7,4 +7,4 @@ export function readWorkspaceMode(): "marketer" | "developer" {
   }
 }
 
-export { marketerMenuItems } from "./menu.js";
+export { marketerLabel, marketerMenuItems } from "./menu.js";

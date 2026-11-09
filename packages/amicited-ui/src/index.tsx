@@ -404,5 +404,5 @@ export { MarketingHeader } from "./shell.js";
 
 export { cloudRunId, cloudToolResult, CloudToolResultCard } from "./chat.js";
 
-export { marketerMenuItems } from "./menu.js";
+export { marketerLabel, marketerMenuItems } from "./menu.js";
 export { MarketingThreadLocation } from "./threadDetails.js";

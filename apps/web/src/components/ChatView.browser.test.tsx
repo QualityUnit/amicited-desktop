@@ -115,6 +115,7 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
     ...base,
     shell: {
       branch: "website",
+      worktreePath: siteFiles ? "/workspace/site-worktree" : null,
       pullRequests: siteFiles
         ? [
             {
@@ -163,7 +164,7 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
       .toBeVisible();
     await expect.element(page.getByText("website", { exact: true }).last()).toBeVisible();
     await expect
-      .element(page.getByText("/workspace/render", { exact: false }).last())
+      .element(page.getByText("/workspace/site-worktree", { exact: false }).last())
       .toBeVisible();
   } else {
     await expect.element(page.getByText("Initialize Git", { exact: true })).not.toBeInTheDocument();

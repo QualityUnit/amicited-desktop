@@ -352,9 +352,11 @@ export function CloudToolResultCard({
   const title =
     data.code === "plan_required"
       ? `${toolTitle[0]?.toUpperCase()}${toolTitle.slice(1)}${target} needs a plan`
-      : discovery
-        ? "Looked up AmICited tools"
-        : `${failed ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${toolTitle}${target}`;
+      : data.code === "approval_decline" && cloud.tool.startsWith("delete_")
+        ? `Didn't delete ${toolTitle.replace(/^delete /, "")}${target} (you declined)`
+        : discovery
+          ? "Looked up AmICited tools"
+          : `${failed ? "Could not check" : cloud.tool.endsWith("_start") ? "Started checking" : ["running", "pending"].includes(String(data.status)) ? "Checking" : "Checked"} ${toolTitle}${target}`;
   const summary =
     data.code === "plan_required"
       ? "Needs a Pro plan or trial. Free checks still work."

@@ -13,7 +13,12 @@ import {
   useComposerMenuProps,
 } from "./composerEventScope";
 import { ComposerFooterModeControls, ComposerPermissionsSection } from "./ComposerFooterControls";
-import { runtimeModeConfig, runtimeModeOptions } from "./runtimeModeConfig";
+import {
+  resolveRuntimeModeOptions,
+  resolveCompatibleRuntimeMode,
+  runtimeModeConfig,
+  runtimeModeOptions,
+} from "./runtimeModeConfig";
 
 const options = runtimeModeOptions.map((mode) => ({ mode, ...runtimeModeConfig[mode] }));
 
@@ -185,3 +190,42 @@ it("opens permissions directly from the context strip and applies a supported mo
   await userEvent.keyboard("{Escape}");
   await expect.element(trigger).toHaveFocus();
 });
+
+it.each(["full-access", "auto", "auto-accept-edits"] as const)(
+  "lists two labelled marketer access modes for saved %s",
+  async (savedMode) => {
+    const previous = localStorage.getItem("amicited.workspace-mode");
+    localStorage.setItem("amicited.workspace-mode", "marketer");
+    using stack = new DisposableStack();
+    stack.defer(() =>
+      previous === null
+        ? localStorage.removeItem("amicited.workspace-mode")
+        : localStorage.setItem("amicited.workspace-mode", previous),
+    );
+    await using _screen = await render(
+      <Menu open>
+        <MenuPopup>
+          <ComposerPermissionsSection
+            runtimeMode={resolveCompatibleRuntimeMode(savedMode, undefined).mode}
+            runtimeModeOptions={resolveRuntimeModeOptions(runtimeModeOptions, undefined)}
+            onRuntimeModeChange={() => {}}
+          />
+        </MenuPopup>
+      </Menu>,
+      { router: false },
+    ); // no routes involved
+    expect(page.getByRole("menuitemradio").elements()).toHaveLength(2);
+    await expect
+      .element(
+        page.getByRole("menuitemradio", {
+          name: savedMode === "full-access" ? "Full access" : "Ask before acting",
+          exact: true,
+        }),
+      )
+      .toHaveAttribute("aria-checked", "true");
+    await expect.element(page.getByText("Full access", { exact: true }).first()).toBeVisible();
+    await expect
+      .element(page.getByText("Ask before acting", { exact: true }).first())
+      .toBeVisible();
+  },
+);

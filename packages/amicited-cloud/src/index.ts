@@ -188,6 +188,7 @@ export class CloudClient {
       tool: string;
       free: boolean;
       readOnly: boolean;
+      destructive: boolean;
       arguments: Record<string, unknown>;
       resolve: (
         decision: "decline" | "accept" | "acceptForSession" | "timeout" | "cancelled",
@@ -220,7 +221,7 @@ export class CloudClient {
       free: request.free,
       readOnly: request.readOnly,
       arguments: request.arguments,
-      message: `${cloudAction(request.tool, request.arguments, request.readOnly, this.resources.get(request.threadId))} with AmICited? ${request.free ? "Uses a few workspace credits. No paid plan needed; welcome credits cover new accounts." : request.readOnly ? "Uses workspace credits." : "Changes your workspace and uses workspace credits."}`,
+      message: `${cloudAction(request.tool, request.arguments, request.readOnly, this.resources.get(request.threadId))} with AmICited? ${request.destructive ? "Changes your workspace." : request.free ? "Uses a few workspace credits. No paid plan needed; welcome credits cover new accounts." : request.readOnly ? "Uses workspace credits." : "Changes your workspace and uses workspace credits."}`,
     }));
     return [
       ...own,
@@ -287,7 +288,15 @@ export class CloudClient {
       };
       const cancel = () => finish("cancelled");
       const timer = setTimeout(() => finish("timeout"), 10 * 60_000);
-      this.approvals.set(id, { threadId, tool, free, readOnly, arguments: args, resolve: finish });
+      this.approvals.set(id, {
+        threadId,
+        tool,
+        free,
+        readOnly,
+        destructive: policy.destructive === true,
+        arguments: args,
+        resolve: finish,
+      });
       signal?.addEventListener("abort", cancel, { once: true });
       this.approvalListeners.forEach((listener) => listener());
     });
@@ -332,19 +341,16 @@ export class CloudClient {
     return result;
   }
   private approvalFailure(reason: "decline" | "timeout" | "cancelled") {
+    const message =
+      reason === "decline"
+        ? "The user declined this AmICited action. Nothing was run."
+        : reason === "timeout"
+          ? "Approval timed out after ten minutes. Nothing was run. Ask the user before trying again."
+          : "This AmICited approval was cancelled. Nothing was run.";
     return {
       isError: true,
-      content: [
-        {
-          type: "text",
-          text:
-            reason === "decline"
-              ? "The user declined this AmICited action. Nothing was run."
-              : reason === "timeout"
-                ? "Approval timed out after ten minutes. Nothing was run. Ask the user before trying again."
-                : "This AmICited approval was cancelled. Nothing was run.",
-        },
-      ],
+      structuredContent: { code: `approval_${reason}`, message },
+      content: [{ type: "text", text: message }],
     };
   }
   async answerApproval(

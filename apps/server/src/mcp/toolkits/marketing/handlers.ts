@@ -2,7 +2,7 @@ import { jsonToolResult } from "../../../amicited/toolResult.ts";
 import { domainToolInput } from "@amicited/cloud-client/domainModel";
 import { usefulMarketingResult } from "@amicited/cloud-client";
 import { AmicitedCloud } from "../../../amicited/Cloud.ts";
-import { unavailable } from "../../threadAccess.ts";
+import { readCaller, unavailable } from "../../threadAccess.ts";
 import { MarketingCaller } from "../../../marketing/MarketingToolsLive.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as ThreadManagementService from "../../../orchestration-v2/ThreadManagementService.ts";
@@ -79,8 +79,9 @@ export const layer = McpToolAccess.toLayer(MarketingToolkit, {
       );
     }).pipe(Effect.flatMap(jsonToolResult)),
   ),
-  marketing_tools_run: McpToolAccess.writesEnvironment((input) =>
+  marketing_tools_run: McpToolAccess.writesWithCapability((input) =>
     Effect.gen(function* () {
+      yield* readCaller();
       const service = yield* MarketingTools.MarketingTools;
       const scope = yield* McpInvocationContext.McpInvocationContext;
       if (!scope.thread) return yield* service.run(input.name, input.input);

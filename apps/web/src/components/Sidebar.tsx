@@ -1,4 +1,4 @@
-import { marketerMenuItems } from "@amicited/ui-marketing";
+import { marketerLabel, marketerMenuItems } from "@amicited/ui-marketing";
 import { useOpenLink } from "~/browser/useOpenLink";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/client-runtime/thread-pull-requests";
 import { Fragment } from "react";
@@ -806,6 +806,7 @@ function isOptimisticDropReleased(input: {
 
 // Build maps in a hook so the compiler can prove they are frozen and cache them.
 function useSidebarLookups() {
+  const marketer = useWorkspaceMode() === "marketer";
   const projects = useProjects();
   const environments = useEnvironmentIdentities();
   const serverConfigs = useServerConfigs();
@@ -820,7 +821,11 @@ function useSidebarLookups() {
   const projectDisplayNameByKey = new Map(
     projectGroups.flatMap((group) =>
       group.memberProjects.map(
-        (project) => [`${project.environmentId}:${project.id}`, group.displayName] as const,
+        (project) =>
+          [
+            `${project.environmentId}:${project.id}`,
+            marketer ? marketerLabel(group.displayName) : group.displayName,
+          ] as const,
       ),
     ),
   );
@@ -2879,8 +2884,10 @@ export default function Sidebar({
               const confirmed = await settlePromise(() =>
                 api.dialogs.confirm(
                   [
-                    `Delete thread "${thread.title}"?`,
-                    "This permanently clears conversation history for this thread.",
+                    `${marketer ? "Delete chat" : "Delete thread"} "${thread.title}"?`,
+                    marketer
+                      ? "This permanently clears conversation history for this chat."
+                      : "This permanently clears conversation history for this thread.",
                   ].join("\n"),
                   { variant: "destructive" },
                 ),

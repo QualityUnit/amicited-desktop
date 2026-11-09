@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import { CloudClient } from "@amicited/cloud-client";
 import { AmicitedCloud } from "../../../amicited/Cloud.ts";
 import { expect, it } from "@effect/vitest";
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
@@ -11,6 +11,7 @@ import * as MarketingTools from "@amicited/tools/service";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as McpToolAccess from "../../McpToolAccess.ts";
 import * as Testkit from "../../McpToolAccess.testkit.ts";
+import * as ThreadManagement from "../../../orchestration-v2/ThreadManagementService.ts";
 import * as Handlers from "./handlers.ts";
 import { MarketingToolkit } from "./tools.ts";
 const encodeConnection = Schema.encodeUnknownEffect(
@@ -140,4 +141,51 @@ it.effect.each(connectionStates)("encodes connection %j for MCP", (state) =>
     expect(run.at(-1)?.isFailure).toBe(false);
     yield* encodeRun(run.at(-1)?.encodedResult);
   }),
+);
+
+it.effect.each(["full-access", "approval-required"] as const)(
+  "runs local tools for a live %s caller",
+  (runtimeMode) =>
+    Effect.gen(function* () {
+      const threadId = ThreadId.make("marketing-live");
+      const thread = Testkit.liveThreadShell(threadId, { runtimeMode });
+      const dependencies = Layer.mergeAll(
+        MarketingTools.layer,
+        Layer.succeed(
+          AmicitedCloud,
+          new CloudClient({
+            secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+            openExternal: async () => {},
+          }),
+        ),
+        Layer.mock(ThreadManagement.ThreadManagementService)({
+          getThreadShell: () => Effect.succeed(thread),
+        }),
+        Layer.succeed(McpInvocationContext.McpInvocationContext, {
+          environmentId: EnvironmentId.make("marketing-test"),
+          requestNamespace: "test",
+          thread: {
+            threadId,
+            providerInstanceId: thread.providerInstanceId!,
+            providerSessionId: "session",
+          },
+          client: undefined,
+          issuedAt: 0,
+          capabilities: new Set(["orchestration" as const]),
+        }),
+      );
+      const toolkit = yield* MarketingToolkit.pipe(
+        Effect.provide(
+          McpToolAccess.HandlersLayer.layer(Handlers.layer).pipe(Layer.provide(dependencies)),
+        ),
+      );
+      const results = yield* toolkit
+        .handle("marketing_tools_run", {
+          name: "content.readability",
+          input: { text: "A useful short sentence." },
+        })
+        .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
+      expect(results.at(-1)?.isFailure).toBe(false);
+      yield* encodeRun(results.at(-1)?.encodedResult);
+    }),
 );

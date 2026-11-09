@@ -44,22 +44,34 @@ export function resolveCompatibleRuntimeMode(
     supportedRuntimeModes && supportedRuntimeModes.length > 0
       ? runtimeModeOptions.filter((mode) => supportedRuntimeModes.includes(mode))
       : runtimeModeOptions;
-  return { modes, mode: modes.includes(runtimeMode) ? runtimeMode : (modes[0] ?? runtimeMode) };
+  const displayMode =
+    readWorkspaceMode() === "marketer" &&
+    (runtimeMode === "auto" || runtimeMode === "auto-accept-edits")
+      ? "approval-required"
+      : runtimeMode;
+  return { modes, mode: modes.includes(displayMode) ? displayMode : (modes[0] ?? runtimeMode) };
 }
 
 export function resolveRuntimeModeOptions(
   modes: ReadonlyArray<RuntimeMode>,
   managedPolicy: ManagedPolicySummary | undefined,
 ) {
-  return modes.map((mode) => {
-    const option = {
-      mode,
-      ...runtimeModeConfig[mode],
-      ...(readWorkspaceMode() === "marketer" && mode === "approval-required"
-        ? { label: "Ask before acting" }
-        : {}),
-    };
-    const disabledReason = managedRuntimeModeDenial(managedPolicy, mode);
-    return disabledReason === undefined ? option : { ...option, disabledReason };
-  });
+  return modes
+    .filter(
+      (mode) =>
+        readWorkspaceMode() !== "marketer" ||
+        mode === "full-access" ||
+        mode === "approval-required",
+    )
+    .map((mode) => {
+      const option = {
+        mode,
+        ...runtimeModeConfig[mode],
+        ...(readWorkspaceMode() === "marketer" && mode === "approval-required"
+          ? { label: "Ask before acting" }
+          : {}),
+      };
+      const disabledReason = managedRuntimeModeDenial(managedPolicy, mode);
+      return disabledReason === undefined ? option : { ...option, disabledReason };
+    });
 }

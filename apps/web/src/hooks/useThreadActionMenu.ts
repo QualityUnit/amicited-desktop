@@ -346,8 +346,10 @@ export function useThreadActionMenu(input: {
             const confirmed = await settlePromise(() =>
               api.dialogs.confirm(
                 [
-                  `Delete thread "${thread.title}"?`,
-                  "This permanently clears conversation history for this thread.",
+                  `${readWorkspaceMode() === "marketer" ? "Delete chat" : "Delete thread"} "${thread.title}"?`,
+                  readWorkspaceMode() === "marketer"
+                    ? "This permanently clears conversation history for this chat."
+                    : "This permanently clears conversation history for this thread.",
                 ].join("\n"),
                 { variant: "destructive" },
               ),

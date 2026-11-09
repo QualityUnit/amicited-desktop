@@ -83,7 +83,7 @@ tool results never require a cloud account.
 Wave 1A adds these fenced marketing integration seams:
 
 - `apps/server/src/mcp/McpHttpServer.ts`: registers the authenticated marketing discovery/run toolkit with the same service as UI RPC.
-- `apps/server/src/mcp/toolkits/marketing/{tools,handlers}.ts`: thin marketing discovery and execution adapters; execution requires environment write access because it can consume the user's AI subscription.
+- `apps/server/src/mcp/toolkits/marketing/{tools,handlers}.ts`: thin marketing discovery and execution adapters; execution uses scoped capability authorization with live-caller and client-access checks because it can consume the user's AI subscription.
 - `apps/server/src/marketing/MarketingToolsLive.ts`: bridges the portable library to the selected provider instance's existing one-shot runner, resolving connection state on each invocation.
 - `packages/provider-core/src/server/textGeneration.ts`: optional marketing text capability, leaving unsupported adapters explicit.
 - `packages/provider-core/src/server/textGenerationOperations.ts`: exposes full marketing answers through the existing structured one-shot runner (no title truncation, no tools).
@@ -541,3 +541,7 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/chat/ThreadDetailsPanel.tsx`: marketer metadata rows retain location, branch, PR and Review while restricting Git/editor actions to Git site folders.
 - `apps/web/src/hooks/useThreadActionMenu.test.ts`: explicitly retains developer wording for the upstream menu permission fixture.
 - `apps/web/src/rpc/amicitedCloud.tsx`: cloud link actions use the native link button variant.
+
+- `apps/web/src/components/chat/ComposerPermissionsSection.browser.test.tsx`: verifies the two labelled marketer access choices.
+- `apps/server/src/mcp/toolkits/marketing/handlers.test.ts`: covers both access modes and read-only clients.
+- `apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts`: confirms app MCP tools are pre-allowed in both access modes.

@@ -3913,7 +3913,7 @@ export default function ChatView(props: ChatViewProps) {
                 {showThreadDetails ? (
                   <ThreadDetailsPanel
                     marketer={!developerMode}
-                    siteFolder={marketerSiteFolder}
+                    siteFolder={activeThread.worktreePath ?? marketerSiteFolder}
                     marketerBranch={activeThreadBranch ?? gitStatusQuery.data?.refName ?? null}
                     marketerPullRequests={visiblePullRequests}
                     anchor={threadPanelPopoverAnchorRef}

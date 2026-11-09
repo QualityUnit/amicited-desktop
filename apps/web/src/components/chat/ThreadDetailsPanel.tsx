@@ -37,6 +37,7 @@ import { SlidersHorizontalIcon } from "lucide-react";
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
 import {
   THREAD_DETAILS_PANEL_ICON_CLASS,
+  THREAD_DETAILS_PANEL_LOCKED_ROW_CLASS,
   THREAD_DETAILS_PANEL_LABEL_CLASS,
 } from "./threadDetailsPanelStyles";
 import { Menu, MenuPopup } from "../ui/menu";
@@ -89,6 +90,19 @@ interface ThreadDetailsPanelProps extends Pick<
   ) => Promise<ProjectScriptActionResult>;
   onDeleteProjectScript: (scriptId: string) => Promise<ProjectScriptActionResult>;
   usage: ThreadDetailsUsageInput;
+}
+
+function LocationAction({
+  href,
+  part: _part,
+  ...props
+}: React.ComponentProps<"button"> & { href?: string }) {
+  return (
+    <ThreadDetailsControl
+      {...props}
+      render={href ? <a href={href} target="_blank" rel="noreferrer" /> : undefined}
+    />
+  );
 }
 
 export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
@@ -174,6 +188,11 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
             <div className="group/details-items">
               {props.marketer ? (
                 <MarketingThreadLocation
+                  rowClassName={cn(
+                    "flex items-center gap-2.5",
+                    THREAD_DETAILS_PANEL_LOCKED_ROW_CLASS,
+                  )}
+                  Action={LocationAction}
                   machine={
                     props.availableEnvironments.find(
                       (environment) => environment.environmentId === props.environmentId,

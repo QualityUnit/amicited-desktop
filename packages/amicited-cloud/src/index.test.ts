@@ -666,6 +666,7 @@ it("runs free checks, paid reads and writes in full access but confirms every de
     const call = cloud.requestCall("thread", "delete_prompt", {}, undefined, "full-access");
     await waiting.promise;
     expect(cloud.pendingApprovals()).toHaveLength(1);
+    expect(cloud.pendingApprovals()[0]!.message).not.toContain("credits");
     await cloud.answerApproval(cloud.pendingApprovals()[0]!.requestId, decision);
     const result = await call;
     expect(result.isError === true).toBe(decision === "decline");

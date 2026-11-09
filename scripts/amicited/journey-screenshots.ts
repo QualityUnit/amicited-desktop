@@ -616,6 +616,7 @@ try {
       await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
       await capture("47-site-access-mode-selector");
       await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
     }
 
     if (process.env.AMICITED_CAPTURE_THREAD_CONTEXT === "1") {
@@ -1061,6 +1062,7 @@ try {
         await page.locator('[data-chat-provider-model-picker="true"]').first().click();
         await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
         await capture("47-access-mode-selector");
+        await page.keyboard.press("Escape");
         await page.keyboard.press("Escape");
       } else {
         await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();

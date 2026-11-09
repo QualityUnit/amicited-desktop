@@ -93,7 +93,7 @@ export const ChatHeader = memo(function ChatHeader({
     marketer && activeThreadTitle === "New thread" ? "New chat" : activeThreadTitle;
   const activeProjectName = activeProject?.isScratch
     ? marketer
-      ? "Your workspace"
+      ? "No domain"
       : "No project"
     : activeProject?.title;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;

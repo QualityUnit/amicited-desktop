@@ -1,3 +1,4 @@
+import type { ComponentType, ComponentProps } from "react";
 import { FolderIcon, GitBranchIcon, MonitorIcon, ExternalLinkIcon } from "lucide-react";
 import { MarketingTooltip } from "./primitives.js";
 export function MarketingThreadLocation({
@@ -6,7 +7,11 @@ export function MarketingThreadLocation({
   branch,
   pullRequests,
   onReview,
+  rowClassName,
+  Action,
 }: {
+  rowClassName: string;
+  Action: ComponentType<ComponentProps<"button"> & { href?: string }>;
   machine: string;
   folder: string | null | undefined;
   branch: string | null | undefined;
@@ -14,45 +19,34 @@ export function MarketingThreadLocation({
   onReview: (() => void) | undefined;
 }) {
   return (
-    <div className="flex flex-col gap-2 p-3 text-xs text-muted-foreground">
-      <span className="flex items-center gap-2">
+    <div className="flex flex-col p-1">
+      <span className={rowClassName}>
         <MonitorIcon className="size-3.5 shrink-0" />
         {machine}
       </span>
       {folder ? (
         <MarketingTooltip label={folder}>
-          <span className="flex min-w-0 items-center gap-2">
+          <span className={rowClassName}>
             <FolderIcon className="size-3.5 shrink-0" />
             <span className="truncate">{folder}</span>
           </span>
         </MarketingTooltip>
       ) : null}
       {branch ? (
-        <span className="flex items-center gap-2">
+        <span className={rowClassName}>
           <GitBranchIcon className="size-3.5 shrink-0" />
           {branch}
         </span>
       ) : null}
       {pullRequests?.map((pr) => (
-        <a
-          key={pr.url}
-          href={pr.url}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2 underline"
-        >
+        <Action key={pr.url} href={pr.url}>
           <ExternalLinkIcon className="size-3.5 shrink-0" />
           Open pull request #{pr.number}
-        </a>
+        </Action>
       ))}
-      <button
-        type="button"
-        disabled={!onReview}
-        className="text-left underline disabled:opacity-50"
-        onClick={onReview}
-      >
+      <Action type="button" disabled={!onReview} onClick={onReview}>
         Changed files · Review
-      </button>
+      </Action>
     </div>
   );
 }
