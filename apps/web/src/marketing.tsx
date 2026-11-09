@@ -1,3 +1,12 @@
+import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
+import { useEnvironmentSettings } from "./hooks/useSettings";
+import { lastDomains, readDefaultDomain } from "./marketingDomainStore";
+import { MarketingSetupHost, readSetup } from "./marketingSetup";
+import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderModelPicker } from "./components/chat/ProviderModelPicker";
+import { ProviderInstanceIcon } from "./components/chat/ProviderInstanceIcon";
+import { deriveProviderInstanceEntries } from "./providerInstances";
+import { getAppModelOptionsForInstance } from "./modelSelection";
 import ThreadSidebar from "./components/Sidebar";
 import {
   NewDomainDialog,
@@ -64,7 +73,6 @@ import { useComposerDraftStore } from "./composerDraftStore";
 import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
-import type { ServerProvider } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   ToolsGrid,
@@ -315,6 +323,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
         }
       >
         <DomainMigration />
+        <MarketingSetupHost />
         <MarketerShell
           externalSidebar
           desktop={isElectron}
@@ -381,10 +390,14 @@ export function MarketingHome() {
   const scratch = useScratchProject();
   const domains = useDomains();
   const newThread = useNewThreadHandler();
+  const loadSetup = useAtomCommand(readSetup);
   const [newDomainOpen, setNewDomainOpen] = useState(false);
   const open = useEffectEvent(async () => {
     if (!environmentId) return;
-    const domain = domains.rows[0];
+    const setup = await loadSetup({ environmentId, input: undefined });
+    if (setup._tag === "Success" && setup.value.lastDomain)
+      lastDomains.set(environmentId, setup.value.lastDomain);
+    const domain = readDefaultDomain(environmentId);
     if (domain) await newThread(scopeProjectRef(environmentId, ProjectId.make(domain.projectId)));
     else if (scratch.scratchWorkspaceRootFor(environmentId))
       await scratch.startScratchThread(environmentId);
@@ -392,9 +405,9 @@ export function MarketingHome() {
   const [error, setError] = useState("");
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Open the implicit workspace through the existing project service once the environment connects.
   useEffect(() => {
-    if (environment?.connection.phase === "connected")
+    if (environment?.connection.phase === "connected" && domains.loaded)
       void open().catch(() => setError("Could not open your chat. Please try again."));
-  }, [environment?.connection.phase]);
+  }, [environment?.connection.phase, domains.loaded]);
   if (
     environment?.connection.phase === "connected" &&
     !scratch.scratchWorkspaceRootFor(environmentId) &&
@@ -504,11 +517,31 @@ const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void
   <Switch aria-label="Developer features" checked={checked} onCheckedChange={onChange} />
 );
 export function MarketingSettings() {
-  return <MarketingSettingsView modeControl={renderModeSwitch} domains={<DomainsSettings />} />;
+  return (
+    <>
+      <div className="flex gap-2 p-4">
+        <Button onClick={() => window.dispatchEvent(new Event("amicited-assistant-setup"))}>
+          Assistant
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => window.dispatchEvent(new Event("amicited-run-setup"))}
+        >
+          Run setup again
+        </Button>
+      </div>
+      <MarketingSettingsView modeControl={renderModeSwitch} domains={<DomainsSettings />} />
+    </>
+  );
 }
 
 export function MarketingFirstRun() {
-  return <MarketingHome />;
+  return (
+    <>
+      <MarketingSetupHost />
+      <MarketingHome />
+    </>
+  );
 }
 function rememberResult(result: ToolResult) {
   if (!isUsefulResult(result)) return;
@@ -569,177 +602,102 @@ export function useMarketingTask() {
 }
 export function MarketingSubscriptions({
   usageLink = true,
-  initialDriver,
   onSelected,
+  destination,
 }: {
+  destination?: import("@t3tools/contracts").EnvironmentId | null | undefined;
   usageLink?: boolean;
   initialDriver?: "claudeAgent" | "codex";
   onSelected?: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
-  const environmentId = usePrimaryEnvironmentId();
+  const primary = usePrimaryEnvironmentId();
+  const environmentId = destination ?? primary;
   const all = useEnvironmentProviders();
-  const providers = environmentId ? all.get(environmentId) : undefined;
-  const [connect, setConnect] = useState<string | null>(
-    initialDriver ? (initialDriver === "codex" ? "ChatGPT" : "Claude") : null,
+  const providers = environmentId ? (all.get(environmentId) ?? []) : [];
+  const settings = useEnvironmentSettings(
+    EnvironmentId.make(environmentId ?? PRIMARY_LOCAL_ENVIRONMENT_ID),
   );
-  const settings = usePrimarySettings();
   const update = useAtomCommand(serverEnvironment.updateSettings);
-  const mutateProvider = useAtomCommand(serverEnvironment.mutateProviderInstance);
-  const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders);
-  const [selectionError, setSelectionError] = useState("");
-  const [enabling, setEnabling] = useState(false);
-  const enable = async (provider: ServerProvider | undefined) => {
-    if (!provider || !environmentId) return;
-    setEnabling(true);
-    setSelectionError("");
-    await (async () => {
-      if (!provider.enabled) {
-        const instance = settings.providerInstances[provider.instanceId];
-        if (!instance) throw new Error("Assistant unavailable");
-        const result = await mutateProvider({
-          environmentId,
-          input: {
-            providerInstanceMutation: {
-              operation: "upsert",
-              instanceId: provider.instanceId,
-              instance: {
-                ...instance,
-                enabled: true,
-                config: {
-                  ...(typeof instance.config === "object" && instance.config !== null
-                    ? instance.config
-                    : {}),
-                  enabled: true,
-                },
-              },
-            },
-            patch: {},
-          },
-        });
-        if (result._tag !== "Success") throw new Error("Could not enable assistant");
-      }
-      const refreshed = await refreshProviders({ environmentId, input: {} });
-      if (refreshed._tag !== "Success") throw new Error("Could not refresh assistant");
-    })().catch(() => setSelectionError("Could not connect this assistant. Please try again."));
-    setEnabling(false);
-  };
-  const enableInitial = useEffectEvent(() => {
-    if (initialDriver) void enable(providers?.find((p) => p.driver === initialDriver));
-  });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keep the selected assistant's external authentication setup in step with the mounted connection panel.
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- External authentication reports pending state before its asynchronous handshake.
-    if (initialDriver) enableInitial();
-  }, [initialDriver]);
-  const choose = async (driver: string) => {
-    const candidates = providers?.filter((p) => p.driver === driver) ?? [];
-    const selection = resolveAppModelSelectionState(settings, candidates);
-    if (!environmentId || !candidates.length) return;
+  const [error, setError] = useState("");
+  const entries = deriveProviderInstanceEntries(providers);
+  const choose = async (selection: import("@t3tools/contracts").ModelSelection) => {
+    if (!environmentId) return;
     const result = await update({
       environmentId,
       input: { patch: { textGenerationModelSelection: selection } },
     });
-    if (result._tag !== "Success") throw new Error("Could not save assistant");
+    if (result._tag !== "Success") {
+      setError("Could not save your assistant. Please try again.");
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("amicited-assistant-selected", { detail: { environmentId, selection } }),
+    );
     onSelected?.(selection);
   };
   return (
     <>
-      <div>
-        {[
-          ["claudeAgent", "Claude"],
-          ["codex", "ChatGPT"],
-        ].map(([driver, label]) => {
-          const provider = providers?.find((p) => p.driver === driver);
+      <p className="text-sm text-muted-foreground">
+        Use your existing Claude or ChatGPT subscription. No API key. Your login stays on this
+        computer.
+      </p>
+      <div className="am-assistant-grid">
+        {(["claudeAgent", "codex"] as const).map((driver) => {
+          const provider = providers.find((p) => p.driver === driver);
           const ready = getOnboardingProviderState(provider) === "ready";
+          const selection = resolveAppModelSelectionState(settings, provider ? [provider] : []);
+          const label = driver === "codex" ? "ChatGPT" : "Claude";
           const weekly = provider?.usageLimits?.windows.find((w) => w.kind === "weekly");
           return (
-            <div className="am-provider" key={driver}>
-              <span>
-                <b>{label}</b>
-                <br />
-                <small>
-                  {ready
-                    ? weekly
-                      ? `${Math.round(100 - weekly.usedPercent)}% left this week`
-                      : "Ready to help · plan usage not reported"
-                    : provider
-                      ? "Not connected"
-                      : "Not available yet"}
-                </small>
-              </span>
-              {ready &&
-              settings.textGenerationModelSelection?.instanceId === provider?.instanceId ? (
-                <span className="am-status am-status-pass">In use</span>
-              ) : ready ? (
-                <MarketingButton
-                  type="button"
-                  variant="link"
-                  onClick={() =>
-                    void choose(driver!).catch(() =>
-                      setSelectionError("Could not save your assistant. Please try again."),
-                    )
-                  }
-                >
-                  {settings.textGenerationModelSelection?.instanceId === provider?.instanceId
-                    ? `${label} selected`
-                    : `Use ${label}`}
-                </MarketingButton>
+            <article className="am-assistant-card" key={driver} aria-label={label}>
+              {ready ? (
+                <>
+                  <ProviderInstanceIcon
+                    driverKind={ProviderDriverKind.make(driver)}
+                    displayName={label}
+                    iconClassName="size-8"
+                  />
+                  <h3>{label}</h3>
+                  <p role="status">Ready</p>
+                  <ProviderModelPicker
+                    environmentId={environmentId ?? null}
+                    activeInstanceId={selection.instanceId}
+                    model={selection.model}
+                    lockedProvider={ProviderDriverKind.make(driver)}
+                    instanceEntries={entries.filter((e) => e.driverKind === driver)}
+                    modelOptionsByInstance={
+                      new Map(
+                        entries.map((e) => [
+                          e.instanceId,
+                          getAppModelOptionsForInstance(settings, e),
+                        ]),
+                      )
+                    }
+                    onInstanceModelChange={(instanceId, model) =>
+                      void choose({ instanceId, model })
+                    }
+                  />
+                  {weekly && <p>{Math.round(100 - weekly.usedPercent)}% left this week</p>}
+                  <Button onClick={() => void choose(selection)}>
+                    {settings.textGenerationModelSelection?.instanceId === provider?.instanceId
+                      ? `${label} selected`
+                      : `Use ${label}`}
+                  </Button>
+                </>
+              ) : environmentId ? (
+                <ConnectedAgentsStep
+                  environmentId={environmentId}
+                  machineLabel={label}
+                  marketingDriver={driver}
+                />
               ) : (
-                <MarketingButton
-                  type="button"
-                  onClick={() => {
-                    setConnect(label ?? null);
-                    void enable(provider);
-                  }}
-                >
-                  Connect {label}
-                </MarketingButton>
+                <p>Connecting to this computer…</p>
               )}
-            </div>
+            </article>
           );
         })}
       </div>
-      {connect &&
-        !providers?.some(
-          (p) =>
-            p.driver === (connect === "Claude" ? "claudeAgent" : "codex") &&
-            getOnboardingProviderState(p) === "ready" &&
-            settings.textGenerationModelSelection?.instanceId === p.instanceId,
-        ) && (
-          <section className="am-card">
-            <h2>Connect {connect}</h2>
-            {connect === "Gemini" && !providers?.some((p) => p.driver === "gemini") && (
-              <p>
-                Gemini is not available in this installation yet. You can connect Claude or ChatGPT
-                below, or keep using the free website checks.
-              </p>
-            )}
-            <p>Connect with your existing subscription.</p>
-            <ol className="list-decimal pl-5">
-              <li>Install the assistant if needed.</li>
-              <li>Sign in with your existing subscription in the window below.</li>
-              <li>When Ready appears, select your assistant above.</li>
-            </ol>
-            <p>Your login stays on this machine.</p>
-
-            {environmentId && (
-              <ConnectedAgentsStep
-                environmentId={environmentId}
-                machineLabel="Sign in to your assistant"
-                marketingDriver={connect === "Claude" ? "claudeAgent" : "codex"}
-                marketingEnabling={enabling}
-                onMarketingRetry={() =>
-                  void enable(
-                    providers?.find(
-                      (p) => p.driver === (connect === "Claude" ? "claudeAgent" : "codex"),
-                    ),
-                  )
-                }
-              />
-            )}
-          </section>
-        )}
-      {selectionError && <p role="alert">{selectionError}</p>}
+      {error && <p role="alert">{error}</p>}
       {usageLink && <Link to="/usage">View AI plan usage →</Link>}
     </>
   );

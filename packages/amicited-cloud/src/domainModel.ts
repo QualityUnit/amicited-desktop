@@ -107,3 +107,51 @@ export function domainInstruction(domain?: {
     return `This site uses ${domain.cms === "git" ? (domain.framework ?? "a Git-based site") : cmsLabel(domain.cms)}${domain.cms !== "git" && domain.framework ? ` (site files: ${domain.framework})` : ""}. Site files are connected at the workspace root. Agents can edit files in this folder. Nothing is published or pushed for you. Review changes in the chat. Never commit or push unless explicitly asked.`;
   return `This site uses ${cmsLabel(domain.cms)}. Site files are not connected. Give steps for its admin; do not claim you can edit the site.`;
 }
+
+// Common second-level public suffixes (e.g. the "co" in "acme.co.uk") so we
+// pick the registrable label rather than the suffix. Not exhaustive — this is
+// only a suggestion the user can edit, so a lightweight heuristic beats pulling
+// in a Public Suffix List dependency.
+const SECOND_LEVEL_SUFFIXES = new Set([
+  "co",
+  "com",
+  "org",
+  "net",
+  "gov",
+  "edu",
+  "ac",
+  "go",
+  "gob",
+  "or",
+  "ne",
+]);
+
+export function guessBrandName(url: string): string {
+  if (!url) return "";
+
+  try {
+    let candidate = url.trim();
+    if (!/^https?:\/\//i.test(candidate)) {
+      candidate = `https://${candidate}`;
+    }
+
+    const hostname = new URL(candidate).hostname.toLowerCase().replace(/^www\./, "");
+    const parts = hostname.split(".").filter(Boolean);
+    if (parts.length === 0) return "";
+    if (parts.length === 1) return capitalize(parts[0] ?? "");
+
+    let index = parts.length - 2;
+    if (parts.length >= 3 && SECOND_LEVEL_SUFFIXES.has(parts[parts.length - 2] ?? "")) {
+      index = parts.length - 3;
+    }
+
+    return capitalize(parts[index] ?? parts[0] ?? "");
+  } catch {
+    return "";
+  }
+}
+
+function capitalize(value: string): string {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}

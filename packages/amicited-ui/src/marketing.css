@@ -414,3 +414,79 @@
 .am-composer-context .am-cloud-actions > button {
   flex-shrink: 0;
 }
+
+.am-cms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.am-cms-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.am-cms-tile input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.am-cms-tile:has(:checked) {
+  border-color: var(--primary);
+  background: var(--accent);
+}
+.am-cms-tile:has(:focus-visible) {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.am-cms-tile small {
+  width: 100%;
+  color: var(--muted-foreground);
+  font-size: 10px;
+}
+.am-assistant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.am-assistant-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.am-assistant-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.am-composer-context {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.am-composer-context .am-cloud-actions {
+  flex-wrap: wrap;
+}
+.am-composer-context .am-cloud-actions > span:nth-child(2) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .am-assistant-grid {
+    grid-template-columns: 1fr;
+  }
+  .am-cms-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

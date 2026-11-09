@@ -12,6 +12,9 @@ import * as Layer from "effect/Layer";
 import * as ServerConfig from "../config.ts";
 import * as ExternalLauncher from "../process/externalLauncher.ts";
 
+const decodeSetup = Schema.decodeUnknownSync(
+  Schema.Struct({ finished: Schema.Boolean, lastDomain: Schema.optionalKey(Schema.String) }),
+);
 const decodeDomains = Schema.decodeUnknownSync(Schema.Array(DomainRecord));
 
 export class AmicitedCloud extends Context.Service<AmicitedCloud, CloudClient>()(
@@ -74,6 +77,22 @@ export const layer = Layer.effect(
       openExternal,
     });
     const run = Effect.runPromiseWith(context);
+    const setupPath = `${config.stateDir}/amicited-setup.json`;
+    let setupWrites = Promise.resolve();
+    cloud.setup = {
+      read: async () => {
+        if (!(await run(fs.exists(setupPath)))) return { finished: false };
+        return decodeSetup(JSON.parse(await run(fs.readFileString(setupPath))));
+      },
+      write: (state) => {
+        const next = setupWrites.then(async () => {
+          await run(fs.writeFileString(`${setupPath}.tmp`, JSON.stringify(state)));
+          await run(fs.rename(`${setupPath}.tmp`, setupPath));
+        });
+        setupWrites = next.catch(() => {});
+        return next;
+      },
+    };
     const metadataPath = `${config.stateDir}/amicited-domains.json`;
     cloud.domains = new DomainConnections({
       read: async () => {

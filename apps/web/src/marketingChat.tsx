@@ -1,3 +1,4 @@
+import { AssistantSetupDialog } from "./marketingSetup";
 import { resolveEffectiveRuntimeMode } from "./components/chat/runtimeModeConfig";
 import { useDomains, NewDomainDialog, DomainConnection } from "./marketingDomains";
 import { WorkLogRow } from "./components/chat/WorkLog";
@@ -13,14 +14,11 @@ import {
   marketingSubcheckCovered,
   marketingApprovalTool,
   marketingApprovalInput,
-  shouldResumeMarketingDraft,
 } from "./marketingContext";
 import { useThreadVisibleTurnItems, useThreadShell } from "./state/entities";
 import { CloudPendingApprovals, openCloudSubscription } from "./rpc/amicitedCloud";
 import { CloudFooter } from "./rpc/amicitedCloud";
 import type { ScopedThreadRef, RunId } from "@t3tools/contracts";
-import { resolveAppModelSelectionState } from "./modelSelection";
-import { usePrimarySettings } from "./hooks/useSettings";
 import type { EnvironmentId, OrchestrationV2ProjectedTurnItem } from "@t3tools/contracts";
 import { useTurnItemDetail, type TurnItemDetailSource } from "./state/queries";
 import {
@@ -30,7 +28,7 @@ import {
 import { usePrimaryEnvironmentId, useEnvironmentProviders } from "./state/environments";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer styles are owned by @amicited/ui-marketing. */
-import { useState, useEffect, useEffectEvent, useRef } from "react";
+import { useState, useEffect, useEffectEvent } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import {
   CompactMarketingResult,
@@ -60,35 +58,29 @@ export function MarketingComposerContext({
   onConnected: (selection: import("@t3tools/contracts").ModelSelection) => void;
   onSelected: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
-  const [connecting, setConnecting] = useState<"claudeAgent" | "codex" | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
   const providers = useEnvironmentProviders();
   const selected = environmentId
     ? providers.get(environmentId)?.find((p) => p.instanceId === selectedInstanceId)
     : undefined;
-  const connectingProvider =
-    environmentId && connecting
-      ? providers.get(environmentId)?.find((p) => p.driver === connecting)
-      : undefined;
-  const connectionReady =
-    connectingProvider && getOnboardingProviderState(connectingProvider) === "ready";
   const ready = selected && getOnboardingProviderState(selected) === "ready";
-  const settings = usePrimarySettings();
-  const connectionSent = useRef(false);
-  const sendAfterConnect = useRef(false);
-  const finishConnection = useEffectEvent(() => {
-    if (!connectingProvider) return;
-    connectionSent.current = true;
-    const selection = resolveAppModelSelectionState(settings, [connectingProvider]);
-    onSelected(selection);
-    if (shouldResumeMarketingDraft(sendAfterConnect.current ? "connect-and-send" : "manage", true))
-      onConnected(selection);
-  });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Subscription authentication completes outside React; resume the preserved draft once readiness arrives.
+  const selectAssistant = useEffectEvent(onSelected);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Setup can select an assistant outside this composer while preserving its draft.
   useEffect(() => {
-    if (connecting && connectionReady && !connectionSent.current) finishConnection();
-  }, [connecting, connectionReady]);
+    const listener = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          environmentId: EnvironmentId;
+          selection: import("@t3tools/contracts").ModelSelection;
+        }>
+      ).detail;
+      if (detail.environmentId === environmentId) selectAssistant(detail.selection);
+    };
+    window.addEventListener("amicited-assistant-selected", listener);
+    return () => window.removeEventListener("amicited-assistant-selected", listener);
+  }, [environmentId]);
   const { rows: domains } = useDomains(environmentId);
   const domain = domains.find((row) => row.projectId === projectId);
   const [newDomainOpen, setNewDomainOpen] = useState(false);
@@ -118,42 +110,22 @@ export function MarketingComposerContext({
           />
         )}
         {!ready && (
-          <>
-            <MarketingButton
-              size="xs"
-              variant="link"
-              type="button"
-              onClick={() => {
-                connectionSent.current = false;
-                sendAfterConnect.current = true;
-                setConnecting("claudeAgent");
-              }}
-            >
-              Connect Claude
-            </MarketingButton>
-            <MarketingButton
-              size="xs"
-              variant="link"
-              type="button"
-              onClick={() => {
-                connectionSent.current = false;
-                sendAfterConnect.current = true;
-                setConnecting("codex");
-              }}
-            >
-              Connect ChatGPT
-            </MarketingButton>
-          </>
+          <MarketingButton size="xs" variant="link" onClick={() => setSetupOpen(true)}>
+            Choose assistant
+          </MarketingButton>
         )}
         <CloudConnectedChip destination={environmentId ?? undefined} />
       </div>
-      {connecting && !ready && (
-        <MarketingSubscriptions
-          initialDriver={connecting}
-          usageLink={false}
-          onSelected={onSelected}
-        />
-      )}
+      <AssistantSetupDialog
+        destination={environmentId}
+        open={setupOpen}
+        onOpenChange={setSetupOpen}
+        onSelected={(selection) => {
+          onSelected(selection);
+          onConnected(selection);
+          setSetupOpen(false);
+        }}
+      />
     </div>
   );
 }

@@ -15,6 +15,8 @@ const RPC_AGGREGATES = {
   "amicited.cloud.resetAccess": "amicited",
   "amicited.cloud.subscribeApprovals": "server",
   "amicited.cloud.pendingApprovals": "amicited",
+  "amicited.setup.read": "amicited",
+  "amicited.setup.write": "amicited",
   "amicited.domains.status": "amicited",
   "amicited.domains.reuse": "amicited",
   "amicited.domains.list": "amicited",

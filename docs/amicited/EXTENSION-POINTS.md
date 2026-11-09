@@ -552,3 +552,15 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/chat/useComposerResume.ts`: persists next-turn settings before releasing a held queue, including queue-only resumes.
 - `apps/web/src/marketingChat.tsx`: normalizes and saves the access mode before retrying a sign-in failure.
 - `apps/server/scripts/dev-replay-agent.ts`: capture-only domain substitution keeps recorded tool rows consistent with the site-folder fixture.
+
+## First-run setup
+
+- `apps/web/src/components/onboarding/WelcomeWizard.tsx`: marketer setup reuses provider cards, the managed ChatGPT flow and the existing Claude installer/login command. Marketer commands run on click; developer setup retains command review.
+- `apps/web/src/components/chat/ComposerControlsBar.tsx`: Choose assistant opens the shared setup dialog in marketer mode.
+- `apps/web/src/hooks/useHandleNewThread.ts`: marketer scratch requests prefer the last registered domain; explicit domain requests keep their destination.
+- `apps/server/src/amicited/Cloud.ts` and `ws.ts`: read/write the small AmICited setup file, outside browser profiles, through authenticated RPC.
+- `packages/contracts/src/clientRpcPermissions.ts`, `apps/server/src/auth/RpcAuthorization.ts`, and `apps/server/src/observability/RpcInstrumentation.ts`: setup read scopes and guarded settings writes.
+- `packages/client-runtime/src/state/commandPermissions.test.ts`: includes setup writes in destination permission checks.
+
+`marketingSetup.tsx` owns first-run and repeat setup, and `marketingDomains.tsx`
+shares the same domain editor across setup, New domain and Edit domain.

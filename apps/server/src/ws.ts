@@ -2014,6 +2014,16 @@ export const layerWsRpc = (
         Effect.provide(MarketingToolsLive.layer),
       );
       const handlers = ServerWsRpcGroup.of({
+        "amicited.setup.read": () =>
+          Effect.tryPromise({
+            try: () => cloud.setup?.read() ?? Promise.resolve({ finished: false }),
+            catch: () => new DomainFailure({ message: "Could not read setup." }),
+          }),
+        "amicited.setup.write": (state) =>
+          Effect.tryPromise({
+            try: () => cloud.setup?.write(state) ?? Promise.resolve(),
+            catch: () => new DomainFailure({ message: "Could not save setup. Please try again." }),
+          }),
         "amicited.domains.list": () =>
           Effect.tryPromise({
             try: () => cloud.domains?.metadata() ?? Promise.resolve([]),

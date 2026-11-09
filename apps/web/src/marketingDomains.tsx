@@ -1,9 +1,10 @@
+import { CmsGrid } from "@amicited/ui-marketing";
 import { desktopLocalBackendId } from "./connection/desktopLocal";
 import { readPrimaryEnvironmentTarget } from "./environments/primary/target";
 import { useEnvironment } from "./state/environments";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { newProjectId } from "./lib/utils";
-import { cmsOptions, cmsLabel, type Cms } from "@amicited/cloud-client/domainModel";
+import { cmsLabel, type Cms } from "@amicited/cloud-client/domainModel";
 import {
   Select,
   SelectTrigger,
@@ -21,7 +22,7 @@ import { SidebarProjectFolderHeader } from "./components/sidebar/SidebarProjectF
 import { DomainConnectionWarning, AmicitedConnectPanel } from "@amicited/ui-cloud";
 import { useEffect, useRef, useEffectEvent, useState, useSyncExternalStore } from "react";
 import type { Domain } from "@amicited/cloud-client/domains";
-import { normalizeDomain } from "@amicited/cloud-client/domainModel";
+import { guessBrandName, normalizeDomain } from "@amicited/cloud-client/domainModel";
 import type { Connection } from "@amicited/cloud-client/model";
 import {
   squashAtomCommandFailure,
@@ -101,7 +102,13 @@ export function useDomains(destination?: EnvironmentId | null) {
   useEffect(() => {
     if (environmentId) void refresh();
   }, [environmentId]);
-  return { rows, environmentId, refresh, readFailed };
+  return {
+    rows,
+    environmentId,
+    refresh,
+    readFailed,
+    loaded: Boolean(environmentId && cache.has(environmentId)),
+  };
 }
 function displayFolder(path: string) {
   const homePath = path.replace(/^(?:\/Users\/[^/]+|\/home\/[^/]+)(?=\/|$)/, "~");
@@ -112,7 +119,9 @@ export function NewDomainDialog({
   onOpenChange,
   destination,
   editing,
+  onCreated,
 }: {
+  onCreated?: () => void;
   editing?: Domain;
   destination?: EnvironmentId | null | undefined;
   open: boolean;
@@ -146,6 +155,7 @@ export function NewDomainDialog({
   const [gitUrl, setGitUrl] = useState("");
   const [cloneId, setCloneId] = useState<ProjectId | null>(null);
   const [website, setWebsite] = useState(editing?.hostname ?? "");
+  const [brandEdited, setBrandEdited] = useState(Boolean(editing));
   const [brand, setBrand] = useState(editing?.brand ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -181,6 +191,7 @@ export function NewDomainDialog({
     sourceVersion.current++;
     setWebsite(editing?.hostname ?? "");
     setBrand(editing?.brand ?? "");
+    setBrandEdited(Boolean(editing));
     setCms(editing?.cms ?? "unknown");
     setSiteFiles(editing?.siteFiles ?? "");
     setFramework(editing?.framework ?? null);
@@ -317,7 +328,8 @@ export function NewDomainDialog({
                 onOpenChange(false);
                 setSavedCopies((rows) => rows.filter((r) => r.id !== projectId));
                 resetDraft();
-                if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
+                if (onCreated) onCreated();
+                else if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
               })()
                 .catch((error) =>
                   setError(
@@ -337,43 +349,33 @@ export function NewDomainDialog({
                 onChange={(event) => {
                   if (!editing) invalidateSource();
                   setWebsite(event.target.value);
+                  if (!brandEdited) setBrand(guessBrandName(event.target.value));
                 }}
                 placeholder="example.com"
               />
             </label>
+            <DomainHint website={website} />
             <label>
               Brand name (optional)
-              <Input value={brand} onChange={(event) => setBrand(event.target.value)} />
-            </label>
-            <label>
-              CMS
-              <Select
-                disabled={busy}
-                value={cms}
-                onValueChange={(value) => {
-                  if (value) {
-                    setCms(value);
-                    if (!editing && !["git", "headless", "unknown"].includes(value)) {
-                      invalidateSource();
-                      setFileChoice("skip");
-                    }
-                  }
+              <Input
+                value={brand}
+                onChange={(event) => {
+                  setBrandEdited(true);
+                  setBrand(event.target.value);
                 }}
-              >
-                <SelectTrigger aria-label="CMS">
-                  <SelectValue>
-                    {() => (cms === "unknown" ? "Not sure" : cmsLabel(cms))}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  {cmsOptions.map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
+              />
             </label>
+            <CmsGrid
+              value={cms}
+              disabled={busy}
+              onChange={(value) => {
+                setCms(value);
+                if (!editing && !["git", "headless", "unknown"].includes(value)) {
+                  invalidateSource();
+                  setFileChoice("skip");
+                }
+              }}
+            />
             {editing ? (
               <p className="text-sm text-muted-foreground">
                 {editing.siteFiles ? `Folder: ${editing.siteFiles}` : "Site files: Not connected"}.
@@ -1193,4 +1195,18 @@ export function DomainFolderHeader({
       }
     />
   );
+}
+
+function DomainHint({ website }: { website: string }) {
+  let hostname = "";
+  try {
+    hostname = normalizeDomain(website).hostname;
+  } catch {
+    /* Incomplete input. */
+  }
+  return hostname ? (
+    <p role="status" className="text-xs text-muted-foreground">
+      Detected · {hostname}
+    </p>
+  ) : null;
 }

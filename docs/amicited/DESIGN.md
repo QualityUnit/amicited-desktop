@@ -25,7 +25,7 @@ use the interface font with tabular numerals. The inline AmICited offer keeps
 the existing first-win gate, session frequency, snooze and hiding preferences;
 local tools never require an account.
 
-New domain and Edit domain use the native dialog and CMS select. Git-based,
+New domain and Edit domain use the native dialog and CMS logo radio grid. Git-based,
 headless and unknown sites offer optional site files. Folder selection reports
 framework detection and explains missing Git history without blocking use.
 CMS and folder status appear in domain headers and Settings → Domains. The

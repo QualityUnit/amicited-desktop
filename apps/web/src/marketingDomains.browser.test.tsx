@@ -181,6 +181,19 @@ it("normalizes a new domain and retries metadata saving without creating a secon
   await page
     .getByRole("textbox", { name: "Website", exact: true })
     .fill("https://WWW.Acme.com/about");
+  await expect
+    .element(page.getByRole("textbox", { name: "Brand name (optional)" }))
+    .toHaveValue("Acme");
+  await page.getByRole("textbox", { name: "Brand name (optional)" }).fill("Our brand");
+  await page
+    .getByRole("textbox", { name: "Website", exact: true })
+    .fill("https://www.acme.com/pricing");
+  await expect
+    .element(page.getByRole("textbox", { name: "Brand name (optional)" }))
+    .toHaveValue("Our brand");
+  await page.getByRole("radio", { name: "WordPress", exact: true }).click();
+  await userEvent.keyboard("{ArrowRight}");
+  await expect.element(page.getByRole("radio", { name: "Webflow", exact: true })).toBeChecked();
   await page.getByRole("button", { name: "Create domain", exact: true }).click();
   await expect.element(page.getByRole("alert")).toBeVisible();
   await page.getByRole("button", { name: "Create domain", exact: true }).click();
@@ -265,8 +278,7 @@ it("uses the chosen site folder as the T3 project workspaceRoot", async () => {
     <NewDomainDialog open onOpenChange={() => {}} destination={EnvironmentId.make("local")} />,
   );
   await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "site.example");
-  await userEvent.click(screen.getByRole("combobox", { name: "CMS", exact: true }));
-  await userEvent.click(page.getByRole("option", { name: /^Git-based site/ }));
+  await userEvent.click(screen.getByRole("radio", { name: /^Git-based site/ }));
   await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
   await userEvent.click(page.getByRole("option", { name: "Use a folder on this computer" }));
   await userEvent.click(screen.getByRole("button", { name: "Choose folder" }));

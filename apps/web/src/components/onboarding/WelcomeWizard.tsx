@@ -725,6 +725,7 @@ export function ConnectedAgentsStep({
   readonly marketingEnabling?: boolean;
   readonly onMarketingRetry?: () => void;
 }) {
+  const updateMarketingProvider = useAtomCommand(serverEnvironment.mutateProviderInstance);
   const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
     reportFailure: false,
@@ -840,13 +841,38 @@ export function ConnectedAgentsStep({
               provider={provider}
               terminalOpen={terminalSession?.driver === driver}
               terminalAvailable={serverConfig !== null && canOperateTerminal}
-              onOpenTerminal={() => {
+              onOpenTerminal={async () => {
                 if (
                   provider === undefined ||
                   serverConfig === null ||
                   !readEnvironmentScope(environmentId, AuthTerminalOperateScope)
                 )
                   return;
+                if (marketingDriver && !provider.enabled) {
+                  const instance = serverConfig.settings.providerInstances[provider.instanceId];
+                  if (!instance) return;
+                  const result = await updateMarketingProvider({
+                    environmentId,
+                    input: {
+                      providerInstanceMutation: {
+                        operation: "upsert",
+                        instanceId: provider.instanceId,
+                        instance: {
+                          ...instance,
+                          enabled: true,
+                          config: {
+                            ...(typeof instance.config === "object" && instance.config !== null
+                              ? instance.config
+                              : {}),
+                            enabled: true,
+                          },
+                        },
+                      },
+                      patch: {},
+                    },
+                  });
+                  if (result._tag !== "Success") return;
+                }
                 setTerminalSession({
                   environmentId,
                   driver,
@@ -893,6 +919,7 @@ export function ConnectedAgentsStep({
         <AgentInstallTerminal
           key={`${terminalSession.environmentId}:${terminalSession.providerInstanceId}:${terminalSession.driver}`}
           session={terminalSession}
+          automatic={Boolean(marketingDriver)}
           onClose={() => {
             setTerminalSession(null);
             void refreshProviders({ environmentId, input: {} });
@@ -990,7 +1017,6 @@ function OnboardingCodexSetup({
 
 function AgentCard({
   marketingEnabling,
-  onMarketingRetry,
   marketingDriver,
   driver,
   provider,
@@ -1009,7 +1035,12 @@ function AgentCard({
 }) {
   const meta = providerClients.get(ProviderDriverKind.make(driver));
   const displayName =
-    provider?.displayName || (driver === "claudeAgent" ? "Claude Code" : (meta?.label ?? driver));
+    provider?.displayName ||
+    (driver === "claudeAgent"
+      ? marketingDriver
+        ? "Claude"
+        : "Claude Code"
+      : (meta?.label ?? driver));
   const summary = getProviderSummary(provider);
   const providerState = getOnboardingProviderState(provider);
 
@@ -1024,51 +1055,45 @@ function AgentCard({
         <span className="block text-sm font-medium text-foreground">{displayName}</span>
         <p className="mt-0.5 text-xs leading-relaxed break-words whitespace-pre-wrap text-muted-foreground">
           {marketingDriver && marketingEnabling
-            ? `Turning on ${marketingDriver === "claudeAgent" ? "Claude" : "ChatGPT"}…`
+            ? "Checking…"
             : providerState === "ready"
               ? marketingDriver
                 ? "Ready to help."
                 : "Ready to code."
-              : summary.headline}
+              : marketingDriver
+                ? terminalOpen
+                  ? provider?.installed
+                    ? "Signing in… Finish in your browser."
+                    : "Installing…"
+                  : provider?.installed
+                    ? "Installed, sign-in needed"
+                    : "Not installed"
+                : summary.headline}
           {!marketingDriver && providerState !== "ready" && summary.detail
             ? ` · ${summary.detail}`
             : ""}
         </p>
       </div>
       <div className="shrink-0">
-        {marketingDriver &&
-          provider?.enabled &&
-          providerState !== "ready" &&
-          !marketingEnabling && (
-            <Button size="xs" variant="ghost" onClick={onMarketingRetry}>
-              Try again
-            </Button>
-          )}
-        {marketingDriver && !provider?.enabled ? (
-          !marketingEnabling && (
-            <Button size="xs" variant="ghost" onClick={onMarketingRetry}>
-              Try again
-            </Button>
-          )
-        ) : providerState === "ready" ? (
+        {providerState === "ready" ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-foreground">
             <CheckIcon className="size-3.5" />
             Ready
           </span>
         ) : providerState === "checking" ? (
           <span className="text-xs text-muted-foreground">Checking...</span>
-        ) : providerState === "disabled" ? (
+        ) : providerState === "disabled" && !marketingDriver ? (
           <span className="text-xs text-muted-foreground">Disabled</span>
-        ) : providerState === "attention" ? (
+        ) : providerState === "attention" && !marketingDriver ? (
           <span className="text-xs text-muted-foreground">{summary.headline}</span>
         ) : (
           <Button
             size="xs"
             variant="ghost"
-            onClick={onOpenTerminal}
+            onClick={() => void onOpenTerminal()}
             disabled={terminalOpen || !terminalAvailable}
           >
-            <TerminalIcon className="size-3.5" />
+            {!marketingDriver && <TerminalIcon className="size-3.5" />}
             {providerState === "signIn" ? "Sign in" : "Install"}
           </Button>
         )}
@@ -1080,7 +1105,9 @@ function AgentCard({
 function AgentInstallTerminal({
   session,
   onClose,
+  automatic = false,
 }: {
+  readonly automatic?: boolean;
   readonly session: AgentTerminalSession;
   readonly onClose: () => void;
 }) {
@@ -1143,13 +1170,18 @@ function AgentInstallTerminal({
 
       const wrote = await writeTerminal({
         environmentId,
-        input: { threadId: AGENT_ONBOARDING_THREAD_ID, terminalId, data: command },
+        input: {
+          threadId: AGENT_ONBOARDING_THREAD_ID,
+          terminalId,
+          data: automatic ? `${command}; exit\r` : command,
+        },
       });
       if (activeSetupGenerationRef.current !== generation) return;
       setSetupState(wrote._tag === "Success" ? "ready" : "writeFailed");
     });
 
     // Revocation leaves the PTY running; close only while terminal access remains.
+
     return () => {
       if (activeSetupGenerationRef.current === generation) {
         activeSetupGenerationRef.current = null;
@@ -1164,6 +1196,7 @@ function AgentInstallTerminal({
     };
   }, [
     closeTerminal,
+    automatic,
     command,
     cwd,
     environmentId,
@@ -1174,6 +1207,26 @@ function AgentInstallTerminal({
     terminalId,
     writeTerminal,
   ]);
+
+  const viewport = (
+    <div className="h-64">
+      {terminalReady ? (
+        <TerminalViewport
+          threadRef={threadRef}
+          threadId={AGENT_ONBOARDING_THREAD_ID}
+          terminalId={terminalId}
+          terminalLabel={`Install ${driver}`}
+          cwd={cwd}
+          providerInstanceId={providerInstanceId}
+          advancedTypography={advancedTypography}
+          onSessionExited={onClose}
+          autoFocus={!automatic}
+          visible
+          keybindings={keybindings}
+        />
+      ) : null}
+    </div>
+  );
 
   return (
     <div
@@ -1190,7 +1243,11 @@ function AgentInstallTerminal({
               terminal.
             </>
           ) : setupState === "ready" ? (
-            "Review the command, then press Enter to run it."
+            automatic ? (
+              "Setting up your assistant… Complete sign-in in your browser if asked."
+            ) : (
+              "Review the command, then press Enter to run it."
+            )
           ) : setupState === "openFailed" ? (
             "Could not open the setup terminal."
           ) : (
@@ -1217,23 +1274,15 @@ function AgentInstallTerminal({
           </Button>
         </div>
       </div>
-      <div className="h-64">
-        {terminalReady ? (
-          <TerminalViewport
-            threadRef={threadRef}
-            threadId={AGENT_ONBOARDING_THREAD_ID}
-            terminalId={terminalId}
-            terminalLabel={`Install ${driver}`}
-            cwd={cwd}
-            providerInstanceId={providerInstanceId}
-            advancedTypography={advancedTypography}
-            onSessionExited={onClose}
-            autoFocus
-            visible
-            keybindings={keybindings}
-          />
-        ) : null}
-      </div>
+      {automatic && <progress aria-label="Assistant setup progress" className="w-full" />}
+      {automatic ? (
+        <details>
+          <summary className="px-3 py-2 text-xs">Setup details</summary>
+          {viewport}
+        </details>
+      ) : (
+        viewport
+      )}
     </div>
   );
 }

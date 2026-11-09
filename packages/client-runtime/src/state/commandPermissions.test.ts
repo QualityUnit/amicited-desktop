@@ -138,6 +138,7 @@ describe("command permissions", () => {
 
   it.effect.each([
     WS_METHODS.serverRunStorageCleanup,
+    "amicited.setup.write",
     "amicited.domains.save",
     "amicited.domains.connection",
     "amicited.domains.reuse",

@@ -121,6 +121,10 @@ export function toolFailure(message: string) {
 }
 export class CloudClient {
   domains?: DomainConnections;
+  setup?: {
+    read(): Promise<import("./setup.ts").SetupState>;
+    write(state: import("./setup.ts").SetupState): Promise<void>;
+  };
   private unassigned?: CloudClient;
   forProject(projectId: string | undefined): CloudClient {
     if (!this.domains) return this;

@@ -60,7 +60,17 @@ export const DomainRecord = Schema.Struct({
   ...SiteMetadata,
   domainId: Schema.optionalKey(Schema.String),
 });
+const SetupState = Schema.Struct({
+  finished: Schema.Boolean,
+  lastDomain: Schema.optionalKey(Schema.String),
+});
 export const cloudRpcs = [
+  Rpc.make("amicited.setup.read", { success: SetupState, error: DomainFailure }),
+  Rpc.make("amicited.setup.write", {
+    payload: SetupState,
+    success: Schema.Void,
+    error: DomainFailure,
+  }),
   Rpc.make("amicited.domains.inspect", {
     payload: { path: Schema.String },
     success: Schema.Struct({ git: Schema.Boolean, framework: Schema.NullOr(Schema.String) }),

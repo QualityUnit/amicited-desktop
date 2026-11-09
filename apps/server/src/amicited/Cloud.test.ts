@@ -47,6 +47,12 @@ it.effect("loads and updates site metadata without an independent supervision re
       { siteFiles: "/fixture/site" },
     ]);
     expect(files.has(backup)).toBe(false);
+    expect(yield* Effect.promise(() => cloud.setup!.read())).toEqual({ finished: false });
+    yield* Effect.promise(() => cloud.setup!.write({ finished: true, lastDomain: "site" }));
+    expect(yield* Effect.promise(() => cloud.setup!.read())).toEqual({
+      finished: true,
+      lastDomain: "site",
+    });
     yield* Effect.promise(() => cloud.domains!.register("site", "example.com", "Updated"));
     expect(JSON.parse(files.get(primary)!)[0].brand).toBe("Updated");
     yield* Effect.promise(() => cloud.domains!.register("site", "example.com", "Saved"));

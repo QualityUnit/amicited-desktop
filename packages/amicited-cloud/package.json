@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./setup": "./src/setup.ts",
     "./rpc": "./src/rpc.ts",
     "./upsell": "./src/upsell.ts",
     "./model": "./src/model.ts",

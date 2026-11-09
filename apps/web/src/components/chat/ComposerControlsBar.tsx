@@ -270,9 +270,11 @@ export function ComposerControlsBar(props: {
   return showProviderUnavailable ? (
     <ComposerControl
       type="button"
-      disabled={!providerSetupInstanceId}
+      disabled={workspaceMode !== "marketer" && !providerSetupInstanceId}
       onClick={() => {
-        if (providerSetupInstanceId) {
+        if (workspaceMode === "marketer") {
+          window.dispatchEvent(new Event("amicited-assistant-setup"));
+        } else if (providerSetupInstanceId) {
           onOpenProviderSetup(providerSetupInstanceId);
         }
       }}

@@ -1,3 +1,5 @@
+import { cache, lastDomains, readDefaultDomain } from "../marketingDomainStore";
+import { readWorkspaceMode } from "@amicited/ui-marketing/mode";
 import {
   scopedProjectKey,
   scopeProjectRef,
@@ -94,6 +96,19 @@ export function createNewThreadHandler(router: AnyRouter) {
       sendImmediately?: boolean;
     },
   ): Promise<{ draftId: DraftId; threadId: ThreadId } | null> => {
+    if (readWorkspaceMode() === "marketer") {
+      const domains = cache.get(projectRef.environmentId) ?? [];
+      if (!domains.some((d) => d.projectId === projectRef.projectId)) {
+        const domain = readDefaultDomain(projectRef.environmentId);
+        if (domain)
+          projectRef = scopeProjectRef(
+            projectRef.environmentId,
+            domain.projectId as import("@t3tools/contracts").ProjectId,
+          );
+      }
+      if (domains.some((d) => d.projectId === projectRef.projectId))
+        lastDomains.set(projectRef.environmentId, projectRef.projectId);
+    }
     const projects = readProjects();
     const projectGroupingSettings = selectProjectGroupingSettings(getClientSettings());
     // Read at call time; status pushes replace the config map and would recreate every sidebar handler.
