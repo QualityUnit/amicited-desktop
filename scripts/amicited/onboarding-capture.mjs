@@ -167,7 +167,7 @@ try {
     await page.evaluate(() => window.t3dev.replay("marketing", "full-access"));
     await page.getByText(/Ran website health audit.*41\/100/).waitFor({ timeout: 120000 });
     await page
-      .getByRole("button", { name: "Send message", exact: true })
+      .getByText("This is a controlled Replay result for the development preview.", { exact: true })
       .waitFor({ timeout: 120000 });
     await capture(
       "10-answer-replay",
