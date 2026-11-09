@@ -144,6 +144,7 @@ export interface RightPanelTabsProps {
   /** Absent where side chats are not offered. */
   onAddSideChat?: (() => void) | undefined;
   hideAddSurface?: boolean;
+  browserOnly?: boolean;
   browserAvailable: boolean;
   terminalAvailable: boolean;
   diffAvailable: boolean;
@@ -314,6 +315,7 @@ function SurfaceMenuItem(props: {
 }
 
 function RightPanelEmptyState(props: {
+  browserOnly?: boolean;
   onAddBrowser: () => void;
   onAddBrowserInProfile: (profileId: string) => void;
   browserProfiles: ReadonlyArray<{ readonly id: string; readonly name: string }>;
@@ -486,82 +488,84 @@ function RightPanelEmptyState(props: {
       <div className="w-full max-w-xs py-6">
         <h3 className="mb-3 text-center font-medium text-foreground text-sm">Open a surface</h3>
         <div className="flex flex-col gap-0.5">
-          {actions.map((action) =>
-            action.available ? (
-              <div
-                key={action.label}
-                className="group relative"
-                onMouseEnter={() => setHighlight(availableActions.indexOf(action))}
-                onMouseLeave={() =>
-                  setHighlight((current) =>
-                    current === availableActions.indexOf(action) ? -1 : current,
-                  )
-                }
-              >
-                <button
-                  type="button"
-                  onClick={action.onClick}
-                  className={cn(
-                    "flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-(--control-radius) px-2.5 text-left text-sm transition-colors group-hover:bg-accent/60",
-                    isHighlighted(action) && "bg-accent/60",
-                  )}
+          {actions
+            .filter((action) => !props.browserOnly || action.label === "Browser")
+            .map((action) =>
+              action.available ? (
+                <div
+                  key={action.label}
+                  className="group relative"
+                  onMouseEnter={() => setHighlight(availableActions.indexOf(action))}
+                  onMouseLeave={() =>
+                    setHighlight((current) =>
+                      current === availableActions.indexOf(action) ? -1 : current,
+                    )
+                  }
                 >
-                  {actionIcon(action, "size-4")}
-                  <span
+                  <button
+                    type="button"
+                    onClick={action.onClick}
                     className={cn(
-                      "min-w-0 flex-1 truncate",
-                      action.label === "Browser" && props.browserProfiles.length > 1 && "pr-7",
+                      "flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-(--control-radius) px-2.5 text-left text-sm transition-colors group-hover:bg-accent/60",
+                      isHighlighted(action) && "bg-accent/60",
                     )}
                   >
-                    {action.label}
-                  </span>
-                  <Kbd>{action.shortcut}</Kbd>
-                </button>
-                {action.label === "Browser" && props.browserProfiles.length > 1 ? (
-                  <Menu>
-                    <MenuTrigger
-                      render={
-                        <Button
-                          aria-label="Open browser in a profile"
-                          className="absolute top-1/2 right-8 -translate-y-1/2"
-                          size="icon-xs"
-                          variant="ghost-muted"
-                        />
-                      }
-                    >
-                      <ChevronDown className="size-3.5" />
-                    </MenuTrigger>
-                    <MenuPopup align="end" side="bottom" sideOffset={6} className="max-w-56">
-                      {props.browserProfiles.map((profile) => (
-                        <MenuItem
-                          key={profile.id}
-                          onClick={() => props.onAddBrowserInProfile(profile.id)}
-                        >
-                          <span className="min-w-0 truncate">{profile.name}</span>
-                        </MenuItem>
-                      ))}
-                    </MenuPopup>
-                  </Menu>
-                ) : null}
-              </div>
-            ) : (
-              <DisabledReasonTooltip
-                key={action.label}
-                reason={action.disabledReason}
-                trigger={
-                  <div
-                    tabIndex={0}
-                    aria-disabled="true"
-                    className="flex h-8 w-full cursor-default items-center gap-2.5 rounded-(--control-radius) px-2.5 text-left text-sm opacity-50"
-                  >
                     {actionIcon(action, "size-4")}
-                    <span className="min-w-0 flex-1 truncate">{action.label}</span>
+                    <span
+                      className={cn(
+                        "min-w-0 flex-1 truncate",
+                        action.label === "Browser" && props.browserProfiles.length > 1 && "pr-7",
+                      )}
+                    >
+                      {action.label}
+                    </span>
                     <Kbd>{action.shortcut}</Kbd>
-                  </div>
-                }
-              />
-            ),
-          )}
+                  </button>
+                  {action.label === "Browser" && props.browserProfiles.length > 1 ? (
+                    <Menu>
+                      <MenuTrigger
+                        render={
+                          <Button
+                            aria-label="Open browser in a profile"
+                            className="absolute top-1/2 right-8 -translate-y-1/2"
+                            size="icon-xs"
+                            variant="ghost-muted"
+                          />
+                        }
+                      >
+                        <ChevronDown className="size-3.5" />
+                      </MenuTrigger>
+                      <MenuPopup align="end" side="bottom" sideOffset={6} className="max-w-56">
+                        {props.browserProfiles.map((profile) => (
+                          <MenuItem
+                            key={profile.id}
+                            onClick={() => props.onAddBrowserInProfile(profile.id)}
+                          >
+                            <span className="min-w-0 truncate">{profile.name}</span>
+                          </MenuItem>
+                        ))}
+                      </MenuPopup>
+                    </Menu>
+                  ) : null}
+                </div>
+              ) : (
+                <DisabledReasonTooltip
+                  key={action.label}
+                  reason={action.disabledReason}
+                  trigger={
+                    <div
+                      tabIndex={0}
+                      aria-disabled="true"
+                      className="flex h-8 w-full cursor-default items-center gap-2.5 rounded-(--control-radius) px-2.5 text-left text-sm opacity-50"
+                    >
+                      {actionIcon(action, "size-4")}
+                      <span className="min-w-0 flex-1 truncate">{action.label}</span>
+                      <Kbd>{action.shortcut}</Kbd>
+                    </div>
+                  }
+                />
+              ),
+            )}
         </div>
       </div>
     </div>
@@ -1160,7 +1164,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           },
         ]
       : []),
-  ] as const;
+  ].filter((action) => !props.browserOnly || action.label === "Browser");
 
   const handleAddSurfaceMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const action = surfaceShortcutActionForKey(addSurfaceActions, event.nativeEvent);
@@ -1525,6 +1529,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       <div className="flex min-h-0 flex-1 flex-col" data-right-panel-surface-content>
         {props.activeSurfaceId === null ? (
           <RightPanelEmptyState
+            browserOnly={props.browserOnly === true}
             onAddBrowser={props.onAddBrowser}
             onAddBrowserInProfile={props.onAddBrowserInProfile}
             browserProfiles={browserProfiles}
@@ -1536,13 +1541,13 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddDevice={props.onAddDevice}
             onAddSideChat={props.onAddSideChat}
             browserAvailable={props.browserAvailable}
-            terminalAvailable={props.terminalAvailable}
-            diffAvailable={props.diffAvailable}
-            filesAvailable={props.filesAvailable}
-            pullRequestAvailable={props.pullRequestAvailable}
-            pullRequestsAvailable={props.pullRequestsAvailable}
-            deviceAvailable={props.deviceAvailable}
-            sideChatAvailable={props.sideChatAvailable === true}
+            terminalAvailable={!props.browserOnly && props.terminalAvailable}
+            diffAvailable={!props.browserOnly && props.diffAvailable}
+            filesAvailable={!props.browserOnly && props.filesAvailable}
+            pullRequestAvailable={!props.browserOnly && props.pullRequestAvailable}
+            pullRequestsAvailable={!props.browserOnly && props.pullRequestsAvailable}
+            deviceAvailable={!props.browserOnly && props.deviceAvailable}
+            sideChatAvailable={!props.browserOnly && props.sideChatAvailable === true}
             sideChatDisabledReason={props.sideChatDisabledReason ?? null}
           />
         ) : (

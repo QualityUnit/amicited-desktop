@@ -340,6 +340,8 @@ const subscribe = <A>(first: ReadonlyArray<A>, register?: (queue: Queue.Queue<A>
   );
 
 const handlers: Record<string, (input: never) => unknown> = {
+  "amicited.setup.read": () => Effect.succeed({ finished: true }),
+  "amicited.setup.write": () => Effect.succeed({ finished: true }),
   [WS_METHODS.subscribeTerminalMetadata]: () =>
     subscribe<TerminalMetadataStreamEvent>([{ type: "snapshot", terminals: [] }], (queue) => {
       terminalMetadataSubscriber = queue;

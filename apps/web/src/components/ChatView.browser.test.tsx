@@ -55,6 +55,23 @@ it.each(["developer", "marketer"] as const)(
       };
     })();
     using _environment = installFakeEnvironment([]);
+    if (mode === "marketer")
+      publish(ENVIRONMENT_ID, [
+        {
+          projectId: PROJECT_ID,
+          hostname: "example.com",
+          brand: "Example",
+          connectionRef: PROJECT_ID,
+          cms: "unknown",
+          siteFiles: null,
+        },
+      ]);
+    using _domains = {
+      [Symbol.dispose]() {
+        if (mode === "marketer") publish(ENVIRONMENT_ID, []);
+      },
+    };
+
     using fetchSpy = vi.spyOn(globalThis, "fetch");
     __setClientSettingsForTests({
       ...DEFAULT_CLIENT_SETTINGS,
@@ -158,6 +175,19 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
     router: false /* AppRoot owns the router */,
   });
   await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  const toggle = page.getByRole("button", { name: "Toggle right panel", exact: true });
+  await expect.element(toggle).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Toggle terminal drawer" }))
+    .not.toBeInTheDocument();
+  await toggle.click();
+  await expect.element(page.getByText("Browser", { exact: true })).toBeVisible();
+  await expect.element(page.getByText("Device", { exact: true })).not.toBeInTheDocument();
+  await toggle.click();
+  await expect.element(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect.element(page.getByText("Browser", { exact: true })).toBeVisible();
+  await toggle.click();
   if (siteFiles) {
     const details = page.getByRole("button", { name: "Toggle thread details panel" });
     await expect.element(details).toBeVisible();

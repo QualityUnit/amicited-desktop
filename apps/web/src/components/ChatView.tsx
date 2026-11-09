@@ -1,3 +1,4 @@
+import { MarketingSitePreview } from "../marketingSitePreview";
 import { resolveEffectiveRuntimeMode } from "./chat/runtimeModeConfig";
 import { Button } from "./ui/button";
 import { useDomains } from "../marketingDomains";
@@ -3314,16 +3315,17 @@ export default function ChatView(props: ChatViewProps) {
     onToggleThreadPanel: toggleThreadPanelStable,
     onToggleRightPanel: toggleRightPanelStable,
   } satisfies PanelLayoutControlsProps;
-  const panelToggleControls = !developerMode ? null : (
+  const panelToggleControls = (
     <PanelLayoutControls
       {...panelToggleControlProps}
-      showThreadPanelControl={!inlineRightPanelOwnsTitleBar}
+      showTerminalControl={developerMode}
+      showThreadPanelControl={developerMode ? !inlineRightPanelOwnsTitleBar : showThreadDetails}
     />
   );
   const threadPanelHeaderControl = showThreadDetails ? (
     <ThreadPanelHeaderControl {...panelToggleControlProps} />
   ) : null;
-  const panelLayoutControls = developerMode ? (
+  const panelLayoutControls = (
     <WorkspaceTitlebarControls
       showMaximizeControl={!shouldUsePlanSidebarSheet}
       rightPanelOpen={rightPanelOpen}
@@ -3333,7 +3335,7 @@ export default function ChatView(props: ChatViewProps) {
     >
       {panelToggleControls}
     </WorkspaceTitlebarControls>
-  ) : null;
+  );
   const workspaceFileDropHandlers = makeWorkspaceFileDropHandlers({
     setDragActive: setIsWorkspaceFileDragActive,
     addFiles: addDroppedFilesToComposer,
@@ -3386,7 +3388,7 @@ export default function ChatView(props: ChatViewProps) {
               />
             ) : null}
             {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
-            {inlineRightPanelOwnsTitleBar || !developerMode ? threadPanelHeaderControl : null}
+            {developerMode && inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
             <ChatHeader
               activeThreadEnvironmentId={activeThread.environmentId}
               activeThreadId={activeThread.id}
@@ -3808,7 +3810,10 @@ export default function ChatView(props: ChatViewProps) {
                       </ComposerSurface.Host>
                       {!developerMode && (
                         <ComposerSurface.ContextStrip className="before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:-z-10 before:h-screen before:bg-background">
-                          <div className="w-full" ref={setMarketingContextTarget} />
+                          <div className="flex w-full flex-col">
+                            <div className="w-full" ref={setMarketingContextTarget} />
+                            <MarketingSitePreview threadRef={activeThreadRef} />
+                          </div>
                         </ComposerSurface.ContextStrip>
                       )}
                       <div className="min-h-0">
@@ -4083,7 +4088,7 @@ export default function ChatView(props: ChatViewProps) {
           onCloseAllSurfaces={closeAllRightPanelSurfacesStable}
           onMoveSurface={moveRightPanelSurfaceStable}
           onCopyFilePath={copyRightPanelFilePathStable}
-          hideAddSurface={!developerMode}
+          browserOnly={!developerMode}
           onAddBrowser={() => createBrowserSurface()}
           onAddBrowserInProfile={createBrowserSurfaceStable}
           onAddTerminal={addTerminalSurfaceStable}

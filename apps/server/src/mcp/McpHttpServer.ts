@@ -1,3 +1,8 @@
+import {
+  SitePreviewToolkit,
+  layer as sitePreviewHandlers,
+  sitePreviewLayer,
+} from "../amicited/SitePreview.ts";
 import { MarketingToolkit } from "./toolkits/marketing/tools.ts";
 import * as MarketingHandlers from "./toolkits/marketing/handlers.ts";
 import * as MarketingToolsLive from "../marketing/MarketingToolsLive.ts";
@@ -1198,6 +1203,9 @@ export const layerMcpTransport = <RA, RE, RR>(registrations: Layer.Layer<RA, RE,
 
 /** Every tool the T3 MCP server advertises. AgentContextBudget.test.ts measures this set. */
 export const layerTools = Layer.mergeAll(
+  toolkitRegistration(SitePreviewToolkit, sitePreviewHandlers).pipe(
+    Layer.provide(sitePreviewLayer),
+  ),
   toolkitRegistration(MarketingToolkit, MarketingHandlers.layer).pipe(
     Layer.provide(MarketingToolsLive.layer),
   ),

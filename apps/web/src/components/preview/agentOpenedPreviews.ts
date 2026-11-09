@@ -1,3 +1,4 @@
+import { readWorkspaceMode } from "@amicited/ui-marketing";
 import {
   parseScopedThreadKey,
   scopedThreadKey,
@@ -37,11 +38,21 @@ import { environmentSummaries } from "../../state/presentation";
 export function revealServerTabs(
   threadRef: ScopedThreadRef,
   sessions: ReadonlyArray<PreviewSessionSnapshot>,
-  options: { readonly autoShowFloatingPreview: boolean },
+  options: { readonly autoShowFloatingPreview: boolean; readonly revealInPanel?: boolean },
 ): void {
   if (!readEnvironmentSupportsServerBrowser(threadRef.environmentId)) return;
   for (const session of sessions) {
     const force = session.revealRequest?.force === true;
+    if (options.revealInPanel) {
+      const store = useRightPanelStore.getState();
+      const tabs =
+        store.byThreadKey[scopedThreadKey(threadRef)]?.surfaces.flatMap((surface) =>
+          surface.kind === "preview" && surface.resourceId ? [surface.resourceId] : [],
+        ) ?? [];
+      store.reconcileBrowserSurfaces(threadRef, [...new Set([...tabs, session.tabId])]);
+      store.revealSurface(threadRef, `browser:${session.tabId}`);
+      continue;
+    }
     if (!options.autoShowFloatingPreview && !force) continue;
     const surface = useRightPanelStore
       .getState()
@@ -109,6 +120,7 @@ function followThread(threadKey: string, threadRef: ScopedThreadRef): () => void
     if (revealed.length > 0) {
       revealServerTabs(threadRef, revealed, {
         autoShowFloatingPreview: getClientSettings().browserAutoShowFloatingPreview,
+        revealInPanel: readWorkspaceMode() === "marketer",
       });
     }
     if (before.sessions !== next.sessions || before.listLoaded !== next.listLoaded) {

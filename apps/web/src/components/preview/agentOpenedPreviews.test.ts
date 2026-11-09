@@ -27,6 +27,11 @@ import {
   startAgentOpenedPreviews,
 } from "./agentOpenedPreviews";
 
+vi.mock("@amicited/ui-marketing", () => ({
+  readWorkspaceMode: () => "developer",
+  PRODUCT_NAME: "AmICited",
+}));
+
 vi.mock("../../state/entities", () => ({
   readEnvironmentSupportsServerBrowser: () => true,
 }));
@@ -211,6 +216,22 @@ describe("revealServerTabs", () => {
     const source = miniPlayerSource();
     return source?.kind === "browser" ? source.tabId : null;
   };
+
+  it("reveals marketer browser tabs in the right panel without floating or moving keyboard focus", () => {
+    setup();
+    const store = useRightPanelStore.getState();
+    const revision = store.getUserActionRevision(ref);
+    revealServerTabs(ref, [tab("tab_site")], {
+      autoShowFloatingPreview: true,
+      revealInPanel: true,
+    });
+    expect(useRightPanelStore.getState().byThreadKey[threadKey]).toMatchObject({
+      isOpen: true,
+      activeSurfaceId: "browser:tab_site",
+    });
+    expect(floatingTabId()).toBeNull();
+    expect(store.getUserActionRevision(ref)).toBe(revision);
+  });
 
   it("floats revealed tabs, and only forced ones when floating previews are off", () => {
     setup();

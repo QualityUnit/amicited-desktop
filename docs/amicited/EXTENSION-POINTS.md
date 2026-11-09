@@ -572,3 +572,13 @@ shares the same domain editor across setup, New domain and Edit domain.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: the marketer docked composer uses the provider's full model display name.
 
 - `apps/web/src/components/settings/ProviderAuthenticationSection.tsx`: corrects the shared browser sign-in helper wording.
+
+## Local site previews
+
+- `apps/server/src/amicited/SitePreview.ts` and `mcp/McpHttpServer.ts`: authenticated site-preview tools adapt T3's existing persistent terminal manager, with caller-thread ownership and Full access checks. No separate process manager.
+- `apps/server/src/provider/AgentContextBudget.test.ts` and `agentContextBudget.json`: include the terminal adapter and its three advertised tools.
+- `apps/web/src/components/ChatView.tsx`, `RightPanelTabs.tsx`, and `preview/agentOpenedPreviews.ts`: retain T3's panel toggle and Browser launcher in marketer mode and reveal agent-opened sites beside chat. `marketingSitePreview.tsx` adapts terminal metadata and existing log/close actions to the marketer status row.
+- `apps/web/src/components/ChatView.browser.test.tsx` and `preview/agentOpenedPreviews.test.ts`: cover panel availability, hide/show and automatic browser reveal.
+- `evals/mcp-tool-use/run.ts`: includes the site-preview tool definitions in marketer evals.
+
+- `apps/web/test/fakeEnvironment.ts`: provides completed setup state so full-app marketer fixtures reach the chat.
