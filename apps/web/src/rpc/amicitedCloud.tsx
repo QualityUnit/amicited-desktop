@@ -142,24 +142,28 @@ export function CloudFooter({
   if (!connection) return null;
   if (connection.state === "connected")
     return (
-      <aside className="flex items-center gap-2 text-xs text-muted-foreground">
+      <aside className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <p>
-          {connection.access === "full"
-            ? "Connected · full AmICited access"
-            : connection.access === "free"
-              ? "Connected · no-plan checks available (uses credits)"
-              : "Connected · access confirmed on your next check"}
+          <span>
+            {connection.access === "full"
+              ? "Connected · full AmICited access"
+              : connection.access === "free"
+                ? "Connected · no-plan checks available (uses credits)"
+                : "Connected · access confirmed on your next check"}
+          </span>
+          {connection.access !== "full" && showTrial && (
+            <>
+              {" "}
+              ·{" "}
+              {/^content\./.test(result.tool)
+                ? "This draft has no prompt or citation measurements."
+                : "This one-time check has no daily citation history."}
+            </>
+          )}
         </p>
         {connection.access !== "full" && showTrial && (
-          <span>
-            {/^content\./.test(result.tool)
-              ? "This draft has no prompt or citation measurements."
-              : "This one-time check has no daily citation history."}
-          </span>
-        )}
-        {connection.access !== "full" && showTrial && (
           <CloudButton
-            variant="outline"
+            variant="link"
             onClick={() => openCloudSubscription(environmentId, projectId)}
           >
             Start 7-day free trial

@@ -221,8 +221,19 @@ it.each([
     await screen.getByTestId("sidebar-row-folder").hover();
     await userEvent.click(screen.getByRole("button", { name: "Chat actions for Website update" }));
   };
+  const expectPersistentStatus = async (label: string) => {
+    const status = screen.getByText(label, { exact: true }).last();
+    await expect.element(status).toBeVisible();
+    const row = status.element().closest<HTMLElement>("[data-sidebar-row]");
+    expect(row).not.toBeNull();
+    row!.focus();
+    await expect.element(status).toBeVisible();
+    expect(status.element().getBoundingClientRect().top).toBeGreaterThan(
+      row!.querySelector("[dir]")!.getBoundingClientRect().bottom,
+    );
+  };
   if (scenario === "active-approval") {
-    await expect.element(screen.getByText("Needs your OK", { exact: true })).toBeVisible();
+    await expectPersistentStatus("Needs your OK");
     return;
   }
   if (scenario.endsWith("tool-failure") || scenario.endsWith("auth-failure")) {
@@ -253,13 +264,9 @@ it.each([
           }
         : null,
     });
-    await expect
-      .element(
-        screen.getByText(scenario.endsWith("auth-failure") ? "Sign in needed" : "Couldn't check", {
-          exact: true,
-        }),
-      )
-      .toBeVisible();
+    await expectPersistentStatus(
+      scenario.endsWith("auth-failure") ? "Sign in needed" : "Couldn't check",
+    );
     return;
   }
   if (scenario === "working" || scenario === "working-attention") {
@@ -281,7 +288,7 @@ it.each([
     await expect
       .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
       .toBeVisible();
-    await expect.element(screen.getByText("Working", { exact: true }).last()).toBeVisible();
+    await expectPersistentStatus("Working");
     await change({
       runtime:
         scenario === "working-attention"

@@ -545,3 +545,5 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/chat/ComposerPermissionsSection.browser.test.tsx`: verifies the two labelled marketer access choices.
 - `apps/server/src/mcp/toolkits/marketing/handlers.test.ts`: covers both access modes and read-only clients.
 - `apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts`: confirms app MCP tools are pre-allowed in both access modes.
+
+- `apps/web/src/components/chat/useComposerSend.ts`: normalizes saved marketer auto modes before persisting thread settings and dispatching turns; developer policies remain unchanged.

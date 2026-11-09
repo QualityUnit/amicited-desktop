@@ -1230,8 +1230,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     ) : null;
 
   if (variant !== "card") {
-    const multiline = variant === "folder-multiline";
-    const inFolder = variant === "folder" || multiline;
+    const statusOnSecondLine = marketer && topStatus !== null;
+    const multiline = variant === "folder-multiline" || statusOnSecondLine;
+    const inFolder = variant === "folder" || variant === "folder-multiline";
     return (
       <li
         data-thread-item={threadKey}
@@ -1239,7 +1240,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         {...(fileDropHandlers ?? {})}
         className={cn(
           "list-none [content-visibility:auto] [contain-intrinsic-size:auto_--spacing(9)]",
-          metaLine !== null && multiline && "[contain-intrinsic-size:auto_--spacing(13.5)]",
+          (metaLine !== null || statusOnSecondLine) &&
+            multiline &&
+            "[contain-intrinsic-size:auto_--spacing(13.5)]",
           sortable?.isDragging && "relative z-20",
         )}
       >
@@ -1310,11 +1313,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   <span
                     className={cn(
                       "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
-                      !isWoke &&
-                        !(marketer && topStatus) &&
-                        "group-any-hover/sidebar-row:opacity-0",
-                      marketer && !topStatus && "group-focus-within/sidebar-row:opacity-0",
-                      marketer && !topStatus && props.isActive && "opacity-0",
+                      !isWoke && "group-any-hover/sidebar-row:opacity-0",
+                      marketer && "group-focus-within/sidebar-row:opacity-0",
+                      marketer && props.isActive && "opacity-0",
                     )}
                   >
                     {variantAction === "unsnooze" && props.snoozeWakeLabelText !== null ? (
@@ -1340,7 +1341,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         />
                         <TooltipPopup side="top">Dismiss Woke notification</TooltipPopup>
                       </Tooltip>
-                    ) : (inFolder || marketer) && topStatus ? (
+                    ) : !marketer && inFolder && topStatus ? (
                       // Folder rows have no status line, so the status takes the time slot.
                       <span
                         className={cn(
@@ -1376,7 +1377,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                       className={cn(
                         "absolute inset-y-0 right-0 z-10 inline-flex items-center text-muted-foreground opacity-0 pointer-events-none group-any-hover/sidebar-row:opacity-100 group-any-hover/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto",
                         props.isActive && "opacity-100 pointer-events-auto",
-                        topStatus && "relative ml-1",
                       )}
                     >
                       <MoreHorizontalIcon className="size-3.5" />
@@ -1443,7 +1443,19 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               )}
               {props.sweepAction !== null ? dragDestination : null}
             </div>
-            {multiline ? metaLine : null}
+            {statusOnSecondLine ? (
+              <span
+                className={cn(
+                  "mt-0.5 inline-flex items-center gap-1 text-xs font-medium",
+                  topStatus.className,
+                )}
+              >
+                <TopStatusIcon icon={topStatus.icon} className="size-3" />
+                {topStatus.label}
+              </span>
+            ) : multiline ? (
+              metaLine
+            ) : null}
           </TooltipTrigger>
           {detailsTooltip}
         </Tooltip>

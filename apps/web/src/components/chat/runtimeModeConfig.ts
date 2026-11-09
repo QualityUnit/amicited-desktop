@@ -35,6 +35,13 @@ export const runtimeModeConfig: Record<
 
 export const runtimeModeOptions = Object.keys(runtimeModeConfig) as RuntimeMode[];
 
+export function resolveEffectiveRuntimeMode(runtimeMode: RuntimeMode): RuntimeMode {
+  return readWorkspaceMode() === "marketer" &&
+    (runtimeMode === "auto" || runtimeMode === "auto-accept-edits")
+    ? "approval-required"
+    : runtimeMode;
+}
+
 /** The modes a provider supports (all when it reports none) and the mode a thread really runs in. */
 export function resolveCompatibleRuntimeMode(
   runtimeMode: RuntimeMode,
@@ -44,11 +51,7 @@ export function resolveCompatibleRuntimeMode(
     supportedRuntimeModes && supportedRuntimeModes.length > 0
       ? runtimeModeOptions.filter((mode) => supportedRuntimeModes.includes(mode))
       : runtimeModeOptions;
-  const displayMode =
-    readWorkspaceMode() === "marketer" &&
-    (runtimeMode === "auto" || runtimeMode === "auto-accept-edits")
-      ? "approval-required"
-      : runtimeMode;
+  const displayMode = resolveEffectiveRuntimeMode(runtimeMode);
   return { modes, mode: modes.includes(displayMode) ? displayMode : (modes[0] ?? runtimeMode) };
 }
 
@@ -67,8 +70,13 @@ export function resolveRuntimeModeOptions(
       const option = {
         mode,
         ...runtimeModeConfig[mode],
-        ...(readWorkspaceMode() === "marketer" && mode === "approval-required"
-          ? { label: "Ask before acting" }
+        ...(readWorkspaceMode() === "marketer"
+          ? mode === "approval-required"
+            ? {
+                label: "Ask before acting",
+                description: "Asks before each tool that changes something.",
+              }
+            : { description: "Runs tools without asking. Deleting AmICited data still asks." }
           : {}),
       };
       const disabledReason = managedRuntimeModeDenial(managedPolicy, mode);

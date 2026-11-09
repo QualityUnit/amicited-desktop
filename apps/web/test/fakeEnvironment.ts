@@ -17,6 +17,7 @@ import {
   TurnItemId,
   WS_METHODS,
   WsRpcGroup,
+  type OrchestrationV2Command,
   type VcsStatusStreamEvent,
   type OrchestrationProjectShell,
   type OrchestrationV2ProjectedTurnItem,
@@ -436,7 +437,15 @@ const encodedDescriptor = Schema.encodeSync(ExecutionEnvironmentDescriptor)(
 );
 
 /** Serves the environment's HTTP API and these threads until disposed. */
-export function installFakeEnvironment(fixtures: ReadonlyArray<FakeThread>): Disposable {
+export function installFakeEnvironment(
+  fixtures: ReadonlyArray<FakeThread>,
+  onCommand?: (command: OrchestrationV2Command) => void,
+): Disposable {
+  if (onCommand)
+    handlers[ORCHESTRATION_V2_WS_METHODS.dispatchCommand] = (command) => {
+      onCommand(command);
+      return Effect.succeed({ sequence: sequence++ });
+    };
   threads = fixtures;
   globalThis.fetch = async (input, init) => {
     const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
@@ -459,6 +468,7 @@ export function installFakeEnvironment(fixtures: ReadonlyArray<FakeThread>): Dis
     [Symbol.dispose]: () => {
       globalThis.fetch = realFetch;
       threads = [];
+      delete handlers[ORCHESTRATION_V2_WS_METHODS.dispatchCommand];
     },
   };
 }

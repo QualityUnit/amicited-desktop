@@ -351,7 +351,10 @@ export function useThreadActionMenu(input: {
                     ? "This permanently clears conversation history for this chat."
                     : "This permanently clears conversation history for this thread.",
                 ].join("\n"),
-                { variant: "destructive" },
+                {
+                  variant: "destructive",
+                  ...(readWorkspaceMode() === "marketer" ? { confirmLabel: "Delete chat" } : {}),
+                },
               ),
             );
             if (confirmed._tag === "Failure" || !confirmed.value) return;

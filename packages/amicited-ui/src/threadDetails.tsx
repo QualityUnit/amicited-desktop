@@ -1,5 +1,11 @@
 import type { ComponentType, ComponentProps } from "react";
-import { FolderIcon, GitBranchIcon, MonitorIcon, ExternalLinkIcon } from "lucide-react";
+import {
+  FileDiffIcon,
+  FolderIcon,
+  GitBranchIcon,
+  MonitorIcon,
+  ExternalLinkIcon,
+} from "lucide-react";
 import { MarketingTooltip } from "./primitives.js";
 export function MarketingThreadLocation({
   machine,
@@ -45,6 +51,7 @@ export function MarketingThreadLocation({
         </Action>
       ))}
       <Action type="button" disabled={!onReview} onClick={onReview}>
+        <FileDiffIcon className="size-3.5 shrink-0" />
         Changed files · Review
       </Action>
     </div>

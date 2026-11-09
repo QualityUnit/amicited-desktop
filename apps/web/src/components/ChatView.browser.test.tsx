@@ -1,11 +1,11 @@
 import { publish } from "~/marketingDomainStore";
 import { createMemoryHistory } from "@tanstack/react-router";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { ThreadId } from "@t3tools/contracts";
+import { ThreadId, type OrchestrationV2Command } from "@t3tools/contracts";
 import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
 import type * as Context from "effect/Context";
 import { expect, it, vi } from "vite-plus/test";
-import { page } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
 
 import { AppRoot } from "~/AppRoot";
 // The route loads ChatView lazily, and its first transform (React Compiler over ~4k lines)
@@ -175,3 +175,59 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
     .element(page.getByRole("button", { name: "Add project script" }))
     .not.toBeInTheDocument();
 });
+
+it.each(["marketer", "developer"] as const)(
+  "dispatches the effective saved access mode in %s mode",
+  async (mode) => {
+    const previous = localStorage.getItem("amicited.workspace-mode");
+    localStorage.setItem("amicited.workspace-mode", mode);
+    using _mode = {
+      [Symbol.dispose]() {
+        if (previous === null) localStorage.removeItem("amicited.workspace-mode");
+        else localStorage.setItem("amicited.workspace-mode", previous);
+      },
+    };
+    for (const savedMode of [
+      "auto",
+      "auto-accept-edits",
+      "approval-required",
+      "full-access",
+    ] as const) {
+      const fixture = {
+        ...threadWithHistory(`saved-${mode}-${savedMode}`, 0),
+        shell: { runtimeMode: savedMode },
+      };
+      const onCommand = vi.fn<(command: OrchestrationV2Command) => void>();
+      using _environment = installFakeEnvironment([fixture], onCommand);
+      __setClientSettingsForTests({
+        ...DEFAULT_CLIENT_SETTINGS,
+        onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+      });
+      const router = getRouter(
+        createMemoryHistory({ initialEntries: [`/${ENVIRONMENT_ID}/${fixture.id}`] }),
+      );
+      await router.load();
+      await using _app = await render(<AppRoot router={router} />, { router: false }); // AppRoot owns the router.
+      const editor = page.getByTestId("composer-editor");
+      await expect.element(editor).toBeVisible();
+      await userEvent.type(editor, "Check my website{Enter}");
+      const effective =
+        mode === "marketer" && savedMode !== "full-access" ? "approval-required" : savedMode;
+      await vi.waitFor(() =>
+        expect(onCommand).toHaveBeenCalledWith(
+          expect.objectContaining({ type: "message.dispatch" }),
+        ),
+      );
+      const policies = onCommand.mock.calls
+        .map(([command]) => command)
+        .filter((command) => command.type === "thread.runtime-mode.set");
+      expect(policies.map((command) => command.runtimeMode)).toEqual(
+        effective !== savedMode ? [effective] : [],
+      );
+      if (policies.length)
+        expect(onCommand.mock.calls.findIndex(([command]) => command === policies[0])).toBeLessThan(
+          onCommand.mock.calls.findIndex(([command]) => command.type === "message.dispatch"),
+        );
+    }
+  },
+);

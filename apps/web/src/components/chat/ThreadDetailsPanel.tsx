@@ -268,7 +268,7 @@ export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
                     {show.git ? (
                       <GitActionsControl
                         compact={density !== "full"}
-                        showActions={visible.gitActions}
+                        showActions={!props.marketer && visible.gitActions}
                         showChanges={!props.marketer && visible.changes}
                         gitCwd={props.gitCwd}
                         activeThreadRef={activeThreadRef}
