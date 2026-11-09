@@ -2,6 +2,7 @@
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
+import * as NodeModule from "node:module";
 import * as NodeNet from "node:net";
 const root = process.env.ROOT ?? NodePath.resolve(import.meta.dirname, "../..");
 const home = process.env.FRESH_HOME;
@@ -57,11 +58,17 @@ process.env.VITE_DEV_SERVER_URL = env.VITE_DEV_SERVER_URL;
 const { resolveElectronLaunchCommand } =
   await import("../../apps/desktop/scripts/electron-launcher.mjs");
 const launch = resolveElectronLaunchCommand();
-const exe = launch.electronPath;
+const exe = process.env.ELECTRON_EXE ?? launch.electronPath;
 const childEnv = process.env.FAKE_HOME
   ? { ...env, HOME: process.env.FAKE_HOME, PATH: "/usr/bin:/bin:/usr/sbin:/sbin" }
   : env;
-if (process.env.FAKE_HOME) NodeFS.mkdirSync(process.env.FAKE_HOME, { recursive: true });
+if (process.env.FAKE_HOME) {
+  // Reuse the login keychain directory so an isolated HOME cannot trigger macOS keychain creation UI.
+  NodeFS.mkdirSync(NodePath.join(process.env.FAKE_HOME, "Library"), { recursive: true });
+  const keychains = NodePath.join(process.env.FAKE_HOME, "Library/Keychains");
+  if (!NodeFS.existsSync(keychains))
+    NodeFS.symlinkSync(NodePath.join(process.env.HOME, "Library/Keychains"), keychains);
+}
 const child = NodeChildProcess.spawn(
   exe,
   [
@@ -70,8 +77,57 @@ const child = NodeChildProcess.spawn(
     `--user-data-dir=${home}/profile`,
     "--force-device-scale-factor=2",
   ],
-  { cwd: root, env: childEnv, stdio: ["ignore", "inherit", "inherit"] },
+  { cwd: root, env: childEnv, stdio: ["ignore", "inherit", "pipe"] },
 );
+let bootCaptureStarted = false;
+child.stderr.on("data", (chunk) => {
+  process.stderr.write(chunk);
+  if (
+    !process.env.AMICITED_BOOT_CAPTURE ||
+    bootCaptureStarted ||
+    !String(chunk).includes("DevTools listening")
+  )
+    return;
+  bootCaptureStarted = true;
+  void (async () => {
+    const { chromium } = NodeModule.createRequire(NodePath.join(root, "apps/desktop/package.json"))(
+      "playwright-core",
+    );
+    const browser = await chromium.connectOverCDP(`http://localhost:${debugPort}`);
+    try {
+      const context = browser.contexts()[0];
+      const isApplication = (url) => url.protocol === "t3code-dev:" || url.protocol === "data:";
+      const applicationPage = async (page) => {
+        await page.waitForURL(isApplication);
+        return page;
+      };
+      const page = await Promise.any([
+        ...context.pages().map(applicationPage),
+        context.waitForEvent("page", {
+          predicate: async (page) => {
+            await applicationPage(page);
+            return true;
+          },
+        }),
+      ]);
+      await page.waitForLoadState("domcontentloaded");
+      const session = await context.newCDPSession(page);
+      await session.send("Emulation.setDeviceMetricsOverride", {
+        width: 1344,
+        height: 1016,
+        deviceScaleFactor: 2,
+        mobile: false,
+      });
+      await page.screenshot({ path: process.env.AMICITED_BOOT_CAPTURE });
+      NodeFS.writeFileSync(
+        `${process.env.AMICITED_BOOT_CAPTURE}.txt`,
+        await page.locator("body").innerText(),
+      );
+    } finally {
+      await browser.close();
+    }
+  })().catch((error) => console.error("Boot capture failed:", error.message));
+});
 console.log(
   `CDP_PORT=${debugPort} WEB=${webPort} SERVER=${serverPort} ELECTRON_PID=${child.pid} WEB_PID=${web.pid}`,
 );

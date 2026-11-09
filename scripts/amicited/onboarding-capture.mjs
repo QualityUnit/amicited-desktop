@@ -20,6 +20,7 @@ try {
   if (!page) throw new Error("Electron has no application page.");
   page.setDefaultTimeout(15000);
   const cdp = await context.newCDPSession(page);
+  await cdp.send("Overlay.setShowViewportSizeOnResize", { show: false });
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 1344,
     height: 1016,
@@ -37,6 +38,9 @@ try {
       await page.evaluate(() => document.documentElement.classList.remove("dark"));
     }
   };
+  if (await page.getByRole("button", { name: "Cancel", exact: true }).count())
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event("amicited-run-setup")));
   await page.getByRole("button", { name: "Get started", exact: true }).waitFor();
   await capture("02-welcome", "Welcome; get started or skip setup.");
   await page.getByRole("button", { name: "Get started", exact: true }).click();
@@ -60,11 +64,19 @@ try {
       .click();
   await capture("05-website", "Website step; add a website or skip.");
   await page.getByRole("button", { name: "Add website", exact: true }).click();
-  await page.getByRole("textbox", { name: "Website", exact: true }).fill("https://flowhunt.io");
+  await page.getByRole("textbox", { name: "Website", exact: true }).fill("www.flowhunt.io");
   await capture(
     "06-domain",
     "Shared domain form suggests Flowhunt and displays the CMS logo grid.",
   );
+  await page
+    .getByRole("textbox", { name: "Brand name (optional)", exact: true })
+    .fill("My Flowhunt");
+  await page.getByRole("textbox", { name: "Website", exact: true }).fill("www.flowhunt.io/docs");
+  await capture("06b-brand-edited", "Brand stays My Flowhunt after the website changes.");
+  await page.getByRole("radio", { name: /WordPress/ }).focus();
+  await page.keyboard.press("ArrowRight");
+  await capture("06c-cms-keyboard", "CMS grid with keyboard selection and focus.");
   await page.getByRole("radio", { name: /Git-based site/ }).click();
   await capture("07-site-files", "Git-based sites offer folder, clone or skip.");
   await page.getByRole("button", { name: "Create domain", exact: true }).click();
@@ -83,11 +95,50 @@ try {
     await capture(`context-${width}`, `Composer context at ${width} CSS pixels.`, false);
   }
   if (process.env.AMICITED_REPLAY === "1") {
+    await page.evaluate(
+      async ({ root, node }) => {
+        const { serverEnvironment } = await import("/src/state/server.ts");
+        const { appAtomRegistry } = await import("/src/rpc/atomRegistry.ts");
+        const { readPrimaryEnvironmentId } = await import("/src/state/environments.ts");
+        const environmentId = readPrimaryEnvironmentId();
+        const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+          environmentId,
+          input: {
+            patch: {},
+            providerInstanceMutation: {
+              operation: "upsert",
+              instanceId: "devReplay",
+              instance: {
+                driver: "acpRegistry",
+                displayName: "Replay (dev)",
+                enabled: true,
+                config: {
+                  source: "local",
+                  enabled: true,
+                  commandPath: node,
+                  commandArgs: [`${root}/apps/server/scripts/dev-replay-agent.ts`],
+                },
+              },
+            },
+          },
+        });
+        if (result._tag !== "Success") throw new Error("Could not configure Replay");
+        await serverEnvironment.refreshProviders.run(appAtomRegistry, { environmentId, input: {} });
+      },
+      { root, node: process.execPath },
+    );
+    await page.waitForFunction(async () => {
+      const { primaryServerProvidersAtom } = await import("/src/state/server.ts");
+      const { appAtomRegistry } = await import("/src/rpc/atomRegistry.ts");
+      return appAtomRegistry
+        .get(primaryServerProvidersAtom)
+        .some((p) => p.instanceId === "devReplay" && p.status === "ready");
+    });
     await page.evaluate(() => window.t3dev.replay("marketing", "full-access"));
     await page
       .getByRole("article", { name: "Marketing tool result" })
       .first()
-      .waitFor({ timeout: 45000 });
+      .waitFor({ timeout: 120000 });
     await capture(
       "10-answer-replay",
       "Controlled Replay answer; no production provider or cloud account is implied.",

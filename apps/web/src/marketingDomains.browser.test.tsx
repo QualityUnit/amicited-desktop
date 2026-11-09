@@ -7,6 +7,7 @@ import type { Connection } from "@amicited/cloud-client/model";
 import { render } from "../test/render";
 const state = vi.hoisted(() => ({
   projectRoots: [] as string[],
+  connected: true,
   folderPath: "/fixture/site",
   inspectPath: null as
     | null
@@ -32,7 +33,8 @@ vi.mock("./state/environments", async (original) => ({
   ...(await original<typeof import("./state/environments")>()),
   usePrimaryEnvironmentId: () => "local",
   usePrimaryEnvironment: () => null,
-  useEnvironment: () => null,
+  useEnvironment: () => ({ connection: { phase: state.connected ? "connected" : "connecting" } }),
+  useEnvironmentProviders: () => new Map(),
 }));
 vi.mock("./state/projectClones", async (original) => ({
   ...(await original<typeof import("./state/projectClones")>()),
@@ -42,6 +44,7 @@ vi.mock("./state/projectClones", async (original) => ({
 }));
 vi.mock("./state/entities", async (original) => ({
   ...(await original<typeof import("./state/entities")>()),
+  useThreadShell: () => null,
   useProjects: () =>
     state.projectRoots.map((workspaceRoot) => ({ environmentId: "local", workspaceRoot })),
   useServerConfigs: () => new Map([["local", { newProjectsRoot: "/fixture/clones" }]]),
@@ -52,6 +55,11 @@ vi.mock("./localApi", async (original) => ({
     shell: { openExternal: async () => {} },
     dialogs: { pickFolder: async () => state.folderPath },
   }),
+}));
+vi.mock("./marketing", () => ({ MarketingSubscriptions: () => null }));
+vi.mock("./hooks/useThreadRouteTarget", async (original) => ({
+  ...(await original<typeof import("./hooks/useThreadRouteTarget")>()),
+  useThreadRouteTarget: () => null,
 }));
 vi.mock("./hooks/useHandleNewThread", () => ({ useNewThreadHandler: () => async () => {} }));
 vi.mock("./state/use-atom-command", () => ({
@@ -81,6 +89,8 @@ vi.mock("./state/use-atom-command", () => ({
       });
       if (command.label === "environment-data:source-control:project-clone-start")
         return { _tag: "Success", value: { cwd: input?.destinationPath } };
+      if (command.label === "setup:read") return { _tag: "Success", value: { finished: false } };
+      if (command.label === "domains:list" && !state.connected) return { _tag: "Failure" };
       if (command.label === "domains:inspect" && state.inspectPath)
         return state.inspectPath(input?.path ?? "");
       if (command.label === "domains:inspect")
@@ -555,5 +565,34 @@ it("ignores a folder inspection that completes after a newer choice", async () =
   } finally {
     state.inspectPath = null;
     state.emptyDomains = false;
+  }
+});
+
+it("shows welcome after a fresh environment connects without domains, setup or a scratch project", async () => {
+  const { cache, publish } = await import("./marketingDomainStore");
+  const { MarketingSetupHost } = await import("./marketingSetup");
+  cache.clear();
+  state.emptyDomains = true;
+  state.connected = false;
+  state.projectRoots = [];
+  state.requests.length = 0;
+  try {
+    await using screen = await render(<MarketingSetupHost />);
+    state.connected = true;
+    await screen.rerender(<MarketingSetupHost />);
+    await expect
+      .element(screen.getByRole("heading", { name: "Welcome to AmICited" }))
+      .toBeVisible();
+    expect(state.requests.some((r) => r.label === "setup:read")).toBe(true);
+    await screen.getByRole("button", { name: "Get started", exact: true }).click();
+    publish("local", []);
+    await screen.rerender(<MarketingSetupHost />);
+    await expect
+      .element(screen.getByRole("heading", { name: "Choose your assistant" }))
+      .toBeVisible();
+  } finally {
+    state.emptyDomains = false;
+    state.connected = true;
+    cache.clear();
   }
 });

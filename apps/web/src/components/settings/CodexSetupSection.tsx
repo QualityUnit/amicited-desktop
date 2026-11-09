@@ -95,6 +95,7 @@ interface CodexSetupSectionProps {
   readonly enabled: boolean;
   readonly readOnly?: boolean;
   readonly presentation?: "settings" | "onboarding";
+  readonly marketing?: boolean | undefined;
   readonly onModeChange: (mode: "managed" | "existing") => void;
   readonly autoStart?: boolean;
   readonly displayName?: string | undefined;
@@ -118,9 +119,17 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
   const content =
     props.mode === "existing" && props.presentation === "onboarding" ? (
       <CodexWelcomeCard
-        title={props.displayName || props.provider?.displayName || "Codex"}
+        title={
+          props.marketing ? "ChatGPT" : props.displayName || props.provider?.displayName || "Codex"
+        }
         description={
-          existingReady ? (
+          props.marketing && !existingReady ? (
+            props.provider?.installed ? (
+              "Installed, sign-in needed"
+            ) : (
+              "Not installed"
+            )
+          ) : existingReady ? (
             props.provider?.auth.email?.trim() ? (
               <>
                 Signed in as{" "}
@@ -164,13 +173,13 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
                   props.onModeChange("managed");
                 }}
               >
-                Continue with ChatGPT
+                {props.marketing ? "Sign in" : "Continue with ChatGPT"}
               </ChatGptConnectionButton>
             </ManagedControl>
           )
         }
         secondaryControl={
-          !existingAuthenticated && !existingReady && !existingChecking ? (
+          !props.marketing && !existingAuthenticated && !existingReady && !existingChecking ? (
             <Button size="sm" variant="ghost-muted" onClick={() => props.onModeChange("existing")}>
               Use existing CLI
             </Button>
@@ -180,7 +189,11 @@ export function CodexSetupSection(props: CodexSetupSectionProps) {
     ) : props.mode === "existing" ? null : !props.provider?.setup?.canAuthenticate ? (
       props.presentation === "onboarding" ? (
         <CodexWelcomeCard
-          title={props.displayName || props.provider?.displayName || "Codex"}
+          title={
+            props.marketing
+              ? "ChatGPT"
+              : props.displayName || props.provider?.displayName || "Codex"
+          }
           description={<CodexSignInDescription />}
           control={
             <Button size="sm" variant="outline" className="min-w-44" disabled>
@@ -257,6 +270,7 @@ function ManagedCodexSetup({
   autoStart,
   onAutoStartConsumed,
   allowExistingCli = true,
+  marketing,
   presentation,
   displayName,
   onSignInCancelled,
@@ -798,9 +812,19 @@ function ManagedCodexSetup({
       <>
         {accountPicker}
         <CodexWelcomeCard
-          title={displayName || provider?.displayName || "Codex"}
+          title={marketing ? "ChatGPT" : displayName || provider?.displayName || "Codex"}
           description={
-            installActive ? (
+            marketing && !authenticated ? (
+              installActive ? (
+                "Installing…"
+              ) : authActive ? (
+                "Signing in… Complete sign-in in your browser."
+              ) : installed ? (
+                "Installed, sign-in needed"
+              ) : (
+                "Not installed"
+              )
+            ) : installActive ? (
               runtimeDescription
             ) : authenticated ? (
               provider?.auth.email?.trim() ? (
@@ -861,7 +885,11 @@ function ManagedCodexSetup({
                   ? "Setting up..."
                   : hasSavedAccount
                     ? "Reconnect account"
-                    : "Continue with ChatGPT"}
+                    : marketing
+                      ? installed
+                        ? "Sign in"
+                        : "Install"
+                      : "Continue with ChatGPT"}
               </ChatGptConnectionButton>
             )
           }
@@ -894,7 +922,7 @@ function ManagedCodexSetup({
               >
                 Use a different account
               </Button>
-            ) : !authActive && !authenticated && allowExistingCli ? (
+            ) : !marketing && !authActive && !authenticated && allowExistingCli ? (
               <Button
                 size="sm"
                 variant="ghost-muted"

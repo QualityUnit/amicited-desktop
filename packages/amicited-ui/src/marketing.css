@@ -473,7 +473,15 @@
 }
 .am-composer-context {
   flex-wrap: wrap;
+  align-items: flex-start;
   row-gap: 6px;
+}
+.am-composer-context > span {
+  flex-basis: 100%;
+  max-width: 100%;
+}
+.am-composer-context .am-cloud-actions > span:first-child {
+  display: none;
 }
 .am-composer-context .am-cloud-actions {
   flex-wrap: wrap;

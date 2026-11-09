@@ -84,8 +84,13 @@ export function useDomains(destination?: EnvironmentId | null) {
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
   const read = useAtomCommand(list);
+  const environment = useEnvironment(environmentId);
+  const phase = environment?.connection.phase;
   const readFailed = useSyncExternalStore(subscribe, () =>
     Boolean(environmentId && readFailures.has(environmentId)),
+  );
+  const loaded = useSyncExternalStore(subscribe, () =>
+    Boolean(environmentId && cache.has(environmentId)),
   );
   const rows = useSyncExternalStore(subscribe, () =>
     environmentId ? (cache.get(environmentId) ?? empty) : empty,
@@ -100,14 +105,14 @@ export function useDomains(destination?: EnvironmentId | null) {
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Metadata is read from the connected environment.
   useEffect(() => {
-    if (environmentId) void refresh();
-  }, [environmentId]);
+    if (environmentId && phase === "connected") void refresh();
+  }, [environmentId, phase]);
   return {
     rows,
     environmentId,
     refresh,
     readFailed,
-    loaded: Boolean(environmentId && cache.has(environmentId)),
+    loaded,
   };
 }
 function displayFolder(path: string) {

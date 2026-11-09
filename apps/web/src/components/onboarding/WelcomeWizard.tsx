@@ -34,7 +34,7 @@ import {
   MonitorIcon,
   TerminalIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
@@ -740,10 +740,11 @@ export function ConnectedAgentsStep({
   } | null>(null);
   const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
 
+  const refreshSetupProviders = useEffectEvent(refreshProviders);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- asks the environment to refresh its provider list when the environment changes
   useEffect(() => {
-    void refreshProviders({ environmentId, input: {} });
-  }, [environmentId, refreshProviders]);
+    void refreshSetupProviders({ environmentId, input: {} });
+  }, [environmentId]);
 
   const byDriver = selectOnboardingProvidersByDriver(providers);
   const managedPolicy = serverConfig?.managedPolicy;
@@ -787,7 +788,7 @@ export function ConnectedAgentsStep({
   }
   return (
     <section>
-      <h2 className="mb-2 text-sm font-medium">{machineLabel}</h2>
+      {!marketingDriver && <h2 className="mb-2 text-sm font-medium">{machineLabel}</h2>}
       {!canOperateTerminal ? (
         <p className="mb-2 text-sm text-muted-foreground">
           This connection cannot control terminals.
@@ -799,6 +800,7 @@ export function ConnectedAgentsStep({
             <OnboardingCodexSetup
               key={instanceId ?? driver}
               environmentId={environmentId}
+              marketing={Boolean(marketingDriver)}
               provider={provider}
               serverConfig={serverConfig}
               createdAccount={instanceId === createdAccount?.instanceId ? createdAccount : null}
@@ -848,9 +850,17 @@ export function ConnectedAgentsStep({
                   !readEnvironmentScope(environmentId, AuthTerminalOperateScope)
                 )
                   return;
-                if (marketingDriver && !provider.enabled) {
-                  const instance = serverConfig.settings.providerInstances[provider.instanceId];
-                  if (!instance) return;
+                const nativeClaudeInstall =
+                  marketingDriver &&
+                  driver === "claudeAgent" &&
+                  !provider.installed &&
+                  serverConfig.environment.platform.os !== "windows";
+                if (marketingDriver && (!provider.enabled || nativeClaudeInstall)) {
+                  const instance = serverConfig.settings.providerInstances[provider.instanceId] ?? {
+                    driver: provider.driver,
+                    enabled: true,
+                    config: {},
+                  };
                   const result = await updateMarketingProvider({
                     environmentId,
                     input: {
@@ -865,6 +875,8 @@ export function ConnectedAgentsStep({
                               ? instance.config
                               : {}),
                             enabled: true,
+                            // The native installer writes here even when a fresh shell PATH omits it.
+                            ...(nativeClaudeInstall ? { binaryPath: "~/.local/bin/claude" } : {}),
                           },
                         },
                       },
@@ -931,6 +943,7 @@ export function ConnectedAgentsStep({
 }
 
 function OnboardingCodexSetup({
+  marketing,
   createdAccount,
   onAutoStartConsumed,
   environmentId,
@@ -939,6 +952,7 @@ function OnboardingCodexSetup({
   terminalOpen,
   onOpenTerminal,
 }: {
+  readonly marketing?: boolean;
   readonly environmentId: EnvironmentId;
   readonly provider: ServerProvider | undefined;
   readonly serverConfig: ServerConfig;
@@ -1001,6 +1015,7 @@ function OnboardingCodexSetup({
     />
   ) : (
     <CodexSetupSection
+      marketing={marketing}
       presentation="onboarding"
       autoStart={createdAccount?.autoStart === true}
       displayName={createdAccount?.displayName}
@@ -1132,6 +1147,10 @@ function AgentInstallTerminal({
   >("preparing");
   const terminalReady = setupState === "ready" || setupState === "writeFailed";
 
+  const openSetupTerminal = useEffectEvent(openTerminal);
+  const writeSetupTerminal = useEffectEvent(writeTerminal);
+  const closeSetupTerminal = useEffectEvent(closeTerminal);
+
   // StrictMode can finish a cancelled open after replacement setup; it must not close or pre-type into that
   // session.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- opens the setup PTY, types the command into it, and closes it on cleanup
@@ -1148,7 +1167,7 @@ function AgentInstallTerminal({
         setSetupState("openFailed");
         return;
       }
-      const opened = await openTerminal({
+      const opened = await openSetupTerminal({
         environmentId,
         input: {
           threadId: AGENT_ONBOARDING_THREAD_ID,
@@ -1168,7 +1187,7 @@ function AgentInstallTerminal({
         return;
       }
 
-      const wrote = await writeTerminal({
+      const wrote = await writeSetupTerminal({
         environmentId,
         input: {
           threadId: AGENT_ONBOARDING_THREAD_ID,
@@ -1188,24 +1207,21 @@ function AgentInstallTerminal({
       }
       setupQueueRef.current = setupQueueRef.current.then(async () => {
         if (!readEnvironmentScope(environmentId, AuthTerminalOperateScope)) return;
-        await closeTerminal({
+        await closeSetupTerminal({
           environmentId,
           input: { threadId: AGENT_ONBOARDING_THREAD_ID, terminalId, deleteHistory: true },
         });
       });
     };
   }, [
-    closeTerminal,
     automatic,
     command,
     cwd,
     environmentId,
-    openTerminal,
     providerInstanceId,
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Retry bumps setupAttempt to open the terminal again.
     setupAttempt,
     terminalId,
-    writeTerminal,
   ]);
 
   const viewport = (

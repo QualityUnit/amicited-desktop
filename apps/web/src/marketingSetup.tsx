@@ -2,7 +2,7 @@ import { lastDomains } from "./marketingDomainStore";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { useThreadShell } from "./state/entities";
 import { useComposerDraftStore } from "./composerDraftStore";
-import { useEffect, useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import type { ModelSelection } from "@t3tools/contracts";
 import { ProjectId } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
@@ -10,7 +10,11 @@ import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runti
 import { shouldShowSetup } from "@amicited/cloud-client/setup";
 import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
-import { usePrimaryEnvironmentId, useEnvironmentProviders } from "./state/environments";
+import {
+  usePrimaryEnvironmentId,
+  useEnvironment,
+  useEnvironmentProviders,
+} from "./state/environments";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 import { useDomains, NewDomainDialog, DomainConnection } from "./marketingDomains";
@@ -65,6 +69,8 @@ export function MarketingSetupHost() {
   const domains = useDomains();
   const environmentId = usePrimaryEnvironmentId();
   const providers = useEnvironmentProviders();
+  const environment = useEnvironment(environmentId);
+  const phase = environment?.connection.phase;
   const ready =
     environmentId &&
     providers
@@ -87,21 +93,23 @@ export function MarketingSetupHost() {
   const [assistant, setAssistant] = useState(false);
   const [error, setError] = useState("");
   const [websiteOpen, setWebsiteOpen] = useState(false);
+  const loadSetup = useEffectEvent(load);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- First-run completion is read from the environment-owned AmICited store.
   useEffect(() => {
-    if (!environmentId || !domains.loaded) return;
+    if (!environmentId || phase !== "connected" || !domains.loaded) return;
     let active = true;
-    void load({ environmentId, input: undefined }).then((result) => {
+    void loadSetup({ environmentId, input: undefined }).then((result) => {
       if (active && result._tag === "Success") {
         setFinished(result.value.finished);
         if (result.value.lastDomain) lastDomains.set(environmentId, result.value.lastDomain);
-        if (shouldShowSetup(true, domains.rows.length, result.value.finished)) setStep("welcome");
+        if (shouldShowSetup(true, domains.rows.length, result.value.finished))
+          setStep((current) => current ?? "welcome");
       }
     });
     return () => {
       active = false;
     };
-  }, [environmentId, domains.loaded, domains.rows, load]);
+  }, [environmentId, phase, domains.loaded, domains.rows.length]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Composer and Settings invoke the shared assistant/setup dialogs through shell events.
   useEffect(() => {
     const setup = () => setAssistant(true);
@@ -113,6 +121,7 @@ export function MarketingSetupHost() {
       window.removeEventListener("amicited-run-setup", again);
     };
   }, []);
+  const saveSetup = useEffectEvent(save);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Persist the last viewed domain in the environment so New chat survives client profile resets.
   useEffect(() => {
     if (
@@ -123,8 +132,8 @@ export function MarketingSetupHost() {
     )
       return;
     lastDomains.set(environmentId, activeProject);
-    void save({ environmentId, input: { finished, lastDomain: activeProject } });
-  }, [environmentId, finished, activeProject, domains.rows, save]);
+    void saveSetup({ environmentId, input: { finished, lastDomain: activeProject } });
+  }, [environmentId, finished, activeProject, domains.rows]);
   const domain = domains.rows.at(-1);
   const finish = async () => {
     if (!environmentId) return;

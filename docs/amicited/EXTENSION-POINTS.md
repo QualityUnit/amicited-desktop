@@ -564,3 +564,5 @@ Wave 39 site-file corrections:
 
 `marketingSetup.tsx` owns first-run and repeat setup, and `marketingDomains.tsx`
 shares the same domain editor across setup, New domain and Edit domain.
+
+- `apps/web/src/components/settings/CodexSetupSection.tsx`: optional marketer presentation names ChatGPT, explains setup state and omits CLI choices while preserving the managed install and browser sign-in path.
