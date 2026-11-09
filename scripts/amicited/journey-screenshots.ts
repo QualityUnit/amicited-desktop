@@ -432,6 +432,8 @@ try {
       if (name === "12-sign-in-recovery" || name === "12b-sidebar-statuses") {
         await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
         await page.mouse.move(1000, 100);
+        await page.getByTestId("composer-editor").focus();
+        await page.getByRole("tooltip").waitFor({ state: "hidden" });
       }
       if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
         await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
