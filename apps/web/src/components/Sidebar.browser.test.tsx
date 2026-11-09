@@ -226,6 +226,13 @@ it.each([
     await expect.element(status).toBeVisible();
     const row = status.element().closest<HTMLElement>("[data-sidebar-row]");
     expect(row).not.toBeNull();
+    const action = screen.getByRole("button", { name: "Chat actions for Website update" });
+    await userEvent.hover(action.element().parentElement!);
+    await userEvent.click(action);
+    await expect
+      .element(screen.getByRole("menuitem", { name: "Rename chat", exact: true }))
+      .toBeVisible();
+    await userEvent.keyboard("{Escape}");
     row!.focus();
     await expect.element(status).toBeVisible();
     expect(status.element().getBoundingClientRect().top).toBeGreaterThan(
