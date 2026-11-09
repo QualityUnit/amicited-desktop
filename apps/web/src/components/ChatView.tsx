@@ -3807,7 +3807,7 @@ export default function ChatView(props: ChatViewProps) {
                         </div>
                       </ComposerSurface.Host>
                       {!developerMode && (
-                        <ComposerSurface.ContextStrip>
+                        <ComposerSurface.ContextStrip className="before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:-z-10 before:h-screen before:bg-background">
                           <div className="w-full" ref={setMarketingContextTarget} />
                         </ComposerSurface.ContextStrip>
                       )}
