@@ -377,8 +377,10 @@ function SnoozeMenuButton(props: {
   onSnooze: (preset: Pick<SnoozePreset, "snoozedUntil">) => void;
   timestampFormat: TimestampFormat;
   environmentId: EnvironmentId;
+  label?: string;
 }) {
   const { open, onOpenChange, onSnooze, timestampFormat, environmentId } = props;
+  const label = props.label ?? "Snooze thread";
   const presets = open
     ? // oxlint-disable-next-line react/purity -- Presets are resolved only while the menu is open, so each opening reads a fresh time.
       resolveSnoozePresets(new Date(), timestampFormat, environmentId)
@@ -392,7 +394,7 @@ function SnoozeMenuButton(props: {
               render={
                 <button
                   type="button"
-                  aria-label="Snooze thread"
+                  aria-label={label}
                   onClick={(event) => event.stopPropagation()}
                   onDoubleClick={(event) => event.stopPropagation()}
                   className="inline-flex h-full cursor-pointer items-center gap-0.5 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground hover:text-foreground"
@@ -403,7 +405,7 @@ function SnoozeMenuButton(props: {
         >
           <ClockIcon className="size-3" />
         </TooltipTrigger>
-        <TooltipPopup>Snooze thread</TooltipPopup>
+        <TooltipPopup>{label}</TooltipPopup>
       </Tooltip>
       <MenuPopup side="bottom" align="end">
         {presets.map((preset) => (
@@ -1314,8 +1316,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                     className={cn(
                       "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
                       !isWoke && "group-any-hover/sidebar-row:opacity-0",
-                      marketer && "group-focus-within/sidebar-row:opacity-0",
-                      marketer && props.isActive && "opacity-0",
+                      marketer &&
+                        !isWoke &&
+                        "group-any-hover/sidebar-row:hidden group-focus-within/sidebar-row:hidden",
+                      marketer && !isWoke && (props.isActive || snoozeMenuOpen) && "hidden",
                     )}
                   >
                     {variantAction === "unsnooze" && props.snoozeWakeLabelText !== null ? (
@@ -1365,22 +1369,86 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                     )}
                   </span>
                   {marketer ? (
-                    <button
-                      type="button"
-                      aria-label={`Chat actions for ${thread.title}`}
-                      onPointerDown={handleActionPointerDown}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        const rect = event.currentTarget.getBoundingClientRect();
-                        onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
-                      }}
+                    <span
                       className={cn(
-                        "absolute inset-y-0 right-0 z-10 inline-flex items-center text-muted-foreground opacity-0 pointer-events-none group-any-hover/sidebar-row:opacity-100 group-any-hover/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto",
-                        props.isActive && "opacity-100 pointer-events-auto",
+                        "pointer-events-none absolute inset-y-0 right-0 z-10 flex items-stretch opacity-0 group-any-hover/sidebar-row:pointer-events-auto group-any-hover/sidebar-row:static group-any-hover/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:static group-focus-within/sidebar-row:opacity-100",
+                        (props.isActive || snoozeMenuOpen) &&
+                          "pointer-events-auto static opacity-100",
                       )}
                     >
-                      <MoreHorizontalIcon className="size-3.5" />
-                    </button>
+                      {showSnoozeButton && variantAction !== "unsnooze" ? (
+                        <SnoozeMenuButton
+                          open={snoozeMenuOpen}
+                          onOpenChange={setSnoozeMenuOpen}
+                          onSnooze={handleSnoozePreset}
+                          timestampFormat={props.timestampFormat}
+                          environmentId={thread.environmentId}
+                          label="Snooze chat"
+                        />
+                      ) : null}
+                      {variantAction === "unsnooze" ? (
+                        props.snoozeSupported ? (
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  aria-label="Wake chat now"
+                                  onClick={handleUnsnoozeClick}
+                                  onPointerDown={handleActionPointerDown}
+                                  className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-1.5 text-muted-foreground hover:text-foreground"
+                                />
+                              }
+                            >
+                              <AlarmClockOffIcon className="size-3" />
+                            </TooltipTrigger>
+                            <TooltipPopup side="top">Wake chat now</TooltipPopup>
+                          </Tooltip>
+                        ) : null
+                      ) : props.settlementSupported ? (
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                type="button"
+                                aria-label={
+                                  variantAction === "unsettle" ? "Un-settle chat" : "Settle chat"
+                                }
+                                onClick={
+                                  variantAction === "unsettle"
+                                    ? handleUnsettleClick
+                                    : handleSettleClick
+                                }
+                                onPointerDown={handleActionPointerDown}
+                                className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-1.5 text-muted-foreground hover:text-foreground"
+                              />
+                            }
+                          >
+                            {variantAction === "unsettle" ? (
+                              <Undo2Icon className="size-3.5" />
+                            ) : (
+                              <CheckIcon className="size-3.5" />
+                            )}
+                          </TooltipTrigger>
+                          <TooltipPopup side="top">
+                            {variantAction === "unsettle" ? "Un-settle chat" : "Settle chat"}
+                          </TooltipPopup>
+                        </Tooltip>
+                      ) : null}
+                      <button
+                        type="button"
+                        aria-label={`Chat actions for ${thread.title}`}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
+                        }}
+                        className="inline-flex cursor-pointer items-center rounded-md bg-transparent pl-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <MoreHorizontalIcon className="size-3.5" />
+                      </button>
+                    </span>
                   ) : null}
                   {marketer ? null : variantAction === "unsnooze" ? (
                     !props.snoozeSupported ? null : (
