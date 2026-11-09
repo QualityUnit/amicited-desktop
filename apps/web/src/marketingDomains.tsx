@@ -1167,6 +1167,7 @@ export function DomainFolderHeader({
   return (
     <SidebarProjectFolderHeader
       {...props}
+      group={{ ...props.group, displayName: domain.hostname }}
       newThreadLabel="New chat"
       actions={<DomainProjectActions domain={domain} destination={destination} />}
       status={
