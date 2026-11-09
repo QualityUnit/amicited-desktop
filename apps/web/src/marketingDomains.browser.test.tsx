@@ -7,6 +7,7 @@ import type { Connection } from "@amicited/cloud-client/model";
 import { render } from "../test/render";
 const state = vi.hoisted(() => ({
   projectRoots: [] as string[],
+  threadSelections: [] as unknown[],
   connected: true,
   folderPath: "/fixture/site",
   inspectPath: null as
@@ -61,7 +62,17 @@ vi.mock("./hooks/useThreadRouteTarget", async (original) => ({
   ...(await original<typeof import("./hooks/useThreadRouteTarget")>()),
   useThreadRouteTarget: () => null,
 }));
-vi.mock("./hooks/useHandleNewThread", () => ({ useNewThreadHandler: () => async () => {} }));
+vi.mock("./hooks/useSettings", async (original) => ({
+  ...(await original<typeof import("./hooks/useSettings")>()),
+  usePrimarySettings: () => ({
+    textGenerationModelSelection: { instanceId: "codex", model: "gpt-6-luna" },
+  }),
+}));
+vi.mock("./hooks/useHandleNewThread", () => ({
+  useNewThreadHandler: () => async (_project: unknown, options?: { modelSelection?: unknown }) => {
+    state.threadSelections.push(options?.modelSelection);
+  },
+}));
 vi.mock("./state/use-atom-command", () => ({
   useAtomCommand:
     (command: { label: string }) =>
@@ -576,6 +587,7 @@ it("shows welcome after a fresh environment connects without domains, setup or a
   state.connected = false;
   state.projectRoots = [];
   state.requests.length = 0;
+  state.threadSelections.length = 0;
   try {
     await using screen = await render(<MarketingSetupHost />);
     state.connected = true;
@@ -590,6 +602,21 @@ it("shows welcome after a fresh environment connects without domains, setup or a
     await expect
       .element(screen.getByRole("heading", { name: "Choose your assistant" }))
       .toBeVisible();
+    await screen
+      .getByRole("button", { name: "Set up later (chats need an assistant)", exact: true })
+      .click();
+    publish("local", [
+      {
+        projectId: "first-domain",
+        hostname: "flowhunt.io",
+        brand: "Flowhunt",
+        connectionRef: "first-domain",
+      },
+    ]);
+    await screen.getByRole("button", { name: "Skip for now", exact: true }).click();
+    await vi.waitFor(() =>
+      expect(state.threadSelections).toEqual([{ instanceId: "codex", model: "gpt-6-luna" }]),
+    );
   } finally {
     state.emptyDomains = false;
     state.connected = true;

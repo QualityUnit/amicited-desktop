@@ -1,3 +1,5 @@
+import { usePrimarySettings } from "./hooks/useSettings";
+import { resolveAppModelSelectionState } from "./modelSelection";
 import { lastDomains } from "./marketingDomainStore";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { useThreadShell } from "./state/entities";
@@ -69,6 +71,20 @@ export function MarketingSetupHost() {
   const domains = useDomains();
   const environmentId = usePrimaryEnvironmentId();
   const providers = useEnvironmentProviders();
+  const settings = usePrimarySettings();
+  const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null);
+  const preferredModel = selectedModel ?? settings.textGenerationModelSelection;
+  const readyProviders = environmentId
+    ? (providers.get(environmentId) ?? []).filter(
+        (p) =>
+          ["claudeAgent", "codex"].includes(p.driver) && getOnboardingProviderState(p) === "ready",
+      )
+    : [];
+  const setupModel =
+    readyProviders.length === 0 ||
+    readyProviders.some((p) => p.instanceId === preferredModel?.instanceId)
+      ? preferredModel
+      : resolveAppModelSelectionState(settings, readyProviders.slice(0, 1));
   const environment = useEnvironment(environmentId);
   const phase = environment?.connection.phase;
   const ready =
@@ -147,7 +163,11 @@ export function MarketingSetupHost() {
     }
     setFinished(true);
     setStep(null);
-    if (domain) await newThread(scopeProjectRef(environmentId, ProjectId.make(domain.projectId)));
+    if (domain)
+      await newThread(
+        scopeProjectRef(environmentId, ProjectId.make(domain.projectId)),
+        setupModel ? { modelSelection: setupModel } : undefined,
+      );
   };
   return (
     <>
@@ -189,7 +209,9 @@ export function MarketingSetupHost() {
           </DialogHeader>
           <DialogPanel>
             <div className="space-y-4">
-              {step === "assistant" && <MarketingSubscriptions usageLink={false} />}
+              {step === "assistant" && (
+                <MarketingSubscriptions usageLink={false} onSelected={setSelectedModel} />
+              )}
               {step === "cloud" && domain && environmentId && (
                 <DomainConnection domain={domain} destination={environmentId} />
               )}
