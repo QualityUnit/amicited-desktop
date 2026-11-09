@@ -26,22 +26,22 @@ We fork T3 Code and keep every feature it has, including the developer ones; AmI
 
 **Stack we inherit (as of the November 2026 main branch):** pnpm monorepo, TypeScript, Electron 44 desktop shell, React 19 + TanStack Router + Zustand + Tailwind 4 web client, Effect-based server (`apps/server`) with an event-sourced orchestrator (`orchestration-v2`), SQLite persistence, `playwright-core` driven preview browser with browser profiles and cookie import, MCP server for outside agents, MCP Apps rendering, HTML "visual replies", SnapShots (window capture with accessibility tree), Clerk auth for T3 Connect remote access, electron-updater, iOS and Android companion apps.
 
-| Area of T3 Code | Decision | Notes |
-| --- | --- | --- |
-| `apps/desktop`, `apps/server`, `apps/web`, `packages/client-runtime`, `packages/contracts`, `packages/shared` | Keep | Core shell, RPC, state, UI kit. Rebrand strings, icons, deep-link scheme (`t3code://` → `amicited://`). |
-| `packages/provider-*` (ACP, Codex, Claude, Cursor, Grok, Kiro, Muse, OpenCode, Pi, fx, Antigravity) | Keep | The provider adapter layer is the main asset. See section 4. |
-| `orchestration-v2` (threads, runs, events, permissions, effect worker) | Keep | Rename "thread" to "task" in UI only; keep internal names to ease upstream merges. |
-| Preview browser, browser profiles, cookie import (`docs/user/browser-import.md`) | Keep and extend | Becomes the Agent Browser (section 5). |
-| MCP server for outside agents, MCP Apps, HTML renders | Keep | Used for AmICited cloud and for tool UIs. |
-| SnapShots (window capture + accessibility tree) | Keep | Foundation for computer use. |
-| Remote access (T3 Connect, Tailscale, SSH, guest links), mobile apps | Keep, lower priority | Lets a marketer approve a post from a phone. Ship desktop first; mobile follows. |
-| Git checkpoints, worktrees, diff view, PR linking, `packages/source-control-*` | Keep, developer role only | Visible in the Web designer / developer role (section 11); hidden for every other role. Non-dev brands use the simpler file-version store (section 13). |
-| Terminal (`node-pty`, libghostty), shell stream | Keep, developer role only | Agents still need a shell for tools; users never see a terminal. |
-| Project = Git repo | Extend | A Brand wraps one or more T3 projects: a brand folder plus optional Git repos (Shopify theme, WordPress theme, website). The T3 project model stays underneath. |
-| Codex/Claude usage meters, model manifest | Keep | Reused for cost dashboard. |
-| `apps/marketing` (t3.codes site), `packaging/aur`, nix | Keep, rebrand | Marketing site becomes amicited.com/desktop; keep the packaging recipes and point them at the AmICited release channel. |
-| `evals/`, `.repos/` reference repos | Keep | Needed to keep merging upstream; add marketing evals beside them. |
-| Clerk-based T3 Connect accounts | Add AmICited sign-in | AmICited account (OAuth) is the primary sign-in; T3 Connect remains for remote access until replaced by AmICited Link. |
+| Area of T3 Code                                                                                               | Decision                  | Notes                                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/desktop`, `apps/server`, `apps/web`, `packages/client-runtime`, `packages/contracts`, `packages/shared` | Keep                      | Core shell, RPC, state, UI kit. Rebrand strings, icons, deep-link scheme (`t3code://` → `amicited://`).                                                         |
+| `packages/provider-*` (ACP, Codex, Claude, Cursor, Grok, Kiro, Muse, OpenCode, Pi, fx, Antigravity)           | Keep                      | The provider adapter layer is the main asset. See section 4.                                                                                                    |
+| `orchestration-v2` (threads, runs, events, permissions, effect worker)                                        | Keep                      | Rename "thread" to "task" in UI only; keep internal names to ease upstream merges.                                                                              |
+| Preview browser, browser profiles, cookie import (`docs/user/browser-import.md`)                              | Keep and extend           | Becomes the Agent Browser (section 5).                                                                                                                          |
+| MCP server for outside agents, MCP Apps, HTML renders                                                         | Keep                      | Used for AmICited cloud and for tool UIs.                                                                                                                       |
+| SnapShots (window capture + accessibility tree)                                                               | Keep                      | Foundation for computer use.                                                                                                                                    |
+| Remote access (T3 Connect, Tailscale, SSH, guest links), mobile apps                                          | Keep, lower priority      | Lets a marketer approve a post from a phone. Ship desktop first; mobile follows.                                                                                |
+| Git checkpoints, worktrees, diff view, PR linking, `packages/source-control-*`                                | Keep, developer role only | Visible in the Web designer / developer role (section 11); hidden for every other role. Non-dev brands use the simpler file-version store (section 13).         |
+| Terminal (`node-pty`, libghostty), shell stream                                                               | Keep, developer role only | Agents still need a shell for tools; users never see a terminal.                                                                                                |
+| Project = Git repo                                                                                            | Extend                    | A Brand wraps one or more T3 projects: a brand folder plus optional Git repos (Shopify theme, WordPress theme, website). The T3 project model stays underneath. |
+| Codex/Claude usage meters, model manifest                                                                     | Keep                      | Reused for cost dashboard.                                                                                                                                      |
+| `apps/marketing` (t3.codes site), `packaging/aur`, nix                                                        | Keep, rebrand             | Marketing site becomes amicited.com/desktop; keep the packaging recipes and point them at the AmICited release channel.                                         |
+| `evals/`, `.repos/` reference repos                                                                           | Keep                      | Needed to keep merging upstream; add marketing evals beside them.                                                                                               |
+| Clerk-based T3 Connect accounts                                                                               | Add AmICited sign-in      | AmICited account (OAuth) is the primary sign-in; T3 Connect remains for remote access until replaced by AmICited Link.                                          |
 
 **Fork policy: inherit everything, build on top.** Upstream `main` is merged weekly, not quarterly. We never delete or rewrite upstream packages; AmICited code lives only in new packages prefixed `@amicited/*` under `packages/` and `apps/`, plus a small, documented set of extension points in upstream code (role-based navigation, brand context hook, tool registry hook, sign-in provider). Each extension point is a single file-level change kept as a patch in `patches/` so a merge conflict is local and obvious. Features T3 adds later (new providers, new remote access, new mobile features) arrive for free.
 
@@ -72,34 +72,34 @@ flowchart TB
   LS -- "user's sessions and IP, rate limited" --> EXT
 ```
 
-*AmICited Desktop architecture: 3 local processes, 1 cloud, 4 boundaries.*
+_AmICited Desktop architecture: 3 local processes, 1 cloud, 4 boundaries._
 
 The Electron renderer talks to the local server over the inherited RPC; the local server owns every provider process, the Agent Browser, the tool library and the runner; the AmICited cloud reaches the machine only through the MCP client/server pair, so the cloud never holds a login or a token that belongs to the user.
 
 **Modules (new packages, all `@amicited/*`)**
 
-| Package | Responsibility |
-| --- | --- |
-| `tools-core` | Tool registry, schema (JSON Schema in/out), execution sandbox, result cache, scheduling hooks. Every tool is exposed as a UI card and as an MCP tool. |
-| `tools-seo`, `tools-web`, `tools-content`, `tools-ads`, `tools-social` | Tool packs (section 9). Pure TypeScript where possible; heavy work in child processes with a deadline, following T3's rule of no native modules in Electron main. |
-| `browser-agent` | Agent Browser control: tabs, profiles, DOM snapshot, accessibility tree, screenshot, action primitives, rate limiter, humanization. Wraps the inherited `playwright-core` preview browser. |
-| `computer-use` | OS-level control: screen capture (inherited SnapShots), accessibility tree, mouse and keyboard injection, window focus. Platform drivers for macOS (CGEvent + AX), Windows (UIA + SendInput), Linux Wayland portal. |
-| `runner` | Pulls jobs from AmICited cloud, enforces user-defined quotas, executes via browser-agent or tools, reports results. Also hosts the compute-sharing worker (section 7). |
-| `cloud-client` | OAuth sign-in to AmICited, MCP client to `mcp.amicited.com`, sync of brandbook, prompts, calendars, credits; offline queue. |
-| `cloud-mcp-server` | Local MCP server (`amicited-local`) exposing tools, browser and files to any provider agent and to outside agents. Extends T3's existing MCP server. |
-| `workflows` | Declarative automations: triggers (schedule, webhook from cloud, file change, calendar), steps (tool, agent run, browser script, approval), run history. Replaces Make/Zapier for marketing jobs. |
-| `brand` | Brand model: website, CMS connection, ad accounts, social accounts, brandbook, content calendar, asset library. One brand = one T3 "project". |
-| `ui-marketing` | React screens: Home, Tasks, Calendar, Tools, Automations, Runner, Brands, Credits, Settings. |
+| Package                                                                | Responsibility                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tools-core`                                                           | Tool registry, schema (JSON Schema in/out), execution sandbox, result cache, scheduling hooks. Every tool is exposed as a UI card and as an MCP tool.                                                               |
+| `tools-seo`, `tools-web`, `tools-content`, `tools-ads`, `tools-social` | Tool packs (section 9). Pure TypeScript where possible; heavy work in child processes with a deadline, following T3's rule of no native modules in Electron main.                                                   |
+| `browser-agent`                                                        | Agent Browser control: tabs, profiles, DOM snapshot, accessibility tree, screenshot, action primitives, rate limiter, humanization. Wraps the inherited `playwright-core` preview browser.                          |
+| `computer-use`                                                         | OS-level control: screen capture (inherited SnapShots), accessibility tree, mouse and keyboard injection, window focus. Platform drivers for macOS (CGEvent + AX), Windows (UIA + SendInput), Linux Wayland portal. |
+| `runner`                                                               | Pulls jobs from AmICited cloud, enforces user-defined quotas, executes via browser-agent or tools, reports results. Also hosts the compute-sharing worker (section 7).                                              |
+| `cloud-client`                                                         | OAuth sign-in to AmICited, MCP client to `mcp.amicited.com`, sync of brandbook, prompts, calendars, credits; offline queue.                                                                                         |
+| `cloud-mcp-server`                                                     | Local MCP server (`amicited-local`) exposing tools, browser and files to any provider agent and to outside agents. Extends T3's existing MCP server.                                                                |
+| `workflows`                                                            | Declarative automations: triggers (schedule, webhook from cloud, file change, calendar), steps (tool, agent run, browser script, approval), run history. Replaces Make/Zapier for marketing jobs.                   |
+| `brand`                                                                | Brand model: website, CMS connection, ad accounts, social accounts, brandbook, content calendar, asset library. One brand = one T3 "project".                                                                       |
+| `ui-marketing`                                                         | React screens: Home, Tasks, Calendar, Tools, Automations, Runner, Brands, Credits, Settings.                                                                                                                        |
 
 **Local vs cloud split**
 
-| Runs locally (free) | Runs in AmICited cloud (credits or plan) |
-| --- | --- |
-| Agent runs on the user's provider subscriptions | Prompt tracking from other countries and devices |
-| Prompt tracking from the user's own IP | Long-term storage, history, dashboards, sharing |
-| All free tools, audits, screenshots | Citation analytics across many brands |
-| Browser and computer automation | Scheduling when the machine is off (delegated to other runners) |
-| Brandbook cache, content drafts, brandbook learning from site and tickets | Brandbook source of truth, team collaboration, roles |
+| Runs locally (free)                                                       | Runs in AmICited cloud (credits or plan)                        |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Agent runs on the user's provider subscriptions                           | Prompt tracking from other countries and devices                |
+| Prompt tracking from the user's own IP                                    | Long-term storage, history, dashboards, sharing                 |
+| All free tools, audits, screenshots                                       | Citation analytics across many brands                           |
+| Browser and computer automation                                           | Scheduling when the machine is off (delegated to other runners) |
+| Brandbook cache, content drafts, brandbook learning from site and tickets | Brandbook source of truth, team collaboration, roles            |
 
 **Data flow for a typical task.** The user (or a schedule) creates a Task in a Brand. The orchestrator starts a run on the chosen provider with the brand context injected (section 8). The agent calls tools over `amicited-local` MCP, including `browser.*` and `computer.*` tools. Side effects that need approval pause the run with the inherited permission prompt. Results, artifacts and a cost record are written to the local SQLite store and, if the brand is cloud-linked, mirrored to AmICited.
 
@@ -146,15 +146,15 @@ The runner turns the user's machine into a worker for the AmICited platform so t
 
 **Job types (v1 set, extensible by the cloud without an app release)**
 
-| Job | Input | Output | Executed by |
-| --- | --- | --- | --- |
-| `fetch.url` | URL, render mode (static / rendered), headers | HTML, status, timing, final URL | tools-web, Agent Browser `Clean` profile |
-| `screenshot.url` | URL, viewport, full-page flag | PNG/WebP + DOM snapshot | Agent Browser |
-| `ai.query` | Assistant (ChatGPT, Gemini, Claude, Perplexity, Copilot, Google AI Mode, Google AI Overviews), prompt, locale, country | Answer text, cited URLs with positions, screenshot, raw DOM | Site adapter in the user's logged-in profile |
-| `ai.query.api` | Provider, model, prompt | Answer text, tool-use citations | provider-api (user's key) |
-| `serp.fetch` | Query, engine, locale | Organic results, AI Overview block, People Also Ask | Agent Browser |
-| `audit.site` | Domain, depth | Technical SEO audit JSON | tools-seo |
-| `monitor.page` | URL, selector | Change diff | tools-web |
+| Job              | Input                                                                                                                  | Output                                                      | Executed by                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------- |
+| `fetch.url`      | URL, render mode (static / rendered), headers                                                                          | HTML, status, timing, final URL                             | tools-web, Agent Browser `Clean` profile     |
+| `screenshot.url` | URL, viewport, full-page flag                                                                                          | PNG/WebP + DOM snapshot                                     | Agent Browser                                |
+| `ai.query`       | Assistant (ChatGPT, Gemini, Claude, Perplexity, Copilot, Google AI Mode, Google AI Overviews), prompt, locale, country | Answer text, cited URLs with positions, screenshot, raw DOM | Site adapter in the user's logged-in profile |
+| `ai.query.api`   | Provider, model, prompt                                                                                                | Answer text, tool-use citations                             | provider-api (user's key)                    |
+| `serp.fetch`     | Query, engine, locale                                                                                                  | Organic results, AI Overview block, People Also Ask         | Agent Browser                                |
+| `audit.site`     | Domain, depth                                                                                                          | Technical SEO audit JSON                                    | tools-seo                                    |
+| `monitor.page`   | URL, selector                                                                                                          | Change diff                                                 | tools-web                                    |
 
 **Prompt tracking** is the primary `ai.query` consumer. The user defines prompts in AmICited (or locally); the runner asks each assistant on a schedule, extracts whether and where the brand is cited, and stores the result. Tracking from the user's own machine and country is free; results are stored in the user's AmICited account. Tracking from another country or without keeping the machine on is a cloud job (paid in credits) executed by AmICited's own infrastructure or by another user's runner (section 7).
 
@@ -209,15 +209,15 @@ AmICited cloud is reachable from the app and from every agent as one MCP server 
 
 **Cloud MCP tools (consumed by the app and by agents)**
 
-| Tool group | Examples |
-| --- | --- |
-| `brand.*` | `brand.get`, `brand.brandbook` (tone, vocabulary, banned words, visual rules, product facts, personas, competitors), `brand.assets.list` |
-| `prompts.*` | `prompts.list`, `prompts.add`, `prompts.results(prompt, range)`, `prompts.citations(brand, range)` |
-| `citations.*` | `citations.summary`, `citations.sources` (which pages get cited), `citations.gaps` (prompts where competitors are cited and we are not) |
-| `content.*` | `content.calendar.list`, `content.calendar.schedule`, `content.drafts.save`, `content.recommendations` (what to write to win a citation) |
-| `jobs.*` | `jobs.submit` (cloud or shared-runner job), `jobs.status`, `jobs.result` |
-| `credits.*` | `credits.balance`, `credits.history`, `credits.price(job, country)` |
-| `team.*` | members, roles, approvals requested from a teammate |
+| Tool group    | Examples                                                                                                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `brand.*`     | `brand.get`, `brand.brandbook` (tone, vocabulary, banned words, visual rules, product facts, personas, competitors), `brand.assets.list` |
+| `prompts.*`   | `prompts.list`, `prompts.add`, `prompts.results(prompt, range)`, `prompts.citations(brand, range)`                                       |
+| `citations.*` | `citations.summary`, `citations.sources` (which pages get cited), `citations.gaps` (prompts where competitors are cited and we are not)  |
+| `content.*`   | `content.calendar.list`, `content.calendar.schedule`, `content.drafts.save`, `content.recommendations` (what to write to win a citation) |
+| `jobs.*`      | `jobs.submit` (cloud or shared-runner job), `jobs.status`, `jobs.result`                                                                 |
+| `credits.*`   | `credits.balance`, `credits.history`, `credits.price(job, country)`                                                                      |
+| `team.*`      | members, roles, approvals requested from a teammate                                                                                      |
 
 **Local MCP server `amicited-local` (consumed by provider agents, the cloud and outside agents such as Claude Desktop or ChatGPT)**
 
@@ -262,13 +262,24 @@ Every tool is a TypeScript module with a JSON-Schema input and output, a UI card
 
 ```typescript
 export const tool: ToolDefinition<Input, Output> = {
-  name: 'seo.ssl.check',
-  pack: 'tools-seo',
-  title: 'SSL certificate check',
+  name: "seo.ssl.check",
+  pack: "tools-seo",
+  title: "SSL certificate check",
   input: z.object({ domain: z.string() }),
-  output: z.object({ validTo: z.string(), issuer: z.string(), chainOk: z.boolean(), grade: z.enum(['A','B','C','F']), issues: z.array(z.string()) }),
-  cost: 'free', timeoutMs: 20_000, schedulable: true, sideEffects: 'none',
-  run: async (input, ctx) => { /* ... */ },
+  output: z.object({
+    validTo: z.string(),
+    issuer: z.string(),
+    chainOk: z.boolean(),
+    grade: z.enum(["A", "B", "C", "F"]),
+    issues: z.array(z.string()),
+  }),
+  cost: "free",
+  timeoutMs: 20_000,
+  schedulable: true,
+  sideEffects: "none",
+  run: async (input, ctx) => {
+    /* ... */
+  },
 };
 ```
 
@@ -276,20 +287,20 @@ export const tool: ToolDefinition<Input, Output> = {
 
 **Tool packs (v1 list; each line is one or more tools)**
 
-| Pack | Tools |
-| --- | --- |
-| Technical SEO | SSL certificate quality and expiry; DNS and MX/SPF/DKIM/DMARC check; robots.txt and sitemap validation; crawl (configurable depth) with status codes, redirects chains, canonical, hreflang, broken links; Core Web Vitals via Lighthouse in the Agent Browser; mobile-friendliness; structured-data validation (JSON-LD, schema.org types); duplicate titles/descriptions; orphan pages; image weight and alt text; `llms.txt` presence and quality; indexability of key pages. |
-| On-page and content | HTML audit (headings, word count, readability, keyword presence); content gap vs competitor URL; entity and topic extraction; FAQ extraction; readability score; AI-citability score (structure, factual density, freshness, author info, citations); brandbook compliance check for a draft; plagiarism-style similarity vs own pages. |
-| AI visibility (core AmICited) | Prompt tracking from this machine; AI answer capture with citations; citation share vs competitors; which pages of the site get cited; AI crawler access check (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended` in robots.txt and server logs); answer drift over time. |
-| SERP and keywords | SERP fetch with AI Overview detection; rank check for a keyword list from this machine; People Also Ask harvest; keyword clustering (local model); search intent classification; Google Trends fetch; autocomplete harvest. |
-| Competitors and monitoring | Page change monitor with diff; price monitor; new-page detection via sitemap diff; competitor ad library lookup (Meta Ad Library, Google Ads Transparency) via Agent Browser; review monitoring (Google, Trustpilot, G2) via Agent Browser; brand mention search. |
-| Ads | Google Ads account read (API with the user's OAuth): search terms report, wasted spend finder, negative keyword suggestions, budget pacing, ad strength; daily optimisation checklist; Meta Ads read; UTM builder and validator; landing-page vs ad message match. |
-| Social | Post composer with per-platform limits; best-time suggestion from the user's own analytics; hashtag research via Agent Browser; comment and DM inbox read (via Agent Browser where no API); engagement export. |
-| Email and CRM | List hygiene (syntax, MX, disposable domains); email rendering preview; deliverability headers check; subject line variants; lead enrichment from public web (company site, LinkedIn page via Agent Browser, Crunchbase-style pages) as a Clay replacement; ICP scoring with a local model. |
-| Assets and web | Image compression and resizing to platform specs; OG image generator from brand template; favicon and PWA manifest check; screenshot of any URL on device presets; PDF to Markdown; video to transcript (local Whisper); QR code; link shortener via the user's own domain. |
-| Analytics | GA4 and Search Console read (user's OAuth); anomaly detection on daily series; weekly report generator; attribution sanity check for UTM consistency. |
-| Local utilities | CSV/Sheet cleanup and merge; dedupe; text diff; regex tester; JSON and sitemap viewer; cron and timezone helper; word and character counter per platform. |
-| Media | Script and storyboard from brief; image and video generation through the user's own model keys; ffmpeg assembly templates (intro, captions, music bed, logo, aspect ratios 16:9, 9:16, 1:1); local Whisper captions and subtitles; voice-over via the user's TTS key; thumbnail variants; upload adapters for YouTube, TikTok, Reels, LinkedIn video; brand-template rendering for carousels and ad sets. |
+| Pack                          | Tools                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Technical SEO                 | SSL certificate quality and expiry; DNS and MX/SPF/DKIM/DMARC check; robots.txt and sitemap validation; crawl (configurable depth) with status codes, redirects chains, canonical, hreflang, broken links; Core Web Vitals via Lighthouse in the Agent Browser; mobile-friendliness; structured-data validation (JSON-LD, schema.org types); duplicate titles/descriptions; orphan pages; image weight and alt text; `llms.txt` presence and quality; indexability of key pages. |
+| On-page and content           | HTML audit (headings, word count, readability, keyword presence); content gap vs competitor URL; entity and topic extraction; FAQ extraction; readability score; AI-citability score (structure, factual density, freshness, author info, citations); brandbook compliance check for a draft; plagiarism-style similarity vs own pages.                                                                                                                                          |
+| AI visibility (core AmICited) | Prompt tracking from this machine; AI answer capture with citations; citation share vs competitors; which pages of the site get cited; AI crawler access check (`GPTBot`, `ClaudeBot`, `PerplexityBot`, `Google-Extended` in robots.txt and server logs); answer drift over time.                                                                                                                                                                                                |
+| SERP and keywords             | SERP fetch with AI Overview detection; rank check for a keyword list from this machine; People Also Ask harvest; keyword clustering (local model); search intent classification; Google Trends fetch; autocomplete harvest.                                                                                                                                                                                                                                                      |
+| Competitors and monitoring    | Page change monitor with diff; price monitor; new-page detection via sitemap diff; competitor ad library lookup (Meta Ad Library, Google Ads Transparency) via Agent Browser; review monitoring (Google, Trustpilot, G2) via Agent Browser; brand mention search.                                                                                                                                                                                                                |
+| Ads                           | Google Ads account read (API with the user's OAuth): search terms report, wasted spend finder, negative keyword suggestions, budget pacing, ad strength; daily optimisation checklist; Meta Ads read; UTM builder and validator; landing-page vs ad message match.                                                                                                                                                                                                               |
+| Social                        | Post composer with per-platform limits; best-time suggestion from the user's own analytics; hashtag research via Agent Browser; comment and DM inbox read (via Agent Browser where no API); engagement export.                                                                                                                                                                                                                                                                   |
+| Email and CRM                 | List hygiene (syntax, MX, disposable domains); email rendering preview; deliverability headers check; subject line variants; lead enrichment from public web (company site, LinkedIn page via Agent Browser, Crunchbase-style pages) as a Clay replacement; ICP scoring with a local model.                                                                                                                                                                                      |
+| Assets and web                | Image compression and resizing to platform specs; OG image generator from brand template; favicon and PWA manifest check; screenshot of any URL on device presets; PDF to Markdown; video to transcript (local Whisper); QR code; link shortener via the user's own domain.                                                                                                                                                                                                      |
+| Analytics                     | GA4 and Search Console read (user's OAuth); anomaly detection on daily series; weekly report generator; attribution sanity check for UTM consistency.                                                                                                                                                                                                                                                                                                                            |
+| Local utilities               | CSV/Sheet cleanup and merge; dedupe; text diff; regex tester; JSON and sitemap viewer; cron and timezone helper; word and character counter per platform.                                                                                                                                                                                                                                                                                                                        |
+| Media                         | Script and storyboard from brief; image and video generation through the user's own model keys; ffmpeg assembly templates (intro, captions, music bed, logo, aspect ratios 16:9, 9:16, 1:1); local Whisper captions and subtitles; voice-over via the user's TTS key; thumbnail variants; upload adapters for YouTube, TikTok, Reels, LinkedIn video; brand-template rendering for carousels and ad sets.                                                                        |
 
 **Tool discovery for agents.** With more than 100 tools, the local MCP server exposes `tools.search(query)` and groups tools by pack, so a provider's context is not filled with every schema. Tools declare `keywords` for that search.
 
@@ -309,15 +320,15 @@ The user works in Brands, Tasks, a Calendar and Automations; agents, tools and t
 
 **Connected systems per brand**
 
-| System | Method | v1 |
-| --- | --- | --- |
-| CMS: WordPress, Webflow, Shopify, Ghost, Framer, Wix, Sanity, Strapi, Contentful, HubSpot CMS, custom via Git-backed Markdown | Official APIs with user credentials; Agent Browser fallback | WordPress, Webflow, Shopify, Ghost, Markdown folder |
-| Ads: Google Ads, Meta Ads, Microsoft Ads, LinkedIn Ads | Official APIs (user OAuth); Agent Browser for UI-only reports | Google Ads read + change proposals with approval |
-| Social: LinkedIn (personal + page), Instagram, Facebook, X, TikTok, YouTube, Threads, Bluesky, Pinterest | Official API where it exists and is affordable; Agent Browser site adapter otherwise | LinkedIn, Instagram, X, Facebook via adapters |
-| Analytics: GA4, Search Console, Plausible, Matomo | APIs | GA4, GSC |
-| Email: Mailchimp, Brevo, Klaviyo, HubSpot, SMTP | APIs | Mailchimp, Brevo |
-| CRM: HubSpot, Pipedrive, Attio, Google Sheets as CRM | APIs | HubSpot, Sheets |
-| Files: local folders, Google Drive, Dropbox, Notion | APIs and local FS | Local, Drive |
+| System                                                                                                                        | Method                                                                               | v1                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| CMS: WordPress, Webflow, Shopify, Ghost, Framer, Wix, Sanity, Strapi, Contentful, HubSpot CMS, custom via Git-backed Markdown | Official APIs with user credentials; Agent Browser fallback                          | WordPress, Webflow, Shopify, Ghost, Markdown folder |
+| Ads: Google Ads, Meta Ads, Microsoft Ads, LinkedIn Ads                                                                        | Official APIs (user OAuth); Agent Browser for UI-only reports                        | Google Ads read + change proposals with approval    |
+| Social: LinkedIn (personal + page), Instagram, Facebook, X, TikTok, YouTube, Threads, Bluesky, Pinterest                      | Official API where it exists and is affordable; Agent Browser site adapter otherwise | LinkedIn, Instagram, X, Facebook via adapters       |
+| Analytics: GA4, Search Console, Plausible, Matomo                                                                             | APIs                                                                                 | GA4, GSC                                            |
+| Email: Mailchimp, Brevo, Klaviyo, HubSpot, SMTP                                                                               | APIs                                                                                 | Mailchimp, Brevo                                    |
+| CRM: HubSpot, Pipedrive, Attio, Google Sheets as CRM                                                                          | APIs                                                                                 | HubSpot, Sheets                                     |
+| Files: local folders, Google Drive, Dropbox, Notion                                                                           | APIs and local FS                                                                    | Local, Drive                                        |
 
 **Reference workflows (shipped as templates)**
 
@@ -336,28 +347,28 @@ The user works in Brands, Tasks, a Calendar and Automations; agents, tools and t
 
 The test for the product is whether a head of marketing can delegate the whole run of a campaign, not only drafts. The catalogue below lists the jobs a marketing department does, who normally does each, and how the app resolves it end to end. Every row is a task template a manager can start from Home with one sentence.
 
-| Job | Normally done by | How the app resolves it | Needs |
-| --- | --- | --- | --- |
-| Campaign brief and plan | Manager | Agent turns a one-paragraph goal into a brief: audience, offer, channels, budget split, KPIs, timeline; creates calendar items and child tasks per role | Brandbook, calendar, roles |
-| Copywriting: landing pages, ads, emails, posts, product descriptions | Copywriter | Draft in brand voice, compliance and citability checks, variants per channel, saved to CMS, ads or email tool as drafts | Content pack, CMS and ads connections |
-| Design: banners, social cards, OG images, ad creatives in all sizes | Designer | Brand templates rendered by tools in bulk; agent composes new layouts from brandbook tokens; Canva or Figma via API or computer use for custom work | Assets pack, visual tokens, computer use |
-| Video and audio: short ads, product demos, reels, voice-over, captions | Designer, agency | Script from brief; stock or generated footage via the user's video-model keys (API); assembly with ffmpeg templates (intro, captions, music, aspect ratios); captions via local Whisper; thumbnail variants; upload to YouTube, TikTok, Reels via API or adapter | Media pipeline (new tools-media pack), provider keys |
-| Publishing a campaign across channels | Social manager, manager | One approval card publishes the whole set: CMS pages, scheduled posts, email send, ad campaigns live; the automation tracks each channel's status and rolls back drafts that fail | Workflows, all connectors |
-| PPC management across Google, Meta, Microsoft, LinkedIn, TikTok ads | PPC specialist | Daily optimisation run per channel; cross-channel budget reallocation proposals; creative fatigue detection; search-term mining; change log with reasoning; weekly summary | Ads pack, ads APIs |
-| Fix the landing page because the ad is underperforming | PPC + copywriter + developer | Agent reads ad, search terms and page, diagnoses message match, speed and CTA, proposes copy and layout changes, applies them to the CMS or theme repo, launches an A/B test, reports lift | Ads pack, CMS, developer role tools |
-| Small development tasks: Shopify or WordPress theme tweak, tracking pixel, schema markup, form fix, speed fix | Developer | Coding provider works in the theme repo or via CMS API with T3's full developer tooling; preview in the Agent Browser; deploy to staging; manager approves to production | Developer role, Git, staging |
-| SEO and AI-visibility programme | SEO specialist | Monthly audit, content gaps vs citations, briefs created in the calendar, fixes applied in CMS, rank and citation tracking from real locations | SEO and AI visibility packs, runner |
-| Email and lifecycle: newsletters, nurture flows, win-back | Lifecycle marketer | Segment from CRM, write and build in the email tool, test sends, schedule, report | Email pack, connections |
-| Social community management: replies, DMs, mentions | Social manager | Inbox via APIs or Agent Browser, drafted replies in brand voice, approval queue, lead flags to CRM | Social pack, adapters |
-| Events and webinars: landing page, invites, reminders, follow-up | Manager, lifecycle | Template workflow creating page, registration form, email sequence, social promo, post-event recording and recap | Workflows, CMS, email |
-| Partner and influencer outreach | Manager | Prospect list from public web, enrichment, personalised outreach drafts, tracking of replies | Email and CRM pack |
-| PR and content distribution | Manager, copywriter | Press release in brand voice, media list, distribution via email, repurposing to channels | Content, email |
-| Reviews, reputation and listings | Manager | Monitor Google, Trustpilot, G2, app stores; draft responses; keep business listings consistent | Monitoring pack, adapters |
-| Reporting to leadership | Manager | Weekly and monthly reports from GA4, GSC, ads, email, social and citations with narrative; export to PDF, Slides or Slack | Analytics pack, visual replies |
-| Budget and vendor tracking | Manager | Spend per channel vs plan, invoices from email into a sheet, alerts on overspend | Analytics, email reading |
-| Market and competitor research | Manager, SEO | Competitor pages, ads, pricing, messaging changes, new launches; monthly digest | Monitoring pack, runner |
-| Localisation of campaigns | Copywriter | Translate and adapt copy per market with brandbook per language; local SERP and AI checks through peers in that country | Content pack, proxy mode |
-| Asset and knowledge hygiene | Everyone | Brand folder kept tidy: naming, versions, expired assets, brandbook drift alerts | Brand folder, versions |
+| Job                                                                                                           | Normally done by             | How the app resolves it                                                                                                                                                                                                                                          | Needs                                                |
+| ------------------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Campaign brief and plan                                                                                       | Manager                      | Agent turns a one-paragraph goal into a brief: audience, offer, channels, budget split, KPIs, timeline; creates calendar items and child tasks per role                                                                                                          | Brandbook, calendar, roles                           |
+| Copywriting: landing pages, ads, emails, posts, product descriptions                                          | Copywriter                   | Draft in brand voice, compliance and citability checks, variants per channel, saved to CMS, ads or email tool as drafts                                                                                                                                          | Content pack, CMS and ads connections                |
+| Design: banners, social cards, OG images, ad creatives in all sizes                                           | Designer                     | Brand templates rendered by tools in bulk; agent composes new layouts from brandbook tokens; Canva or Figma via API or computer use for custom work                                                                                                              | Assets pack, visual tokens, computer use             |
+| Video and audio: short ads, product demos, reels, voice-over, captions                                        | Designer, agency             | Script from brief; stock or generated footage via the user's video-model keys (API); assembly with ffmpeg templates (intro, captions, music, aspect ratios); captions via local Whisper; thumbnail variants; upload to YouTube, TikTok, Reels via API or adapter | Media pipeline (new tools-media pack), provider keys |
+| Publishing a campaign across channels                                                                         | Social manager, manager      | One approval card publishes the whole set: CMS pages, scheduled posts, email send, ad campaigns live; the automation tracks each channel's status and rolls back drafts that fail                                                                                | Workflows, all connectors                            |
+| PPC management across Google, Meta, Microsoft, LinkedIn, TikTok ads                                           | PPC specialist               | Daily optimisation run per channel; cross-channel budget reallocation proposals; creative fatigue detection; search-term mining; change log with reasoning; weekly summary                                                                                       | Ads pack, ads APIs                                   |
+| Fix the landing page because the ad is underperforming                                                        | PPC + copywriter + developer | Agent reads ad, search terms and page, diagnoses message match, speed and CTA, proposes copy and layout changes, applies them to the CMS or theme repo, launches an A/B test, reports lift                                                                       | Ads pack, CMS, developer role tools                  |
+| Small development tasks: Shopify or WordPress theme tweak, tracking pixel, schema markup, form fix, speed fix | Developer                    | Coding provider works in the theme repo or via CMS API with T3's full developer tooling; preview in the Agent Browser; deploy to staging; manager approves to production                                                                                         | Developer role, Git, staging                         |
+| SEO and AI-visibility programme                                                                               | SEO specialist               | Monthly audit, content gaps vs citations, briefs created in the calendar, fixes applied in CMS, rank and citation tracking from real locations                                                                                                                   | SEO and AI visibility packs, runner                  |
+| Email and lifecycle: newsletters, nurture flows, win-back                                                     | Lifecycle marketer           | Segment from CRM, write and build in the email tool, test sends, schedule, report                                                                                                                                                                                | Email pack, connections                              |
+| Social community management: replies, DMs, mentions                                                           | Social manager               | Inbox via APIs or Agent Browser, drafted replies in brand voice, approval queue, lead flags to CRM                                                                                                                                                               | Social pack, adapters                                |
+| Events and webinars: landing page, invites, reminders, follow-up                                              | Manager, lifecycle           | Template workflow creating page, registration form, email sequence, social promo, post-event recording and recap                                                                                                                                                 | Workflows, CMS, email                                |
+| Partner and influencer outreach                                                                               | Manager                      | Prospect list from public web, enrichment, personalised outreach drafts, tracking of replies                                                                                                                                                                     | Email and CRM pack                                   |
+| PR and content distribution                                                                                   | Manager, copywriter          | Press release in brand voice, media list, distribution via email, repurposing to channels                                                                                                                                                                        | Content, email                                       |
+| Reviews, reputation and listings                                                                              | Manager                      | Monitor Google, Trustpilot, G2, app stores; draft responses; keep business listings consistent                                                                                                                                                                   | Monitoring pack, adapters                            |
+| Reporting to leadership                                                                                       | Manager                      | Weekly and monthly reports from GA4, GSC, ads, email, social and citations with narrative; export to PDF, Slides or Slack                                                                                                                                        | Analytics pack, visual replies                       |
+| Budget and vendor tracking                                                                                    | Manager                      | Spend per channel vs plan, invoices from email into a sheet, alerts on overspend                                                                                                                                                                                 | Analytics, email reading                             |
+| Market and competitor research                                                                                | Manager, SEO                 | Competitor pages, ads, pricing, messaging changes, new launches; monthly digest                                                                                                                                                                                  | Monitoring pack, runner                              |
+| Localisation of campaigns                                                                                     | Copywriter                   | Translate and adapt copy per market with brandbook per language; local SERP and AI checks through peers in that country                                                                                                                                          | Content pack, proxy mode                             |
+| Asset and knowledge hygiene                                                                                   | Everyone                     | Brand folder kept tidy: naming, versions, expired assets, brandbook drift alerts                                                                                                                                                                                 | Brand folder, versions                               |
 
 Two additions this catalogue implies for the rest of the spec: a **tools-media pack** (script-to-storyboard, ffmpeg assembly templates, captioning, aspect-ratio exports, thumbnail generation, upload adapters) in section 9, and a **Campaign** entity in section 13 that groups calendar items, tasks, assets, spend and results across channels so the manager sees one campaign, not twenty tasks.
 
@@ -367,17 +378,17 @@ Every person on a marketing team gets a workspace shaped for their job (screens,
 
 ### 11.1 Roles and their workspaces
 
-| Role | Home view | Tool packs on by default | Connected systems | Agent defaults | Can approve |
-| --- | --- | --- | --- | --- | --- |
-| Owner / marketing lead | Dashboard: KPIs, citation share, spend, approvals queue, team activity | All | All | Any | Everything, sets limits for others |
-| Copywriter / content | Content studio: briefs, drafts with brandbook compliance and citability score, calendar | Content, AI visibility, SERP | CMS (draft only), Drive, Notion | Writing model, brandbook strict mode | Own drafts to Review |
-| SEO specialist | Audit board: crawl diffs, CWV, ranks, citations, gaps, task list of fixes | Technical SEO, SERP, AI visibility, Analytics | GSC, GA4, CMS | Analysis model | Technical changes in CMS within limits |
-| Web designer / developer | Site workspace: Git repositories, local dev preview in Agent Browser, Lighthouse, visual regression, component library from brandbook tokens | Technical SEO, Assets, Web | Git hosting (GitHub, GitLab, Bitbucket via the source-control packages we otherwise remove; kept behind this role), CMS, Figma | Coding provider (Claude Code, Codex) with full T3 dev features re-enabled for this role | Deploys to staging |
-| Social media manager | Social desk: calendar by channel, composer, queue, inbox and comments, engagement stats | Social, Assets, Monitoring | Social accounts via API or adapters, Canva | Short-form writing model, brand voice | Posts within daily limits |
-| Performance / ads manager | Ads cockpit: daily optimisation checks, budget pacing, change proposals, landing-page match | Ads, Analytics, SERP | Google Ads, Meta Ads, Microsoft Ads, GA4 | Analysis model | Changes under the spend threshold |
-| Email / CRM / lifecycle | Lifecycle board: segments, campaigns, flows, deliverability, enrichment | Email and CRM, Content | Mailchimp, Brevo, Klaviyo, HubSpot, Pipedrive | Writing model | Sends to test lists |
-| Support / community (read-mostly) | Voice of customer: ticket themes, FAQ gaps, review monitor | Monitoring, Content | Helpdesk (LiveAgent, Zendesk, HubSpot Service, Freshdesk, Intercom) | Summarisation model | Nothing external |
-| Client (agency guest) | Read-only report view and approval cards via inherited guest links | None | None | None | Items sent to them for approval |
+| Role                              | Home view                                                                                                                                    | Tool packs on by default                      | Connected systems                                                                                                              | Agent defaults                                                                          | Can approve                            |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- | -------------------------------------- |
+| Owner / marketing lead            | Dashboard: KPIs, citation share, spend, approvals queue, team activity                                                                       | All                                           | All                                                                                                                            | Any                                                                                     | Everything, sets limits for others     |
+| Copywriter / content              | Content studio: briefs, drafts with brandbook compliance and citability score, calendar                                                      | Content, AI visibility, SERP                  | CMS (draft only), Drive, Notion                                                                                                | Writing model, brandbook strict mode                                                    | Own drafts to Review                   |
+| SEO specialist                    | Audit board: crawl diffs, CWV, ranks, citations, gaps, task list of fixes                                                                    | Technical SEO, SERP, AI visibility, Analytics | GSC, GA4, CMS                                                                                                                  | Analysis model                                                                          | Technical changes in CMS within limits |
+| Web designer / developer          | Site workspace: Git repositories, local dev preview in Agent Browser, Lighthouse, visual regression, component library from brandbook tokens | Technical SEO, Assets, Web                    | Git hosting (GitHub, GitLab, Bitbucket via the source-control packages we otherwise remove; kept behind this role), CMS, Figma | Coding provider (Claude Code, Codex) with full T3 dev features re-enabled for this role | Deploys to staging                     |
+| Social media manager              | Social desk: calendar by channel, composer, queue, inbox and comments, engagement stats                                                      | Social, Assets, Monitoring                    | Social accounts via API or adapters, Canva                                                                                     | Short-form writing model, brand voice                                                   | Posts within daily limits              |
+| Performance / ads manager         | Ads cockpit: daily optimisation checks, budget pacing, change proposals, landing-page match                                                  | Ads, Analytics, SERP                          | Google Ads, Meta Ads, Microsoft Ads, GA4                                                                                       | Analysis model                                                                          | Changes under the spend threshold      |
+| Email / CRM / lifecycle           | Lifecycle board: segments, campaigns, flows, deliverability, enrichment                                                                      | Email and CRM, Content                        | Mailchimp, Brevo, Klaviyo, HubSpot, Pipedrive                                                                                  | Writing model                                                                           | Sends to test lists                    |
+| Support / community (read-mostly) | Voice of customer: ticket themes, FAQ gaps, review monitor                                                                                   | Monitoring, Content                           | Helpdesk (LiveAgent, Zendesk, HubSpot Service, Freshdesk, Intercom)                                                            | Summarisation model                                                                     | Nothing external                       |
+| Client (agency guest)             | Read-only report view and approval cards via inherited guest links                                                                           | None                                          | None                                                                                                                           | None                                                                                    | Items sent to them for approval        |
 
 The developer role is the one place where T3 Code's developer features stay: Git worktrees, diff view, PR linking and the terminal are switched on for that role and hidden for the others; nothing upstream is removed (section 2). A designer gets the brandbook's visual tokens (colours, type, spacing, logo rules) exported as CSS variables, Tailwind config and Figma tokens, and a visual-regression tool that compares the staging site against those tokens.
 
@@ -401,24 +412,24 @@ Each learned fact carries provenance (source, date, confidence); the owner accep
 
 The features below are the ones that make the app a replacement for a paid subscription rather than a helper beside it. Each names the incumbent, what the local-first agent model does better, and what it needs from the rest of this spec.
 
-| Feature | Replaces | Why we win locally | Depends on |
-| --- | --- | --- | --- |
-| **Social publishing from the user's own sessions** with queue, best-time, first-comment, carousel and video upload | Buffer, Hootsuite, Later | No API fees, no platform approval, personal profiles supported, posting looks human | Site adapters, humanization, calendar |
-| **Social inbox and engagement agent**: reads comments and DMs via the browser, drafts replies in brand voice, posts after approval, flags leads | Sprout Social, Brand24 | Works where APIs are closed; brand voice from brandbook | Agent Browser, approvals |
-| **Visual automation builder with agent steps** | Make.com, Zapier, n8n | Steps can be "ask an agent" and "use the browser", so integrations never block a workflow | workflows package |
-| **Lead enrichment and outbound research** | Clay, Apollo (partly) | Enrichment from public web and the user's LinkedIn session at zero per-row cost; local model scoring | tools-email, Agent Browser |
-| **AI visibility suite** (prompt tracking, citation share, gap analysis, citability audit) | Profound, Peec, Otterly, SE Ranking AI tools | Real logged-in answers from real locations, free from own machine, marketplace for other countries | Runner, shared compute, cloud |
-| **Rank tracking from real locations** | SE Ranking, AccuRanker | Residential proxy mode routes the user's own check through a peer in any country | Runner, shared compute |
-| **Technical SEO crawler with scheduled audits and diffs** | Screaming Frog, Sitebulb, Ahrefs Site Audit | Free, local, agent fixes issues in the connected CMS | tools-seo, CMS connectors |
-| **Ads copilot** with daily checks and approved changes | Optmyzr, Adalysis | Subscription LLM does the analysis; API changes only after approval | tools-ads |
-| **Brand-compliant content studio**: brief → draft → compliance → images → CMS | Jasper, Writesonic, Surfer | Brandbook is the source of truth; citability score aims at AI answers, not only Google | brand, tools-content |
-| **Reporting**: weekly visual report to PDF/email/Slack from GA4, GSC, ads and citations | Looker Studio setups, AgencyAnalytics, Whatagraph | Agent writes the narrative; data stays local | tools-analytics, visual replies |
-| **Monitoring and alerts**: competitor pages, prices, reviews, mentions, SSL, uptime | Visualping, Mention, UptimeRobot | Runs from the user's machine or a shared runner; agent judges relevance | tools-monitor, background service |
-| **Asset pipeline**: brand templates for OG images, ad creatives and social cards; batch resize; video to captions | Canva (partly), Bannerbear, Descript (partly) | Template once in brand, generated by tools in bulk | tools-assets |
-| **Recorded browser skills shared across the team** | Browse AI, Axiom | Record once, parameterise, agents reuse; shared through AmICited | script.\* |
-| **Team and agency mode**: multiple brands, client approvals via guest links, per-client credit budgets | Agency tooling | Inherited guest links and remote access | cloud team.\* |
-| **Mobile approvals and voice tasks** | — | Inherited mobile apps and voice input: approve a post or dictate a task from a phone | T3 mobile |
-| **Offline-first and privacy**: nothing leaves the machine unless the brand is cloud-linked | — | A selling point for agencies under NDA | storage |
+| Feature                                                                                                                                         | Replaces                                          | Why we win locally                                                                                   | Depends on                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **Social publishing from the user's own sessions** with queue, best-time, first-comment, carousel and video upload                              | Buffer, Hootsuite, Later                          | No API fees, no platform approval, personal profiles supported, posting looks human                  | Site adapters, humanization, calendar |
+| **Social inbox and engagement agent**: reads comments and DMs via the browser, drafts replies in brand voice, posts after approval, flags leads | Sprout Social, Brand24                            | Works where APIs are closed; brand voice from brandbook                                              | Agent Browser, approvals              |
+| **Visual automation builder with agent steps**                                                                                                  | Make.com, Zapier, n8n                             | Steps can be "ask an agent" and "use the browser", so integrations never block a workflow            | workflows package                     |
+| **Lead enrichment and outbound research**                                                                                                       | Clay, Apollo (partly)                             | Enrichment from public web and the user's LinkedIn session at zero per-row cost; local model scoring | tools-email, Agent Browser            |
+| **AI visibility suite** (prompt tracking, citation share, gap analysis, citability audit)                                                       | Profound, Peec, Otterly, SE Ranking AI tools      | Real logged-in answers from real locations, free from own machine, marketplace for other countries   | Runner, shared compute, cloud         |
+| **Rank tracking from real locations**                                                                                                           | SE Ranking, AccuRanker                            | Residential proxy mode routes the user's own check through a peer in any country                     | Runner, shared compute                |
+| **Technical SEO crawler with scheduled audits and diffs**                                                                                       | Screaming Frog, Sitebulb, Ahrefs Site Audit       | Free, local, agent fixes issues in the connected CMS                                                 | tools-seo, CMS connectors             |
+| **Ads copilot** with daily checks and approved changes                                                                                          | Optmyzr, Adalysis                                 | Subscription LLM does the analysis; API changes only after approval                                  | tools-ads                             |
+| **Brand-compliant content studio**: brief → draft → compliance → images → CMS                                                                   | Jasper, Writesonic, Surfer                        | Brandbook is the source of truth; citability score aims at AI answers, not only Google               | brand, tools-content                  |
+| **Reporting**: weekly visual report to PDF/email/Slack from GA4, GSC, ads and citations                                                         | Looker Studio setups, AgencyAnalytics, Whatagraph | Agent writes the narrative; data stays local                                                         | tools-analytics, visual replies       |
+| **Monitoring and alerts**: competitor pages, prices, reviews, mentions, SSL, uptime                                                             | Visualping, Mention, UptimeRobot                  | Runs from the user's machine or a shared runner; agent judges relevance                              | tools-monitor, background service     |
+| **Asset pipeline**: brand templates for OG images, ad creatives and social cards; batch resize; video to captions                               | Canva (partly), Bannerbear, Descript (partly)     | Template once in brand, generated by tools in bulk                                                   | tools-assets                          |
+| **Recorded browser skills shared across the team**                                                                                              | Browse AI, Axiom                                  | Record once, parameterise, agents reuse; shared through AmICited                                     | script.\*                             |
+| **Team and agency mode**: multiple brands, client approvals via guest links, per-client credit budgets                                          | Agency tooling                                    | Inherited guest links and remote access                                                              | cloud team.\*                         |
+| **Mobile approvals and voice tasks**                                                                                                            | —                                                 | Inherited mobile apps and voice input: approve a post or dictate a task from a phone                 | T3 mobile                             |
+| **Offline-first and privacy**: nothing leaves the machine unless the brand is cloud-linked                                                      | —                                                 | A selling point for agencies under NDA                                                               | storage                               |
 
 **Suggested sequencing by value and dependency.** AI visibility suite and the runner first (they are AmICited's core and need the marketplace to grow), then social publishing via adapters (the clearest Buffer replacement and a daily-use habit), then the content studio with CMS publishing, then the automation builder, then ads, enrichment and the long tail of tools. Sequencing is advisory only; this spec describes the full product.
 
@@ -428,24 +439,24 @@ Local state lives in the inherited SQLite database (orchestration events and pro
 
 **Core entities**
 
-| Entity | Key fields | Stored |
-| --- | --- | --- |
-| Machine | device id, device key pair, OS, runner settings, quotas | SQLite + OS keychain |
-| Brand | id, name, website, cloud brand id (nullable), default browser profile, model routing policy, folder path | SQLite |
-| Connection | brand, system (CMS, ads, social, analytics), auth method, scopes, health | SQLite; secrets in keychain |
-| BrowserProfile | name, path, imported-from, shared-with-runner flag, lent assistants | SQLite; cookies encrypted on disk |
-| Task (= T3 thread) | brand, provider instance, permission mode, status, cost | inherited |
-| Run, Event, Approval | inherited orchestration-v2 | inherited |
-| Tool | name, pack, version, schema hash | code registry |
-| ToolRun | tool, brand, input, output ref, duration, cost, triggered-by (user / agent / schedule / cloud job) | SQLite; large outputs on disk |
-| Automation | brand, YAML path, triggers, enabled, last run | file + SQLite index |
-| AutomationRun, Step | status, inputs, outputs, cost, approvals | SQLite |
-| CalendarItem | brand, channel, status, due, owner, task ref, artifact ref, cloud id | SQLite, mirrored to cloud |
-| Artifact | brand, kind (draft, image, report, screenshot, html), path, version, origin run | files + SQLite |
-| Prompt, PromptResult | prompt text, assistant, locale, country, answer, citations, screenshot ref, runner origin | SQLite local; mirrored to cloud when linked |
-| RunnerJob | cloud job id, type, lease, state, result signature | SQLite |
-| CreditLedgerEntry | cached from cloud, read only | SQLite cache |
-| Campaign | brand, goal, audience, channels, budget per channel, dates, KPIs, linked calendar items, tasks, assets, spend and results per channel, status | SQLite, mirrored to cloud |
+| Entity               | Key fields                                                                                                                                    | Stored                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Machine              | device id, device key pair, OS, runner settings, quotas                                                                                       | SQLite + OS keychain                        |
+| Brand                | id, name, website, cloud brand id (nullable), default browser profile, model routing policy, folder path                                      | SQLite                                      |
+| Connection           | brand, system (CMS, ads, social, analytics), auth method, scopes, health                                                                      | SQLite; secrets in keychain                 |
+| BrowserProfile       | name, path, imported-from, shared-with-runner flag, lent assistants                                                                           | SQLite; cookies encrypted on disk           |
+| Task (= T3 thread)   | brand, provider instance, permission mode, status, cost                                                                                       | inherited                                   |
+| Run, Event, Approval | inherited orchestration-v2                                                                                                                    | inherited                                   |
+| Tool                 | name, pack, version, schema hash                                                                                                              | code registry                               |
+| ToolRun              | tool, brand, input, output ref, duration, cost, triggered-by (user / agent / schedule / cloud job)                                            | SQLite; large outputs on disk               |
+| Automation           | brand, YAML path, triggers, enabled, last run                                                                                                 | file + SQLite index                         |
+| AutomationRun, Step  | status, inputs, outputs, cost, approvals                                                                                                      | SQLite                                      |
+| CalendarItem         | brand, channel, status, due, owner, task ref, artifact ref, cloud id                                                                          | SQLite, mirrored to cloud                   |
+| Artifact             | brand, kind (draft, image, report, screenshot, html), path, version, origin run                                                               | files + SQLite                              |
+| Prompt, PromptResult | prompt text, assistant, locale, country, answer, citations, screenshot ref, runner origin                                                     | SQLite local; mirrored to cloud when linked |
+| RunnerJob            | cloud job id, type, lease, state, result signature                                                                                            | SQLite                                      |
+| CreditLedgerEntry    | cached from cloud, read only                                                                                                                  | SQLite cache                                |
+| Campaign             | brand, goal, audience, channels, budget per channel, dates, KPIs, linked calendar items, tasks, assets, spend and results per channel, status | SQLite, mirrored to cloud                   |
 
 **Brand folder layout** (`~/AmICited/<brand>/`): `brandbook/` (Markdown and JSON synced from cloud), `prompts.json`, `calendar/` (one JSON per item), `drafts/`, `assets/`, `reports/`, `automations/*.yaml`, `scripts/` (recorded browser scripts), `.amicited/` (cache, sync state). The folder is the agent's working directory for the brand, replacing the Git checkout in T3's project model.
 
@@ -479,18 +490,18 @@ The app holds the user's most valuable logins and can act as them, so the securi
 
 **Non-functional requirements**
 
-| Area | Requirement |  |
-| --- | --- | --- |
-| Platforms | macOS 13+ (arm64, x64), Windows 10+ (x64, arm64), Linux (AppImage, .deb; Wayland for computer use). Inherited from T3's build matrix. |  |
-| Startup | Cold start to usable Home under 3 s on a 2020 laptop; server boots lazily, tools load on demand (T3's `profile:startup` script kept as a CI gate). |  |
-| Footprint | Idle under 300 MB RAM with the Agent Browser closed; Agent Browser profiles capped per brand; the \~120 MB headless Chromium download happens once, on first use, as in T3. |  |
-| Reliability | Background service survives app close and reboot; interrupted runs and jobs resume or fail cleanly, never half-post; every external post is idempotent via a client-generated key. |  |
-| Offline | Everything local works offline; cloud calls queue; the UI shows sync state. |  |
-| Localisation | UI in English first, Slovak, Czech, German next; prompt tracking and SERP tools accept any locale and country. |  |
-| Accessibility | Keyboard-first UI inherited from T3's keybindings; screen-reader labels on all approval cards. |  |
-| Observability | Local activity log, opt-in telemetry (events only), crash reports with secrets scrubbed. |  |
-| Testing | Inherited vitest, Effect test layers and drainable workers; tool packs need contract tests against recorded fixtures; site adapters have nightly live smoke tests on AmICited's own accounts. |  |
-| Licensing | MIT upstream retained with attribution; our packages under a licence to be decided (open core proposed: app MIT, cloud-linked packs proprietary). |  |
+| Area          | Requirement                                                                                                                                                                                   |     |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| Platforms     | macOS 13+ (arm64, x64), Windows 10+ (x64, arm64), Linux (AppImage, .deb; Wayland for computer use). Inherited from T3's build matrix.                                                         |     |
+| Startup       | Cold start to usable Home under 3 s on a 2020 laptop; server boots lazily, tools load on demand (T3's `profile:startup` script kept as a CI gate).                                            |     |
+| Footprint     | Idle under 300 MB RAM with the Agent Browser closed; Agent Browser profiles capped per brand; the \~120 MB headless Chromium download happens once, on first use, as in T3.                   |     |
+| Reliability   | Background service survives app close and reboot; interrupted runs and jobs resume or fail cleanly, never half-post; every external post is idempotent via a client-generated key.            |     |
+| Offline       | Everything local works offline; cloud calls queue; the UI shows sync state.                                                                                                                   |     |
+| Localisation  | UI in English first, Slovak, Czech, German next; prompt tracking and SERP tools accept any locale and country.                                                                                |     |
+| Accessibility | Keyboard-first UI inherited from T3's keybindings; screen-reader labels on all approval cards.                                                                                                |     |
+| Observability | Local activity log, opt-in telemetry (events only), crash reports with secrets scrubbed.                                                                                                      |     |
+| Testing       | Inherited vitest, Effect test layers and drainable workers; tool packs need contract tests against recorded fixtures; site adapters have nightly live smoke tests on AmICited's own accounts. |     |
+| Licensing     | MIT upstream retained with attribution; our packages under a licence to be decided (open core proposed: app MIT, cloud-linked packs proprietary).                                             |     |
 
 **Open questions**
 
@@ -506,21 +517,21 @@ The app holds the user's most valuable logins and can act as them, so the securi
 
 **Glossary**
 
-| Term | Meaning |
-| --- | --- |
-| AmICited cloud | The hosted platform at amicited.com: accounts, brandbook source of truth, prompt tracking storage, credits, job routing. |
-| Agent Browser | The Chromium instance owned by the local server that agents control and the user can watch. |
-| Brand | The unit of work in the app: one company or client with its website, brandbook, connections and team. Replaces T3's project. |
-| Brandbook | Structured brand knowledge (tone, rules, facts, visuals, audiences, competitors, channel rules) synced from the cloud and injected into every agent run. |
-| Credits | AmICited's unit for paid cloud and shared-runner jobs; earned by sharing runner capacity, bought with money. |
-| Job | A unit of work the cloud asks a runner to execute. |
-| Provider | An AI agent backend (Claude Code, Codex, Gemini, local model, API key) behind T3's adapter interface. |
-| Role | A per-brand profile that shapes a person's screens, tools, connections, agent defaults and limits. |
-| Runner | The part of the app that executes cloud jobs locally within user-set quotas. |
-| Site adapter | A maintained, over-the-air-updated browser script for one website (post to LinkedIn, query Gemini). |
-| Task | A conversation-plus-run with an agent in a brand. T3's thread. |
-| Tool | A schema-described local function available in the UI and over MCP. |
-| Workflow / automation | A triggered sequence of tools, agent steps, browser scripts and approvals, stored as YAML in the brand folder. |
+| Term                  | Meaning                                                                                                                                                  |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AmICited cloud        | The hosted platform at amicited.com: accounts, brandbook source of truth, prompt tracking storage, credits, job routing.                                 |
+| Agent Browser         | The Chromium instance owned by the local server that agents control and the user can watch.                                                              |
+| Brand                 | The unit of work in the app: one company or client with its website, brandbook, connections and team. Replaces T3's project.                             |
+| Brandbook             | Structured brand knowledge (tone, rules, facts, visuals, audiences, competitors, channel rules) synced from the cloud and injected into every agent run. |
+| Credits               | AmICited's unit for paid cloud and shared-runner jobs; earned by sharing runner capacity, bought with money.                                             |
+| Job                   | A unit of work the cloud asks a runner to execute.                                                                                                       |
+| Provider              | An AI agent backend (Claude Code, Codex, Gemini, local model, API key) behind T3's adapter interface.                                                    |
+| Role                  | A per-brand profile that shapes a person's screens, tools, connections, agent defaults and limits.                                                       |
+| Runner                | The part of the app that executes cloud jobs locally within user-set quotas.                                                                             |
+| Site adapter          | A maintained, over-the-air-updated browser script for one website (post to LinkedIn, query Gemini).                                                      |
+| Task                  | A conversation-plus-run with an agent in a brand. T3's thread.                                                                                           |
+| Tool                  | A schema-described local function available in the UI and over MCP.                                                                                      |
+| Workflow / automation | A triggered sequence of tools, agent steps, browser scripts and approvals, stored as YAML in the brand folder.                                           |
 
 **Sources**
 
