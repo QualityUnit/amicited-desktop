@@ -1084,21 +1084,29 @@ function AgentCard({
         </div>
         <p>
           {terminalOpen
-            ? "Finish signing in in your browser if asked."
+            ? provider?.installed
+              ? "Finish signing in using your browser."
+              : "Installing Claude… this takes about a minute."
             : provider?.installed
               ? "Connect your existing subscription."
               : "Installs in about a minute."}
         </p>
-        <Button disabled={terminalOpen || !terminalAvailable} onClick={() => void onOpenTerminal()}>
-          {terminalOpen && <Spinner aria-hidden="true" />}
-          {terminalOpen
-            ? provider?.installed
-              ? "Waiting for browser…"
-              : "Installing…"
-            : provider?.installed
-              ? `Sign in to ${displayName}`
-              : `Install ${displayName}`}
-        </Button>
+        <div data-am="am-assistant-action">
+          <Button
+            size="sm"
+            disabled={terminalOpen || !terminalAvailable}
+            onClick={() => void onOpenTerminal()}
+          >
+            {terminalOpen && <Spinner aria-hidden="true" />}
+            {terminalOpen
+              ? provider?.installed
+                ? "Waiting for browser…"
+                : "Installing…"
+              : provider?.installed
+                ? `Sign in to ${displayName}`
+                : `Install ${displayName}`}
+          </Button>
+        </div>
       </div>
     );
   return (

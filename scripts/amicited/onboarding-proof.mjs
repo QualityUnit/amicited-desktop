@@ -51,6 +51,19 @@ export async function assertCaptureReady(page, cdp) {
       )
         throw new Error("Composer context wraps");
     }
+    const assistantActions = [
+      ...document.querySelectorAll('[data-am="am-assistant-action"] > button:first-child'),
+    ].filter(visible);
+    if (assistantActions.length === 2) {
+      const [a, b] = assistantActions.map((button) => button.getBoundingClientRect());
+      if (
+        Math.abs(a.top - b.top) > 1 ||
+        Math.abs(a.height - b.height) > 1 ||
+        Math.abs(a.width - b.width) > 1
+      )
+        throw new Error("Assistant action buttons are misaligned");
+    }
+    if (/signing in in/.test(document.body.innerText)) throw new Error("Doubled sign-in copy");
     const setup = document.querySelector("[data-onboarding-surface]");
     if (setup) {
       if (document.querySelector('[data-sidebar="sidebar"]'))
@@ -78,6 +91,8 @@ export async function applicationPage(context) {
       .waitFor({ timeout: 120000 });
     return page;
   };
+  const existing = context.pages().find((page) => page.url().startsWith("t3code-dev:"));
+  if (existing) return application(existing);
   return Promise.any([
     ...context.pages().map(application),
     context.waitForEvent("page", { timeout: 120000 }).then(application),

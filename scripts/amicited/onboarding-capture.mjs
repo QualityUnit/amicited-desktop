@@ -1,5 +1,6 @@
 import { assertCaptureReady, applicationPage } from "./onboarding-proof.mjs";
 // Run onboarding-launch.mjs first, then DEBUG_PORT=<port> node scripts/amicited/onboarding-capture.mjs <output-dir>.
+import * as NodeChildProcess from "node:child_process";
 import * as NodeModule from "node:module";
 import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
@@ -45,17 +46,20 @@ try {
   await page.getByRole("button", { name: "Get started", exact: true }).waitFor();
   await capture("02-welcome", "Welcome; get started or skip setup.");
   await page.getByRole("button", { name: "Get started", exact: true }).click();
-  await capture("03-assistants", "Detected Claude and ChatGPT setup states.");
   if (process.env.AMICITED_TRY_INSTALL === "1") {
-    await page
-      .getByRole("article", { name: "Claude", exact: true })
-      .getByRole("button", { name: "Install Claude", exact: true })
-      .click();
-    await page.getByRole("button", { name: "Installing…", exact: true }).waitFor();
-    await capture("04-installing", "Real Claude installation started by clicking Install.");
-    throw new Error(
-      "Complete the real browser sign-in before continuing; rerun with AMICITED_TRY_INSTALL unset in a ready profile.",
+    const result = NodeChildProcess.spawnSync(
+      process.execPath,
+      ["scripts/amicited/onboarding-assistant.mjs", out],
+      {
+        cwd: root,
+        env: process.env,
+        stdio: "inherit",
+      },
     );
+    if (result.status !== 0) throw new Error("Assistant boundary capture failed");
+    index.push(NodeFS.readFileSync(NodePath.join(out, "assistant-index.md"), "utf8"));
+  } else {
+    await capture("03-assistants", "Detected Claude and ChatGPT setup states.");
   }
   const next = page.getByRole("button", { name: "Continue", exact: true });
   if (await next.isEnabled()) await next.click();
@@ -82,7 +86,29 @@ try {
   await capture("08-cloud", "Optional per-domain AmICited connection, credits and pricing.");
   await page.getByRole("button", { name: "Start chatting", exact: true }).click();
   await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
-  await capture("09-chat", "New chat in flowhunt.io.", false);
+  await capture("09-chat", "New chat in flowhunt.io.");
+  await page.getByRole("button", { name: "New domain", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "New domain", exact: true });
+  await dialog.waitFor();
+  await capture("09b-new-domain", "Sidebar New domain uses the shared form and CMS logos.");
+  await dialog
+    .getByRole("textbox", { name: "Website", exact: true })
+    .fill("https://www.flowhunt.io/docs");
+  await dialog.getByText("flowhunt.io is already added.", { exact: true }).waitFor();
+  await capture(
+    "09c-domain-already-added",
+    "Existing hostname opens its domain without creating a duplicate.",
+  );
+  await dialog.getByRole("button", { name: "Open it", exact: true }).click();
+  if (
+    (await page
+      .locator('[data-sidebar="sidebar"]')
+      .getByText("flowhunt.io", { exact: true })
+      .count()) !== 1
+  )
+    throw new Error("Expected exactly one sidebar domain");
+  if (await page.getByText("Campaign fixture", { exact: true }).count())
+    throw new Error("Journey contains stale fixture chats");
   for (const width of [860, 1100, 1344, 1710]) {
     await cdp.send("Emulation.setDeviceMetricsOverride", {
       width,
@@ -139,14 +165,13 @@ try {
     });
     await page.waitForFunction(() => window.t3dev.replayScenarios().includes("marketing"));
     await page.evaluate(() => window.t3dev.replay("marketing", "full-access"));
+    await page.getByText(/Ran website health audit.*41\/100/).waitFor({ timeout: 120000 });
     await page
-      .getByRole("article", { name: "Marketing tool result" })
-      .first()
+      .getByRole("button", { name: "Send message", exact: true })
       .waitFor({ timeout: 120000 });
     await capture(
       "10-answer-replay",
       "Controlled Replay answer; no production provider or cloud account is implied.",
-      false,
     );
   }
 } catch (error) {

@@ -623,3 +623,33 @@ it("shows welcome after a fresh environment connects without domains, setup or a
     cache.clear();
   }
 });
+
+it.each([false, true])(
+  "opens an existing hostname without creating another domain (inline: %s)",
+  async (inline) => {
+    state.emptyDomains = false;
+    state.requests.length = 0;
+    state.threadSelections.length = 0;
+    const changed = vi.fn();
+    const created = vi.fn();
+    await using screen = await render(
+      <NewDomainDialog
+        open
+        inline={inline}
+        onOpenChange={changed}
+        {...(inline ? { onCreated: created } : {})}
+      />,
+    );
+    await screen.getByLabelText("Website", { exact: true }).fill("https://www.a.example/pricing");
+    await expect.element(screen.getByText("a.example is already added.")).toBeVisible();
+    await screen.getByRole("button", { name: "Open it", exact: true }).click();
+    await vi.waitFor(() => expect(inline ? created : changed).toHaveBeenCalled());
+    expect(
+      state.requests.filter(
+        (r) => r.label === "environment-data:projects:create-new" || r.label === "domains:save",
+      ),
+    ).toEqual([]);
+    expect(state.threadSelections).toHaveLength(inline ? 0 : 1);
+    if (inline) expect(created).toHaveBeenCalledWith("a");
+  },
+);

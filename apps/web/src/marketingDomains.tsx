@@ -128,13 +128,13 @@ export function NewDomainDialog({
   inline = false,
 }: {
   inline?: boolean;
-  onCreated?: () => void;
+  onCreated?: (projectId: string) => void;
   editing?: Domain;
   destination?: EnvironmentId | null | undefined;
   open: boolean;
   onOpenChange(value: boolean): void;
 }) {
-  const { environmentId, refresh, rows: registeredDomains } = useDomains(destination);
+  const { environmentId, refresh, rows: registeredDomains, loaded } = useDomains(destination);
   const projects = useProjects();
   const environment = useEnvironment(environmentId);
   const desktopBackend =
@@ -255,6 +255,22 @@ export function NewDomainDialog({
   const canCreate = useAtomValue(projectEnvironment.createNew.permissionAtom(environmentId));
   const canSave = useAtomValue(save.permissionAtom(environmentId));
   const newThread = useNewThreadHandler();
+  let existingDomain: Domain | undefined;
+  try {
+    const hostname = normalizeDomain(website).hostname;
+    existingDomain = registeredDomains.find(
+      (row) => row.hostname === hostname && row.projectId !== editing?.projectId,
+    );
+  } catch {
+    // Incomplete website input has no matching domain yet.
+  }
+  const openExisting = async (domain: Domain) => {
+    if (!environmentId) return;
+    onOpenChange(false);
+    resetDraft();
+    if (onCreated) onCreated(domain.projectId);
+    else await newThread(scopeProjectRef(environmentId, ProjectId.make(domain.projectId)));
+  };
   const form = (
     <form
       id={inline ? "amicited-onboarding-domain" : undefined}
@@ -263,6 +279,7 @@ export function NewDomainDialog({
         event.preventDefault();
         if (
           !environmentId ||
+          !loaded ||
           busy ||
           !canCreate ||
           !canSave ||
@@ -274,6 +291,10 @@ export function NewDomainDialog({
           setBusy(true);
           setError("");
           const domain = normalizeDomain(website, brand);
+          if (existingDomain) {
+            await openExisting(existingDomain);
+            return;
+          }
           const detected =
             clone?.phase === "done" && siteFiles
               ? await inspectFolder({ environmentId, input: { path: siteFiles } })
@@ -327,7 +348,7 @@ export function NewDomainDialog({
           onOpenChange(false);
           setSavedCopies((rows) => rows.filter((r) => r.id !== projectId));
           resetDraft();
-          if (onCreated) onCreated();
+          if (onCreated) onCreated(projectId);
           else if (!editing) await newThread(scopeProjectRef(environmentId, projectId));
         })()
           .catch((error) =>
@@ -351,7 +372,22 @@ export function NewDomainDialog({
           placeholder="example.com"
         />
       </label>
-      <DomainHint website={website} />
+      {existingDomain ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          <span>{existingDomain.hostname} is already added.</span>{" "}
+          <Button
+            variant="link"
+            disabled={busy}
+            onClick={() => {
+              if (existingDomain) void openExisting(existingDomain);
+            }}
+          >
+            Open it
+          </Button>
+        </p>
+      ) : (
+        <DomainHint website={website} />
+      )}
       <label>
         Brand name (optional)
         <Input
@@ -742,12 +778,13 @@ export function DomainConnection({
     <fieldset disabled={!canConnect}>
       <AmicitedConnectPanel
         connection={connection}
+        inline={onboarding}
         connectLabel={source ? "Connect a different account" : "Connect AmICited (free)"}
         ui={{
           Button,
           Input,
           Row: SettingsRow,
-          Group: SettingsGroup,
+          ...(onboarding ? {} : { Group: SettingsGroup }),
           Disclosure: CloudDisclosure,
         }}
         onChange={setConnection}

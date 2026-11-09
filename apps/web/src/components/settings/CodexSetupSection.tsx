@@ -631,7 +631,7 @@ function ManagedCodexSetup({
     auth?.phase === "waiting" && requestedAccountEmail ? (
       `Continue as ${requestedAccountEmail} on OpenAI.`
     ) : (
-      (auth?.message ?? "Finish signing in in your browser.")
+      (auth?.message ?? "Finish signing in using your browser.")
     )
   ) : authenticated ? (
     provider?.auth.email?.trim() ? (
@@ -873,7 +873,9 @@ function ManagedCodexSetup({
             ) : authActive ? (
               marketing ? (
                 <>
-                  <Button disabled>Waiting for browser…</Button>
+                  <Button size="sm" disabled>
+                    Waiting for browser…
+                  </Button>
                   {waitingControl}
                 </>
               ) : (
@@ -1234,7 +1236,7 @@ function CodexWelcomeCard({
         <p>
           {marketingStatus === "Not installed"
             ? "Installs in about a minute."
-            : "Finish signing in in your browser."}
+            : "Finish signing in using your browser."}
         </p>
         <div data-am="am-assistant-action">
           {control}

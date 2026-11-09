@@ -150,6 +150,7 @@ function ConnectionError({
 }
 export function AmicitedConnectPanel({
   connection,
+  inline = false,
   connectLabel = "Connect with AmICited",
   actions,
   onChange,
@@ -157,6 +158,7 @@ export function AmicitedConnectPanel({
   ui: { Button, Input, Disclosure = FallbackDisclosure, Group = FallbackGroup, Row = FallbackRow },
 }: {
   connection: Connection;
+  inline?: boolean;
   connectLabel?: string;
   actions: CloudActions;
   onChange(connection: Connection): void;
@@ -259,8 +261,8 @@ export function AmicitedConnectPanel({
               </div>
             )}
             <Row
-              title="Connection · Not connected"
-              description="Your local tools always work without an account."
+              title={inline ? null : "Connection · Not connected"}
+              description={inline ? undefined : "Your local tools always work without an account."}
               control={
                 pending ? null : (
                   <Button

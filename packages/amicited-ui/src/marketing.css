@@ -518,7 +518,7 @@
   padding-left: 16px;
 }
 .am-assistant-card {
-  padding: 16px;
+  padding: 16px 16px 48px;
 }
 .am-assistant-card > section,
 .am-assistant-card > section > div:first-of-type {
@@ -530,8 +530,8 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  flex: 1;
-  min-height: 188px;
+  height: 208px;
+  flex: none;
 }
 [data-am="am-assistant-top"] {
   display: flex;
@@ -566,6 +566,8 @@
   flex: 1;
 }
 [data-am="am-assistant-action"] {
+  margin-top: auto;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -574,6 +576,9 @@
   width: 100%;
 }
 [data-am="am-assistant-action"] > button:not(:first-child) {
+  position: absolute;
+  top: 100%;
+  margin-top: 8px;
   width: auto;
   align-self: center;
 }

@@ -142,7 +142,8 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     lastDomains.set(environmentId, activeProject);
     void saveSetup({ environmentId, input: { finished, lastDomain: activeProject } });
   }, [environmentId, finished, activeProject, domains.rows]);
-  const domain = domains.rows.at(-1);
+  const [setupDomainId, setSetupDomainId] = useState<string | null>(null);
+  const domain = domains.rows.find((row) => row.projectId === setupDomainId) ?? domains.rows.at(-1);
   const finish = async () => {
     if (!environmentId) return;
     const result = await save({
@@ -217,7 +218,10 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
               open
               inline
               onOpenChange={() => {}}
-              onCreated={() => setStep("cloud")}
+              onCreated={(projectId) => {
+                setSetupDomainId(projectId);
+                setStep("cloud");
+              }}
             />
           )}
           {step === "cloud" && (
