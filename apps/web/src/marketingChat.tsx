@@ -1,3 +1,4 @@
+import { resolveEffectiveRuntimeMode } from "./components/chat/runtimeModeConfig";
 import { useDomains, NewDomainDialog, DomainConnection } from "./marketingDomains";
 import { WorkLogRow } from "./components/chat/WorkLog";
 import { ComposerPendingApprovalActions } from "./components/chat/ComposerPendingApprovalActions";
@@ -390,7 +391,22 @@ export function MarketingSignInRecovery({
   const [open, setOpen] = useState(false);
   const [resending, setResending] = useState(false);
   const [resendOnce] = useState(createMarketingResend);
-  const resend = useOrchestrationCommand(threadEnvironment.startTurn);
+  const startTurn = useOrchestrationCommand(threadEnvironment.startTurn);
+  const setRuntimeMode = useOrchestrationCommand(threadEnvironment.setRuntimeMode);
+  const resend: typeof startTurn = async (request) => {
+    if (thread && request.input.runtimeMode !== thread.runtimeMode) {
+      const result = await setRuntimeMode({
+        environmentId: request.environmentId,
+        input: {
+          threadId: request.input.threadId,
+          runtimeMode: request.input.runtimeMode,
+          createdAt: new Date().toISOString(),
+        },
+      });
+      if (result._tag === "Failure") return result;
+    }
+    return startTurn(request);
+  };
   const items = useThreadVisibleTurnItems(threadRef ?? null);
   const thread = useThreadShell(threadRef ?? null);
   const providers = useEnvironmentProviders();
@@ -450,7 +466,7 @@ export function MarketingSignInRecovery({
                     attachments: last.attachments,
                     ...(last.context ? { context: last.context } : {}),
                   },
-                  runtimeMode: thread.runtimeMode,
+                  runtimeMode: resolveEffectiveRuntimeMode(thread.runtimeMode),
                   interactionMode: thread.interactionMode,
                 },
               }).then((result) => {

@@ -172,9 +172,17 @@ export function streamChunks(text: string): ReadonlyArray<string> {
 /** Fills the live session, workspace, and per-prompt tool ids, so repeated turns add rows. */
 function materialize(
   value: unknown,
-  live: { readonly sessionId: string; readonly workspace: string; readonly turnKey: string },
+  live: {
+    readonly sessionId: string;
+    readonly workspace: string;
+    readonly turnKey: string;
+    readonly domain?: string;
+  },
 ): unknown {
-  if (typeof value === "string") return value.replaceAll("<workspace>", live.workspace);
+  if (typeof value === "string")
+    return value
+      .replaceAll("<workspace>", live.workspace)
+      .replaceAll("example.com", live.domain ?? "example.com");
   if (Array.isArray(value)) return value.map((entry) => materialize(entry, live));
   if (typeof value !== "object" || value === null) return value;
   return Object.fromEntries(
@@ -257,7 +265,14 @@ function runAgent(): void {
   ): Promise<"cancelled" | undefined> => {
     const session = sessions.get(sessionId)!;
     // Random, so a session loaded after a restart cannot reuse earlier tool rows.
-    const live = { sessionId, workspace: session.cwd, turnKey: NodeCrypto.randomUUID() };
+    const live = {
+      sessionId,
+      workspace: session.cwd,
+      turnKey: NodeCrypto.randomUUID(),
+      ...(process.env.T3CODE_DEV_REPLAY_CAPTURE === "1" && process.env.AMICITED_CAPTURE_DOMAIN
+        ? { domain: process.env.AMICITED_CAPTURE_DOMAIN }
+        : {}),
+    };
     const liveCloud = session.model === "marketing-cloud" ? cloudServers.get(sessionId) : undefined;
     if (process.argv.includes("--live-cloud") && session.model === "marketing-cloud" && !liveCloud)
       throw new Error("Live cloud capture needs T3 MCP capabilities.");
@@ -326,7 +341,14 @@ function runAgent(): void {
         }
         if (cloudClient && !signal.aborted && toolUpdate.sessionUpdate === "agent_message_chunk") {
           for (const [tool, args] of [
-            ["free_brand_visibility_start", { request: { website: "https://example.com" } }],
+            [
+              "free_brand_visibility_start",
+              {
+                request: {
+                  website: `https://${live.domain ?? "example.com"}`,
+                },
+              },
+            ],
             ["free_brand_visibility_get", { run_id: "free-brand-1" }],
             ["free_query_fanout_start", { request: { query: "brand recommendations" } }],
             ["free_query_fanout_get", { run_id: "expired-query-1" }],

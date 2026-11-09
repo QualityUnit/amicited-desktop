@@ -160,15 +160,19 @@ export function CloudFooter({
                 : "This one-time check has no daily citation history."}
             </>
           )}
+          {connection.access !== "full" && showTrial && (
+            <>
+              {" "}
+              <button
+                type="button"
+                className="cursor-pointer text-foreground underline-offset-4 hover:underline"
+                onClick={() => openCloudSubscription(environmentId, projectId)}
+              >
+                Start 7-day free trial
+              </button>
+            </>
+          )}
         </p>
-        {connection.access !== "full" && showTrial && (
-          <CloudButton
-            variant="link"
-            onClick={() => openCloudSubscription(environmentId, projectId)}
-          >
-            Start 7-day free trial
-          </CloudButton>
-        )}
       </aside>
     );
   return (

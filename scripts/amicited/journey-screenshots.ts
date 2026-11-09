@@ -12,6 +12,8 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { chromium } from "playwright-core";
 
+const captureDomain =
+  process.env.AMICITED_CAPTURE_SITE_FILES === "1" ? "flowhunt.io" : "example.com";
 const out = NodePath.resolve(process.argv[2] ?? ".amicited-shots/wave0");
 await NodeFSP.mkdir(out, { recursive: true });
 await NodeFSP.writeFile(
@@ -166,8 +168,8 @@ const fixture = NodeHttp.createServer(async (req, res) => {
                           ? JSON.stringify({
                               run_id: "free-brand-1",
                               workspace_id: "capture",
-                              website: "https://example.com",
-                              domain: "example.com",
+                              website: `https://${captureDomain}`,
+                              domain: captureDomain,
                               domain_id: "capture-domain",
                               brand_name: "Example",
                               status: rpc.params.name.endsWith("_start") ? "pending" : "success",
@@ -200,7 +202,7 @@ const fixture = NodeHttp.createServer(async (req, res) => {
                               ? JSON.stringify({
                                   run_id: "replay-site-health",
                                   workspace_id: "capture",
-                                  target: "https://example.com",
+                                  target: `https://${captureDomain}`,
                                   status: "success",
                                   report: {
                                     score: 72,
@@ -318,6 +320,7 @@ const env: NodeJS.ProcessEnv = {
   T3CODE_DEV_SEED: "0",
   T3CODE_DEV_REPLAY_CAPTURE: "1",
   T3CODE_PORT_OFFSET: "173",
+  AMICITED_CAPTURE_DOMAIN: captureDomain,
   AMICITED_CAPTURE_FULL_ACCESS: process.env.AMICITED_CAPTURE_FULL_ACCESS ?? "",
   T3CODE_DEV_AMICITED_ENDPOINT: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
 };
@@ -428,6 +431,7 @@ try {
       }
       if (name === "12-sign-in-recovery" || name === "12b-sidebar-statuses") {
         await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
+        await page.mouse.move(1000, 100);
       }
       if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
         await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
@@ -601,7 +605,7 @@ try {
           }
         ).t3dev.replay("marketing-cloud", "full-access");
       });
-      await page.getByText(/Delete prompt on example.com/).waitFor();
+      await page.getByText(/Delete prompt on (example.com|flowhunt.io)/).waitFor();
       await capture("47-site-full-access-free-check-and-destructive-confirmation");
       await NodeFSP.writeFile(
         NodePath.join(out, "47-site-cloud-transcript.txt"),
@@ -1056,7 +1060,7 @@ try {
         ).t3dev.replay("marketing-cloud", fullAccess ? "full-access" : undefined);
       }, process.env.AMICITED_CAPTURE_FULL_ACCESS === "1");
       if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
-        await page.getByText(/Delete prompt on example.com/).waitFor();
+        await page.getByText(/Delete prompt on (example.com|flowhunt.io)/).waitFor();
         await capture("47-full-access-free-check-and-destructive-confirmation");
         await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
         await page.locator('[data-chat-provider-model-picker="true"]').first().click();

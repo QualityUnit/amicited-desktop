@@ -1,3 +1,4 @@
+import { resolveEffectiveRuntimeMode } from "./chat/runtimeModeConfig";
 import { Button } from "./ui/button";
 import { useDomains } from "../marketingDomains";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
@@ -941,10 +942,11 @@ export default function ChatView(props: ChatViewProps) {
     localServerError === null && visibleThreadError === serverRuntime?.lastError;
   const defaultRuntimeMode = resolveProjectSettings(settings, activeThread?.projectId ?? null)
     .settings.defaultRuntimeMode;
-  const runtimeMode =
+  const runtimeMode = resolveEffectiveRuntimeMode(
     composerRuntimeMode ??
-    (isServerThread ? activeThread?.runtimeMode : undefined) ??
-    defaultRuntimeMode;
+      (isServerThread ? activeThread?.runtimeMode : undefined) ??
+      defaultRuntimeMode,
+  );
   const isLocalDraftThread = !isServerThread && localDraftThread !== undefined;
   const canCheckoutPullRequestIntoThread = canWriteSourceControl && isLocalDraftThread;
   const activeThreadId = activeThread?.id ?? null;

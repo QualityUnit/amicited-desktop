@@ -534,7 +534,7 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/threadActionMenu.logic.ts` and `hooks/useThreadActionMenu.ts`: linked threads offer Open pull request in both the sidebar and header menus.
 
 - `apps/web/src/components/{Sidebar,AppSidebarLayout}.browser.test.tsx` and `components/ui/sidebar.browser.test.tsx`: cover marketer lifecycle menus and shelves, drag limits and saved width after remount.
-- `apps/web/test/fakeEnvironment.ts`: optional shell metadata on test threads supports full-app PR and location fixtures without external calls.
+- `apps/web/test/fakeEnvironment.ts`: optional shell metadata and socket snapshot refresh support full-app PR, location and recovery fixtures without external calls.
 
 - `apps/web/src/components/chat/{ComposerFooterControls,ComposerModelEffort}.tsx` and `runtimeModeConfig.ts`: marketer composer and model picker expose upstream permissions with the Ask before acting label.
 - `apps/web/src/contextMenuFallback.ts`: supports the shared external-link menu icon.
@@ -546,4 +546,9 @@ Wave 39 site-file corrections:
 - `apps/server/src/mcp/toolkits/marketing/handlers.test.ts`: covers both access modes and read-only clients.
 - `apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts`: confirms app MCP tools are pre-allowed in both access modes.
 
-- `apps/web/src/components/chat/useComposerSend.ts`: normalizes saved marketer auto modes before persisting thread settings and dispatching turns; developer policies remain unchanged.
+- `apps/web/src/components/chat/useComposerSend.ts`: uses the shared effective composer mode before persisting thread settings and dispatching turns; developer policies remain unchanged.
+
+- `apps/web/src/components/ChatView.tsx`: normalizes saved marketer access at the shared composer boundary for sends, continuations and queued work.
+- `apps/web/src/components/chat/useComposerResume.ts`: persists next-turn settings before releasing a held queue, including queue-only resumes.
+- `apps/web/src/marketingChat.tsx`: normalizes and saves the access mode before retrying a sign-in failure.
+- `apps/server/scripts/dev-replay-agent.ts`: capture-only domain substitution keeps recorded tool rows consistent with the site-folder fixture.

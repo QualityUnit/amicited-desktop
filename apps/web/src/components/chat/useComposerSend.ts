@@ -1,4 +1,3 @@
-import { resolveEffectiveRuntimeMode } from "./runtimeModeConfig";
 import { readDomain } from "../../marketingDomains";
 import {
   readMarketingReport,
@@ -372,7 +371,7 @@ export function useComposerSend(input: ComposerSendInput) {
     (store) => store.setEnvironmentContexts,
   );
   const clearComposerDraftContent = useComposerDraftStore((store) => store.clearComposerContent);
-  const runtimeMode = resolveEffectiveRuntimeMode(configuredRuntimeMode);
+  const runtimeMode = configuredRuntimeMode;
   const sendToMultipleModels = useMultipleModelSend({
     environmentId,
     routeThreadKey,

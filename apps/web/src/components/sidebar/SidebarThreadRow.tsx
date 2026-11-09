@@ -1219,7 +1219,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     </div>
   );
   const titleLineIcons =
-    metaLineEmpty && !(marketer && topStatus) ? (
+    metaLineEmpty && !marketer ? (
       <span aria-hidden className="inline-flex shrink-0 items-center gap-1">
         {remoteMachineIcon}
         <SidebarProviderStack
@@ -1312,7 +1312,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                 >
                   <span
                     className={cn(
-                      "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
+                      "pointer-events-none inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
                       !isWoke && "group-any-hover/sidebar-row:opacity-0",
                       marketer && "group-focus-within/sidebar-row:opacity-0",
                       marketer && props.isActive && "opacity-0",
@@ -1353,7 +1353,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         {topStatus.label}
                       </span>
                     ) : (
-                      <span className="text-xs">
+                      <span className="pointer-events-none text-xs">
                         <RelativeTimeLabel
                           timestamp={
                             variantAction === "unsettle"
@@ -1375,7 +1375,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
                       }}
                       className={cn(
-                        "absolute inset-y-0 right-0 z-10 inline-flex items-center text-muted-foreground opacity-0 pointer-events-auto group-any-hover/sidebar-row:opacity-100 group-any-hover/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto",
+                        "absolute inset-y-0 right-0 z-10 inline-flex items-center text-muted-foreground opacity-0 pointer-events-none group-any-hover/sidebar-row:opacity-100 group-any-hover/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto",
                         props.isActive && "opacity-100 pointer-events-auto",
                       )}
                     >
