@@ -24,6 +24,7 @@ import {
   type FakeDriver,
 } from "../../test/fakeEnvironment";
 import { render } from "../../test/render";
+import { threadEnvironment } from "~/state/threads";
 
 // The socket is the only fake layer; see test/appScenarios.renders.tsx.
 vi.mock("../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
@@ -228,6 +229,7 @@ it.each([
           },
         ];
     }
+    using startTurn = vi.spyOn(threadEnvironment.startTurn, "run");
     const onCommand = vi.fn<(command: OrchestrationV2Command) => void>();
     using _environment = installFakeEnvironment([fixture], onCommand);
     __setClientSettingsForTests({
@@ -256,6 +258,11 @@ it.each([
     await vi.waitFor(() =>
       expect(onCommand).toHaveBeenCalledWith(expect.objectContaining({ type: commandType })),
     );
+    if (commandType === "message.dispatch")
+      expect(startTurn).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ input: expect.objectContaining({ runtimeMode: effective }) }),
+      );
     const policies = onCommand.mock.calls
       .map(([command]) => command)
       .filter((command) => command.type === "thread.runtime-mode.set");

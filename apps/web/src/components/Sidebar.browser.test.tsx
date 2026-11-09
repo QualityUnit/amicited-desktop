@@ -115,6 +115,7 @@ describe("sidebar header new thread", () => {
 it.each([
   "PR",
   "lifecycle",
+  "woke",
   "tool-failure",
   "auth-failure",
   "working",
@@ -239,6 +240,19 @@ it.each([
       row!.querySelector("[dir]")!.getBoundingClientRect().bottom,
     );
   };
+  if (scenario === "woke") {
+    await change({ snoozedUntil: "2000-01-01T00:00:00Z" });
+    const location = screen.router!.state.location.href;
+    await expect
+      .element(screen.getByRole("button", { name: "Dismiss Woke notification" }))
+      .toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss Woke notification" }));
+    await expect
+      .element(screen.getByRole("button", { name: "Dismiss Woke notification" }))
+      .not.toBeInTheDocument();
+    expect(screen.router!.state.location.href).toBe(location);
+    return;
+  }
   if (scenario === "active-approval") {
     await expectPersistentStatus("Needs your OK");
     return;

@@ -393,6 +393,7 @@ export function MarketingSignInRecovery({
   const [resendOnce] = useState(createMarketingResend);
   const startTurn = useOrchestrationCommand(threadEnvironment.startTurn);
   const setRuntimeMode = useOrchestrationCommand(threadEnvironment.setRuntimeMode);
+  const thread = useThreadShell(threadRef ?? null);
   const resend: typeof startTurn = async (request) => {
     if (thread && request.input.runtimeMode !== thread.runtimeMode) {
       const result = await setRuntimeMode({
@@ -408,7 +409,6 @@ export function MarketingSignInRecovery({
     return startTurn(request);
   };
   const items = useThreadVisibleTurnItems(threadRef ?? null);
-  const thread = useThreadShell(threadRef ?? null);
   const providers = useEnvironmentProviders();
   const activeDriver = threadRef
     ? providers

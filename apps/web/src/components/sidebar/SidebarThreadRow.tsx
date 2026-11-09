@@ -1313,7 +1313,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   <span
                     className={cn(
                       "inline-flex justify-end tabular-nums text-secondary-label transition-opacity",
-                      marketer && "pointer-events-none",
                       !isWoke && "group-any-hover/sidebar-row:opacity-0",
                       marketer && "group-focus-within/sidebar-row:opacity-0",
                       marketer && props.isActive && "opacity-0",

@@ -364,6 +364,7 @@ const ready = new Promise<{ url: string; pairing: string }>((resolveReady, rejec
   });
 });
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let ownedSite: string | undefined;
 try {
   const { url, pairing } = await ready;
   browser = await chromium.launch({ headless: true });
@@ -395,12 +396,15 @@ try {
     await action.click();
   };
   const capture = async (name: string) => {
+    const only = process.env.AMICITED_CAPTURE_ONLY?.split(",");
+    if (only && !only.some((prefix) => name.startsWith(prefix))) return;
     const intendedRoute = page.url();
     for (const [theme, width, height] of [
       ["light", 1344, 1016],
       ["dark", 1344, 1016],
       ["light", 1440, 900],
     ] as const) {
+      if (only && width !== 1344) continue;
       console.log(`Capturing ${name} ${theme} ${width}`);
       await page.setViewportSize({ width, height });
       await page.evaluate(
@@ -462,9 +466,11 @@ try {
     const fixtureRoot = await NodeFSP.mkdtemp(
       NodePath.join(NodeOS.tmpdir(), "amicited-site-capture-"),
     );
-    const site = NodePath.join(fixtureRoot, "site");
+    const site = NodePath.join(NodeOS.homedir(), "Sites", "flowhunt.io");
     const bare = NodePath.join(fixtureRoot, "site.git");
+    await NodeFSP.mkdir(NodePath.dirname(site), { recursive: true });
     await NodeFSP.mkdir(site);
+    ownedSite = site;
     await NodeFSP.writeFile(
       NodePath.join(site, "package.json"),
       JSON.stringify({ dependencies: { next: "16" } }),
@@ -1617,6 +1623,7 @@ try {
   }
   throw error;
 } finally {
+  if (ownedSite) await NodeFSP.rm(ownedSite, { recursive: true, force: true });
   fixture.closeAllConnections();
   await new Promise<void>((resolve) => fixture.close(() => resolve()));
   await browser?.close();

@@ -165,7 +165,7 @@ export function CloudFooter({
               {" "}
               <button
                 type="button"
-                className="cursor-pointer text-foreground underline-offset-4 hover:underline"
+                className="cursor-pointer text-foreground underline decoration-muted-foreground/50 underline-offset-4"
                 onClick={() => openCloudSubscription(environmentId, projectId)}
               >
                 Start 7-day free trial
