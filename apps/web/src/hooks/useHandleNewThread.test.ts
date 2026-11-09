@@ -336,37 +336,43 @@ describe("useNewThreadHandler", () => {
     expect(testState.draftStore.setPrompt).not.toHaveBeenCalled();
   });
 
-  it("seeds the prompt into the empty draft that is already open", async () => {
-    testState.reset(null);
-    testState.openEmptyDraft("draft-open");
-    const setItem = vi.fn();
-    vi.stubGlobal("sessionStorage", { setItem });
+  it.each([true, false])(
+    "seeds the model with an optional prompt into the open empty draft (%s)",
+    async (withPrompt) => {
+      testState.reset(null);
+      testState.openEmptyDraft("draft-open");
+      const setItem = vi.fn();
+      vi.stubGlobal("sessionStorage", { setItem });
 
-    try {
-      const opened = await useNewThreadHandler()(
-        { environmentId: "environment-ssh", projectId: "project-remote" } as never,
-        {
-          prompt: "Read the playbook. ",
-          sendImmediately: true,
-          modelSelection: { instanceId: "claudeAgent", model: "claude-sonnet-4-6" } as never,
-        },
-      );
+      try {
+        const opened = await useNewThreadHandler()(
+          { environmentId: "environment-ssh", projectId: "project-remote" } as never,
+          {
+            ...(withPrompt ? { prompt: "Read the playbook. " } : {}),
+            sendImmediately: true,
+            modelSelection: { instanceId: "claudeAgent", model: "claude-sonnet-4-6" } as never,
+          },
+        );
 
-      expect(testState.draftStore.setModelSelection).toHaveBeenCalledWith(
-        "draft-open",
-        { instanceId: "claudeAgent", model: "claude-sonnet-4-6" },
-        { replaceOptions: true, explicit: true },
-      );
-      expect(setItem).toHaveBeenCalledWith("amicited.send.draft-open", "true");
-      expect(opened?.draftId).toBe("draft-open");
-      expect(testState.draftStore.setPrompt).toHaveBeenCalledWith(
-        "draft-open",
-        "Read the playbook. ",
-      );
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+        expect(testState.draftStore.setModelSelection).toHaveBeenCalledWith(
+          "draft-open",
+          { instanceId: "claudeAgent", model: "claude-sonnet-4-6" },
+          { replaceOptions: true, explicit: true },
+        );
+        if (withPrompt) expect(setItem).toHaveBeenCalledWith("amicited.send.draft-open", "true");
+        else expect(setItem).not.toHaveBeenCalled();
+        expect(opened?.draftId).toBe("draft-open");
+        if (withPrompt)
+          expect(testState.draftStore.setPrompt).toHaveBeenCalledWith(
+            "draft-open",
+            "Read the playbook. ",
+          );
+        else expect(testState.draftStore.setPrompt).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   it("opens the draft without waiting on a project file from an offline machine", async () => {
     testState.reset(null, { envMode: null, startFromOrigin: false });

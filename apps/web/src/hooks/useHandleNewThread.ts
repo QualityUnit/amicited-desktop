@@ -128,13 +128,13 @@ export function createNewThreadHandler(router: AnyRouter) {
     } = useComposerDraftStore.getState();
     // Never over text the user wrote: a draft can gain some while this awaits.
     const seedPrompt = (draftId: DraftId) => {
-      if (options?.prompt === undefined) return;
       if (composerDraftHasUserContent(getComposerDraft(draftId))) return;
-      if (options.modelSelection)
+      if (options?.modelSelection)
         setModelSelection(draftId, options.modelSelection, {
           replaceOptions: true,
           explicit: true,
         });
+      if (options?.prompt === undefined) return;
       setPrompt(draftId, options.prompt);
       try {
         if (options.sendImmediately) sessionStorage.setItem("amicited.send." + draftId, "true");
