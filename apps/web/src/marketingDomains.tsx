@@ -1244,6 +1244,7 @@ export function DomainFolderHeader({
       {...props}
       group={{ ...props.group, displayName: domain.hostname }}
       newThreadLabel="New chat"
+      keepChevron
       actions={<DomainProjectActions domain={domain} destination={destination} />}
       status={
         <span className="flex shrink-0 items-center gap-1 text-xs text-sidebar-muted-foreground">

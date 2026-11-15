@@ -17,6 +17,7 @@ it.each(
 )(
   "keeps domain names readable and visible icons apart from actions ($displayName, $width px)",
   async ({ displayName, width }) => {
+    const onToggle = vi.fn();
     const group: SidebarProjectSnapshot = {
       id: ProjectId.make("domain"),
       environmentId: EnvironmentId.make("local"),
@@ -46,10 +47,11 @@ it.each(
             group={group}
             collapsed={false}
             hiddenThreads={[]}
-            onToggle={vi.fn()}
+            onToggle={onToggle}
             onNewThread={vi.fn()}
             onContextMenu={vi.fn()}
             newThreadLabel="New chat"
+            keepChevron
             actions={
               <button type="button" aria-label="Domain actions">
                 <MoreHorizontal className="size-4" />
@@ -68,6 +70,8 @@ it.each(
     );
     const action = screen.getByRole("button", { name: `New chat in ${displayName}` });
     const row = screen.getByTestId("sidebar-project-folder");
+    const chevron = () =>
+      screen.container.querySelector("button[aria-expanded] > svg:last-of-type")!;
     const verify = () => {
       const icons = [
         ...screen.container.querySelectorAll(
@@ -82,6 +86,7 @@ it.each(
       );
       const boxes = [
         ...icons,
+        chevron(),
         ...(getComputedStyle(action.element().parentElement!).opacity === "0"
           ? []
           : [action.element()]),
@@ -102,6 +107,11 @@ it.each(
     verify();
     await row.hover();
     verify();
+    expect(action.element().parentElement!.getBoundingClientRect().right).toBeLessThanOrEqual(
+      chevron().getBoundingClientRect().left,
+    );
+    await userEvent.click(chevron().closest("button")!);
+    expect(onToggle).toHaveBeenCalledTimes(1);
     await userEvent.unhover(row);
     action.element().focus();
     await expect.element(action).toHaveFocus();

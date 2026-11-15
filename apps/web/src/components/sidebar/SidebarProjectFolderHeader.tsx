@@ -40,6 +40,8 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
   status?: ReactNode;
   actions?: ReactNode;
   newThreadLabel?: string;
+  /** Leaves the chevron uncovered on hover so collapsing stays one click away. */
+  keepChevron?: boolean;
   collapsed: boolean;
   hiddenThreads: readonly EnvironmentThreadShell[];
   onToggle: (group: SidebarProjectSnapshot) => void;
@@ -115,7 +117,8 @@ export const SidebarProjectFolderHeader = memo(function SidebarProjectFolderHead
       </button>
       <span
         className={cn(
-          "absolute inset-y-0 right-1 flex items-center gap-1 rounded-(--control-radius) bg-sidebar-row-hover opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 group-focus-within/project-folder:opacity-100 pointer-coarse:opacity-100",
+          "absolute inset-y-0 flex items-center gap-1 rounded-(--control-radius) bg-sidebar-row-hover opacity-0 focus-within:opacity-100 group-hover/project-folder:opacity-100 group-focus-within/project-folder:opacity-100 pointer-coarse:opacity-100",
+          props.keepChevron ? "right-7" : "right-1",
         )}
       >
         {props.actions}

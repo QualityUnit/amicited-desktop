@@ -584,3 +584,4 @@ shares the same domain editor across setup, New domain and Edit domain.
 - `apps/web/test/fakeEnvironment.ts`: provides completed setup state so full-app marketer fixtures reach the chat.
 - `apps/web/src/components/settings/ProjectDefaultsSettings.tsx`: optional `showWorkspace` lets the marketer Edit domain dialog reuse the project model defaults without the Local/New worktree row for domains with no site folder.
 - `apps/web/src/components/Sidebar.tsx`: in marketer mode each domain folder and its chats render inside one panel `li` so membership is visible.
+- `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: optional `keepChevron` stops the hover actions from covering the collapse chevron; marketer domain headers set it.
