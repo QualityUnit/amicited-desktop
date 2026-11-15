@@ -1,3 +1,5 @@
+import { useWorkspaceMode } from "@amicited/ui-marketing";
+import { effectiveMarketingAssistant } from "../../marketingAssistant";
 import {
   DEFAULT_SERVER_SETTINGS,
   type ModelSelection,
@@ -61,6 +63,7 @@ export function ProjectDefaultsSettings({
 }) {
   const { scope, target, targets, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
+  const marketer = useWorkspaceMode() === "marketer";
   const clientSettings = useClientSettings();
   const updateSettings = useUpdateScopedSettings();
   const navigate = useNavigate();
@@ -73,8 +76,18 @@ export function ProjectDefaultsSettings({
     (representative?.serverConfig
       ? providersByEnvironment.get(representative.environmentId)
       : undefined) ?? EMPTY_SERVER_PROVIDERS;
-  const storedSelection =
-    settings.defaultModelSelection === null
+  const storedSelection = marketer
+    ? effectiveMarketingAssistant(
+        {
+          ...settings,
+          defaultModelSelection:
+            settings.defaultModelSelection ??
+            representative?.serverConfig?.settings.defaultModelSelection ??
+            null,
+        },
+        providers,
+      )
+    : settings.defaultModelSelection === null
       ? resolveProjectDefaultProviderModelSelection(providers, settings, target?.projectId ?? null)
       : resolveDefaultProviderModelSelection(providers, settings.defaultModelSelection);
   const selection = storedSelection
@@ -141,13 +154,15 @@ export function ProjectDefaultsSettings({
       settingKeys={["defaultModelSelection"]}
       mixed={mixedModel}
       id="default-model"
-      title="Model"
+      title={marketer && isProjectScope ? "Default model for this domain" : "Model"}
       description={
-        isProjectScope
-          ? "Model for new threads in this project."
-          : !unavailable && modelSource !== "project" && automaticModel
-            ? "Default model for new threads, selected automatically. Projects can override it."
-            : "Default model for new threads. Projects can override it."
+        marketer && isProjectScope
+          ? "Used for new chats in this domain. Reset to use your default assistant."
+          : isProjectScope
+            ? "Model for new threads in this project."
+            : !unavailable && modelSource !== "project" && automaticModel
+              ? "Default model for new threads, selected automatically. Projects can override it."
+              : "Default model for new threads. Projects can override it."
       }
       status={
         mixedModel

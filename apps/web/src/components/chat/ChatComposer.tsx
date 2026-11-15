@@ -3651,6 +3651,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 onConnected={setMarketingPendingSend}
                 onSelected={(selection) => {
                   onProviderModelSelect(selection.instanceId, selection.model);
+                  useComposerDraftStore
+                    .getState()
+                    .setModelSelection(composerDraftTarget, selection, {
+                      replaceOptions: true,
+                      explicit: true,
+                    });
                 }}
               />
               {routeKind === "draft" ? (

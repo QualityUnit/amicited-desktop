@@ -104,6 +104,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   onInstanceModelChange: (instanceId: ProviderInstanceId, model: string) => void;
   /** Shown after the model name inside the same trigger, such as the effort level. */
   triggerSuffix?: ReactNode;
+  showTriggerSuffix?: boolean;
   /** Names the suffix for the tooltip and screen readers. */
   triggerDetail?: string | null;
   /** Composer shortcuts this trigger answers besides the picker's own. */
@@ -407,7 +408,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
               <TooltipPopup side="top">{triggerTooltipContent}</TooltipPopup>
             </Tooltip>
           )}
-          {!marketer && props.triggerSuffix}
+          {(!marketer || props.showTriggerSuffix) && props.triggerSuffix}
           {selectedModel?.isUnavailable && !selectedEntries && props.triggerLabel === undefined ? (
             <Badge variant="outline" size="sm">
               Unavailable

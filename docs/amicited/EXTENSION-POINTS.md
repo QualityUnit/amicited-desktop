@@ -585,3 +585,7 @@ shares the same domain editor across setup, New domain and Edit domain.
 - `apps/web/src/components/settings/ProjectDefaultsSettings.tsx`: optional `showWorkspace` lets the marketer Edit domain dialog reuse the project model defaults without the Local/New worktree row for domains with no site folder.
 - `apps/web/src/components/Sidebar.tsx`: in marketer mode each domain folder and its chats render inside one panel `li` so membership is visible.
 - `apps/web/src/components/sidebar/SidebarProjectFolderHeader.tsx`: optional `keepChevron` stops the hover actions from covering the collapse chevron; marketer domain headers set it.
+
+- `apps/web/src/hooks/useHandleNewThread.ts`: marketer new chats resolve domain, environment and recommended assistant defaults before carry-over.
+- `apps/web/src/components/chat/ProviderModelPicker.tsx`: optional effort suffix for the marketer assistant setup preview.
+- `apps/web/src/components/settings/ProjectDefaultsSettings.tsx`: marketer domain model wording and recommended automatic defaults.
