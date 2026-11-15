@@ -1246,6 +1246,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
             multiline &&
             "[contain-intrinsic-size:auto_--spacing(13.5)]",
           sortable?.isDragging && "relative z-20",
+          // Guide line from the domain icon down through its chats.
+          marketer &&
+            inFolder &&
+            "relative before:pointer-events-none before:absolute before:-bottom-px before:left-[18px] before:top-0 before:w-px before:bg-border",
         )}
       >
         <Tooltip disabled={sortable?.isDragging}>
