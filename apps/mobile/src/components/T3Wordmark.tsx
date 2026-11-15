@@ -1,3 +1,4 @@
+import { PRODUCT_SHORT_NAME } from "@amicited/identity";
 import type { ColorValue } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { withUniwind } from "uniwind";
@@ -12,7 +13,7 @@ export function T3Wordmark(props: {
   const aspectRatio = 25.2 / 20;
   return (
     <Svg
-      accessibilityLabel="AmICited"
+      accessibilityLabel={PRODUCT_SHORT_NAME}
       height={props.height}
       width={props.height * aspectRatio}
       viewBox="5 6 25.2 20"
