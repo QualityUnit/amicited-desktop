@@ -28,7 +28,12 @@ import { createModelSelection } from "@t3tools/shared/model";
 import { resolvePastedPath } from "@t3tools/shared/path";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
-import { APP_VERSION, HOSTED_APP_CHANNEL, HOSTED_APP_CHANNEL_LABEL } from "../../branding";
+import {
+  APP_BASE_NAME,
+  APP_VERSION,
+  HOSTED_APP_CHANNEL,
+  HOSTED_APP_CHANNEL_LABEL,
+} from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
@@ -1931,6 +1936,7 @@ export function MaintenanceSettingsPanel() {
   const environmentId = environment?.environmentId ?? null;
   const isEnvironmentScope = scope.environmentIds.length === 1 && environmentId !== null;
   const hasServerTargets = connectedEnvironments.length > 0;
+  const telemetryOff = managedTelemetryOffMessage(usePrimaryManagedPolicy());
 
   return (
     <SettingsPageContainer>
@@ -2007,6 +2013,40 @@ export function MaintenanceSettingsPanel() {
         <BackgroundActivitySettingsRow />
       </SettingsSection>
 
+      <SettingsSection id="privacy" title="Privacy">
+        <SettingsRow
+          {...searchableSetting("usage-analytics")}
+          serverScoped
+          settingKeys={["usageAnalyticsEnabled"]}
+          description={`Send anonymous usage data, such as which features and providers you use, to help improve ${APP_BASE_NAME}. Never includes your messages, files, or prompts.`}
+          status={telemetryOff}
+          resetAction={
+            telemetryOff === undefined &&
+            settings.usageAnalyticsEnabled !== DEFAULT_UNIFIED_SETTINGS.usageAnalyticsEnabled ? (
+              <SettingResetButton
+                label="usage analytics"
+                onClick={() =>
+                  updateSettings({
+                    usageAnalyticsEnabled: DEFAULT_UNIFIED_SETTINGS.usageAnalyticsEnabled,
+                  })
+                }
+              />
+            ) : null
+          }
+          control={
+            <ScopedSwitch
+              settingKeys={["usageAnalyticsEnabled"]}
+              checked={telemetryOff === undefined && settings.usageAnalyticsEnabled}
+              disabled={telemetryOff !== undefined}
+              onCheckedChange={(checked) =>
+                updateSettings({ usageAnalyticsEnabled: Boolean(checked) })
+              }
+              aria-label="Send usage analytics"
+            />
+          }
+        />
+      </SettingsSection>
+
       <StorageCleanupSections />
 
       <SettingsSection id="diagnostics-section" title="Diagnostics">
@@ -2078,7 +2118,7 @@ export function AboutSettingsPanel() {
           {...searchableSetting("privacy-policy")}
           description={
             telemetryOff === undefined
-              ? "How we handle your data, including the anonymous usage data T3 Code collects."
+              ? `How we handle your data, including the anonymous usage data ${APP_BASE_NAME} collects.`
               : `How we handle your data. ${telemetryOff}`
           }
           control={
