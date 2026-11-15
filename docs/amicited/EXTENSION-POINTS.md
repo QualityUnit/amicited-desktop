@@ -625,3 +625,11 @@ new, and check the two files above kept their labels.
 - Disabled for good, because they operate T3's own accounts and community:
   `deploy-relay.yml`, `relay-preview.yml`, `relay-preview-cleanup.yml`,
   `mobile-android-apk.yml`, `pr-vouch.yml`.
+
+## Backported from upstream
+
+These lines are identical to upstream `main`, applied early because CI needed them. The
+weekly merge carries the same text, so drop each entry once it arrives.
+
+- `apps/server/src/vcs/GitVcsDriverCore.ts`, `apps/server/src/storageCleanup.ts`: `isNonRepositoryGitStderr` also accepts Git 2.56's "gitfile does not point to a valid repository" wording.
+- `pnpm-workspace.yaml` and the matching `pnpm-lock.yaml` overrides entry: `unenv` is pinned to the exact `2.0.0-rc.24` that `@cloudflare/unenv-preset` peers on.
