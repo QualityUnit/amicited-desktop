@@ -207,9 +207,16 @@ it("installs without masking .profile and configures CI through bash", async () 
       "EXISTING_PROFILE=preserved",
     );
     const githubEnv = NodePath.join(home, "github-env");
+    const workspace = NodePath.join(home, "workspace");
+    await NodeFSP.mkdir(workspace);
+    await NodeFSP.writeFile(
+      NodePath.join(workspace, ".task-cache.json"),
+      JSON.stringify({ endpoint: `http://127.0.0.1:${address.port}/projects/test` }),
+    );
     await run([process.execPath, NodePath.join(import.meta.dirname, "../scripts/install-ci.ts")], {
       T3_TASK_CACHE_READ_TOKEN: "read-only-fixture-token-01234567890123456789",
-      GITHUB_REPOSITORY: "pingdotgg/t3code",
+      GITHUB_REPOSITORY: "QualityUnit/amicited-desktop",
+      GITHUB_WORKSPACE: workspace,
       GITHUB_ACTIONS: "true",
       GITHUB_ENV: githubEnv,
       RUNNER_TEMP: home,

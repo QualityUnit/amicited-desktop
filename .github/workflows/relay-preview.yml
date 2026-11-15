@@ -19,7 +19,12 @@ concurrency:
 jobs:
   deploy_preview:
     name: Deploy relay preview
+    # TODO(amicited-infra): there is no AmICited relay yet. Off unless a
+    # maintainer sets AMICITED_RELAY_ENABLED to `true` after provisioning our
+    # Cloudflare, PlanetScale, Axiom and Clerk accounts.
     if: >-
+      github.repository == 'QualityUnit/amicited-desktop' &&
+      vars.AMICITED_RELAY_ENABLED == 'true' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'relay:preview')
     runs-on: blacksmith-8vcpu-ubuntu-2404
@@ -79,5 +84,3 @@ jobs:
           PLANETSCALE_API_TOKEN: ${{ secrets.PLANETSCALE_API_TOKEN }}
           AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
-          # Unset by default, so previews keep the T3 Chat link off.
-          T3CHAT_LINK_SECRET: ${{ secrets.T3CHAT_LINK_SECRET }}

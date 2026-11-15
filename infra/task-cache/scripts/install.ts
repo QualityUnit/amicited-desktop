@@ -65,9 +65,16 @@ if (process.argv.includes("--uninstall")) {
   process.exit(0);
 }
 
-const { endpoint: defaultEndpoint } = JSON.parse(
-  await NodeFSP.readFile(NodePath.join(root, ".task-cache.json"), "utf8"),
-);
+// TODO(amicited-infra): no default endpoint until we deploy our own cache, see
+// https://github.com/QualityUnit/amicited-desktop/blob/main/infra/task-cache/README.md
+let defaultEndpoint: string | undefined;
+try {
+  ({ endpoint: defaultEndpoint } = JSON.parse(
+    await NodeFSP.readFile(NodePath.join(root, ".task-cache.json"), "utf8"),
+  ));
+} catch (error) {
+  if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+}
 let credentials: Record<string, { name: string; token: string }> = {};
 try {
   credentials = JSON.parse(
@@ -85,13 +92,15 @@ const prompt = NodeReadlinePromises.createInterface({
   output: process.stdout,
 });
 let endpoint = process.env.T3_CACHE_SETUP_URL || defaultEndpoint;
-let name = process.env.T3_CACHE_SETUP_NAME || credentials[endpoint]?.name;
-let token = process.env.T3_CACHE_SETUP_TOKEN || credentials[endpoint]?.token;
+let name = process.env.T3_CACHE_SETUP_NAME || (endpoint ? credentials[endpoint]?.name : undefined);
+let token =
+  process.env.T3_CACHE_SETUP_TOKEN || (endpoint ? credentials[endpoint]?.token : undefined);
 const initialEndpoint = endpoint;
 const initialName = name;
 try {
   if (!nonInteractive) {
-    endpoint = (await prompt.question(`Cache URL [${endpoint}]: `)).trim() || endpoint;
+    endpoint =
+      (await prompt.question(`Cache URL${endpoint ? ` [${endpoint}]` : ""}: `)).trim() || endpoint;
     name = (await prompt.question(`Developer name${name ? ` [${name}]` : ""}: `)).trim() || name;
     prompt.close();
     if (process.stdin.isTTY || !token || endpoint !== initialEndpoint || name !== initialName) {
@@ -135,6 +144,7 @@ try {
 } finally {
   prompt.close();
 }
+if (!endpoint) throw new Error("A task cache URL is required; set T3_CACHE_SETUP_URL.");
 if (!name || !token || !/^[a-z0-9-]{1,64}$/.test(name) || token.length < 32)
   throw new Error("A valid developer name and credential token are required.");
 const url = new URL(endpoint);

@@ -23,7 +23,12 @@ permissions:
 jobs:
   cleanup_pr:
     name: Tear down relay preview
+    # TODO(amicited-infra): there is no AmICited relay yet. Off unless a
+    # maintainer sets AMICITED_RELAY_ENABLED to `true` after provisioning our
+    # Cloudflare, PlanetScale, Axiom and Clerk accounts.
     if: >-
+      github.repository == 'QualityUnit/amicited-desktop' &&
+      vars.AMICITED_RELAY_ENABLED == 'true' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'pull_request_target' &&
       (
@@ -100,7 +105,7 @@ jobs:
 
   list_closed_previews:
     name: List closed relay previews
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request_target'
+    if: github.repository == 'QualityUnit/amicited-desktop' && vars.AMICITED_RELAY_ENABLED == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request_target'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 10
     outputs:

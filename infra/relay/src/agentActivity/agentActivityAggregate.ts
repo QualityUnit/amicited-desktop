@@ -2,6 +2,7 @@ import type {
   RelayAgentActivityAggregateState,
   RelayAgentActivityState,
 } from "@t3tools/contracts/relay";
+import { PRODUCT_NAME } from "@amicited/identity";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import {
@@ -47,7 +48,7 @@ function aggregateRowForState(state: RelayAgentActivityState) {
 
 function terminalAggregateState(state: RelayAgentActivityState): RelayAgentActivityAggregateState {
   return sanitizeAgentActivityAggregateState({
-    title: "T3 Code",
+    title: PRODUCT_NAME,
     subtitle: state.phase === "failed" ? "Agent work failed" : "Agent work completed",
     activeCount: 0,
     updatedAt: state.updatedAt,
@@ -92,7 +93,7 @@ export function makeAggregateState(input: {
       return null;
     }
     return sanitizeAgentActivityAggregateState({
-      title: "T3 Code",
+      title: PRODUCT_NAME,
       subtitle: newest.phase === "failed" ? "Agent work failed" : "Agent work completed",
       activeCount: 0,
       updatedAt: newest.updatedAt,
@@ -112,7 +113,7 @@ export function makeAggregateState(input: {
     state.updatedAt.localeCompare(latest.updatedAt) > 0 ? state : latest,
   ).updatedAt;
   return sanitizeAgentActivityAggregateState({
-    title: "T3 Code",
+    title: PRODUCT_NAME,
     subtitle: "Agent work in progress",
     activeCount: activeStates.length,
     updatedAt,

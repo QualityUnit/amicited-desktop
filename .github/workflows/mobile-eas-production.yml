@@ -75,7 +75,9 @@ concurrency:
 jobs:
   production:
     name: EAS ${{ inputs.profile || 'production' }} ${{ github.event_name == 'push' && 'auto' || inputs.mode }}
-    if: github.repository == 'pingdotgg/t3code'
+    # TODO(amicited-infra): needs our own Expo (EAS) project, Apple team and
+    # Play listing. Off unless a maintainer sets AMICITED_MOBILE_ENABLED to `true`.
+    if: github.repository == 'QualityUnit/amicited-desktop' && vars.AMICITED_MOBILE_ENABLED == 'true'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     permissions:
       contents: read
