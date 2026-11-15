@@ -38,6 +38,10 @@ No patch files are required; this supersedes section 2 of the specification.
 - `apps/mobile/modules/*`: podspec and Gradle metadata, clipboard labels, the notification fallback scheme and thread-link paste detection.
 - `apps/web/public/.well-known/*`: list no apps until AmICited hosts a web app domain.
 - `scripts/mobile-*`: dev and screenshot harness IDs, schemes and the showcase fixture.
+- Brand artwork (binary or SVG replaced in place, same paths; on conflict keep ours and rerun `node scripts/amicited/render-brand-icons.ts`): `assets/{dev,nightly,prod}/**`, `apps/web/public` favicons, `apps/mobile/assets/android-*.png`, `apps/mobile/assets/widget/T3Mark.svg` and `apps/desktop/resources/dmg/dmg-background-*.svg`.
+- `apps/web/src/components/T3Wordmark.tsx` and `apps/mobile/src/components/T3Wordmark.tsx`: draw the AmICited bar mark under the upstream export name.
+- `scripts/export-android-icons.ts`: the mark's bounding box and safe-zone fraction.
+- `apps/web/src/components/ui/standalone-page.tsx`: the lockup next to the mark reads the product name.
 
 New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.
