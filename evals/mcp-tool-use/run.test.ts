@@ -43,7 +43,7 @@ it("grades Codex shell and subagent calls with the shared rules", () => {
   const calls = [
     { name: "exec_command", input: { cmd: "sleep 60" } },
     { name: "collaboration.spawn_agent", input: { task: "review" } },
-    { name: "mcp__t3_code__delegate_task", input: {} },
+    { name: "mcp__amicited_local__delegate_task", input: {} },
     { name: "request_user_input", input: { questions: [{ question: "What's the PIN?" }] } },
     { name: "request_user_input_async", input: { questions: [] } },
   ].map(({ name, input }) => ({
@@ -284,19 +284,23 @@ const template = {
     {
       role: "system",
       content:
-        "Main prompt.\n - Primary working directory: /home/alice/app\n\n<runtime_info>old</runtime_info>\n\n## T3 Code orchestration\nold text",
+        "Main prompt.\n - Primary working directory: /home/alice/app\n\n<runtime_info>old</runtime_info>\n\n## AmICited Desktop orchestration\nold text",
     },
     {
       role: "system",
       content:
-        "You are powered by the model named Opus 5.5. The exact model ID is claude-opus-5-5.\n\nThe following deferred tools are now available via ToolSearch. Load them first:\nMonitor\nmcp__t3-code__retired_tool\n\nAfter the list.",
+        "You are powered by the model named Opus 5.5. The exact model ID is claude-opus-5-5.\n\nThe following deferred tools are now available via ToolSearch. Load them first:\nMonitor\nmcp__amicited-local__retired_tool\n\nAfter the list.",
     },
     { role: "assistant", content: [{ type: "text", text: "A later turn." }] },
   ],
   tools: [
     { name: "mcp__host__term_Bash", input_schema: { type: "object" } },
     { name: "mcp__host__clown_ToolSearch", input_schema: { type: "object" } },
-    { name: "mcp__t3-code__retired_tool", input_schema: { type: "object" }, defer_loading: true },
+    {
+      name: "mcp__amicited-local__retired_tool",
+      input_schema: { type: "object" },
+      defer_loading: true,
+    },
   ],
 };
 
@@ -330,23 +334,23 @@ it("rebuilds the template from this checkout and sends a child T3's task prompt"
     `Main prompt.\n - Primary working directory: /home/user/app\n\n${t3SystemAppend("claude-sonnet-5-5")}`,
   ]);
   // The eval offers the device tools, so Claude's append carries the device block.
-  assert.include(t3SystemAppend("claude-sonnet-5-5"), "## T3 Code devices");
+  assert.include(t3SystemAppend("claude-sonnet-5-5"), "## AmICited Desktop devices");
   assert.equal(base.environment.cwd, "/home/user/app");
   assert.include(system[2], "model named Sonnet 5.5. The exact model ID is claude-sonnet-5-5.");
   const deferred = system[2]?.split("Load them first:\n")[1]?.split("\n\n")[0]?.split("\n") ?? [];
-  assert.includeMembers(deferred, ["Monitor", "mcp__t3-code__delegate_task"]);
-  assert.notInclude(deferred, "mcp__t3-code__retired_tool");
+  assert.includeMembers(deferred, ["Monitor", "mcp__amicited-local__delegate_task"]);
+  assert.notInclude(deferred, "mcp__amicited-local__retired_tool");
   // A delegated child is never offered the tools T3 hides from subagents.
-  assert.include(deferred, "mcp__t3-code__watch_pull_request");
+  assert.include(deferred, "mcp__amicited-local__watch_pull_request");
   const child = buildBase(template, {
     model: "claude-sonnet-5-5",
     keepUserInstructions: false,
     subagent: true,
   });
-  assert.notInclude(String(child.system[2]?.text), "mcp__t3-code__watch_pull_request");
+  assert.notInclude(String(child.system[2]?.text), "mcp__amicited-local__watch_pull_request");
   assert.notInclude(
     child.t3.map((tool) => tool.name),
-    "mcp__t3-code__unwatch_pull_request",
+    "mcp__amicited-local__unwatch_pull_request",
   );
   const reminders = buildMessages(makeSample(childCase, base))[0]?.content.map((b) => b.text);
   assert.equal(reminders?.[0], "<system-reminder>\n# currentDate\n</system-reminder>");
@@ -367,11 +371,11 @@ it("lists link tools only while a case turns the beta on, and sends chips as T3 
   });
   assert.notInclude(
     off.t3.map((tool) => tool.name),
-    "mcp__t3-code__t3_environment_link",
+    "mcp__amicited-local__t3_environment_link",
   );
   assert.include(
     on.t3.map((tool) => tool.name),
-    "mcp__t3-code__t3_environment_link",
+    "mcp__amicited-local__t3_environment_link",
   );
 
   const testCase: McpToolUseCase = {
@@ -502,7 +506,7 @@ it("does not record a deferred tool called before it was loaded", () => {
   const sample = makeSample(childCase, base);
   const use = (name: string) => ({ type: "tool_use" as const, id: name, name, input: {} });
   const ran = ranCalls(sample, 0, [
-    use("mcp__t3-code__link_pull_request"),
+    use("mcp__amicited-local__link_pull_request"),
     use("mcp__host__term_Bash"),
   ]);
   assert.deepEqual(
@@ -642,7 +646,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
   Effect.gen(function* () {
     const base = buildBase(template, { model: "claude-sonnet-5-5", keepUserInstructions: false });
     const sample = makeSample(childCase, base);
-    sample.tools.push({ name: "mcp__t3-code__request_secret" });
+    sample.tools.push({ name: "mcp__amicited-local__request_secret" });
     const config = {
       apiKey: "",
       model: "claude-sonnet-5-5",
@@ -654,7 +658,7 @@ it.effect("saves a new secret file for each request and tells the shell simulato
       answerToolCall(sample, config, {
         type: "tool_use",
         id,
-        name: "mcp__t3-code__request_secret",
+        name: "mcp__amicited-local__request_secret",
         input: { label: "Token", delivery },
       }).pipe(Effect.map((result) => JSON.parse(String(result.content))));
     const first = yield* request("a", "file");
@@ -679,11 +683,11 @@ it.effect("saves a new secret file for each request and tells the shell simulato
       },
       base,
     );
-    declined.tools.push({ name: "mcp__t3-code__request_secret" });
+    declined.tools.push({ name: "mcp__amicited-local__request_secret" });
     yield* answerToolCall(declined, config, {
       type: "tool_use",
       id: "d",
-      name: "mcp__t3-code__request_secret",
+      name: "mcp__amicited-local__request_secret",
       input: { delivery: "file" },
     });
     assert.deepEqual(declined.secretFiles, []);
@@ -708,11 +712,11 @@ it.effect("saves a pasted value with no card where request_secret takes one", ()
       },
       base,
     );
-    sample.tools.push({ name: "mcp__t3-code__request_secret" });
+    sample.tools.push({ name: "mcp__amicited-local__request_secret" });
     const result = yield* answerToolCall(sample, config, {
       type: "tool_use",
       id: "a",
-      name: "mcp__t3-code__request_secret",
+      name: "mcp__amicited-local__request_secret",
       input: { label: "Pixel PIN", value: "482916" },
     }).pipe(Effect.map((block) => JSON.parse(String(block.content))));
     if (!savesPastedSecrets) {

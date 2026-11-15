@@ -783,6 +783,7 @@ Every package that imports it lists `@amicited/identity` in its `package.json`.
 - `packages/shared/src/usageLimits.ts`: the ChatGPT workspace admin request names `PRODUCT_NAME`.
 - `knip.jsonc`: `packages/amicited-identity` ignores its unused `vite-plus` devDependency.
 - `scripts/release-smoke.ts`: lists `packages/amicited-identity/package.json`.
+- `evals/mcp-tool-use/run.ts`, `trim-capture.ts` and their tests: the eval harness names tools `mcp__amicited-local__*` like the real harnesses, and still recognizes the upstream names in the committed captures.
 
 ## Backported from upstream
 

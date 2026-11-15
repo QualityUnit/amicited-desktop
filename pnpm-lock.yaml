@@ -1347,6 +1347,9 @@ importers:
 
   evals:
     dependencies:
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../packages/amicited-identity
       '@effect/platform-node':
         specifier: 4.1.2
         version: 4.1.2(bufferutil@4.1.0)(effect@4.1.2)(redis@6.2.1)(utf-8-validate@6.0.6)
