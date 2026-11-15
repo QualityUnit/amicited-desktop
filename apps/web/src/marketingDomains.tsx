@@ -40,7 +40,7 @@ import { createLocalApi } from "./localApi";
 import { projectEnvironment } from "./state/projects";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
-import { MoreHorizontal, FolderIcon, CodeIcon, GlobeIcon } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import {
@@ -1044,22 +1044,6 @@ export function DomainsSettings() {
   );
 }
 
-function DomainStatusDot({ domain, destination }: { domain: Domain; destination: EnvironmentId }) {
-  const { connection } = useDomainConnection(destination, domain.projectId);
-  return (
-    <span
-      aria-label={
-        connection?.state === "connected" ? "AmICited connected" : "AmICited not connected"
-      }
-      className={
-        connection?.state === "connected"
-          ? "size-1.5 rounded-full bg-success-foreground"
-          : "size-1.5 rounded-full bg-sidebar-muted-foreground"
-      }
-    />
-  );
-}
-
 const migrations = new Map<string, Promise<void>>();
 export function DomainMigration() {
   const { environmentId, refresh } = useDomains();
@@ -1246,35 +1230,6 @@ export function DomainFolderHeader({
       newThreadLabel="New chat"
       keepChevron
       actions={<DomainProjectActions domain={domain} destination={destination} />}
-      status={
-        <span className="flex shrink-0 items-center gap-1 text-xs text-sidebar-muted-foreground">
-          <DomainStatusDot domain={domain} destination={destination} />
-          {domain.cms && domain.cms !== "unknown" && (
-            <Tooltip>
-              <TooltipTrigger
-                render={<span role="img" aria-label={domain.framework ?? cmsLabel(domain.cms)} />}
-              >
-                {domain.cms === "git" ? (
-                  <CodeIcon className="size-3" />
-                ) : (
-                  <GlobeIcon className="size-3" />
-                )}
-              </TooltipTrigger>
-              <TooltipPopup>{domain.framework ?? cmsLabel(domain.cms)}</TooltipPopup>
-            </Tooltip>
-          )}
-          {domain.siteFiles && (
-            <Tooltip>
-              <TooltipTrigger
-                render={<span role="img" aria-label={`Folder: ${domain.siteFiles}`} />}
-              >
-                <FolderIcon className="size-3" />
-              </TooltipTrigger>
-              <TooltipPopup>Folder: {domain.siteFiles}</TooltipPopup>
-            </Tooltip>
-          )}
-        </span>
-      }
     />
   );
 }
