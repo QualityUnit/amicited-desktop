@@ -3539,7 +3539,7 @@ export default function Sidebar({
                               marketer && folderHeader ? (
                                 <li
                                   key={`project-folder:${folder.group.projectKey}`}
-                                  className="mt-2 list-none rounded-xl border border-border/70 bg-muted/30 p-1"
+                                  className="mt-2 list-none rounded-xl border border-foreground/12 bg-foreground/[0.04] p-1"
                                 >
                                   <ul role="presentation" className="flex flex-col gap-px">
                                     {folderHeader}
