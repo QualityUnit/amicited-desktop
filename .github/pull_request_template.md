@@ -17,9 +17,9 @@ explain why those changes are needed for the same fix. Split independent fixes. 
 
 ## Scope and approval
 
-<!-- Link the triaged bug issue or the discussion with explicit maintainer approval
-of direction and scope, including the approval comment. For a very small, focused
-fix of an obvious bug, explain why it qualifies without a prior issue or discussion.
+<!-- Link the issue with explicit maintainer approval of direction and scope,
+including the approval comment. For a very small, focused
+fix of an obvious bug, explain why it qualifies without a prior issue.
 For focused configuration of an established capability, explain what already exists,
 what the option controls, and why its effects stay within that capability. Adding a
 setting alone is not a new feature or an approval exemption; broader workflow or
@@ -35,5 +35,10 @@ is insufficient; broad repo-wide checks are not required.
 For UI changes, include clear before/after screenshots. Include a short recording
 when motion, timing, transitions, or interaction details are needed to demonstrate
 the change. Upload evidence to GitHub and embed or link it here. Never commit PR-only assets. -->
+
+## Upstream files
+
+<!-- List any upstream files this PR changes and the extension point in
+docs/amicited/EXTENSION-POINTS.md that covers each, or write "None". -->
 
 <!-- If you used an agent, end with the model and harness that did the work. -->

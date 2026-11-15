@@ -1,8 +1,9 @@
 # Security policy
 
-Report security vulnerabilities affecting T3 Code or T3 Tools-operated infrastructure to
-[security@ping.gg](mailto:security@ping.gg). Please do not disclose them publicly until we have had
-a reasonable opportunity to investigate and remediate them.
+Report security vulnerabilities affecting AmICited Desktop to
+[support@flowhunt.io](mailto:support@flowhunt.io). Please do not disclose them publicly until we have
+had a reasonable opportunity to investigate and remediate them.
 
-See the [full security policy](https://t3.codes/security-policy) for reporting details, scope,
-and safe harbor terms for good-faith research.
+See the [AmICited Desktop security policy](https://amicited.com/security-policy) for what to include
+in a report, and [FlowHunt's security policy](https://www.flowhunt.io/security-policy/) for how
+FlowHunt protects its services.

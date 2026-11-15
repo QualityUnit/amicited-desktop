@@ -657,6 +657,21 @@ new, and check the two files above kept their labels.
   `deploy-relay.yml`, `relay-preview.yml`, `relay-preview-cleanup.yml`,
   `mobile-android-apk.yml`, `pr-vouch.yml`.
 
+## Rebranded marketing site and docs
+
+These upstream paths are rewritten for AmICited, not patched at a point. On an upstream merge,
+keep our version and port only upstream changes that still apply to AmICited.
+
+- `apps/marketing/**`: AmICited home, download and legal pages; values come from `@amicited/identity`.
+- `docs/user/**`, `docs/README.md`, `docs/operations/connect-setup.md`, `README.md`,
+  `CONTRIBUTING.md`, `.github/SECURITY.md`, `.github/ISSUE_TEMPLATE/*`,
+  `.github/pull_request_template.md`. `LICENSE` adds our copyright line above T3 Tools' notice.
+- `docs/user/t3-connect-troubleshooting.md` is renamed to `amicited-link-troubleshooting.md`. Its
+  heading anchors are listed in `packages/contracts/src/environmentHttp.ts`
+  (`T3_CONNECT_TROUBLESHOOTING_SECTIONS`, the guide URL) and returned by
+  `packages/client-runtime/src/connection/diagnosis.ts`; `apps/server/src/cloud/ConnectReachability.test.ts`,
+  `scripts/check-changed.ts` and `.github/scripts/ci-changes.cjs` read the file by name.
+
 ## Backported from upstream
 
 These lines are identical to upstream `main`, applied early because CI needed them. The

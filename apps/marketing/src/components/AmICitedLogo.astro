@@ -1,0 +1,25 @@
+---
+// The AmICited mark from @amicited/ui-marketing (AmICitedLogo in src/brand.tsx), as static SVG.
+interface Props {
+  size: number;
+  class?: string;
+}
+
+const { size, class: className } = Astro.props;
+const maskId = `amicited-mark-${Math.random().toString(36).slice(2, 10)}`;
+---
+
+<svg class={className} aria-hidden="true" width={size} height={size} viewBox="0 0 32 32">
+  <defs>
+    <mask id={maskId}>
+      <rect width="32" height="32" fill="white"></rect>
+      <path
+        d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
+        stroke="black"
+        stroke-width="3"
+        stroke-linecap="round"
+      ></path>
+    </mask>
+  </defs>
+  <rect width="32" height="32" rx="9" fill="currentColor" mask={`url(#${maskId})`}></rect>
+</svg>
