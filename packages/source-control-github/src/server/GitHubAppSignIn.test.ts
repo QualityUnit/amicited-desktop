@@ -1,5 +1,5 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
-import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -9,6 +9,7 @@ import * as Redacted from "effect/Redacted";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 import * as TestClock from "effect/testing/TestClock";
+import { vi } from "vite-plus/test";
 
 import { DEFAULT_SERVER_SETTINGS, ServerSettingsError } from "@t3tools/contracts";
 import * as SourceControlHost from "@t3tools/source-control-core/server/SourceControlHost";
@@ -21,6 +22,15 @@ import * as GitHubClient from "../shared/definition.ts";
 import * as GitHubAppAccess from "./GitHubAppAccess.ts";
 import * as GitHubAppSignIn from "./GitHubAppSignIn.ts";
 import * as GitHubRest from "./GitHubRest.ts";
+
+// AmICited ships with no GitHub App; these upstream tests exercise sign-in with one configured.
+vi.mock("@amicited/identity/agent-identity", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@amicited/identity/agent-identity")>()),
+  GITHUB_APP: {
+    name: "Test GitHub App",
+    installUrl: "https://github.com/apps/test/installations/new",
+  },
+}));
 
 type Reply = { readonly status?: number; readonly body: unknown };
 interface Sent {

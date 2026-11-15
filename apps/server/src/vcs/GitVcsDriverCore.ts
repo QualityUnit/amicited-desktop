@@ -1,3 +1,4 @@
+import { GIT_REF_NAMESPACE } from "@amicited/identity/agent-identity";
 import * as Cache from "effect/Cache";
 import * as Clock from "effect/Clock";
 import * as Data from "effect/Data";
@@ -4504,7 +4505,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
         yield* executeGit(
           "GitVcsDriver.refreshCheckedOutBranch.keepPrevious",
           input.cwd,
-          ["update-ref", "refs/t3code/pre-refresh", headCommit],
+          ["update-ref", `refs/${GIT_REF_NAMESPACE}/pre-refresh`, headCommit],
           { fallbackErrorDetail: "git failed to record the previous checkout commit" },
         );
       }

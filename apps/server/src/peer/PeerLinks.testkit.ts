@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
@@ -142,7 +143,7 @@ export const servePeer = <E, R>(
         .listSessions()
         .pipe(
           Effect.map((sessions) =>
-            sessions.filter((session) => session.client.label?.startsWith("T3 Code · ")),
+            sessions.filter((session) => session.client.label?.startsWith(`${PRODUCT_NAME} · `)),
           ),
         ),
     };

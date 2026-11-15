@@ -453,7 +453,10 @@ it.effect("refuses preview tools to a client outside a thread before they run", 
       );
     expect(click.isError).toBe(true);
     expect(click.content).toEqual([
-      { type: "text", text: expect.stringContaining("needs an agent running inside T3 Code") },
+      {
+        type: "text",
+        text: expect.stringContaining("needs an agent running inside AmICited Desktop"),
+      },
     ]);
   }).pipe(Effect.provide(layerTest)),
 );
@@ -807,6 +810,8 @@ it.effect("terminates HTTP MCP sessions with DELETE", () =>
       const sessionId = initializeResponse.headers["mcp-session-id"];
       expect(initializeResponse.status).toBe(200);
       expect(sessionId).not.toBeNull();
+      // Agents and outside MCP clients see the product as the server's name.
+      expect(yield* initializeResponse.text).toContain('"serverInfo":{"name":"AmICited Desktop"');
 
       const missingSessionResponse = yield* httpClient.del("/mcp");
       expect(missingSessionResponse.status).toBe(400);

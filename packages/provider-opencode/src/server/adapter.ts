@@ -1,3 +1,4 @@
+import { MCP_SERVER_KEY } from "@amicited/identity";
 import type {
   Event as OpenCodeEvent,
   Message as OpenCodeMessage,
@@ -970,7 +971,7 @@ export const makeOpenCodeAdapterV2 = Effect.fn("makeOpenCodeAdapterV2")(function
         if (hasT3Mcp) {
           yield* OpenCodeRuntime.runOpenCodeSdk("mcp.add", () =>
             client.mcp.add({
-              name: "t3-code",
+              name: MCP_SERVER_KEY,
               config: {
                 type: "remote",
                 url: mcpSession.endpoint,

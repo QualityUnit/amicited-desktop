@@ -1,3 +1,5 @@
+import { MCP_SERVER_KEY } from "@amicited/identity";
+
 export type T3McpToolLogo = "t3-code";
 
 export interface T3McpToolPresentation {
@@ -86,14 +88,31 @@ function tool(
   return { displayName, labels, icon, summaryAction };
 }
 
-// Codex registers "t3-code-direct" for T3 tools kept out of Code Mode.
+// Codex registers "<key>-direct" for T3 tools kept out of Code Mode. The upstream names stay
+// recognized so replays recorded before the AmICited rename still resolve.
+const MCP_SERVER_KEY_UNDERSCORED = MCP_SERVER_KEY.replaceAll("-", "_");
+const MCP_SERVER_KEY_PATTERN = MCP_SERVER_KEY.replaceAll("-", "[-_]");
 const T3_MCP_SERVER_ALIASES = new Set([
+  MCP_SERVER_KEY,
+  MCP_SERVER_KEY_UNDERSCORED,
+  `${MCP_SERVER_KEY}-direct`,
+  `${MCP_SERVER_KEY_UNDERSCORED}_direct`,
   "t3-code",
   "t3_code",
   "t3code",
   "t3-code-direct",
   "t3_code_direct",
 ]);
+const T3_MCP_NAMESPACED_TOOL = new RegExp(
+  `^(?<server>${MCP_SERVER_KEY_PATTERN}[-_]direct|${MCP_SERVER_KEY_PATTERN}|t3[-_]code[-_]direct|t3-code|t3_code|t3code)(?:[.:/]|\\s*·\\s*)(?<tool>.+)$`,
+  "i",
+);
+const T3_MCP_PREFIXED_TOOL = new RegExp(
+  `^(?:mcp[-_]{1,2})?(?:${MCP_SERVER_KEY.replaceAll("-", "[-_ ]?")}|t3[-_ ]?code)(?:__|[-_.:/ ])(?<tool>.+)$`,
+  "i",
+);
+// OpenCode 2 names each thread's server "<key>-<thread>".
+const T3_MCP_THREAD_SERVER_PREFIX = new RegExp(`^(?:${MCP_SERVER_KEY}|t3-code)-`, "i");
 
 const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   link_pull_request: tool(
@@ -409,19 +428,16 @@ function parseT3McpToolName(value: string): string | null {
       : null;
   }
 
-  const namespaceMatch =
-    /^(?<server>t3[-_]code[-_]direct|t3-code|t3_code|t3code)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(
-      label,
-    );
+  const namespaceMatch = T3_MCP_NAMESPACED_TOOL.exec(label);
   if (namespaceMatch?.groups) {
     return namespaceMatch.groups.tool ?? null;
   }
 
-  const prefixed = /^(?:mcp[-_]{1,2})?t3[-_ ]?code(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(label);
+  const prefixed = T3_MCP_PREFIXED_TOOL.exec(label);
   const candidate = prefixed?.groups?.tool ?? label;
   if (Object.hasOwn(T3_MCP_TOOLS, candidate)) return candidate;
   // OpenCode 2 thread prefixes can contain underscores; choose the longest known tool-name suffix.
-  if (!/^t3-code-/i.test(label)) return null;
+  if (!T3_MCP_THREAD_SERVER_PREFIX.test(label)) return null;
   let longest: string | null = null;
   for (const tool of Object.keys(T3_MCP_TOOLS)) {
     if (label.endsWith(`_${tool}`) && tool.length > (longest?.length ?? 0)) longest = tool;

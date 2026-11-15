@@ -49,7 +49,7 @@ import * as PeerLinks from "../../../peer/PeerLinks.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
 import * as OrchestratorMcpService from "../../OrchestratorMcpService.ts";
 import * as ThreadMetadataMcpService from "../../ThreadMetadataMcpService.ts";
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { PRODUCT_SHORT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const dependencies = [
   McpInvocationContext.McpInvocationContext,
@@ -218,7 +218,7 @@ const CreateThreadsTool = Tool.make("create_threads", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Create T3 threads")
+  .annotate(Tool.Title, "Create " + PRODUCT_SHORT_NAME + " threads")
   .annotate(Tool.Destructive, true)
   .annotate(Tool.OpenWorld, true);
 
@@ -231,7 +231,7 @@ const ThreadListTool = Tool.make("t3_thread_list", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "List T3 threads")
+  .annotate(Tool.Title, "List " + PRODUCT_SHORT_NAME + " threads")
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, true);
@@ -245,7 +245,7 @@ const ThreadReadTool = Tool.make("t3_thread_read", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Read a T3 thread")
+  .annotate(Tool.Title, "Read an " + PRODUCT_SHORT_NAME + " thread")
   .annotate(Tool.Strict, true)
   .annotate(Tool.Readonly, false)
   .annotate(Tool.Destructive, false)
@@ -264,7 +264,7 @@ const ThreadUpdateTool = Tool.make("t3_thread_update", {
   failureMode: "return",
   dependencies: threadMetadataDependencies,
 })
-  .annotate(Tool.Title, "Update T3 thread metadata")
+  .annotate(Tool.Title, "Update " + PRODUCT_SHORT_NAME + " thread metadata")
   .annotate(Tool.Destructive, true)
   .annotate(Tool.Idempotent, false);
 
@@ -277,7 +277,7 @@ const ThreadSendTool = Tool.make("t3_thread_send", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Send to a T3 thread")
+  .annotate(Tool.Title, "Send to an " + PRODUCT_SHORT_NAME + " thread")
   .annotate(Tool.Destructive, true)
   .annotate(Tool.OpenWorld, true);
 
@@ -290,7 +290,7 @@ const ThreadWaitTool = Tool.make("t3_thread_wait", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Wait for a T3 thread")
+  .annotate(Tool.Title, "Wait for an " + PRODUCT_SHORT_NAME + " thread")
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, true);
@@ -304,7 +304,7 @@ const ThreadInterruptTool = Tool.make("t3_thread_interrupt", {
   failureMode: "return",
   dependencies,
 })
-  .annotate(Tool.Title, "Interrupt a T3 thread")
+  .annotate(Tool.Title, "Interrupt an " + PRODUCT_SHORT_NAME + " thread")
   .annotate(Tool.Destructive, true);
 
 const EnvironmentLinksTool = Tool.make("t3_environment_links", {

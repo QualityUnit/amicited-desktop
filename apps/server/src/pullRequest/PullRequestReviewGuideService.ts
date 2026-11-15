@@ -1,3 +1,4 @@
+import { GIT_REF_NAMESPACE } from "@amicited/identity/agent-identity";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
@@ -212,7 +213,7 @@ const make = Effect.gen(function* () {
         ),
       );
     // FETCH_HEAD is workspace-global; isolate this run's base from concurrent fetches.
-    const baseRef = `refs/t3/review-guide/${runId}/base`;
+    const baseRef = `refs/${GIT_REF_NAMESPACE}/review-guide/${runId}/base`;
     yield* fetch([`+refs/heads/${detail.baseBranch}:${baseRef}`]);
     yield* Effect.addFinalizer(() =>
       git

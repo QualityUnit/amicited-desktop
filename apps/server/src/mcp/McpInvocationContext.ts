@@ -1,3 +1,4 @@
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@amicited/identity";
 import {
   type AuthMcpClientAccess,
   type EnvironmentId,
@@ -217,7 +218,7 @@ export const requireThreadMcpCapability = <const C extends "preview" | "device">
 const threadCallerRequired = (operation: string) =>
   new OrchestratorMcpFailure({
     code: "thread_credential_required",
-    message: `${operation} acts as the calling T3 thread, so it needs an agent running inside T3 Code. This MCP client signed in from outside a thread.`,
+    message: `${operation} acts as the calling ${PRODUCT_SHORT_NAME} thread, so it needs an agent running inside ${PRODUCT_NAME}. This MCP client signed in from outside a thread.`,
   });
 
 export type McpThreadInvocationScope = McpInvocationScope & { readonly thread: McpThreadCaller };

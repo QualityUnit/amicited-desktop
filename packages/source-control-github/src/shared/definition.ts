@@ -1,3 +1,4 @@
+import { GITHUB_APP } from "@amicited/identity/agent-identity";
 import { makeProviderSettingsSchema, SourceControlProviderKind } from "@t3tools/contracts";
 import {
   buildCommitUrl,
@@ -44,13 +45,19 @@ function isRepositoryPath(repository: string): boolean {
   );
 }
 
-/** Signing in through the T3 Code for GitHub app lifts the per-user API rate limit to the app's. */
-export const APP_SIGN_IN: SourceControlAppSignIn = {
-  appName: "T3 Code for GitHub",
-  hosts: ["github.com"],
-  installUrl: "https://github.com/apps/t3-code-for-github/installations/new",
-  revokeUrl: "https://github.com/settings/apps/authorizations",
-};
+/**
+ * Signing in through our GitHub App lifts the per-user API rate limit to the app's.
+ * Undefined until the app is configured in `@amicited/identity/agent-identity`.
+ */
+export const APP_SIGN_IN: SourceControlAppSignIn | undefined =
+  GITHUB_APP === null
+    ? undefined
+    : {
+        appName: GITHUB_APP.name,
+        hosts: ["github.com"],
+        installUrl: GITHUB_APP.installUrl,
+        revokeUrl: "https://github.com/settings/apps/authorizations",
+      };
 
 export const settings = makeProviderSettingsSchema(hostCredentialSettingsFields);
 export type GitHubSettings = typeof settings.Type;
@@ -68,7 +75,7 @@ export const definition = defineSourceControl({
     tokenEnvVar: "GH_TOKEN",
     tokenAccess: "read and write access to pull requests and contents",
     newTokenUrl: (host) => `https://${host}/settings/personal-access-tokens/new`,
-    appSignIn: APP_SIGN_IN,
+    ...(APP_SIGN_IN === undefined ? {} : { appSignIn: APP_SIGN_IN }),
   },
   changeRequest: {
     shortLabel: "PR",

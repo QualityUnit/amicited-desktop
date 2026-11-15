@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import {
   AcpRegistryListProvidersResult,
   AcpRegistryOperationError,
@@ -349,7 +350,7 @@ export const probeAcpRegistryConfiguration = Effect.fn("AcpRegistryProbe.probeCo
             fs: { readTextFile: false, writeTextFile: false },
             terminal: false,
           },
-          clientInfo: { name: "t3-code-provider-test", version: "0.0.0" },
+          clientInfo: { name: `${USER_AGENT_PRODUCT}-provider-test`, version: "0.0.0" },
           authenticateOnAuthRequired: false,
           onInitialized: (initializeResult) =>
             Ref.set(
@@ -482,7 +483,7 @@ const makeAcpRegistryManagementRuntime = Effect.fn("AcpRegistryProbe.makeManagem
           fs: { readTextFile: false, writeTextFile: false },
           terminal: false,
         },
-        clientInfo: { name: "t3-code-session-manager", version: "0.0.0" },
+        clientInfo: { name: `${USER_AGENT_PRODUCT}-session-manager`, version: "0.0.0" },
         authenticateOnAuthRequired: false,
         ...(input.settings.authMethodId ? { authMethodId: input.settings.authMethodId } : {}),
       }).pipe(
