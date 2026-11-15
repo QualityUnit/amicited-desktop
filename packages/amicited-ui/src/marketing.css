@@ -150,6 +150,11 @@
     max-width: 800px;
     margin: auto;
   }
+  .am-cloud-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
   .am-card,
   .am-cloud-card {
     padding: 16px 0;
