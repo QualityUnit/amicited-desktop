@@ -27,7 +27,8 @@ same device can reach it.
   `http://100.x.y.z:3873`, lets an agent find the environment but not finish
   signing in.
 - **A hosted agent**, such as ChatGPT or a bot running in the cloud, must reach
-  the environment from the internet. Use the AmICited Link address. A Tailscale
+  the environment from the internet. Use the AmICited Link address. AmICited Link
+  is not available yet, so hosted agents cannot connect today. A Tailscale
   address only works from your own tailnet.
 
 ## Approve a sign-in
@@ -76,6 +77,8 @@ codex mcp login amicited-local
 `codex mcp list` shows `amicited-local` with OAuth once you approve.
 
 ## ChatGPT
+
+ChatGPT needs an AmICited Link address, which is not available yet.
 
 Add the environment as a custom MCP app in ChatGPT's apps settings:
 
