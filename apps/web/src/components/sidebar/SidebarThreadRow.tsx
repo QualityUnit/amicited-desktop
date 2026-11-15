@@ -2,7 +2,6 @@ import { useCloudApprovals } from "../../rpc/amicitedApprovals";
 import { FolderIcon } from "lucide-react";
 import { marketingSignInError } from "@amicited/ui-marketing";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
-import { MoreHorizontalIcon } from "lucide-react";
 import { ThreadHoverCard, ThreadHoverCardPopup } from "../ThreadHoverCard";
 import { ThreadTerminalStatusButton } from "../ThreadStatusIndicators";
 import { discardComposerDraft } from "../../lib/discardComposerDraft";
@@ -1400,11 +1399,12 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                                   aria-label="Wake chat now"
                                   onClick={handleUnsnoozeClick}
                                   onPointerDown={handleActionPointerDown}
-                                  className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-1.5 text-muted-foreground hover:text-foreground"
+                                  className="-mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground hover:text-foreground"
                                 />
                               }
                             >
                               <AlarmClockOffIcon className="size-3" />
+                              Wake
                             </TooltipTrigger>
                             <TooltipPopup side="top">Wake chat now</TooltipPopup>
                           </Tooltip>
@@ -1424,14 +1424,20 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                                     : handleSettleClick
                                 }
                                 onPointerDown={handleActionPointerDown}
-                                className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-1.5 text-muted-foreground hover:text-foreground"
+                                className="-mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground hover:text-foreground"
                               />
                             }
                           >
                             {variantAction === "unsettle" ? (
-                              <Undo2Icon className="size-3.5" />
+                              <>
+                                <Undo2Icon className="size-3.5" />
+                                Un-settle
+                              </>
                             ) : (
-                              <CheckIcon className="size-3.5" />
+                              <>
+                                <CheckIcon className="size-3.5" />
+                                Settle
+                              </>
                             )}
                           </TooltipTrigger>
                           <TooltipPopup side="top">
@@ -1439,19 +1445,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                           </TooltipPopup>
                         </Tooltip>
                       ) : null}
-                      <button
-                        type="button"
-                        aria-label={`Chat actions for ${thread.title}`}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          const rect = event.currentTarget.getBoundingClientRect();
-                          onContextMenu(threadRef, { x: rect.left, y: rect.bottom });
-                        }}
-                        className="inline-flex cursor-pointer items-center rounded-md bg-transparent pl-1 text-muted-foreground hover:text-foreground"
-                      >
-                        <MoreHorizontalIcon className="size-3.5" />
-                      </button>
                     </span>
                   ) : null}
                   {marketer ? null : variantAction === "unsnooze" ? (

@@ -219,17 +219,24 @@ it.each([
   await using screen = await render(ui());
   refresh = () => screen.rerender(ui());
   const openMenu = async () => {
-    await screen.getByTestId("sidebar-row-folder").hover();
-    await userEvent.click(screen.getByRole("button", { name: "Chat actions for Website update" }));
+    screen
+      .getByTestId("sidebar-row-folder")
+      .element()
+      .dispatchEvent(
+        new MouseEvent("contextmenu", {
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+          button: 2,
+        }),
+      );
   };
   const expectPersistentStatus = async (label: string) => {
     const status = screen.getByText(label, { exact: true }).last();
     await expect.element(status).toBeVisible();
     const row = status.element().closest<HTMLElement>("[data-sidebar-row]");
     expect(row).not.toBeNull();
-    const action = screen.getByRole("button", { name: "Chat actions for Website update" });
-    await userEvent.hover(action.element().parentElement!);
-    await userEvent.click(action);
+    await openMenu();
     await expect
       .element(screen.getByRole("menuitem", { name: "Rename chat", exact: true }))
       .toBeVisible();
@@ -306,9 +313,7 @@ it.each([
       .toBeVisible();
     const working = screen.getByRole("button", { name: "Working 1", exact: true });
     if (working.element().getAttribute("aria-expanded") === "false") await userEvent.click(working);
-    await expect
-      .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
-      .toBeVisible();
+    await expect.element(screen.getByTestId("sidebar-row-folder")).toBeVisible();
     await expectPersistentStatus("Working");
     await change({
       runtime:
@@ -326,9 +331,7 @@ it.each([
     await expect
       .element(screen.getByRole("button", { name: "Working 1", exact: true }))
       .not.toBeInTheDocument();
-    await expect
-      .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
-      .toBeVisible();
+    await expect.element(screen.getByTestId("sidebar-row-folder")).toBeVisible();
     await expect.element(screen.getByTestId("sidebar-row-folder")).toBeVisible();
     return;
   }
@@ -373,20 +376,14 @@ it.each([
   await page.getByRole("menuitem", { name: "Snooze", exact: true }).hover();
   await userEvent.click(page.getByRole("menuitem", { name: /In 1 hour/ }));
   await expect.element(screen.getByRole("button", { name: /Snoozed 1/ })).toBeVisible();
-  await expect
-    .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
-    .not.toBeInTheDocument();
+  await expect.element(screen.getByTestId("sidebar-row-folder")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Snoozed 1/ }));
   await openMenu();
   await userEvent.click(page.getByRole("menuitem", { name: "Wake chat", exact: true }));
-  await expect
-    .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
-    .toBeVisible();
+  await expect.element(screen.getByTestId("sidebar-row-folder")).toBeVisible();
   vi.mocked(useQuietThreadShells).mockReturnValue([
     { ...thread, settledOverride: "active", snoozedUntil: "2000-01-01T00:00:00Z" },
   ]);
   await screen.rerender(ui());
-  await expect
-    .element(screen.getByRole("button", { name: "Chat actions for Website update" }))
-    .toBeVisible();
+  await expect.element(screen.getByTestId("sidebar-row-folder")).toBeVisible();
 });
