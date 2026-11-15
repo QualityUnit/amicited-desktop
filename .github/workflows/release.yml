@@ -1329,9 +1329,12 @@ jobs:
       needs.preflight.outputs.release_channel != 'preview' &&
       needs.relay_public_config.result == 'success' &&
       needs.release.result == 'success' &&
-      (needs.deploy_web.result == 'success' || needs.deploy_web.result == 'skipped') &&
+      needs.publish_cli.result == 'success' &&
+      (needs.deploy_web.result == 'success' ||
+        (needs.deploy_web.result == 'skipped' &&
+          (vars.AMICITED_WEB_ROUTER_URL == '' || vars.AMICITED_WEB_LATEST_DOMAIN == '' || vars.AMICITED_WEB_NIGHTLY_DOMAIN == ''))) &&
       (needs.finalize.result == 'success' || needs.finalize.result == 'skipped')
-    needs: [preflight, relay_public_config, release, deploy_web, finalize]
+    needs: [preflight, relay_public_config, release, publish_cli, deploy_web, finalize]
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 10
     steps:
