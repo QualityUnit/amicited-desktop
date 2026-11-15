@@ -24,6 +24,7 @@ import type { ManagedPolicyDocument } from "@t3tools/contracts";
 
 import * as ServerConfig from "../config.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
+import * as ServerSettings from "../serverSettings.ts";
 import { getTelemetryIdentity } from "./Identify.ts";
 import * as AnalyticsService from "./AnalyticsService.ts";
 
@@ -135,6 +136,7 @@ const analyticsLayerWith = (client: HttpClient.HttpClient, policy?: ManagedPolic
         ManagedPolicy.layerTest(policy),
       ),
     ),
+    Layer.provideMerge(ServerSettings.layerTest()),
   );
 
 /**
@@ -148,7 +150,9 @@ const sendFor = (
   record: Effect.Effect<
     void,
     never,
-    AnalyticsService.AnalyticsService | Effect.Services<typeof getTelemetryIdentity>
+    | AnalyticsService.AnalyticsService
+    | ServerSettings.ServerSettingsService
+    | Effect.Services<typeof getTelemetryIdentity>
   > = recordTwentyEvents,
   policy?: ManagedPolicyDocument,
 ) =>
@@ -201,6 +205,32 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("AnalyticsService
         ["test.allowed"],
       );
     }),
+  );
+
+  it.effect(
+    "turning usage analytics off in settings drops buffered events until it is back on",
+    () =>
+      Effect.gen(function* () {
+        const batches = yield* sendFor(
+          0,
+          respondWithStatus(204),
+          Effect.gen(function* () {
+            const analytics = yield* AnalyticsService.AnalyticsService;
+            const settings = yield* ServerSettings.ServerSettingsService;
+            yield* analytics.record("test.buffered-before-off");
+            yield* settings.updateSettings({ usageAnalyticsEnabled: false }).pipe(Effect.orDie);
+            yield* analytics.record("test.while-off");
+            yield* analytics.flush;
+            yield* settings.updateSettings({ usageAnalyticsEnabled: true }).pipe(Effect.orDie);
+            yield* analytics.record("test.back-on");
+            yield* analytics.flush;
+          }),
+        );
+        assert.deepEqual(
+          batches.flat().map((event) => event.event),
+          ["test.back-on"],
+        );
+      }),
   );
 
   it.effect("client owner reports cannot use up the server's owner cap", () =>
@@ -332,6 +362,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("AnalyticsService
             Layer.succeed(HostProcess.Platform, "linux"),
             Layer.succeed(HostProcess.Architecture, "arm64"),
             ManagedPolicy.layerTest(),
+            ServerSettings.layerTest(),
           ),
         ),
         Layer.provideMerge(NodeHttpServer.layerTest),
@@ -423,6 +454,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))("AnalyticsService
             Layer.succeed(HostProcess.Platform, "linux"),
             Layer.succeed(HostProcess.Architecture, "arm64"),
             ManagedPolicy.layerTest(),
+            ServerSettings.layerTest(),
           ),
         ),
         Layer.provideMerge(NodeHttpServer.layerTest),

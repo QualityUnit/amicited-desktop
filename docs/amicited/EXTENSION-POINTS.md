@@ -25,6 +25,13 @@ No patch files are required; this supersedes section 2 of the specification.
 - `scripts/release-smoke.ts`: copies the @amicited package manifests into the lockfile-free install fixture; add each new @amicited package there.
 - `pnpm-lock.yaml`: workspace importer entries for the new packages and their consumers only.
 - `.gitignore`: excludes local journey captures.
+- `apps/server/src/telemetry/AnalyticsService.ts`: defaults product analytics to AmICited's PostHog Cloud EU project instead of T3's ingest, and sends nothing while the `usageAnalyticsEnabled` server setting is off.
+- `apps/server/src/telemetry/AnalyticsService.test.ts`: provides test server settings and covers the settings opt-out.
+- `apps/server/src/server.ts`: gives the analytics layer the shared server settings.
+- `packages/contracts/src/settings.ts`: adds `usageAnalyticsEnabled` (default on) to server settings and their patch.
+- `apps/web/src/components/settings/SettingsPanels.tsx` and `settingsSearch.ts`: Privacy switch under Maintenance; usage-data copy names the product.
+- `apps/web/src/components/onboarding/WelcomeWizard.tsx`: usage-data notice names the product and points to the switch.
+- `apps/web/src/legalLinks.ts`: privacy policy is FlowHunt's.
 
 New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,tools.*}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.

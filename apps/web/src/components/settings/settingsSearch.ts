@@ -728,6 +728,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["phone tablet iPhone iPad iOS Android App Store Google Play QR"],
   },
   {
+    id: "usage-analytics",
+    title: "Usage analytics",
+    to: "/settings/maintenance",
+    searchTerms: ["telemetry analytics usage data tracking privacy opt out posthog"],
+    scope: "environment-defaults",
+  },
+  {
     id: "privacy-policy",
     title: "Privacy policy",
     to: "/settings/about",
