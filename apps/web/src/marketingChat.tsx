@@ -1,3 +1,10 @@
+import { useEnvironmentSettings } from "./hooks/useSettings";
+import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+import {
+  EnvironmentId as EnvironmentIdValue,
+  ProjectId,
+  PRIMARY_LOCAL_ENVIRONMENT_ID,
+} from "@t3tools/contracts";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { AssistantSetupDialog } from "./marketingSetup";
 import { resolveEffectiveRuntimeMode } from "./components/chat/runtimeModeConfig";
@@ -51,8 +58,9 @@ import { CloudConnectedChip } from "./rpc/amicitedCloud";
 export function MarketingComposerContext({
   destination,
   projectId,
-  onSelected,
+  selectedInstanceId,
   onConnected,
+  onSelected,
 }: {
   destination?: EnvironmentId | null | undefined;
   projectId?: string | null | undefined;
@@ -63,25 +71,42 @@ export function MarketingComposerContext({
   const [setupOpen, setSetupOpen] = useState(false);
   const primary = usePrimaryEnvironmentId();
   const environmentId = destination ?? primary;
+  const settings = useEnvironmentSettings(
+    EnvironmentIdValue.make(environmentId ?? PRIMARY_LOCAL_ENVIRONMENT_ID),
+  );
+  const projectSettings = projectId
+    ? resolveProjectSettings(settings, ProjectId.make(projectId))
+    : null;
+  const projectSelection =
+    projectSettings?.sources.defaultModelSelection === "project"
+      ? projectSettings.settings.defaultModelSelection
+      : null;
   const providers = useEnvironmentProviders();
   const ready = environmentId
     ? hasReadyMarketingAssistant(providers.get(environmentId) ?? [])
     : false;
-  const selectAssistant = useEffectEvent(onSelected);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Setup can select an assistant outside this composer while preserving its draft.
+  const recoverAssistant = useEffectEvent((event: Event) => {
+    const detail = (
+      event as CustomEvent<{
+        environmentId: EnvironmentId;
+        selection: import("@t3tools/contracts").ModelSelection;
+      }>
+    ).detail;
+    const current = environmentId
+      ? providers.get(environmentId)?.find((provider) => provider.instanceId === selectedInstanceId)
+      : undefined;
+    if (
+      detail.environmentId === environmentId &&
+      !projectSelection &&
+      getOnboardingProviderState(current) !== "ready"
+    )
+      onSelected(detail.selection);
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Shell setup can recover an unavailable composer without replacing a domain override or a working chat's choice.
   useEffect(() => {
-    const listener = (event: Event) => {
-      const detail = (
-        event as CustomEvent<{
-          environmentId: EnvironmentId;
-          selection: import("@t3tools/contracts").ModelSelection;
-        }>
-      ).detail;
-      if (detail.environmentId === environmentId) selectAssistant(detail.selection);
-    };
-    window.addEventListener("amicited-assistant-selected", listener);
-    return () => window.removeEventListener("amicited-assistant-selected", listener);
-  }, [environmentId]);
+    window.addEventListener("amicited-assistant-selected", recoverAssistant);
+    return () => window.removeEventListener("amicited-assistant-selected", recoverAssistant);
+  }, []);
   const { rows: domains } = useDomains(environmentId);
   const domain = domains.find((row) => row.projectId === projectId);
   const [newDomainOpen, setNewDomainOpen] = useState(false);
@@ -128,8 +153,9 @@ export function MarketingComposerContext({
         open={setupOpen}
         onOpenChange={setSetupOpen}
         onSelected={(selection) => {
-          onSelected(selection);
-          onConnected(selection);
+          const next = projectSelection ?? selection;
+          onSelected(next);
+          onConnected(next);
           setSetupOpen(false);
         }}
       />

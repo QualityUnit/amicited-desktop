@@ -1,3 +1,4 @@
+vi.mock("../marketingAssistant", () => ({ effectiveMarketingAssistant: () => null }));
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { RuntimeMode } from "@t3tools/contracts";
 

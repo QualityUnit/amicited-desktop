@@ -1,3 +1,4 @@
+import { effectiveMarketingAssistant } from "./marketingAssistant";
 import { AmICitedMark } from "@amicited/ui-marketing";
 import { usePrimarySettings } from "./hooks/useSettings";
 import { lastDomains } from "./marketingDomainStore";
@@ -52,7 +53,7 @@ export function AssistantSetupDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup className="max-w-2xl">
-        <DialogHeader>
+        <DialogHeader className="sr-only">
           <DialogTitle>Choose your assistant</DialogTitle>
           <DialogDescription>Connect the subscription you already use.</DialogDescription>
         </DialogHeader>
@@ -73,11 +74,18 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
   const providers = useEnvironmentProviders();
   const settings = usePrimarySettings();
   const [selectedModel, setSelectedModel] = useState<ModelSelection | null>(null);
-  const preferredModel = selectedModel ?? settings.textGenerationModelSelection;
+  const preferredModel =
+    selectedModel ??
+    effectiveMarketingAssistant(
+      settings,
+      environmentId ? (providers.get(environmentId) ?? []) : [],
+    );
+  const [selectedReady, setSelectedReady] = useState(true);
   const setupModel = preferredModel;
   const environment = useEnvironment(environmentId);
   const phase = environment?.connection.phase;
   const ready =
+    selectedReady &&
     environmentId &&
     providers
       .get(environmentId)
@@ -156,11 +164,7 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     }
     setFinished(true);
     setStep(null);
-    if (domain)
-      await newThread(
-        scopeProjectRef(environmentId, ProjectId.make(domain.projectId)),
-        setupModel ? { modelSelection: setupModel } : undefined,
-      );
+    if (domain) await newThread(scopeProjectRef(environmentId, ProjectId.make(domain.projectId)));
   };
   if (finished === null && domains.rows.length === 0)
     return <main data-am="am-setup-loading">Loading your workspace…</main>;
@@ -193,24 +197,27 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
             </span>
           ))}
         </nav>
-        <header>
-          <h1>{titles[step]}</h1>
-          <p className="text-sm text-muted-foreground">
-            {step === "welcome"
-              ? "Your AI workspace for marketing. From a question to a useful next step."
-              : step === "website"
-                ? "Keep your chats, brand and site files together in a domain."
-                : step === "cloud"
-                  ? "Your local tools always work without an account."
-                  : "Uses your existing Claude or ChatGPT subscription. No API key; your login stays on this computer."}
-          </p>
-        </header>
+        {step !== "assistant" && (
+          <header>
+            <h1>{titles[step]}</h1>
+            <p className="text-sm text-muted-foreground">
+              {step === "welcome"
+                ? "Your AI workspace for marketing. From a question to a useful next step."
+                : step === "website"
+                  ? "Keep your chats, brand and site files together in a domain."
+                  : step === "cloud"
+                    ? "Your local tools always work without an account."
+                    : "Uses your existing Claude or ChatGPT subscription. No API key; your login stays on this computer."}
+            </p>
+          </header>
+        )}
         <div data-am="am-setup-body">
           {step === "assistant" && (
             <MarketingSubscriptions
               usageLink={false}
               showIntro={false}
               onSelected={setSelectedModel}
+              onReadyChange={setSelectedReady}
             />
           )}
           {step === "website" && (

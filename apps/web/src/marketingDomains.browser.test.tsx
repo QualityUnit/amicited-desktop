@@ -57,7 +57,9 @@ vi.mock("./localApi", async (original) => ({
     dialogs: { pickFolder: async () => state.folderPath },
   }),
 }));
-vi.mock("./marketing", () => ({ MarketingSubscriptions: () => null }));
+vi.mock("./marketing", () => ({
+  MarketingSubscriptions: () => <section aria-label="Assistant setup">Assistant</section>,
+}));
 vi.mock("./hooks/useThreadRouteTarget", async (original) => ({
   ...(await original<typeof import("./hooks/useThreadRouteTarget")>()),
   useThreadRouteTarget: () => null,
@@ -599,9 +601,7 @@ it("shows welcome after a fresh environment connects without domains, setup or a
     await screen.getByRole("button", { name: "Get started", exact: true }).click();
     publish("local", []);
     await screen.rerender(<MarketingSetupHost />);
-    await expect
-      .element(screen.getByRole("heading", { name: "Choose your AI assistant" }))
-      .toBeVisible();
+    await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
     await screen.getByRole("button", { name: "Set up later", exact: true }).click();
     state.emptyDomains = false;
     publish("local", [
@@ -614,9 +614,7 @@ it("shows welcome after a fresh environment connects without domains, setup or a
     ]);
     await screen.getByRole("button", { name: "Skip", exact: true }).click();
     await screen.getByRole("button", { name: "Start chatting", exact: true }).click();
-    await vi.waitFor(() =>
-      expect(state.threadSelections).toEqual([{ instanceId: "codex", model: "gpt-6-luna" }]),
-    );
+    await vi.waitFor(() => expect(state.threadSelections).toEqual([undefined]));
   } finally {
     state.emptyDomains = false;
     state.connected = true;

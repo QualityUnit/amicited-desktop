@@ -63,7 +63,12 @@ import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
 import { isUsefulResult } from "@amicited/tools-core";
 import { usePrimarySettings } from "./hooks/useSettings";
 import { serverEnvironment } from "./state/server";
-import { resolveAppModelSelectionState } from "./modelSelection";
+import { effectiveMarketingAssistant, recommendedMarketingAssistant } from "./marketingAssistant";
+import {
+  ComposerEffortColumn,
+  describeComposerEffort,
+} from "./components/chat/ComposerModelEffort";
+import type { TraitsSelectionInput } from "./components/chat/TraitsPicker";
 import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
@@ -561,31 +566,13 @@ export function useMarketingTask() {
   const settings = usePrimarySettings();
   const allProviders = useEnvironmentProviders();
   const providers = environmentId ? (allProviders.get(environmentId) ?? []) : [];
-  const readyProviders = providers.filter(
-    (provider) =>
-      getOnboardingProviderState(provider) === "ready" &&
-      (provider.driver === "claudeAgent" ||
-        provider.driver === "codex" ||
-        provider.instanceId === settings.textGenerationModelSelection?.instanceId),
-  );
-  const assistant =
-    readyProviders.find(
-      (provider) => provider.instanceId === settings.textGenerationModelSelection?.instanceId,
-    ) ?? readyProviders[0];
+  const assistant = effectiveMarketingAssistant(settings, providers);
   return {
     startTask: async (prompt: string, sendImmediately = false, report?: unknown) => {
       const open = async (project: Parameters<typeof newThread>[0]) => {
         const draft = await newThread(project, {
           prompt,
           sendImmediately: sendImmediately && Boolean(assistant),
-          ...(assistant
-            ? {
-                modelSelection:
-                  settings.textGenerationModelSelection?.instanceId === assistant.instanceId
-                    ? settings.textGenerationModelSelection
-                    : resolveAppModelSelectionState(settings, [assistant]),
-              }
-            : {}),
         });
         if (!draft) throw new Error("Could not open your task");
         if (report)
@@ -603,14 +590,16 @@ export function useMarketingTask() {
 }
 export function MarketingSubscriptions({
   usageLink = true,
-  showIntro = true,
   onSelected,
+  onReadyChange,
+  initialDriver,
   destination,
 }: {
   destination?: import("@t3tools/contracts").EnvironmentId | null | undefined;
   usageLink?: boolean;
-  showIntro?: boolean;
   initialDriver?: "claudeAgent" | "codex";
+  showIntro?: boolean;
+  onReadyChange?: (ready: boolean) => void;
   onSelected?: (selection: import("@t3tools/contracts").ModelSelection) => void;
 }) {
   const primary = usePrimaryEnvironmentId();
@@ -620,108 +609,173 @@ export function MarketingSubscriptions({
   const settings = useEnvironmentSettings(
     EnvironmentId.make(environmentId ?? PRIMARY_LOCAL_ENVIRONMENT_ID),
   );
+  const effective = effectiveMarketingAssistant(settings, providers);
+  const [driverChoice, setDriverChoice] = useState<"claudeAgent" | "codex" | null>(
+    initialDriver ?? null,
+  );
+  const driver =
+    driverChoice ??
+    (providers.find((p) => p.instanceId === effective?.instanceId)?.driver === "codex"
+      ? "codex"
+      : "claudeAgent");
+  const provider =
+    providers.find((p) => p.driver === driver && getOnboardingProviderState(p) === "ready") ??
+    providers.find((p) => p.driver === driver);
+  const ready = getOnboardingProviderState(provider) === "ready";
+  const selection = provider
+    ? effective?.instanceId === provider.instanceId
+      ? effective
+      : recommendedMarketingAssistant(provider)
+    : null;
   const update = useAtomCommand(serverEnvironment.updateSettings);
   const [error, setError] = useState("");
   const entries = deriveProviderInstanceEntries(providers);
+  const reportReady = useEffectEvent((value: boolean) => onReadyChange?.(value));
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- The setup shell gates Continue on the provider selected inside this shared dialog body.
+  useEffect(() => {
+    reportReady(ready);
+  }, [ready]);
   const choose = async (selection: import("@t3tools/contracts").ModelSelection) => {
     if (!environmentId) return;
     const result = await update({
       environmentId,
-      input: { patch: { textGenerationModelSelection: selection } },
+      input: { patch: { defaultModelSelection: selection } },
     });
     if (result._tag !== "Success") {
       setError("Could not save your assistant. Please try again.");
       return;
     }
+    setError("");
     window.dispatchEvent(
       new CustomEvent("amicited-assistant-selected", { detail: { environmentId, selection } }),
     );
     onSelected?.(selection);
   };
+  const saveConnectedChoice = useEffectEvent(
+    async (choice: string | null, isReady: boolean, instanceId: string | undefined) => {
+      if (choice && isReady && selection && effective?.instanceId !== instanceId)
+        await choose(selection);
+    },
+  );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Provider login completes outside React; persist the user's provider choice when it becomes ready.
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- Login readiness synchronizes the external server setting; save errors are reported after its RPC completes.
+    void saveConnectedChoice(driverChoice, ready, provider?.instanceId);
+  }, [driverChoice, ready, provider?.instanceId]);
+  const traits: TraitsSelectionInput | null =
+    provider && selection
+      ? {
+          provider: provider.driver,
+          instanceId: provider.instanceId,
+          models: provider.models,
+          model: selection.model,
+          modelOptions: selection.options,
+          planModeEnabled: false,
+          onModelOptionsChange: (options) => void choose({ ...selection, options: options ?? [] }),
+        }
+      : null;
+  const effort = describeComposerEffort(traits, "label", "sm");
+  const label = driver === "codex" ? "ChatGPT" : "Claude";
   return (
-    <>
-      {showIntro && (
-        <p className="text-sm text-muted-foreground">
-          Use your existing Claude or ChatGPT subscription. No API key. Your login stays on this
-          computer.
-        </p>
-      )}
-      <div className="am-assistant-grid">
-        {(["claudeAgent", "codex"] as const).map((driver) => {
-          const provider = providers.find((p) => p.driver === driver);
-          const ready = getOnboardingProviderState(provider) === "ready";
-          const selection = resolveAppModelSelectionState(settings, provider ? [provider] : []);
-          const label = driver === "codex" ? "ChatGPT" : "Claude";
-          const weekly = provider?.usageLimits?.windows.find((w) => w.kind === "weekly");
-          return (
-            <article
-              className="am-assistant-card"
-              data-selected={
-                ready && settings.textGenerationModelSelection?.instanceId === provider?.instanceId
-              }
-              key={driver}
-              aria-label={label}
-            >
-              {ready ? (
-                <div className="am-assistant-tile">
-                  <div data-am="am-assistant-top">
-                    <ProviderInstanceIcon
-                      driverKind={ProviderDriverKind.make(driver)}
-                      displayName={label}
-                      iconClassName="size-10"
-                    />
-                    <h3>{label}</h3>
-                    <span data-am="am-assistant-status" data-state="ready">
-                      Ready
-                    </span>
-                  </div>
-                  <p>
-                    {weekly
-                      ? `${Math.round(100 - weekly.usedPercent)}% left this week`
-                      : "Your subscription is ready."}
-                  </p>
-                  {settings.textGenerationModelSelection?.instanceId === provider?.instanceId ? (
-                    <>
-                      <span className="text-sm">✓ Selected</span>{" "}
-                      <ProviderModelPicker
-                        environmentId={environmentId ?? null}
-                        activeInstanceId={selection.instanceId}
-                        model={selection.model}
-                        lockedProvider={ProviderDriverKind.make(driver)}
-                        instanceEntries={entries.filter((e) => e.driverKind === driver)}
-                        modelOptionsByInstance={
-                          new Map(
-                            entries.map((e) => [
-                              e.instanceId,
-                              getAppModelOptionsForInstance(settings, e),
-                            ]),
-                          )
-                        }
-                        onInstanceModelChange={(instanceId, model) =>
-                          void choose({ instanceId, model })
-                        }
-                      />
-                    </>
-                  ) : (
-                    <Button onClick={() => void choose(selection)}>Use {label}</Button>
-                  )}
-                </div>
-              ) : environmentId ? (
-                <ConnectedAgentsStep
-                  environmentId={environmentId}
-                  machineLabel={label}
-                  marketingDriver={driver}
-                />
-              ) : (
-                <p>Connecting to this computer…</p>
-              )}
-            </article>
-          );
-        })}
+    <section className="am-assistant-hero" aria-label="Assistant setup">
+      <div className="am-assistant-logo">
+        <ProviderInstanceIcon
+          driverKind={ProviderDriverKind.make(driver)}
+          displayName={label}
+          iconClassName="size-14"
+        />
+        {ready && (
+          <span className="am-assistant-ready" aria-label="Ready">
+            ✓
+          </span>
+        )}
       </div>
+      <header>
+        <h1>{ready ? `${label} is ready` : `Connect ${label}`}</h1>
+        <p className="text-sm text-muted-foreground">Your subscription. No API key.</p>
+      </header>
+      <div className="am-assistant-switch" role="radiogroup" aria-label="Assistant">
+        {(["claudeAgent", "codex"] as const).map((choice) => (
+          <button
+            type="button"
+            role="radio"
+            aria-label={choice === "codex" ? "ChatGPT" : "Claude"}
+            aria-checked={choice === driver}
+            key={choice}
+            onKeyDown={(event) => {
+              if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+                event.preventDefault();
+                event.currentTarget.parentElement
+                  ?.querySelector<HTMLButtonElement>(`[aria-checked="false"]`)
+                  ?.click();
+                event.currentTarget.parentElement
+                  ?.querySelector<HTMLButtonElement>(`[aria-checked="true"]`)
+                  ?.focus();
+              }
+            }}
+            onClick={() => {
+              setDriverChoice(choice);
+              const next = providers.find(
+                (p) => p.driver === choice && getOnboardingProviderState(p) === "ready",
+              );
+              if (next)
+                void choose(
+                  effective?.instanceId === next.instanceId
+                    ? effective
+                    : recommendedMarketingAssistant(next),
+                );
+            }}
+          >
+            <ProviderInstanceIcon
+              driverKind={ProviderDriverKind.make(choice)}
+              displayName={choice === "codex" ? "ChatGPT" : "Claude"}
+              iconClassName="size-6"
+            />
+          </button>
+        ))}
+      </div>
+      {ready && selection ? (
+        <div className="am-assistant-preview" aria-label="Chat preview">
+          <span className="text-muted-foreground">Ask anything…</span>
+          <div className="am-assistant-preview-controls">
+            <ProviderModelPicker
+              environmentId={environmentId ?? null}
+              activeInstanceId={selection.instanceId}
+              model={selection.model}
+              lockedProvider={ProviderDriverKind.make(driver)}
+              instanceEntries={entries.filter((entry) => entry.driverKind === driver)}
+              modelOptionsByInstance={
+                new Map(
+                  entries.map((entry) => [
+                    entry.instanceId,
+                    getAppModelOptionsForInstance(settings, entry),
+                  ]),
+                )
+              }
+              showTriggerSuffix
+              triggerClassName="max-w-full sm:max-w-full"
+              triggerSuffix={<span>· {effort.detail ?? "Default"} ▾</span>}
+              triggerDetail={effort.detail}
+              effortColumn={<ComposerEffortColumn traits={traits} />}
+              onInstanceModelChange={(instanceId, model) =>
+                void choose({ instanceId, model, options: selection.options ?? [] })
+              }
+            />
+            <span className="am-assistant-hint">← change any time</span>
+          </div>
+        </div>
+      ) : environmentId ? (
+        <ConnectedAgentsStep
+          environmentId={environmentId}
+          machineLabel={label}
+          marketingDriver={driver}
+        />
+      ) : (
+        <p>Connecting to this computer…</p>
+      )}
       {error && <p role="alert">{error}</p>}
       {usageLink && <Link to="/usage">View AI plan usage →</Link>}
-    </>
+    </section>
   );
 }
 export function MarketingNewTask() {

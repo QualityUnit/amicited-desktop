@@ -1,3 +1,4 @@
+import { effectiveMarketingAssistant } from "../marketingAssistant";
 import { cache, lastDomains, readDefaultDomain } from "../marketingDomainStore";
 import { readWorkspaceMode } from "@amicited/ui-marketing/mode";
 import {
@@ -178,7 +179,18 @@ export function createNewThreadHandler(router: AnyRouter) {
       project?.id ?? null,
       project,
     );
-    const configuredDefaultModelSelection = projectSettings.settings.defaultModelSelection ?? null;
+    const configuredDefaultModelSelection =
+      readWorkspaceMode() === "marketer"
+        ? effectiveMarketingAssistant(
+            {
+              ...projectSettings.settings,
+              defaultModelSelection:
+                projectSettings.settings.defaultModelSelection ??
+                targetServerSettings.defaultModelSelection,
+            },
+            environmentServerConfigs.get(projectRef.environmentId)?.providers ?? [],
+          )
+        : (projectSettings.settings.defaultModelSelection ?? null);
     const fallbackResolution = resolveNewThreadModelSelection({
       defaultSelection:
         configuredDefaultModelSelection ??
