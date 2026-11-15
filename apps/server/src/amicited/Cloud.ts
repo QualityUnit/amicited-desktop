@@ -8,9 +8,11 @@ import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 
 import * as ServerConfig from "../config.ts";
 import * as ExternalLauncher from "../process/externalLauncher.ts";
+import { domainFaviconDirectory } from "./DomainFavicons.ts";
 
 const decodeSetup = Schema.decodeUnknownSync(
   Schema.Struct({ finished: Schema.Boolean, lastDomain: Schema.optionalKey(Schema.String) }),
@@ -127,11 +129,17 @@ export const projectLifecycleLayer = Layer.effect(
   ProjectLifecycle,
   Effect.gen(function* () {
     const cloud = yield* AmicitedCloud;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { stateDir } = yield* ServerConfig.ServerConfig;
     return {
       onProjectDeleted: Effect.fn("AmicitedCloud.onProjectDeleted")(function* (
         projectId: import("@t3tools/contracts").ProjectId,
       ) {
         if (cloud.domains) yield* Effect.promise(() => cloud.domains!.forget(projectId));
+        yield* fs
+          .remove(domainFaviconDirectory(path, stateDir, projectId), { recursive: true })
+          .pipe(Effect.ignore);
       }),
     };
   }),

@@ -2,6 +2,7 @@ import { inspectSiteFiles } from "@amicited/cloud-client/siteFiles";
 import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
+import * as AmicitedDomainFavicons from "./amicited/DomainFavicons.ts";
 import * as MarketingTools from "@amicited/tools/service";
 import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -2010,6 +2011,7 @@ export const layerWsRpc = (
       });
 
       const cloud = yield* AmicitedCloud.AmicitedCloud;
+      const domainFavicons = yield* AmicitedDomainFavicons.DomainFavicons;
       const marketingTools = yield* MarketingTools.MarketingTools.pipe(
         Effect.provide(MarketingToolsLive.layer),
       );
@@ -2029,7 +2031,7 @@ export const layerWsRpc = (
             try: () => cloud.domains?.metadata() ?? Promise.resolve([]),
             catch: () =>
               new DomainFailure({ message: "Could not read your domains. Please try again." }),
-          }),
+          }).pipe(Effect.tap((domains) => Effect.forkDetach(domainFavicons.sync(domains)))),
         "amicited.domains.inspect": ({ path }) =>
           Effect.tryPromise({
             try: () => inspectSiteFiles(path),
