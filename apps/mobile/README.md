@@ -1,4 +1,4 @@
-# T3 Code Mobile
+# AmICited Mobile
 
 > [!NOTE]
 > To install the released app from the App Store or Google Play, see [Mobile app](../../docs/user/install.md#mobile-app). This guide covers building it from source.
@@ -10,13 +10,13 @@
 
 This app has three variants:
 
-- `development`: Expo dev client, installable side-by-side as `T3 Code Dev`
-- `preview`: persistent internal preview build, installable side-by-side as `T3 Code Preview`
-- `production`: store/release build as `T3 Code`
+- `development`: Expo dev client, installable side-by-side as `AmICited Dev`
+- `preview`: persistent internal preview build, installable side-by-side as `AmICited Preview`
+- `production`: store/release build as `AmICited`
 
 Run commands from `apps/mobile`.
 
-T3 Connect is optional and disabled in a fresh clone. Public configuration belongs in the
+AmICited Link is optional and disabled in a fresh clone. Public configuration belongs in the
 repository-root `.env` or `.env.local`, not an `apps/mobile/.env` file. See
 [`../../.env.example`](../../.env.example).
 
@@ -34,7 +34,7 @@ vp run dev:client
 The device argument can be omitted when exactly one device is booted or connected. The helper
 compares this checkout's Expo fingerprint and the installed binary with its last install record,
 and reuses a matching client. Otherwise it installs the build for that fingerprint from
-`~/.cache/t3code/native-clients/artifacts`, then the shared task cache, and builds only when
+`~/.cache/amicited/native-clients/artifacts`, then the shared task cache, and builds only when
 neither has it. One iOS simulator build serves every iPhone and iPad simulator, and one APK per
 ABI (x86_64 or arm64-v8a) serves every emulator and phone of that ABI. Build output goes to the
 log file it prints (`T3_NATIVE_CLIENT_VERBOSE=1` streams it instead). Builds are shared back when
@@ -85,7 +85,7 @@ entitlement, and native Sign in with Apple entitlement; builds without this opt-
 
 ```bash
 T3CODE_IOS_PERSONAL_TEAM=1 \
-T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code.dev \
+T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.amicited.dev \
 vp run ios:dev
 ```
 
@@ -99,7 +99,7 @@ The Personal Team equivalent also needs a unique bundle identifier:
 
 ```bash
 T3CODE_IOS_PERSONAL_TEAM=1 \
-T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.t3code \
+T3CODE_IOS_PERSONAL_TEAM_BUNDLE_ID=com.example.amicited \
 vp run ios:release
 ```
 
@@ -133,6 +133,31 @@ The development variant uses `appVersion` to avoid recalculating the native fing
 For preview or production EAS environments, set `T3CODE_CLERK_PUBLISHABLE_KEY`,
 `T3CODE_CLERK_JWT_TEMPLATE`, and `T3CODE_RELAY_URL`
 as EAS environment variables. Expo config maps the canonical values into the mobile build.
+
+### App identity and AmICited infrastructure
+
+Every variant's ID extends `com.amicited.desktop.mobile` (`.dev`, `.preview`); widget,
+share-extension and App Group IDs extend the variant's ID. Schemes are `amicited`,
+`amicited-dev` and `amicited-preview`. The values live in `packages/amicited-identity`.
+
+AmICited has no Expo project, Apple team or Clerk instance for mobile yet. These variables have no
+default, so a build without them has no OTA updates, no EAS project or owner, no signing team and
+no Clerk associated domains:
+
+- `AMICITED_EAS_PROJECT_ID`: the EAS project; also enables OTA updates from `u.expo.dev`.
+- `AMICITED_EAS_OWNER`: the Expo account that owns the project.
+- `AMICITED_APPLE_TEAM_ID`: the Apple Developer team that signs the app and its extensions.
+- `AMICITED_CLERK_RELYING_PARTY`: the Clerk Frontend API domain for `applinks:` and
+  `webcredentials:` associated domains.
+
+`eas submit` finds the App Store Connect app by bundle ID. Add `submit.production.ios.ascAppId`
+to `eas.json` once AmICited has its own App Store listing.
+
+Still waiting on AmICited infrastructure, each marked `TODO(amicited-infra)` in code:
+
+- A hosted web app domain. Until one exists the app claims no universal links or Android App Links,
+  `apps/web/public/.well-known` lists no apps, and "Copy link" on a thread copies the in-app link.
+- Terms of service, a security policy and a legal page. Settings → Legal opens the privacy policy.
 
 Create a PR preview dev-client build manually:
 

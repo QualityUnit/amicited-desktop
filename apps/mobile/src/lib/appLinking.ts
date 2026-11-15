@@ -1,3 +1,4 @@
+import { MOBILE_SCHEMES } from "@amicited/identity/mobile";
 import type { NavigationState, PartialState } from "@react-navigation/native";
 
 /**
@@ -12,13 +13,16 @@ export function shouldHandleAppLink(url: string, cloudConfigured: boolean): bool
   return (
     !route.includes("expo-development-client") &&
     !route.includes("://expo-sharing") &&
-    !/^t3code(-dev|-preview)?:\/*$/.test(url) &&
+    !BARE_APP_SCHEME.test(url) &&
     (cloudConfigured || !CLOUD_ONLY_LINK_PATH.test(route))
   );
 }
 
+/** Opening the app by its scheme alone, which addresses no screen. */
+const BARE_APP_SCHEME = new RegExp(`^(?:${MOBILE_SCHEMES.join("|")}):\\/*$`);
+
 /**
- * Screens that only exist with T3 Connect configured. A build without it has
+ * Screens that only exist with AmICited Link configured. A build without it has
  * no entry points to them, so a link must not open one empty. Anchored to the
  * app-relative path (after `exp://host/--/` in Expo Go) so a file route whose
  * path merely ends in one of these names still opens.

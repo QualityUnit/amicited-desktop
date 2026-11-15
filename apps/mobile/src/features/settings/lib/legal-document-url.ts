@@ -1,38 +1,11 @@
-const DEFAULT_MARKETING_SITE_URL = "https://t3.codes";
+import { PRIVACY_POLICY_URL } from "@amicited/identity";
 
-function resolveMarketingSiteUrl(override: string | undefined): URL {
-  try {
-    const url = new URL(override?.trim() || DEFAULT_MARKETING_SITE_URL);
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
-      return new URL(DEFAULT_MARKETING_SITE_URL);
-    }
+// TODO(amicited-infra): AmICited publishes only a privacy policy. Add the terms of service, the
+// security policy and a legal page that links them here once they exist.
+// https://github.com/QualityUnit/amicited-desktop/blob/main/apps/mobile/README.md#app-identity-and-amicited-infrastructure
+export const LEGAL_URL = PRIVACY_POLICY_URL;
 
-    url.search = "";
-    url.hash = "";
-    url.pathname = `${url.pathname.replace(/\/+$/, "")}/`;
-    return url;
-  } catch {
-    return new URL(DEFAULT_MARKETING_SITE_URL);
-  }
-}
-
-const MARKETING_SITE_URL = resolveMarketingSiteUrl(process.env.EXPO_PUBLIC_MARKETING_SITE_URL);
-
-function marketingSiteDocumentUrl(path: string): string {
-  return new URL(path, MARKETING_SITE_URL).toString();
-}
-
-const PRIVACY_POLICY_URL = marketingSiteDocumentUrl("privacy-policy");
-const SECURITY_POLICY_URL = marketingSiteDocumentUrl("security-policy");
-const TERMS_OF_SERVICE_URL = marketingSiteDocumentUrl("terms-of-service");
-export const LEGAL_URL = marketingSiteDocumentUrl("legal");
-
-const ALLOWED_LEGAL_DOCUMENT_URLS = [
-  LEGAL_URL,
-  PRIVACY_POLICY_URL,
-  TERMS_OF_SERVICE_URL,
-  SECURITY_POLICY_URL,
-] as const;
+const ALLOWED_LEGAL_DOCUMENT_URLS = [PRIVACY_POLICY_URL] as const;
 
 function webDocumentIdentity(value: string): string | null {
   try {

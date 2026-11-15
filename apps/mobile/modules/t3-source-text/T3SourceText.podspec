@@ -6,11 +6,11 @@ new_arch_enabled = ENV["RCT_NEW_ARCH_ENABLED"] == "1"
 Pod::Spec.new do |s|
   s.name = "T3SourceText"
   s.version = package["version"]
-  s.summary = "Native selectable source text for T3 Code mobile."
+  s.summary = "Native selectable source text for AmICited mobile."
   s.description = "Fabric-backed styled source text with whole-document selection."
-  s.homepage = "https://t3tools.com"
+  s.homepage = "https://amicited.com"
   s.license = { :type => "MIT", :file => "LICENSE" }
-  s.author = { "T3 Tools" => "hello@t3tools.com" }
+  s.author = { "FlowHunt" => "support@flowhunt.io" }
   s.platforms = { :ios => min_ios_version_supported }
   s.source = { :path => "." }
   s.source_files = "ios/**/*.{h,m,mm,cpp}"

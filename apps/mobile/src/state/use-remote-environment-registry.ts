@@ -1,3 +1,4 @@
+import { PRODUCT_SHORT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 import * as Dialog from "../components/ui/Dialog";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigation } from "@react-navigation/native";
@@ -22,11 +23,9 @@ import { relayEnvironmentDiscovery } from "./relay";
 import { connectPairingUrl as connectPairingUrlCommand } from "../connection/onboarding";
 
 const RELAY_REMOVAL_ACCOUNT_NOTE: Record<Discovery.RelayEnvironmentRegistration, string> = {
-  registered:
-    "It stays on your T3 Connect account and keeps its host space. Deregister it under T3 Account → T3 Connect to free it.",
-  unregistered: "It's no longer on your T3 Connect account.",
-  unknown:
-    "This doesn't change your T3 Connect account. To deregister it there, use T3 Account → T3 Connect.",
+  registered: `It stays on your ${REMOTE_ACCESS_NAME} account and keeps its host space. Deregister it under ${PRODUCT_SHORT_NAME} account → ${REMOTE_ACCESS_NAME} to free it.`,
+  unregistered: `It's no longer on your ${REMOTE_ACCESS_NAME} account.`,
+  unknown: `This doesn't change your ${REMOTE_ACCESS_NAME} account. To deregister it there, use ${PRODUCT_SHORT_NAME} account → ${REMOTE_ACCESS_NAME}.`,
 };
 
 const connectionPairingUrlAtom = Atom.make("").pipe(
@@ -195,7 +194,7 @@ export function useRemoteConnections() {
         environmentId,
       );
       const openAccount = {
-        text: "Open T3 Account",
+        text: `Open ${PRODUCT_SHORT_NAME} account`,
         onPress: () => navigation.navigate("SettingsAuth"),
       };
       Dialog.alert(

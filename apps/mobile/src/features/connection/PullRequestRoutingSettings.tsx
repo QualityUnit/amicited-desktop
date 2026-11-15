@@ -1,3 +1,4 @@
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 import { ListChoiceRow } from "../../components/ui/ListChoiceRow";
 import * as Dialog from "../../components/ui/Dialog";
 import { useAtomValue } from "@effect/atom-react";
@@ -65,7 +66,7 @@ export function PullRequestRoutingSettings() {
                     {entry.target.label}
                   </Text>
                   <Text className="text-xs text-foreground-muted" numberOfLines={1}>
-                    {connectionCatalogDisplayUrl(entry) ?? "T3 Connect"}
+                    {connectionCatalogDisplayUrl(entry) ?? REMOTE_ACCESS_NAME}
                   </Text>
                 </View>
                 <Text className="text-sm text-foreground-muted">

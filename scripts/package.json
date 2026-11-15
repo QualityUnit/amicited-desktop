@@ -7,6 +7,7 @@
     "test": "vp test run --config ../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@amicited/identity": "workspace:*",
     "@effect/platform-node": "catalog:",
     "@electron/asar": "^4.3.0",
     "@electron/osx-sign": "2.7.0",

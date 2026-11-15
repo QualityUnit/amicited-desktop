@@ -4,6 +4,8 @@
  * and the dev-only behavior probe (`apps/mobile/src/features/development/behavior-probe.ts`)
  * through Metro's Hermes inspector for exact app state.
  */
+import { MOBILE_APP_ID_DEV } from "@amicited/identity/mobile";
+import { PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -29,8 +31,8 @@ export class DeviceError extends Schema.TaggedError<DeviceError>()("DeviceError"
   message: Schema.String,
 }) {}
 
-export const APP_ID = "com.t3tools.t3code.dev";
-export const SCHEME = "t3code-dev";
+export const APP_ID = MOBILE_APP_ID_DEV;
+export const SCHEME = PROTOCOL_SCHEME_DEV;
 
 export interface ProbeState {
   readonly route: {

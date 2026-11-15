@@ -1,3 +1,4 @@
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 import { pipe } from "effect/Function";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -472,7 +473,7 @@ function MachineRow(props: {
     : machine.connected
       ? null
       : machine.connectOnly
-        ? "T3 Connect"
+        ? REMOTE_ACCESS_NAME
         : "Not connected";
   return (
     <Pressable

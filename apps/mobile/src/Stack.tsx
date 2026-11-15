@@ -1,3 +1,4 @@
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 import { isDraftThreadRoute } from "./features/threads/thread-route-state";
 import { ComponentCatalogScreen } from "./features/development/ComponentCatalogScreen";
 import { PullRequestGuideStopScreen } from "./features/pull-requests/guide/PullRequestGuideScreen";
@@ -702,7 +703,7 @@ const RootStackConfig = createWorkspaceStackNavigator({
       screen: ConnectOnboardingRouteScreen,
       linking: "connect-onboarding",
       options: sheetRoute({
-        title: "Set up T3 Connect",
+        title: `Set up ${REMOTE_ACCESS_NAME}`,
         header: "solid",
         detent: 0.6,
         androidMaxDetent: 0.95,

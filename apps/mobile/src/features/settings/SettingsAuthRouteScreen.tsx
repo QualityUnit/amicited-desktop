@@ -1,3 +1,4 @@
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 import { useAuth } from "@clerk/expo";
 import {
   AuthView,
@@ -14,7 +15,7 @@ import { T3ConnectProfilePage } from "../cloud/T3ConnectProfilePage";
 const USER_PROFILE_CUSTOM_PAGES = [
   {
     path: "t3-connect",
-    label: "T3 Connect",
+    label: REMOTE_ACCESS_NAME,
     icon: "globe",
     content: <T3ConnectProfilePage />,
   },
