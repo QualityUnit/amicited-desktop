@@ -257,16 +257,19 @@ describe("DesktopLifecycle", () => {
         return yield* Deferred.await(relaunched);
       }).pipe(
         Effect.provide(layer),
-        Effect.provideService(HostProcess.ExecutablePath, "/opt/T3 Code/t3code"),
+        Effect.provideService(HostProcess.ExecutablePath, "/opt/AmICited Desktop/amicited-desktop"),
         Effect.provideService(HostProcess.Arguments, [
-          "/opt/T3 Code/t3code",
+          "/opt/AmICited Desktop/amicited-desktop",
           "--no-sandbox",
-          "T3CODE://pair?token=spent",
-          "t3code://new?prompt=hello",
+          "AMICITED://pair?token=spent",
+          "amicited://new?prompt=hello",
         ]),
       );
 
-      assert.deepEqual(options, { execPath: "/opt/T3 Code/t3code", args: ["--no-sandbox"] });
+      assert.deepEqual(options, {
+        execPath: "/opt/AmICited Desktop/amicited-desktop",
+        args: ["--no-sandbox"],
+      });
     }),
   );
 

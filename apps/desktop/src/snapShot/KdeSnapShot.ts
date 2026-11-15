@@ -7,6 +7,8 @@ import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 import * as Schema from "effect/Schema";
 import type { DesktopCaptureHelperState } from "@t3tools/contracts";
+import { LINUX_DESKTOP_ENTRY_ID, PRODUCT_NAME } from "@amicited/identity";
+import { XDG_DATA_DIR_NAME } from "@amicited/identity/os";
 
 import { escapeDesktopEntryExecArgument } from "../app/DesktopLinuxUrlHandler.ts";
 import type { LinuxWindowSnapshot } from "./LinuxSnapShot.ts";
@@ -15,8 +17,8 @@ import { startNativeCaptureFeedback } from "./NativeCaptureFeedback.ts";
 export { isKdeCaptureSession } from "./linuxCaptureSession.ts";
 
 export const KDE_CAPTURE_EXECUTABLE = "t3-kde-snap-shot";
-const DESKTOP_FILE = "com.t3tools.T3Code.KdeCapture.desktop";
-const MARKER = "X-T3Code-Capture-Helper=true";
+const DESKTOP_FILE = `${LINUX_DESKTOP_ENTRY_ID}.ScreenCapture.desktop`;
+const MARKER = "X-AmICited-Capture-Helper=true";
 const decodeCapabilities = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Struct({ feedbackAvailable: Schema.optional(Schema.Boolean) })),
 );
@@ -24,7 +26,12 @@ export type KdeCapturePaths = { readonly bundle: string; readonly dataHome: stri
 
 export function kdeCapturePaths(paths: KdeCapturePaths) {
   return {
-    executable: NodePath.join(paths.dataHome, "t3code", "kde-capture", KDE_CAPTURE_EXECUTABLE),
+    executable: NodePath.join(
+      paths.dataHome,
+      XDG_DATA_DIR_NAME,
+      "kde-capture",
+      KDE_CAPTURE_EXECUTABLE,
+    ),
     desktop: NodePath.join(paths.dataHome, "applications", DESKTOP_FILE),
   };
 }
@@ -33,7 +40,7 @@ function kdeCaptureDesktopEntry(executable: string): string {
   return [
     "[Desktop Entry]",
     "Type=Application",
-    "Name=T3 Code SnapShots",
+    `Name=${PRODUCT_NAME} Screen Capture`,
     "NoDisplay=true",
     `Exec=${escapeDesktopEntryExecArgument(executable)} check`,
     // KService reads this custom property as a KConfig list, not an XDG ';' list.

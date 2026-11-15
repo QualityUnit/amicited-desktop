@@ -11,10 +11,11 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 
 import * as Electron from "electron";
+import { PROTOCOL_SCHEME, PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 
 export const DESKTOP_HOST = "app";
-const DESKTOP_PRODUCTION_SCHEME = "t3code";
-const DESKTOP_DEVELOPMENT_SCHEME = "t3code-dev";
+const DESKTOP_PRODUCTION_SCHEME = PROTOCOL_SCHEME;
+const DESKTOP_DEVELOPMENT_SCHEME = PROTOCOL_SCHEME_DEV;
 
 export function getDesktopScheme(isDevelopment: boolean): string {
   return isDevelopment ? DESKTOP_DEVELOPMENT_SCHEME : DESKTOP_PRODUCTION_SCHEME;

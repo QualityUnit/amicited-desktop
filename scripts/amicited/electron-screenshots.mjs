@@ -87,7 +87,7 @@ const boot = NodePath.join(home, "boot.cjs");
 // Desktop resolves macOS profiles from NodeOS.homedir, overriding --user-data-dir.
 NodeFS.writeFileSync(
   boot,
-  `require('node:os').homedir=()=>${JSON.stringify(home)};require(${JSON.stringify(NodePath.join(root, "apps/desktop/dist-electron/main.cjs"))});require('electron').app.on('web-contents-created',(_,w)=>w.on('did-finish-load',()=>{if(w.getURL().startsWith('t3code-dev:')){w.closeDevTools();console.log('NATIVE_RENDERER_READY')}}));`,
+  `require('node:os').homedir=()=>${JSON.stringify(home)};require(${JSON.stringify(NodePath.join(root, "apps/desktop/dist-electron/main.cjs"))});require('electron').app.on('web-contents-created',(_,w)=>w.on('did-finish-load',()=>{if(w.getURL().startsWith('amicited-dev:')){w.closeDevTools();console.log('NATIVE_RENDERER_READY')}}));`,
 );
 let child, browser;
 try {
@@ -101,7 +101,7 @@ try {
     NodeOS.platform() === "darwin"
       ? NodePath.join(
           root,
-          "apps/desktop/.electron-runtime/T3 Code (Dev).app/Contents/MacOS/Electron",
+          "apps/desktop/.electron-runtime/AmICited Desktop (Dev).app/Contents/MacOS/Electron",
         )
       : requireDesktop("electron");
   child = NodeChildProcess.spawn(
@@ -127,7 +127,7 @@ try {
   browser = await chromium.connectOverCDP(`http://localhost:${debugPort}`);
   const context = browser.contexts()[0];
   const select = async (page) => {
-    await page.waitForURL((url) => url.protocol === "t3code-dev:", { timeout: 120000 });
+    await page.waitForURL((url) => url.protocol === "amicited-dev:", { timeout: 120000 });
     return page;
   };
   const page = await Promise.any([
@@ -162,7 +162,7 @@ try {
         devicePixelRatio: await page.evaluate(() => devicePixelRatio),
         profile: home,
         rootCause:
-          "The previous evidence harness used an IPv4 CDP endpoint and did not distinguish DevTools from the app target. localhost and the explicit t3code-dev target mount successfully.",
+          "The previous evidence harness used an IPv4 CDP endpoint and did not distinguish DevTools from the app target. localhost and the explicit amicited-dev target mount successfully.",
       },
       null,
       2,
@@ -643,7 +643,7 @@ try {
   const failurePage = browser
     ?.contexts()[0]
     ?.pages()
-    .find((p) => p.url().startsWith("t3code-dev:"));
+    .find((p) => p.url().startsWith("amicited-dev:"));
   await failurePage?.screenshot({ path: NodePath.join(out, "electron-failure.png") });
   NodeFS.writeFileSync(
     NodePath.join(out, "electron-error.json"),

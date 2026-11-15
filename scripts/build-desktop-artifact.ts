@@ -59,10 +59,22 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { Command, Flag } from "effect/cli";
+import {
+  APP_ID,
+  LINUX_DESKTOP_ENTRY_ID,
+  LINUX_PACKAGE_NAME,
+  PRODUCT_NAME,
+  PROTOCOL_SCHEME,
+  PROTOCOL_SCHEME_DEV,
+  PUBLISHER_NAME,
+  SOURCE_REPOSITORY,
+  WEBSITE_URL,
+} from "@amicited/identity";
+import { LINUX_MAINTAINER } from "@amicited/identity/os";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const LINUX_ICON_SIZES = [16, 22, 24, 32, 48, 64, 128, 256, 512] as const;
-const DESKTOP_APP_ID = "com.t3tools.t3code";
+const DESKTOP_APP_ID = APP_ID;
 const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/u;
 
 const BuildPlatform = Schema.Literals(["mac", "linux", "win"]);
@@ -2689,6 +2701,7 @@ export function resolveDesktopRuntimeDependencies(
 
 export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig")(function* (
   updateChannel: "latest" | "nightly",
+  fallbackRepository = "",
 ) {
   const env = yield* Config.all({
     updateRepository: Config.String("T3CODE_DESKTOP_UPDATE_REPOSITORY").pipe(Config.option),
@@ -2697,7 +2710,7 @@ export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig"
   const rawRepo = (
     Option.getOrUndefined(env.updateRepository)?.trim() ||
     Option.getOrUndefined(env.githubRepository)?.trim() ||
-    ""
+    fallbackRepository
   ).trim();
   if (!rawRepo) return undefined;
 
@@ -2758,8 +2771,8 @@ export function resolvePackageManagerUserAgent(packageManager: string): string {
 
 export function resolveDesktopProductName(version: string): string {
   return resolveDesktopUpdateChannel(version) === "nightly"
-    ? "T3 Code (Nightly)"
-    : (desktopPackageJson.productName ?? "T3 Code");
+    ? `${PRODUCT_NAME} (Nightly)`
+    : (desktopPackageJson.productName ?? PRODUCT_NAME);
 }
 
 export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
@@ -2782,7 +2795,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     afterPack: (yield* Path.Path).join(yield* RepoRoot, "scripts/prepare-server-compile-cache.cjs"),
     appId: DESKTOP_APP_ID,
     productName: resolveDesktopProductName(version),
-    artifactName: "T3-Code-${version}-${arch}.${ext}",
+    artifactName: "AmICited-Desktop-${version}-${arch}.${ext}",
     electronLanguages: [...DESKTOP_ELECTRON_LANGUAGES],
     files: [
       ...DESKTOP_FILE_EXCLUSIONS,
@@ -2811,7 +2824,12 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   // Missing publish config infers a GitHub feed from tokens; staging has no repository, so manifest generation would crash.
   buildConfig.publish = null;
   if (!isDesktopPreviewVersion(version)) {
-    const publishConfig = yield* resolveGitHubPublishConfig(updateChannel);
+    // A local build without a repository env still points its feed at AmICited's releases,
+    // never at the upstream repository; mock update builds keep their local feed.
+    const publishConfig = yield* resolveGitHubPublishConfig(
+      updateChannel,
+      mockUpdates ? "" : SOURCE_REPOSITORY,
+    );
     if (publishConfig) {
       buildConfig.publish = [publishConfig];
     } else if (mockUpdates) {
@@ -2834,14 +2852,10 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       extendInfo: {
         // macOS 26 offers Messages/Mail codes in every text field unless opted out.
         NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac: true,
-        NSLocalNetworkUsageDescription:
-          "T3 Code connects to devices on your local network for remote environments and commands run by terminals and coding agents.",
-        NSScreenCaptureUsageDescription:
-          "T3 Code captures the active window when you use the window capture shortcut.",
-        NSCameraUsageDescription:
-          "T3 Code lets commands run by terminals and coding agents use the camera.",
-        NSMicrophoneUsageDescription:
-          "T3 Code lets commands run by terminals and coding agents use the microphone.",
+        NSLocalNetworkUsageDescription: `${PRODUCT_NAME} connects to devices on your local network for remote environments and commands run by terminals and coding agents.`,
+        NSScreenCaptureUsageDescription: `${PRODUCT_NAME} captures the active window when you use the window capture shortcut.`,
+        NSCameraUsageDescription: `${PRODUCT_NAME} lets commands run by terminals and coding agents use the camera.`,
+        NSMicrophoneUsageDescription: `${PRODUCT_NAME} lets commands run by terminals and coding agents use the microphone.`,
         // macOS lists an app under Default web browser only when it opens web
         // pages as documents as well as http and https links (see protocols).
         CFBundleDocumentTypes: [
@@ -2855,8 +2869,8 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       },
       protocols: [
         {
-          name: "T3 Code",
-          schemes: ["t3code", "t3code-dev"],
+          name: PRODUCT_NAME,
+          schemes: [PROTOCOL_SCHEME, PROTOCOL_SCHEME_DEV],
         },
         {
           name: "Web site URL",
@@ -2901,28 +2915,28 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
     buildConfig.afterPack = path.join(repoRoot, "scripts/linux-after-pack.ts");
     buildConfig.linux = {
       target: target === "AppImage" ? [target, "deb"] : [target],
-      executableName: "t3code",
+      executableName: LINUX_PACKAGE_NAME,
       icon: "icons",
       category: "Development",
-      synopsis: "Desktop GUI for coding agents",
-      maintainer: "T3 Tools <hello@t3.codes>",
+      synopsis: "Local-first AI agent workstation for marketers",
+      maintainer: LINUX_MAINTAINER,
       protocols: [
         {
-          name: "T3 Code",
-          schemes: ["t3code", "t3code-dev"],
+          name: PRODUCT_NAME,
+          schemes: [PROTOCOL_SCHEME, PROTOCOL_SCHEME_DEV],
         },
       ],
       desktop: {
         entry: {
-          StartupWMClass: "t3code",
+          StartupWMClass: LINUX_PACKAGE_NAME,
         },
       },
     };
     buildConfig.deb = {
       // FPM runs outside the staged app directory, so source paths must be absolute.
       fpm: [
-        `${path.join(repoRoot, "apps/desktop/resources/linux/com.t3tools.t3code.metainfo.xml")}=/usr/share/metainfo/com.t3tools.t3code.metainfo.xml`,
-        `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/t3code/copyright`,
+        `${path.join(repoRoot, `apps/desktop/resources/linux/${LINUX_DESKTOP_ENTRY_ID}.metainfo.xml`)}=/usr/share/metainfo/${LINUX_DESKTOP_ENTRY_ID}.metainfo.xml`,
+        `${path.join(repoRoot, "LICENSE")}=/usr/share/doc/${LINUX_PACKAGE_NAME}/copyright`,
       ],
       // Debian 13 and Ubuntu 24.04 use 64-bit-time names; retain old-name fallbacks.
       depends: [
@@ -3862,7 +3876,7 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
       ? path.join(stageAppDir, WINDOWS_SERVER_RESOURCE_SOURCE_DIR, WINDOWS_SERVER_ASAR_RESOURCE)
       : undefined;
   const stagePackageJson: StagePackageJson = {
-    name: "t3code",
+    name: LINUX_PACKAGE_NAME,
     version: appVersion,
     buildVersion: appVersion,
     t3codeCommitHash: commitHash,
@@ -3870,11 +3884,10 @@ const buildDesktopArtifactUnlocked = Effect.fn("buildDesktopArtifactUnlocked")(f
     ...(macWebAuthn ? { t3codeWebAuthn: macWebAuthn } : {}),
     private: true,
     packageManager: rootPackageJson.packageManager,
-    description:
-      "T3 Code is an open-source desktop app for coding agents. Work with your existing agent subscriptions, review code changes, and run commands in your projects. Connect from desktop, web, or mobile to continue working remotely.",
+    description: `${PRODUCT_NAME} is a local-first AI agent workstation for marketers. It runs on your own machine and works with the AI subscriptions you already have.`,
     license: "MIT",
-    homepage: "https://t3.codes",
-    author: "T3 Tools",
+    homepage: WEBSITE_URL,
+    author: PUBLISHER_NAME,
     main: "apps/desktop/dist-electron/boot.cjs",
     build: yield* createBuildConfig(
       options.platform,
@@ -4191,7 +4204,7 @@ const buildDesktopArtifactCli = Command.make("build-desktop-artifact", {
     Flag.optional,
   ),
 }).pipe(
-  Command.withDescription("Build a desktop artifact for T3 Code."),
+  Command.withDescription(`Build a desktop artifact for ${PRODUCT_NAME}.`),
   Command.withHandler((input) => Effect.flatMap(resolveBuildOptions(input), buildDesktopArtifact)),
 );
 
