@@ -101,18 +101,6 @@
   .am-history-row:has([data-popup-open]) .am-history-status-slot {
     visibility: hidden;
   }
-  [data-am-website-open="true"] ~ .am-starters {
-    visibility: hidden;
-  }
-  .am-starters {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 6px;
-    margin: 8px 0;
-    max-width: 640px;
-    align-items: flex-start;
-  }
   .am-composer-context {
     display: flex;
     flex-wrap: nowrap;
@@ -620,6 +608,57 @@
   gap: 8px;
   min-width: 0;
   container-type: inline-size;
+}
+/* Unlayered so these win over the branch strip's own utilities. */
+.am-composer-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 10px 4px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+[data-slot="composer-shell"]:has([data-composer-banner-surface="attached"]) .am-composer-header {
+  border-bottom: 0;
+}
+.am-composer-header > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.am-composer-header > div:last-child {
+  flex: 1;
+}
+.am-composer-header > div:empty {
+  display: none;
+}
+.am-composer-header > div:last-child::before {
+  content: "\00b7";
+  opacity: 0.6;
+}
+/* An inline-size container has no intrinsic width, so it would collapse in this row. */
+.am-composer-header .am-composer-context {
+  container-type: normal;
+}
+.am-composer-header .am-composer-context > .am-context-domain {
+  max-width: none;
+  color: var(--foreground);
+  font-weight: 500;
+}
+/* The site lives in the header on a new chat, so the nudge below has nothing to follow. */
+.am-composer-context > .am-cloud-actions:first-child > span:first-child {
+  display: none;
+}
+.am-composer-header [data-slot="composer-context-strip"] {
+  padding: 0;
+}
+.am-composer-header [data-slot="composer-context-strip"] > div {
+  flex: 0 1 auto;
+  margin-left: 0;
 }
 .am-composer-context > .am-context-domain {
   display: flex;

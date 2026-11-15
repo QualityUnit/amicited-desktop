@@ -37,7 +37,8 @@ import { usePrimaryEnvironmentId, useEnvironmentProviders } from "./state/enviro
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
 import { hasReadyMarketingAssistant } from "./marketingContext";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer styles are owned by @amicited/ui-marketing. */
-import { useState, useEffect, useEffectEvent } from "react";
+import { useState, useEffect, useEffectEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { isUsefulResult, type ToolResult } from "@amicited/tools-core";
 import {
   CompactMarketingResult,
@@ -56,13 +57,43 @@ import {
 } from "@amicited/ui-marketing";
 import { MarketingSubscriptions, useMarketingTask } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
+/** The composer's top line on a new chat: ChatComposer fills the site, ChatView the branch. */
+export function MarketingComposerHeader({
+  siteRef,
+  branchRef,
+}: {
+  siteRef: (element: HTMLDivElement | null) => void;
+  branchRef: (element: HTMLDivElement | null) => void;
+}) {
+  return (
+    <div className="am-composer-header">
+      <div ref={siteRef} />
+      <div ref={branchRef} />
+    </div>
+  );
+}
+export function MarketingBranchSlot({
+  target,
+  children,
+}: {
+  target: HTMLElement | null;
+  children: ReactNode;
+}) {
+  return target ? (
+    createPortal(children, target)
+  ) : (
+    <div className="pointer-events-auto">{children}</div>
+  );
+}
 export function MarketingComposerContext({
+  headerTarget,
   destination,
   projectId,
   selectedInstanceId,
   onConnected,
   onSelected,
 }: {
+  headerTarget?: HTMLElement | null | undefined;
   destination?: EnvironmentId | null | undefined;
   projectId?: string | null | undefined;
   selectedInstanceId: string;
@@ -111,29 +142,36 @@ export function MarketingComposerContext({
   const { rows: domains } = useDomains(environmentId);
   const domain = domains.find((row) => row.projectId === projectId);
   const [newDomainOpen, setNewDomainOpen] = useState(false);
+  const site = domain ? (
+    <Tooltip>
+      <TooltipTrigger render={<span className="am-context-domain" />}>
+        <BrandFavicon website={`https://${domain.hostname}`} name={domain.brand} />
+        <span>{domain.hostname}</span>
+      </TooltipTrigger>
+      <TooltipPopup>{domain.hostname}</TooltipPopup>
+    </Tooltip>
+  ) : (
+    <MarketingButton type="button" size="xs" variant="link" onClick={() => setNewDomainOpen(true)}>
+      <Globe size={14} />
+      Add domain
+    </MarketingButton>
+  );
+  const cloud = <CloudConnectedChip destination={environmentId ?? undefined} />;
   return (
     <div>
       <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
+      {headerTarget
+        ? createPortal(
+            <div className="am-composer-context">
+              {domain ? <span>Working on</span> : null}
+              {site}
+              {cloud}
+            </div>,
+            headerTarget,
+          )
+        : null}
       <div className="am-composer-context">
-        {domain ? (
-          <Tooltip>
-            <TooltipTrigger render={<span className="am-context-domain" />}>
-              <BrandFavicon website={`https://${domain.hostname}`} name={domain.brand} />
-              <span>{domain.hostname}</span>
-            </TooltipTrigger>
-            <TooltipPopup>{domain.hostname}</TooltipPopup>
-          </Tooltip>
-        ) : (
-          <MarketingButton
-            type="button"
-            size="xs"
-            variant="link"
-            onClick={() => setNewDomainOpen(true)}
-          >
-            <Globe size={14} />
-            Add domain
-          </MarketingButton>
-        )}
+        {headerTarget ? null : site}
         {domain && environmentId && (
           <DomainConnection
             key={domain.projectId}
@@ -147,7 +185,7 @@ export function MarketingComposerContext({
             Choose assistant
           </MarketingButton>
         )}
-        <CloudConnectedChip destination={environmentId ?? undefined} />
+        {headerTarget ? null : cloud}
       </div>
       <AssistantSetupDialog
         destination={environmentId}

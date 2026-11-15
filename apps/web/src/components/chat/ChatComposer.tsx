@@ -1,11 +1,9 @@
 import { getOnboardingProviderState } from "../../onboarding/providerReadiness.logic";
 import { createPortal } from "react-dom";
-/* oxlint-disable shadcn/no-unknown-classes -- Marketer suggestion styles come from @amicited/ui-marketing. */
-import { marketingStarters } from "@amicited/ui-marketing";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { MarketingComposerContext } from "../../marketingChat";
-import { MarketingIssueStrip, MarketingNextFix } from "../../marketingIssues";
+import { MarketingIssueStrip, MarketingLanding } from "../../marketingIssues";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
 import { insertAttachmentReferencesForDraft } from "./composerAttachmentReferences";
@@ -355,6 +353,7 @@ export interface ChatComposerHandle {
 
 export interface ChatComposerProps {
   marketingContextTarget?: HTMLElement | null;
+  marketingSiteTarget?: HTMLElement | null;
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
   canOperateThread: boolean;
@@ -3646,6 +3645,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         ? createPortal(
             <>
               <MarketingComposerContext
+                headerTarget={props.marketingSiteTarget}
                 projectId={activeProjectId}
                 destination={environmentId}
                 selectedInstanceId={selectedInstanceId}
@@ -3661,33 +3661,21 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 }}
               />
               {routeKind === "draft" ? (
-                <MarketingNextFix environmentId={environmentId} projectId={activeProjectId} />
+                <MarketingLanding
+                  environmentId={environmentId}
+                  projectId={activeProjectId}
+                  onStarter={(prompt) => {
+                    setPrompt(prompt);
+                    if (activeProjectId && environmentId)
+                      void openMarketingDraft(scopeProjectRef(environmentId, activeProjectId), {
+                        prompt,
+                        sendImmediately: true,
+                      });
+                  }}
+                />
               ) : (
                 <MarketingIssueStrip threadRef={routeThreadRef} />
               )}
-              {routeKind === "draft" ? (
-                <div className="am-starters">
-                  {marketingStarters.map((prompt) => (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      type="button"
-                      key={prompt}
-                      onClick={() => {
-                        setPrompt(prompt);
-                        if (activeProjectId && environmentId)
-                          void openMarketingDraft(scopeProjectRef(environmentId, activeProjectId), {
-                            prompt,
-                            sendImmediately: true,
-                          });
-                      }}
-                    >
-                      <span aria-hidden="true">→</span>
-                      {prompt}
-                    </Button>
-                  ))}
-                </div>
-              ) : null}
             </>,
             props.marketingContextTarget,
           )
