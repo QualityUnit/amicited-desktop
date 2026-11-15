@@ -714,6 +714,50 @@ if (import.meta.hot)
   import.meta.hot.dispose((data) => {
     data.domainConnections = connections;
   });
+export type DomainLink = "linked" | "locked" | "unknown";
+// A failing request still has an account behind it; only a missing or rejected sign-in locks a domain.
+function domainLink(connection: Connection | undefined): DomainLink {
+  if (!connection) return "unknown";
+  if (connection.state === "connected") return "linked";
+  return connection.state === "error" && connection.kind !== "auth" ? "linked" : "locked";
+}
+/** Whether each domain has an AmICited account behind it, for views that span domains. */
+export function useDomainLinks(
+  destination: EnvironmentId | null | undefined,
+  projectIds: ReadonlyArray<string>,
+): ReadonlyMap<string, DomainLink> {
+  const read = useAtomCommand(statusCommand);
+  const ids = projectIds.join("\n");
+  const links = useSyncExternalStore(subscribe, () =>
+    projectIds.map((id) => domainLink(connections.get(`${destination}:${id}`))).join(","),
+  ).split(",");
+  const refresh = useEffectEvent((destination: EnvironmentId) => {
+    for (const projectId of projectIds)
+      void read({ environmentId: destination, input: { projectId } }).then((result) => {
+        connections.set(
+          `${destination}:${projectId}`,
+          result._tag === "Success"
+            ? result.value
+            : {
+                state: "error",
+                kind: "network",
+                message: "Could not read this domain’s AmICited connection.",
+              },
+        );
+        listeners.forEach((listener) => listener());
+      });
+  });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Connection state lives in the destination server's keyring.
+  useEffect(() => {
+    if (destination && ids) refresh(destination);
+  }, [destination, ids]);
+  return new Map(
+    projectIds.map((id, index) => {
+      const link = links[index];
+      return [id, link === "linked" || link === "locked" ? link : "unknown"];
+    }),
+  );
+}
 export function useDomainConnection(
   destination: EnvironmentId | null | undefined,
   projectId: string | null | undefined,

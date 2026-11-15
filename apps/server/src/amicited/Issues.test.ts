@@ -80,3 +80,15 @@ it.effect("links one thread to an issue and finds the issue from that thread", (
     assert.strictEqual(closed.threadId, "thread-1");
   }).pipe(Effect.provide(layer)),
 );
+
+it.effect("refuses to start an audit for a domain that is not connected to AmICited", () =>
+  Effect.gen(function* () {
+    const issues = yield* Issues.AmicitedIssues;
+    const turnedOn = yield* Effect.flip(
+      issues.configureAudit({ projectId: "domain", enabled: true }),
+    );
+    assert.strictEqual(turnedOn.message, "Connect AmICited to this domain first.");
+    const ran = yield* Effect.flip(issues.runAudit("domain"));
+    assert.strictEqual(ran.message, "Connect AmICited to this domain first.");
+  }).pipe(Effect.provide(layer)),
+);

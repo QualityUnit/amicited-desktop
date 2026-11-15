@@ -401,7 +401,24 @@ const make = Effect.gen(function* () {
       ),
     );
 
+  // The audit reads AmICited reports, so without a connection it has nothing to check.
+  const requireConnection = Effect.fn("AmicitedIssues.requireConnection")(function* (
+    projectId: string,
+  ) {
+    const connection = yield* Effect.tryPromise({
+      try: async () => {
+        // Loads the domain list, which maps a project to the connection it shares.
+        await cloud.domains?.metadata();
+        return cloud.forProject(projectId).status();
+      },
+      catch: () => new IssueFailure({ message: "Could not read the domain connection." }),
+    });
+    if (connection.state !== "connected")
+      return yield* new IssueFailure({ message: "Connect AmICited to this domain first." });
+  });
+
   const configureAudit = Effect.fn("AmicitedIssues.configureAudit")(function* (input: AuditConfig) {
+    if (input.enabled) yield* requireConnection(input.projectId);
     const existing = yield* auditRow(input.projectId);
     const byId = yield* tasks;
     const task = existing ? byId.get(existing.task_id) : undefined;
@@ -441,6 +458,7 @@ const make = Effect.gen(function* () {
   });
 
   const runAudit = Effect.fn("AmicitedIssues.runAudit")(function* (projectId: string) {
+    yield* requireConnection(projectId);
     const row = yield* auditRow(projectId);
     if (!row) return yield* configureAudit({ projectId, enabled: true });
     yield* scheduled
