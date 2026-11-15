@@ -7,6 +7,8 @@ export const config: VercelConfig = {
   installCommand: "npm install -g vite-plus && vp install --filter '@t3tools/marketing...'",
   buildCommand: "vp run --filter @t3tools/marketing build",
   outputDirectory: "dist",
+  // TODO(amicited-infra): no Vercel project serves amicited.com from this app yet
+  // (QualityUnit/amicited-desktop#17).
   // curl | sh requires plain, uncompressed scripts with no cache across deploys.
   headers: [
     {
@@ -22,13 +24,6 @@ export const config: VercelConfig = {
         { key: "Content-Type", value: "text/plain; charset=utf-8" },
         { key: "Cache-Control", value: "public, max-age=300" },
       ],
-    },
-  ],
-  redirects: [
-    {
-      source: "/app",
-      destination: "https://app.t3.codes",
-      permanent: true,
     },
   ],
 };

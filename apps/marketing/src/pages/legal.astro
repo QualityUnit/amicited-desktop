@@ -1,38 +1,39 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { PRODUCT_NAME, PUBLISHER_NAME } from "../lib/site";
 
 const documents = [
   {
     number: "01",
     title: "Privacy Policy",
-    description: "How T3 Code handles information, connected services, and your privacy choices.",
+    description: `How ${PRODUCT_NAME} handles information, and where to find ${PUBLISHER_NAME}'s Privacy Policy.`,
     href: "/privacy-policy",
   },
   {
     number: "02",
     title: "Terms of Service",
-    description: "The terms that govern your use of T3 Code and T3 Tools-operated services.",
+    description: `The terms that govern your use of ${PRODUCT_NAME}.`,
     href: "/terms-of-service",
   },
   {
     number: "03",
     title: "Security Policy",
-    description: "Our security practices, responsible disclosure process, and shared responsibilities.",
+    description: "How to report a security issue, and where to find our security practices.",
     href: "/security-policy",
   },
 ] as const;
 ---
 
 <Layout
-  title="Legal | T3 Code"
-  description="Privacy, terms, and security documents for T3 Code."
+  title={`Legal | ${PRODUCT_NAME}`}
+  description={`Privacy, terms, and security documents for ${PRODUCT_NAME}.`}
   pageClass="legal-document-page"
 >
   <div class="legal-index">
     <header class="legal-index-hero">
-      <p class="eyebrow">T3 Tools, Inc. / Legal</p>
+      <p class="eyebrow">{PUBLISHER_NAME} / Legal</p>
       <h1>Legal</h1>
-      <p>Policies and terms for T3 Code, collected in one place.</p>
+      <p>Policies and terms for {PRODUCT_NAME}, collected in one place.</p>
     </header>
 
     <nav class="document-list" aria-label="Legal documents">

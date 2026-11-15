@@ -1,30 +1,19 @@
-export const GITHUB_REPOSITORY_URL = "https://github.com/pingdotgg/t3code";
+export {
+  DOWNLOAD_URL,
+  PRIVACY_POLICY_URL,
+  PRODUCT_NAME,
+  PRODUCT_SHORT_NAME,
+  PUBLISHER_NAME,
+  SECURITY_EMAIL,
+  SOURCE_REPOSITORY_URL,
+  SUPPORT_EMAIL,
+  WEBSITE_URL,
+} from "@amicited/identity";
 
-export const IOS_APP_STORE_URL =
-  "https://apps.apple.com/us/app/t3-code-remote-claude-more/id6787819824";
+// FlowHunt's published legal documents, read from https://www.flowhunt.io/ on 2026-11-15.
+export const TERMS_URL = "https://www.flowhunt.io/terms-and-conditions/";
+export const SECURITY_POLICY_URL = "https://www.flowhunt.io/security-policy/";
 
-export const ANDROID_PLAY_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.t3tools.t3code";
-
-// Runs at build time, so each deploy picks up the current count.
-async function fetchGithubStars(): Promise<string> {
-  const token = process.env.GITHUB_TOKEN;
-  try {
-    const response = await fetch("https://api.github.com/repos/pingdotgg/t3code", {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!response.ok) throw new Error(`GitHub API responded ${response.status}`);
-    const { stargazers_count: stars } = (await response.json()) as { stargazers_count: number };
-    return stars < 1000 ? String(stars) : `${Math.floor(stars / 1000)}k+`;
-  } catch (error) {
-    // A deploy must not ship a made-up count; offline dev should still render.
-    if (import.meta.env.PROD) throw new Error("Could not fetch GitHub stars", { cause: error });
-    console.warn("Could not fetch GitHub stars", error);
-    return "?";
-  }
-}
-
-export const MARKETING_STATS = {
-  githubStars: await fetchGithubStars(),
-  users: "500,000",
-} as const;
+// AmICited Desktop is a fork of T3 Code; MIT requires keeping its notice.
+export const UPSTREAM_NAME = "T3 Code";
+export const UPSTREAM_URL = "https://github.com/pingdotgg/t3code";

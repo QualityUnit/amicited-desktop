@@ -1,13 +1,14 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { PUBLISHER_NAME } from "../lib/site";
 
 interface Props {
   readonly title: string;
   readonly description: string;
   readonly heading: string;
   readonly lede: string;
-  readonly effectiveDate: string;
-  readonly lastUpdated: string;
+  readonly effectiveDate?: string;
+  readonly lastUpdated?: string;
   readonly sections: ReadonlyArray<readonly [id: string, label: string]>;
 }
 
@@ -18,19 +19,21 @@ const { title, description, heading, lede, effectiveDate, lastUpdated, sections 
   <div class="legal-page">
     <a class="legal-index-link" href="/legal"><span aria-hidden="true">&#8592;</span> All legal documents</a>
     <header class="legal-hero">
-      <p class="eyebrow">T3 Tools, Inc. / Legal</p>
+      <p class="eyebrow">{PUBLISHER_NAME} / Legal</p>
       <h1>{heading}</h1>
       <p class="legal-lede">{lede}</p>
-      <dl class="legal-dates" aria-label="Document dates">
-        <div>
-          <dt>Effective Date</dt>
-          <dd>{effectiveDate}</dd>
-        </div>
-        <div>
-          <dt>Last Updated</dt>
-          <dd>{lastUpdated}</dd>
-        </div>
-      </dl>
+      {effectiveDate && lastUpdated && (
+        <dl class="legal-dates" aria-label="Document dates">
+          <div>
+            <dt>Effective Date</dt>
+            <dd>{effectiveDate}</dd>
+          </div>
+          <div>
+            <dt>Last Updated</dt>
+            <dd>{lastUpdated}</dd>
+          </div>
+        </dl>
+      )}
     </header>
 
     <div class="legal-rule" aria-hidden="true"></div>

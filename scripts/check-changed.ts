@@ -203,7 +203,7 @@ const override = Effect.fn("checkChanged.override")(function* (
 
 // Tests that read a doc; a changed doc has no test beside it to select them.
 export const docReaderTests = (files: ReadonlyArray<string>) =>
-  files.includes("docs/user/t3-connect-troubleshooting.md")
+  files.includes("docs/user/amicited-link-troubleshooting.md")
     ? ["apps/server/src/cloud/ConnectReachability.test.ts"]
     : [];
 

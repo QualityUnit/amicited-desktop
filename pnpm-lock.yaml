@@ -503,6 +503,9 @@ importers:
 
   apps/marketing:
     dependencies:
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../../packages/amicited-identity
       '@fontsource-variable/inter':
         specifier: ^5.3.0
         version: 5.3.0
