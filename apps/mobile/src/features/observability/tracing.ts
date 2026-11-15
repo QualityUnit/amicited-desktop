@@ -1,3 +1,4 @@
+import { SERVICE_NAME } from "@amicited/identity";
 import Constants from "expo-constants";
 import { type ReleaseChannel, releaseResourceAttributes } from "@t3tools/shared/releaseResource";
 import * as RelayTracing from "@t3tools/shared/relayTracing";
@@ -37,7 +38,7 @@ export function layerFromConfig(config: TracingConfig | null, resource: TracingR
       ? "dev"
       : RELEASE_CHANNEL_BY_VARIANT[resource.appVariant];
   return RelayTracing.layer(config, {
-    serviceName: "t3code-mobile",
+    serviceName: `${SERVICE_NAME}-mobile`,
     serviceVersion: resource.serviceVersion,
     runtime: "react-native",
     serviceInstanceId: resource.serviceInstanceId,

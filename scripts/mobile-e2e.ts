@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // @effect-diagnostics nodeBuiltinImport:off globalDate:off - Host-side device automation uses Node subprocess and filesystem APIs directly.
 
+import { PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFS from "node:fs";
 import * as NodeFSP from "node:fs/promises";
@@ -217,7 +218,7 @@ async function main() {
         "start",
         "--dev-client",
         "--scheme",
-        "t3code-dev",
+        PROTOCOL_SCHEME_DEV,
         "--lan",
         "--port",
         String(metroPort),

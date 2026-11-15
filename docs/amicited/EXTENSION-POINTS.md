@@ -32,6 +32,12 @@ No patch files are required; this supersedes section 2 of the specification.
 - `apps/web/src/components/settings/SettingsPanels.tsx` and `settingsSearch.ts`: Privacy switch under Maintenance; usage-data copy names the product.
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: usage-data notice names the product and points to the switch.
 - `apps/web/src/legalLinks.ts`: privacy policy is FlowHunt's.
+- `packages/amicited-identity`: product identity constants shared by every rebrand; `src/index.ts` is identical on every branch, and each slice adds a sibling file (`src/mobile.ts` for mobile).
+- `apps/mobile/app.config.ts`, `eas.json`, `package.json` scripts and `README.md`: AmICited names, IDs (`com.amicited.desktop.mobile*`) and schemes; EAS project, owner, Apple team and Clerk domain come only from `AMICITED_*` env.
+- `apps/mobile/src/**` user-visible copy, deep-link prefixes, QR pairing and thread copy: read `@amicited/identity` instead of hard-coding T3 Code, T3 Connect or `app.t3.codes`.
+- `apps/mobile/modules/*`: podspec and Gradle metadata, clipboard labels, the notification fallback scheme and thread-link paste detection.
+- `apps/web/public/.well-known/*`: list no apps until AmICited hosts a web app domain.
+- `scripts/mobile-*`: dev and screenshot harness IDs, schemes and the showcase fixture.
 
 New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.

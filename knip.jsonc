@@ -149,6 +149,11 @@
       // These workspace packages are private to this monorepo.
       "includeEntryExports": true,
     },
+    "packages/amicited-identity": {
+      "includeEntryExports": true,
+      // The package manifest is shared verbatim across branches and lists vite-plus before any test exists.
+      "ignoreDependencies": ["vite-plus"],
+    },
     "packages/effect-acp": {
       "includeEntryExports": true,
       "entry": ["test/fixtures/*.ts"],

@@ -1,3 +1,5 @@
+import { MOBILE_APP_ID_DEV } from "@amicited/identity/mobile";
+import { PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -135,7 +137,7 @@ export const hashBundle = Effect.fn("hashBundle")(function* (root: string) {
 });
 type FileSystemError = import("effect/PlatformError").PlatformError;
 
-const bundleId = "com.t3tools.t3code.dev";
+const bundleId = MOBILE_APP_ID_DEV;
 const roots = Effect.gen(function* () {
   const path = yield* Path.Path;
   const repo = yield* path.fromFileUrl(new URL("../", import.meta.url));
@@ -404,7 +406,7 @@ export const prebuildAndroid = Effect.fn("nativeClient.prebuildAndroid")(functio
   );
 });
 
-const artifactNames = { ios: "T3CodeDev.app", android: "app-debug.apk" } as const;
+const artifactNames = { ios: "AmICitedDev.app", android: "app-debug.apk" } as const;
 // R2 requires equal-sized parts and Workers cap request bodies at 100 MB.
 const partSize = 64 * 1024 * 1024;
 const RemoteCredentials = Schema.fromJsonString(
@@ -716,9 +718,9 @@ const build = Effect.fn("nativeClient.build")(function* (
         [
           "xcodebuild",
           "-workspace",
-          path.join(mobile, "ios/T3CodeDev.xcworkspace"),
+          path.join(mobile, "ios/AmICitedDev.xcworkspace"),
           "-scheme",
-          "T3CodeDev",
+          "AmICitedDev",
           "-configuration",
           "Debug",
           "-destination",
@@ -803,7 +805,7 @@ export const resolveArtifact = Effect.fn("nativeClient.resolveArtifact")(functio
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const key = `${platform}/${abi ? `development-${abi}` : "development"}/${fingerprint}`;
-  const directory = path.join(home, ".cache/t3code/native-clients/artifacts", key);
+  const directory = path.join(home, ".cache/amicited/native-clients/artifacts", key);
   const artifact = { directory, file: path.join(directory, artifactNames[platform]) };
   if (yield* fs.exists(artifact.file)) {
     yield* Console.error(`Using cached client ${key}.`);
@@ -996,7 +998,7 @@ const installIntoSession = Effect.fn("nativeClient.installIntoSession")(function
         agentDevice,
         "open",
         bundleId,
-        `t3code-dev://expo-development-client/?url=${url}&disableOnboarding=1&disableFab=1&disableAutoLaunch=1`,
+        `${PROTOCOL_SCHEME_DEV}://expo-development-client/?url=${url}&disableOnboarding=1&disableFab=1&disableAutoLaunch=1`,
         "--session",
         session,
       ],
@@ -1114,7 +1116,7 @@ const main = Command.make(
       return yield* new NativeClientError({
         message: "HOME or USERPROFILE must be set to store native client records.",
       });
-    const cache = path.join(home, ".cache/t3code/native-clients");
+    const cache = path.join(home, ".cache/amicited/native-clients");
     const recordPath = path.join(cache, platform, `${yield* digest(device)}.json`);
     // An iOS simulator build is arm64 for every device; an APK carries only the device's own ABI.
     const abi = Effect.gen(function* () {

@@ -1,3 +1,4 @@
+import { PRODUCT_SHORT_NAME } from "@amicited/identity";
 import { type StaticScreenProps, useNavigation } from "@react-navigation/native";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -91,7 +92,7 @@ function QueuedRunSender(props: {
             label: senderShell?.title.trim() || "Agent",
           }
         : attribution === "t3code"
-          ? { icon: null, label: "Sent by T3 Code" }
+          ? { icon: null, label: `Sent by ${PRODUCT_SHORT_NAME}` }
           : null;
   if (sender === null) return null;
   return (

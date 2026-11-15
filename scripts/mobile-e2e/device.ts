@@ -1,5 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off globalTimers:off globalDate:off - Host-side device automation uses Node subprocess and timing APIs directly.
 
+import { MOBILE_APP_ID_DEV } from "@amicited/identity/mobile";
+import { PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
 import * as NodeProcess from "node:process";
@@ -8,7 +10,7 @@ import * as Schema from "effect/Schema";
 import type { Snapshot } from "./checks.ts";
 import type { Pose } from "./poses.ts";
 
-export const BUNDLE_ID = "com.t3tools.t3code.dev";
+export const BUNDLE_ID = MOBILE_APP_ID_DEV;
 
 export interface RunResult {
   readonly code: number;
@@ -181,7 +183,7 @@ export class Device {
       [
         "open",
         BUNDLE_ID,
-        `t3code-dev://expo-development-client/?url=${url}&disableOnboarding=1&disableFab=1&disableAutoLaunch=1`,
+        `${PROTOCOL_SCHEME_DEV}://expo-development-client/?url=${url}&disableOnboarding=1&disableFab=1&disableAutoLaunch=1`,
         // A real keyboard, so the layout under it is what people see.
         ...(this.pose.platform === "android" ? ["--no-test-ime"] : []),
       ],

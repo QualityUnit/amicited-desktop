@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off globalTimers:off - Host-side device automation.
 
+import { PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 import * as NodePath from "node:path";
 
 import {
@@ -143,7 +144,7 @@ export async function runJourney(
   let threads: Snapshot | null = null;
   for (let attempt = 1; attempt <= 2 && !threads; attempt++) {
     const pairing = new URLSearchParams({ pairingUrl: await pair(), autoConnect: "1" });
-    await device.openUrl(`t3code-dev://connections/new?${pairing}`);
+    await device.openUrl(`${PROTOCOL_SCHEME_DEV}://connections/new?${pairing}`);
     threads = await settle(
       (snapshot) => threadRow(snapshot) !== undefined,
       "the paired thread list",

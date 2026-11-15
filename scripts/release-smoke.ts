@@ -25,6 +25,7 @@ const workspaceFiles = [
   "infra/relay/package.json",
   "oxlint-plugin-t3code/package.json",
   "packages/amicited-cloud/package.json",
+  "packages/amicited-identity/package.json",
   "packages/amicited-tools/package.json",
   "packages/amicited-tools-core/package.json",
   "packages/amicited-ui/package.json",

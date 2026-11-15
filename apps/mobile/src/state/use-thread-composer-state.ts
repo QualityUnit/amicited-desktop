@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import { useComposerAttachmentActions } from "./use-composer-attachment-actions";
 import * as Dialog from "../components/ui/Dialog";
 import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
@@ -812,7 +813,7 @@ export function useThreadComposerState(input: {
       return "Side chats are not ready yet. Try again in a moment.";
     }
     if (serverConfig.environment.capabilities.sideChats !== true) {
-      return "Update this environment's T3 Code server to use side chats.";
+      return `Update this environment's ${PRODUCT_NAME} server to use side chats.`;
     }
     if (selectedThreadCreation !== null) return "Side chats start after the first message.";
     if (
