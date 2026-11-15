@@ -1,5 +1,5 @@
 import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
-import { useEnvironmentSettings } from "./hooks/useSettings";
+import { useEnvironmentIdentificationMode, useEnvironmentSettings } from "./hooks/useSettings";
 import { lastDomains, readDefaultDomain } from "./marketingDomainStore";
 import { MarketingSetupHost, readSetup } from "./marketingSetup";
 import { ProviderDriverKind } from "@t3tools/contracts";
@@ -34,6 +34,7 @@ import { Settings } from "lucide-react";
 import { WorkLogButton, WorkLogDetails } from "./components/chat/WorkLog";
 import { Hammer } from "lucide-react";
 import { SidebarChromeHeader } from "./components/sidebar/SidebarChrome";
+import { useSidebarStageBackdropVariant } from "./components/SidebarStageBackdrop";
 import { SidebarHeaderIconButton } from "./components/sidebar/SidebarThreadHeader";
 import {
   SidebarFooter,
@@ -263,6 +264,8 @@ const marketingUi = {
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
+  const environmentIdentificationMode = useEnvironmentIdentificationMode();
+  const backdropVariant = useSidebarStageBackdropVariant(environmentIdentificationMode);
   const [archived, setArchived] = useState(false);
 
   const taskTarget = useThreadRouteTarget();
@@ -276,17 +279,19 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           marketer
           sidebarContent={
             <>
-              <SidebarChromeHeader
-                isElectron={isElectron}
-                brand={
-                  <span
-                    data-amicited-brand=""
-                    className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white"
-                  >
-                    <AmICitedMark />
-                  </span>
-                }
-              />
+              <div className={backdropVariant ? "min-h-20 shrink-0" : "shrink-0"}>
+                <SidebarChromeHeader
+                  isElectron={isElectron}
+                  brand={
+                    <span
+                      data-amicited-brand=""
+                      className="ml-[var(--workspace-titlebar-content-left)] inline-flex h-7 items-center text-sm font-medium tracking-tight text-white"
+                    >
+                      <AmICitedMark />
+                    </span>
+                  }
+                />
+              </div>
               <IssuesSidebarRow
                 active={path.startsWith("/issues")}
                 onOpen={() => {
