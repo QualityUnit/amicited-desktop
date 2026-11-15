@@ -40,6 +40,8 @@ function runStep(script, stdout, exitCode = 0) {
           VERCEL_TOKEN: "fixture-token",
           VERCEL_ORG_ID: "fixture-org",
           VERCEL_PROJECT_ID: "fixture-project",
+          T3CODE_WEB_ROUTER_URL: "https://router.example.invalid",
+          VERCEL_MARKETING_PROJECT: "fixture-marketing",
           GITHUB_OUTPUT: outputFile,
           FIXTURE_STDOUT: stdout,
           FIXTURE_EXIT: String(exitCode),
