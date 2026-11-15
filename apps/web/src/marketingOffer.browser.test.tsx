@@ -22,11 +22,13 @@ vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => null,
   useMarketingTask: () => ({ startTask: async () => {} }),
 }));
-vi.mock("./state/entities", () => ({
+vi.mock("./state/entities", async (original) => ({
+  ...(await original<typeof import("./state/entities")>()),
   useThreadVisibleTurnItems: () => state.items,
   useThreadShell: () => null,
 }));
-vi.mock("./state/queries", () => ({
+vi.mock("./state/queries", async (original) => ({
+  ...(await original<typeof import("./state/queries")>()),
   useTurnItemDetail: (target: { itemId: string } | null) => ({
     data: target ? (state.details[target.itemId] ?? null) : null,
     isPending: false,
