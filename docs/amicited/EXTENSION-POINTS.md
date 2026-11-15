@@ -582,3 +582,4 @@ shares the same domain editor across setup, New domain and Edit domain.
 - `evals/mcp-tool-use/run.ts`: includes the site-preview tool definitions in marketer evals.
 
 - `apps/web/test/fakeEnvironment.ts`: provides completed setup state so full-app marketer fixtures reach the chat.
+- `apps/web/src/components/settings/ProjectDefaultsSettings.tsx`: optional `showWorkspace` lets the marketer Edit domain dialog reuse the project model defaults without the Local/New worktree row for domains with no site folder.

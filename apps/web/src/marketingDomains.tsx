@@ -54,6 +54,9 @@ import {
 import { toastManager } from "./components/ui/toast";
 import { SettingsGroup } from "./components/settings/SettingsGroup";
 import { SettingsRow } from "./components/settings/settingsLayout";
+import { SettingsScopeProvider } from "./components/settings/SettingsScopeContext";
+import { ProjectDefaultsSettings } from "./components/settings/ProjectDefaultsSettings";
+import { useSettingsProjectGroups } from "./components/settings/useSettingsProjectGroups";
 const list = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.domains.list",
   label: "domains:list",
@@ -659,6 +662,13 @@ export function NewDomainDialog({
             ))}
         </details>
       )}
+      {editing && environmentId && (
+        <DomainChatDefaults
+          projectId={editing.projectId}
+          environmentId={environmentId}
+          hasSiteFolder={!!editing.siteFiles}
+        />
+      )}
       {error && <p role="alert">{error}</p>}
       <div className={inline ? "hidden" : "flex justify-end gap-2"}>
         <Button type="button" variant="ghost" onClick={() => closeDialog(false)}>
@@ -950,6 +960,32 @@ export function DomainConnection({
   );
 }
 
+// Reuses T3's project-scoped "New threads" defaults; these rows save as soon as they change.
+function DomainChatDefaults({
+  projectId,
+  environmentId,
+  hasSiteFolder,
+}: {
+  projectId: string;
+  environmentId: EnvironmentId;
+  hasSiteFolder: boolean;
+}) {
+  const groups = useSettingsProjectGroups();
+  const group = groups.find((candidate) =>
+    candidate.memberProjects.some(
+      (member) => member.id === projectId && member.environmentId === environmentId,
+    ),
+  );
+  if (!group) return null;
+  return (
+    <SettingsScopeProvider
+      search={{ project: group.projectKey, machine: environmentId }}
+      onChange={() => {}}
+    >
+      <ProjectDefaultsSettings category="project" showWorkspace={hasSiteFolder} />
+    </SettingsScopeProvider>
+  );
+}
 export function DomainsSettings() {
   const { rows, environmentId, readFailed } = useDomains();
   const projects = useProjects();

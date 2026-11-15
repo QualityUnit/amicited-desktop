@@ -518,12 +518,12 @@ const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void
   <Switch aria-label="Developer features" checked={checked} onCheckedChange={onChange} />
 );
 export function MarketingSettings() {
+  const [newDomainOpen, setNewDomainOpen] = useState(false);
   return (
     <>
+      <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
       <div className="flex gap-2 p-4">
-        <Button onClick={() => window.dispatchEvent(new Event("amicited-assistant-setup"))}>
-          Assistant
-        </Button>
+        <Button onClick={() => setNewDomainOpen(true)}>Add domain</Button>
         <Button
           variant="outline"
           onClick={() => window.dispatchEvent(new Event("amicited-run-setup"))}

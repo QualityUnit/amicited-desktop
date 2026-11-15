@@ -52,7 +52,13 @@ function isWorktreeSubmodules(value: string | null): value is WorktreeSubmodules
   return value !== null && (WORKTREE_SUBMODULES_OPTIONS as readonly string[]).includes(value);
 }
 
-export function ProjectDefaultsSettings({ category }: { category: ProjectSettingsCategory }) {
+export function ProjectDefaultsSettings({
+  category,
+  showWorkspace = true,
+}: {
+  category: ProjectSettingsCategory;
+  showWorkspace?: boolean;
+}) {
   const { scope, target, targets, connectedEnvironments } = useSettingsScope();
   const settings = useScopedSettings();
   const clientSettings = useClientSettings();
@@ -333,7 +339,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         <>
           {modelRow}
           {fallbackRow}
-          {workspaceRow}
+          {showWorkspace ? workspaceRow : null}
         </>
       ) : category === "general" ? (
         <>
