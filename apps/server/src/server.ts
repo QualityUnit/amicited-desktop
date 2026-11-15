@@ -1,3 +1,9 @@
+import * as HtmlRender from "./htmlRender/HtmlRender.ts";
+import * as AmicitedReports from "./amicited/Reports.ts";
+import * as ReportsApi from "./amicited/ReportsApi.ts";
+import * as ReportsEditing from "./amicited/ReportsEditing.ts";
+import * as ReportsPreview from "./amicited/ReportsPreview.ts";
+import * as ReportsHttp from "./amicited/ReportsHttp.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as AmicitedDomainFavicons from "./amicited/DomainFavicons.ts";
 import * as AmicitedIssues from "./amicited/Issues.ts";
@@ -740,6 +746,9 @@ const layerRuntimeCoreDependencies = layerRuntimeCoreDependenciesBase.pipe(
 
 const layerRuntimeDependencies = layerRuntimeCoreDependencies.pipe(
   Layer.provideMerge(AmicitedCloud.projectLifecycleLayer),
+  Layer.provideMerge(AmicitedReports.layer.pipe(Layer.provide(layerPersistence))),
+  Layer.provideMerge(ReportsApi.layer),
+  Layer.provideMerge(ReportsPreview.layer.pipe(Layer.provide(ServerSecretStore.layer))),
   // AmICited cloud shared by RPC and the authenticated agent proxy.
   Layer.provideMerge(AmicitedCloud.layer.pipe(Layer.provide(ExternalLauncher.layer))),
   Layer.provideMerge(layerUsage),
@@ -784,6 +793,7 @@ const layerMakeRoutes = Layer.mergeAll(
     ),
     ServerHttp.layerOtlpTracesProxyRoute,
     ServerHttp.layerAssetRoute,
+    ReportsHttp.layer,
     ServerHttp.layerAttachmentUploadRoute,
     GuestHttp.layer,
     DeviceHubProxy.layer,
@@ -1198,6 +1208,9 @@ const layerMakeServer = Layer.unwrap(
       disableLogger: !config.logWebSocketEvents,
       routerConfig: HTTP_ROUTER_CONFIG,
     }).pipe(
+      Layer.provideMerge(ReportsEditing.layer),
+      Layer.provideMerge(HtmlRender.layer),
+      Layer.provide(PreviewBrowser.layer),
       withUntracedRequests,
       Layer.tap(() => Deferred.succeed(routesReady, undefined).pipe(Effect.orDie)),
     );

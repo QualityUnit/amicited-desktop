@@ -1,3 +1,4 @@
+import { findReportKeySource } from "./marketingReports.logic";
 import { CmsGrid } from "@amicited/ui-marketing";
 import { desktopLocalBackendId } from "./connection/desktopLocal";
 import { readPrimaryEnvironmentTarget } from "./environments/primary/target";
@@ -761,8 +762,10 @@ export function DomainConnection({
   destination,
   quiet = false,
   onboarding = false,
+  reports = false,
 }: {
   onboarding?: boolean;
+  reports?: boolean;
   domain: Domain;
   destination: EnvironmentId;
   quiet?: boolean;
@@ -772,12 +775,37 @@ export function DomainConnection({
   const reuse = useAtomCommand(reuseCommand);
   const canConnect = useAtomValue(connectionCommand.permissionAtom(destination));
   const canReuse = useAtomValue(reuseCommand.permissionAtom(destination));
+  const readConnection = useAtomCommand(statusCommand);
+  const readReuseSources = useEffectEvent(
+    (domains: readonly Domain[], environmentId: EnvironmentId) => {
+      void Promise.all(
+        domains
+          .filter((row) => row.projectId !== domain.projectId)
+          .map(async (row) => {
+            const result = await readConnection({
+              environmentId,
+              input: { projectId: row.projectId },
+            });
+            if (result._tag === "Success")
+              connections.set(`${environmentId}:${row.projectId}`, result.value);
+          }),
+      ).then(() => listeners.forEach((listener) => listener()));
+    },
+  );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read other domains' server connection status so key reuse works on a fresh Reports visit.
+  useEffect(() => {
+    if (reports) readReuseSources(rows, destination);
+  }, [reports, destination, rows]);
   const source = useSyncExternalStore(subscribe, () =>
-    rows.find(
-      (row) =>
-        row.projectId !== domain.projectId &&
-        connections.get(`${destination}:${row.projectId}`)?.state === "connected",
-    ),
+    reports
+      ? findReportKeySource(rows, domain.projectId, (projectId) =>
+          connections.get(`${destination}:${projectId}`),
+        )
+      : rows.find(
+          (row) =>
+            row.projectId !== domain.projectId &&
+            connections.get(`${destination}:${row.projectId}`)?.state === "connected",
+        ),
   );
   useSubscriptionRefresh(destination, domain.projectId, setConnection);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -788,6 +816,7 @@ export function DomainConnection({
     <fieldset disabled={!canConnect}>
       <AmicitedConnectPanel
         connection={connection}
+        apiKeyOnly={reports}
         inline={onboarding}
         connectLabel={source ? "Connect a different account" : "Connect AmICited (free)"}
         ui={{
@@ -832,6 +861,28 @@ export function DomainConnection({
       />
     </fieldset>
   );
+  if (reports)
+    return (
+      <div className="flex flex-col gap-3">
+        {source && (
+          <Button
+            variant="outline"
+            disabled={!canReuse}
+            onClick={() => {
+              void reuse({
+                environmentId: destination,
+                input: { projectId: domain.projectId, sourceProjectId: source.projectId },
+              }).then((result) => {
+                if (result._tag === "Success") setConnection(result.value);
+              });
+            }}
+          >
+            Use the key connected to {source.hostname}
+          </Button>
+        )}
+        {connectionPanel}
+      </div>
+    );
   if (onboarding) return connectionPanel;
   if (quiet)
     return (

@@ -151,6 +151,7 @@ function ConnectionError({
 export function AmicitedConnectPanel({
   connection,
   inline = false,
+  apiKeyOnly = false,
   connectLabel = "Connect with AmICited",
   actions,
   onChange,
@@ -159,6 +160,7 @@ export function AmicitedConnectPanel({
 }: {
   connection: Connection;
   inline?: boolean;
+  apiKeyOnly?: boolean;
   connectLabel?: string;
   actions: CloudActions;
   onChange(connection: Connection): void;
@@ -188,7 +190,7 @@ export function AmicitedConnectPanel({
   return (
     <section aria-label="AmICited connection" className="am-cloud-stack">
       <Group>
-        {connection.state === "connected" ? (
+        {connection.state === "connected" && !apiKeyOnly ? (
           <>
             <Row
               title={`Connected to ${connection.workspace}${connection.plan ? ` · ${connection.plan}` : ""}`}
@@ -261,10 +263,18 @@ export function AmicitedConnectPanel({
               </div>
             )}
             <Row
-              title={inline ? null : "Connection · Not connected"}
-              description={inline ? undefined : "Your local tools always work without an account."}
+              title={
+                inline ? null : apiKeyOnly ? "Report connection" : "Connection · Not connected"
+              }
+              description={
+                inline
+                  ? undefined
+                  : apiKeyOnly
+                    ? "Use an AmICited workspace API key to run reports."
+                    : "Your local tools always work without an account."
+              }
               control={
-                pending ? null : (
+                pending || apiKeyOnly ? null : (
                   <Button
                     variant="default"
                     disabled={pending}
@@ -283,9 +293,9 @@ export function AmicitedConnectPanel({
                 </Button>
               </div>
             )}
-            <Disclosure label="Use an API key instead">
+            <Disclosure label={apiKeyOnly ? "Paste an API key" : "Use an API key instead"}>
               <p>Find your workspace key in AmICited settings.</p>
-              <Button onClick={() => openExternal(DOCS_URL)}>Where to find your key</Button>
+              <Button onClick={() => openExternal(DOCS_URL)}>Create API key</Button>
               <label>
                 Workspace API key
                 <Input

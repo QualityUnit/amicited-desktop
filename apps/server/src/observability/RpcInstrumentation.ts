@@ -11,6 +11,22 @@ type WsRpcMethod = RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"];
 
 // Trace queries and dashboards depend on these labels, including deviations from method prefixes.
 const RPC_AGGREGATES = {
+  "amicited.reports.links": "amicited",
+  "amicited.reports.list": "amicited",
+  "amicited.reports.get": "amicited",
+  "amicited.reports.snapshots": "amicited",
+  "amicited.reports.templates": "amicited",
+  "amicited.reports.subscribe": "amicited",
+  "amicited.reports.create": "amicited",
+  "amicited.reports.update": "amicited",
+  "amicited.reports.archive": "amicited",
+  "amicited.reports.restore": "amicited",
+  "amicited.reports.delete": "amicited",
+  "amicited.reports.duplicate": "amicited",
+  "amicited.reports.run": "amicited",
+  "amicited.reports.deleteSnapshot": "amicited",
+  "amicited.reports.edit": "amicited",
+
   "amicited.cloud.answerApproval": "amicited",
   "amicited.cloud.resetAccess": "amicited",
   "amicited.cloud.subscribeApprovals": "server",

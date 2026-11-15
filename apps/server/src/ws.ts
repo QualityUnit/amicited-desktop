@@ -1,3 +1,6 @@
+import * as AmicitedReports from "./amicited/Reports.ts";
+import * as ReportsEditing from "./amicited/ReportsEditing.ts";
+import { templates as reportTemplates } from "@amicited/reports/templates";
 import { inspectSiteFiles } from "@amicited/cloud-client/siteFiles";
 import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
@@ -2011,6 +2014,8 @@ export const layerWsRpc = (
         return yield* mutateProjectWithClone(projectService, projectCloneTracker, mutation);
       });
 
+      const reports = yield* AmicitedReports.Reports;
+      const reportsEditing = yield* ReportsEditing.ReportsEditing;
       const cloud = yield* AmicitedCloud.AmicitedCloud;
       const domainFavicons = yield* AmicitedDomainFavicons.DomainFavicons;
       const issues = yield* AmicitedIssues.AmicitedIssues;
@@ -2031,6 +2036,27 @@ export const layerWsRpc = (
         Effect.provide(MarketingToolsLive.layer),
       );
       const handlers = ServerWsRpcGroup.of({
+        "amicited.reports.list": ({ projectId, archived }) => reports.list(projectId, archived),
+        "amicited.reports.get": ({ id }) => reports.get(id),
+        "amicited.reports.create": (input) => reports.create(input),
+        "amicited.reports.update": (input) => reports.update(input),
+        "amicited.reports.archive": ({ id }) =>
+          DateTime.now.pipe(
+            Effect.flatMap((now) => reports.update({ id, archivedAt: DateTime.formatIso(now) })),
+          ),
+        "amicited.reports.restore": ({ id }) => reports.update({ id, archivedAt: null }),
+        "amicited.reports.delete": ({ id }) => reports.remove(id),
+        "amicited.reports.duplicate": ({ id, targetProjectId }) =>
+          reports.duplicate(id, targetProjectId),
+        "amicited.reports.run": ({ id }) =>
+          reportsEditing.run(id).pipe(Effect.flatMap((s) => reports.snapshotSummary(s.id))),
+        "amicited.reports.snapshots": ({ reportId }) => reports.snapshotSummaries(reportId),
+        "amicited.reports.deleteSnapshot": ({ id }) => reports.deleteSnapshot(id),
+        "amicited.reports.edit": ({ id, request }) => reportsEditing.edit(id, request),
+        "amicited.reports.links": (input) => reportsEditing.links(input),
+        "amicited.reports.templates": () => Effect.succeed(reportTemplates),
+        "amicited.reports.subscribe": () => reports.changes,
+
         "amicited.setup.read": () =>
           Effect.tryPromise({
             try: () => cloud.setup?.read() ?? Promise.resolve({ finished: false }),

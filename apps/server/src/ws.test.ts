@@ -1,3 +1,5 @@
+import { Reports } from "./amicited/Reports.ts";
+import { ReportsEditing } from "./amicited/ReportsEditing.ts";
 import { CloudClient } from "@amicited/cloud-client";
 import { AmicitedCloud } from "./amicited/Cloud.ts";
 import { DomainFavicons } from "./amicited/DomainFavicons.ts";
@@ -660,6 +662,8 @@ it.effect("shell snapshots omit idle children and older settled threads only on 
 
 // Build the production RPC layer; unrelated capabilities fail if this test calls them.
 const layerUnusedConfigRpcServices = Layer.mergeAll(
+  Layer.mock(Reports)({}),
+  Layer.mock(ReportsEditing)({}),
   Layer.mock(DocumentText.DocumentText)({}),
   Layer.mock(DomainFavicons)({}),
   Layer.mock(AmicitedIssues)({}),

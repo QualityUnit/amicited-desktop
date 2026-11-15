@@ -2327,8 +2327,20 @@ const make = Effect.gen(function* () {
     Effect.promise(async () => {
       if (event.type === "opened" && event.snapshot.runtime === "server") {
         const key = tabKey(event.snapshot.threadId, event.snapshot.tabId);
+        const existed = tabs.has(key);
         if (event.snapshot.automationOwner === undefined || pendingTabs.has(key) || tabs.has(key))
-          await ensureTab(event.snapshot).catch(constVoid);
+          await ensureTab(event.snapshot)
+            .then(async (tab) => {
+              if (
+                existed &&
+                event.snapshot.navStatus._tag === "Loading" &&
+                tab.page.url() !== event.snapshot.navStatus.url
+              ) {
+                const url = event.snapshot.navStatus.url;
+                await tab.control.system(() => navigate(tab, url, "load", NAVIGATION_TIMEOUT_MS));
+              }
+            })
+            .catch(constVoid);
         return;
       }
       const key = tabKey(event.threadId, event.tabId);

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ReportsToolkit } from "../../apps/server/src/amicited/ReportsToolkit.ts";
 import { SitePreviewToolkit } from "../../apps/server/src/amicited/SitePreview.ts";
 import { domainInstruction } from "../../packages/amicited-cloud/src/domainModel.ts";
 import { CloudToolkit } from "../../apps/server/src/amicited/CloudToolkit.ts";
@@ -436,6 +437,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   MarketingToolkit,
   SitePreviewToolkit,
   CloudToolkit,
+  ReportsToolkit,
   PullRequestsToolkit,
   PreviewToolkit,
   DeviceToolkit,

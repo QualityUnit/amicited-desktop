@@ -1,3 +1,4 @@
+import * as Reports from "./Reports.ts";
 import { ProjectLifecycle } from "../project/ProjectService.ts";
 import * as Schema from "effect/Schema";
 import { DomainRecord } from "@amicited/cloud-client/rpc";
@@ -131,6 +132,7 @@ export const projectLifecycleLayer = Layer.effect(
   ProjectLifecycle,
   Effect.gen(function* () {
     const cloud = yield* AmicitedCloud;
+    const reports = yield* Reports.Reports;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const { stateDir } = yield* ServerConfig.ServerConfig;
@@ -138,6 +140,7 @@ export const projectLifecycleLayer = Layer.effect(
       onProjectDeleted: Effect.fn("AmicitedCloud.onProjectDeleted")(function* (
         projectId: import("@t3tools/contracts").ProjectId,
       ) {
+        yield* reports.deleteProject(projectId).pipe(Effect.orDie);
         if (cloud.domains) yield* Effect.promise(() => cloud.domains!.forget(projectId));
         // Resolved per call: the issues layer needs ProjectService, which reads this lifecycle.
         const issues = yield* Effect.serviceOption(AmicitedIssues);

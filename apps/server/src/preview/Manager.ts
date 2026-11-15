@@ -35,6 +35,7 @@ export class PreviewManager extends Context.Service<
     readonly open: (
       input: PreviewOpenInput & {
         readonly automationOwner?: string;
+        readonly reuseTabId?: string;
         /** Runs before the `opened` event publishes, so subscribers find state keyed by the tab. */
         readonly beforePublish?: (snapshot: PreviewSessionSnapshot) => void;
       },
@@ -176,7 +177,8 @@ export const make = Effect.gen(function* PreviewManagerMake() {
     function* (input) {
       const runtime = input.runtime;
       // Persisted client surfaces must not bind to a different tab after a server restart.
-      const tabId = `${newPreviewTabId()}${runtime === "server" ? `_${serverEpoch}` : ""}`;
+      const tabId =
+        input.reuseTabId ?? `${newPreviewTabId()}${runtime === "server" ? `_${serverEpoch}` : ""}`;
       const updatedAt = yield* currentIsoTimestamp;
       const snapshot: PreviewSessionSnapshot = {
         threadId: input.threadId,

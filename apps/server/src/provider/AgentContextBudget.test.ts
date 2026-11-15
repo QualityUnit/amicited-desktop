@@ -1,3 +1,7 @@
+import { Reports } from "../amicited/Reports.ts";
+import { ReportsApi } from "../amicited/ReportsApi.ts";
+import { ReportsEditing } from "../amicited/ReportsEditing.ts";
+import { ReportsPreview } from "../amicited/ReportsPreview.ts";
 import { TerminalManager } from "../terminal/Manager.ts";
 import { ProviderInstanceRegistry } from "./ProviderInstanceRegistry.ts";
 import { CloudClient } from "@amicited/cloud-client";
@@ -69,6 +73,10 @@ const toolHandlerServices = Layer.mergeAll(
   Layer.mock(PreviewAutomationBroker)({}),
   Layer.mock(PreviewBrowser)({}),
   Layer.mock(PreviewManager)({}),
+  Layer.mock(Reports)({}),
+  Layer.mock(ReportsApi)({}),
+  Layer.mock(ReportsEditing)({}),
+  Layer.mock(ReportsPreview)({}),
   Layer.mock(ProjectCloneTracker)({}),
   Layer.mock(ProjectService)({}),
   Layer.mock(ProjectSetupScriptRunner)({}),

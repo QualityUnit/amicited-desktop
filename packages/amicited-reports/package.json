@@ -1,0 +1,31 @@
+{
+  "name": "@amicited/reports",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./spec": "./src/spec.ts",
+    "./period": "./src/period.ts",
+    "./expressions": "./src/expressions.ts",
+    "./query": "./src/query.ts",
+    "./render": "./src/render.ts",
+    "./pptx": "./src/pptx.ts",
+    "./templates": "./src/templates.ts",
+    "./rpc": "./src/rpc.ts"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "jsonata": "2.2.2",
+    "pptxgenjs": "4.0.1",
+    "vega": "6.4.0",
+    "vega-lite": "6.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "jszip": "3.10.1",
+    "vite-plus": "catalog:"
+  }
+}

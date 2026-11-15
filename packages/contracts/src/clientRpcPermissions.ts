@@ -15,6 +15,16 @@ import { WS_METHODS } from "./rpc.ts";
 
 /** Incremental client enforcement; the server still authorizes every request. */
 export const CLIENT_GUARDED_RPC_SCOPES = {
+  "amicited.reports.create": AuthOrchestrationOperateScope,
+  "amicited.reports.update": AuthOrchestrationOperateScope,
+  "amicited.reports.archive": AuthOrchestrationOperateScope,
+  "amicited.reports.restore": AuthOrchestrationOperateScope,
+  "amicited.reports.delete": AuthOrchestrationOperateScope,
+  "amicited.reports.duplicate": AuthOrchestrationOperateScope,
+  "amicited.reports.run": AuthOrchestrationOperateScope,
+  "amicited.reports.deleteSnapshot": AuthOrchestrationOperateScope,
+  "amicited.reports.edit": AuthOrchestrationOperateScope,
+
   "amicited.setup.write": AuthSettingsWriteScope,
   "amicited.domains.reuse": AuthSettingsWriteScope,
   "amicited.domains.inspect": AuthSettingsWriteScope,

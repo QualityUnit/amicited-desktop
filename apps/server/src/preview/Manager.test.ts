@@ -43,7 +43,7 @@ it.layer(layer)("PreviewManager", (it) => {
       const manager = yield* PreviewManager.PreviewManager;
       const collector = yield* collectEvents;
 
-      const snapshot = yield* manager.open({ threadId, url: "localhost:5173" });
+      const snapshot = yield* manager.open({ threadId, url: "localhost:5173", runtime: "server" });
       expect(snapshot.tabId.startsWith("tab_")).toBe(true);
       expect(snapshot.navStatus._tag).toBe("Loading");
       if (snapshot.navStatus._tag === "Loading") {
@@ -56,6 +56,17 @@ it.layer(layer)("PreviewManager", (it) => {
       if (events[0]?.type === "opened") {
         expect(events[0].tabId).toBe(snapshot.tabId);
       }
+      const reused = yield* manager.open({
+        threadId,
+        url: "http://localhost:5173/fresh",
+        runtime: "server",
+        reuseTabId: snapshot.tabId,
+        reveal: true,
+      });
+      expect(reused.tabId).toBe(snapshot.tabId);
+      expect((yield* manager.list({ threadId })).sessions).toHaveLength(1);
+      yield* manager.requestReveal({ threadId, tabId: reused.tabId, force: true });
+      expect((yield* manager.list({ threadId })).sessions[0]?.revealRequest?.force).toBe(true);
     }),
   );
 
