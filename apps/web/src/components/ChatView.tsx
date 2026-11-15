@@ -3812,7 +3812,8 @@ export default function ChatView(props: ChatViewProps) {
                         </div>
                       </ComposerSurface.Host>
                       {!developerMode && (
-                        <ComposerSurface.ContextStrip className="before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:-z-10 before:h-screen before:bg-background">
+                        // oxlint-disable-next-line shadcn/no-unknown-classes -- Styled by @amicited/ui-marketing.
+                        <ComposerSurface.ContextStrip className="am-composer-strip">
                           <div className="flex w-full flex-col">
                             <div className="w-full" ref={setMarketingContextTarget} />
                             <MarketingSitePreview threadRef={activeThreadRef} />

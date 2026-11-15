@@ -594,6 +594,16 @@
 .am-cms-tile:nth-last-child(-n + 4) {
   grid-column: span 3;
 }
+/* Covers the timeline below the strip. A border-image outset paints without adding
+   scrollable overflow; a 100vh-tall box would make the chat column scroll too. */
+.am-composer-strip::before {
+  content: "";
+  position: absolute;
+  inset: -1rem 0 0;
+  z-index: -10;
+  pointer-events: none;
+  border-image: linear-gradient(var(--background), var(--background)) fill 0 / 0 / 0 0 100vh 0;
+}
 .am-composer-context {
   display: flex;
   flex-wrap: nowrap;
