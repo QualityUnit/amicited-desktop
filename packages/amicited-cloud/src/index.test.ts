@@ -224,7 +224,11 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
     instruction: expect.stringContaining("Do not suggest"),
   });
   expect(await cloud.connectionForRequest("citations", true, false)).not.toHaveProperty("action");
-  expect((await cloud.connectApiKey("test-key")).state).toBe("connected");
+  expect(await cloud.connectApiKey("test-key")).toMatchObject({
+    state: "connected",
+    auth: "apiKey",
+  });
+  expect(await cloud.restHeaders()).toEqual({ "Api-Key": "test-key" });
   expect(JSON.stringify(await cloud.status())).not.toContain("test-key");
   expect(await cloud.connectionForRequest("citations", false, true)).toMatchObject({
     state: "connected",
@@ -260,6 +264,7 @@ it("discovers OAuth, uses state and PKCE, persists and refreshes without exposin
   const cloud = fake.make();
   expect(await cloud.connectOAuth()).toMatchObject({
     state: "connected",
+    auth: "oauth",
     scopes: ["amicited:read", "amicited:write"],
   });
   expect(fake.stored).toContain("refresh");

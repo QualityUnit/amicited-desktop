@@ -311,6 +311,16 @@
       }
     },
     {
+      "name": "https",
+      "version": "1.0.0",
+      "license": "ISC",
+      "sourceUrl": "https://www.npmjs.com/package/https",
+      "generatedNotice": {
+        "licenseId": "ISC",
+        "copyrights": ["Copyright (c) hardus van der berg <hardus@sunfork.com>"]
+      }
+    },
+    {
       "name": "pdfjs-dist",
       "version": "6.4.299",
       "license": "Apache-2.0",

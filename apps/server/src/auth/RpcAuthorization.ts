@@ -38,6 +38,13 @@ import type * as RpcGroup from "effect/rpc/RpcGroup";
 type WsRpcMethod = RpcGroup.Rpcs<typeof WsRpcGroup>["_tag"];
 
 export const RPC_REQUIRED_SCOPES = {
+  "amicited.reports.links": AuthOrchestrationReadScope,
+  "amicited.reports.list": AuthOrchestrationReadScope,
+  "amicited.reports.get": AuthOrchestrationReadScope,
+  "amicited.reports.snapshots": AuthOrchestrationReadScope,
+  "amicited.reports.templates": AuthOrchestrationReadScope,
+  "amicited.reports.subscribe": AuthOrchestrationReadScope,
+
   "amicited.cloud.pendingApprovals": AuthOrchestrationReadScope,
   "amicited.cloud.subscribeApprovals": AuthOrchestrationReadScope,
   "amicited.setup.read": AuthOrchestrationReadScope,

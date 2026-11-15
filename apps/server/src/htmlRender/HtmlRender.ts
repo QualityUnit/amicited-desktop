@@ -120,6 +120,16 @@ export interface HtmlPreview {
 export class HtmlRender extends Context.Service<
   HtmlRender,
   {
+    readonly printPdf: (
+      html: string,
+    ) => Effect.Effect<
+      Uint8Array,
+      | PreviewBrowser.PreviewBrowserInstallError
+      | PreviewBrowser.PreviewBrowserInstallingError
+      | PreviewBrowser.PreviewBrowserUnsupportedError
+      | PreviewBrowserHost.PreviewBrowserHostError
+      | HeadlessChrome.HtmlRenderBrowserError
+    >;
     readonly prepare: (html: string) => Effect.Effect<string, HtmlRenderPrepareError>;
     readonly publish: (input: {
       readonly threadId: ThreadId;
@@ -498,7 +508,21 @@ const make = Effect.gen(function* () {
     } satisfies HtmlPreview;
   });
 
-  return HtmlRender.of({ prepare, publish, preview });
+  const printPdf = Effect.fn("HtmlRender.printPdf")(function* (html: string) {
+    const executable = yield* previewBrowser.executable;
+    return yield* launching(executable, (noSandbox) =>
+      HeadlessChrome.printHtmlPdf({ executable, noSandbox, html }).pipe(
+        Effect.catchTags({
+          TimeoutError: () =>
+            Effect.fail(
+              new HeadlessChrome.HtmlRenderBrowserError({ reason: "PDF printing timed out" }),
+            ),
+        }),
+        Effect.provideContext(services),
+      ),
+    );
+  });
+  return HtmlRender.of({ prepare, publish, preview, printPdf });
 });
 
 export const layer = Layer.effect(HtmlRender, make);

@@ -30,7 +30,7 @@ import {
   WorkspaceBreadcrumbText,
   WorkspaceBreadcrumbSeparator,
 } from "./components/WorkspaceBreadcrumb";
-import { Settings } from "lucide-react";
+import { Settings, FileText } from "lucide-react";
 import { WorkLogButton, WorkLogDetails } from "./components/chat/WorkLog";
 import { Hammer } from "lucide-react";
 import { SidebarChromeHeader } from "./components/sidebar/SidebarChrome";
@@ -299,6 +299,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                 <div className="flex gap-2">
                   {[
                     ["Settings", "/settings/general", Settings],
+                    ["Reports", "/reports", FileText],
                     ["AmICited", "/marketing-settings", PlugZap],
                   ].map(([label, href, Icon]) => (
                     <SidebarMenuButton
@@ -323,7 +324,9 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           <MarketerShell
             externalSidebar
             desktop={isElectron}
-            headerTitle={archived ? "Archived chats" : undefined}
+            headerTitle={
+              archived ? "Archived chats" : path.startsWith("/reports") ? "Reports" : undefined
+            }
             mode={mode}
             taskView={taskTarget !== null}
             path={path}

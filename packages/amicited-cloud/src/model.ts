@@ -1,6 +1,6 @@
 export const MCP_URL = "https://api.flowhunt.io/mcp/amicited";
 export const SUBSCRIPTION_URL = "https://app.flowhunt.io/amicited/subscription";
-export const DOCS_URL = "https://app.flowhunt.io/aistudio/settings?tab=apikeys";
+export const DOCS_URL = "https://app.flowhunt.io/aistudio/settings?tab=apikeys&from=amicited";
 export const SCOPES = ["amicited:read", "amicited:write", "amicited:spending"];
 export type ErrorKind = "auth" | "plan_required" | "no_credits" | "rate_limited" | "network";
 export type Connection =
@@ -8,6 +8,7 @@ export type Connection =
   | { state: "connecting" }
   | {
       state: "connected";
+      auth?: "apiKey" | "oauth";
       workspace: string;
       plan?: string;
       access?: "free" | "full" | "unknown";

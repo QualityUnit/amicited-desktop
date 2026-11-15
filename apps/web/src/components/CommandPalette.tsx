@@ -1610,6 +1610,7 @@ function OpenCommandPaletteDialog(props: {
   if (marketer) {
     for (const [title, path] of [
       ["Open issues", "/issues"],
+      ["Open reports", "/reports"],
       ["Open AmICited", "/marketing-settings"],
     ] as const) {
       actionItems.push({

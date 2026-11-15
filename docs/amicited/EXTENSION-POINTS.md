@@ -787,3 +787,32 @@ on the changed line only.
 - `apps/web/src/connection/clientMetadata.ts`: client labels name AmICited.
 - `apps/web/public/manifest.webmanifest`, `apps/web/index.html`: PWA name and the head comment.
 - `scripts/amicited/electron-screenshots.mjs`: selects the sidebar brand by its new label.
+
+## Reports
+
+- `apps/web/package.json`: workspace dependency for report RPC types.
+- `apps/web/src/marketing.tsx`: marketer Reports navigation and page heading.
+- `apps/web/src/marketingDomains.tsx`: report connection controls reuse the existing API-key panel and account reuse command.
+- `apps/web/src/components/CommandPalette.tsx`: marketer Open reports action.
+- `apps/web/src/routes/_chat.reports.index.tsx` and `_chat.reports.$reportId.tsx`: route adapters for the AmICited reports screens.
+- `apps/web/src/routeTree.gen.ts`: generated Reports route registration.
+- `apps/web/src/rpc/amicitedReports.ts` and `marketingReports.tsx`: environment commands and native UI adapters for report management.
+- `packages/client-runtime/src/rpc/client.ts`: registers the Reports change stream with the shared environment subscription bridge.
+
+- `apps/server/package.json`, `packages/contracts/package.json`, and `pnpm-lock.yaml`: consume the isolated `@amicited/reports` package.
+- `third-party-licenses.config.json`: generated ISC notice for `https@1.0.0`, an empty placeholder package `pptxgenjs` depends on that ships no license file.
+- `packages/contracts/src/rpc.ts` and `clientRpcPermissions.ts`: add report RPC contracts and mutation permission guards.
+- `apps/server/src/ws.ts`, `auth/RpcAuthorization.ts`, and `observability/RpcInstrumentation.ts`: thin report handlers, read/operate scopes and the AmICited metrics namespace.
+- `apps/server/src/server.ts` and `mcp/McpHttpServer.ts`: provide report services, authenticated export routes and project-scoped agent tools.
+- `apps/server/src/htmlRender/headlessChrome.ts`: expose CSS-page-size PDF printing through the existing isolated Chrome transport.
+- `apps/server/src/ws.test.ts`, `auth/RpcAuthorization.test.ts`, `provider/AgentContextBudget.test.ts`, `provider/agentContextBudget.json`, and `packages/client-runtime/src/state/commandPermissions.test.ts`: extend existing service fixtures, scope checks and advertised-tool accounting.
+- `evals/mcp-tool-use/run.ts` and `cases/reports.ndjson`: include report tool descriptions and schemas in the existing model-facing eval harness.
+- `apps/web/src/marketingReports.logic.ts` and its focused test: API-key gating and reusable key-source selection for Reports.
+- `apps/web/src/reportResources.ts` and its focused test: signed report resource loading, environment URL resolution, expired-token retry and export failures.
+
+- `apps/server/src/preview/Manager.ts`, `preview/Manager.test.ts`, `preview/ServerBrowser.ts`, and `preview/ServerBrowser.test.ts`: reuse and reveal an existing report tab while navigating it to a fresh signed URL.
+- `apps/server/src/htmlRender/publicProxy.ts`: share the existing public-address guard with report logo fetching.
+
+- `apps/server/src/htmlRender/HtmlRender.ts`: report PDF printing shares browser permits and launch-failure diagnosis with html_render.
+- `apps/web/src/reportEditing.ts` and its focused test: reveal the returned report preview tab on the destination thread before navigation, including new threads.
+- `apps/web/src/reportChangeAtom.ts` and its focused test: retain only the selected report's change notifications so unrelated reports do not invalidate HTML resources.

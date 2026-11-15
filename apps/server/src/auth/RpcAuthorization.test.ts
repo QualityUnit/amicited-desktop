@@ -35,6 +35,30 @@ describe("RPC authorization scopes", () => {
     expect(new Set(Object.keys(RPC_REQUIRED_SCOPES))).toEqual(new Set(WsRpcGroup.requests.keys()));
   });
 
+  it("requires operate scope for report mutations and read scope for report queries", () => {
+    for (const method of [
+      "amicited.reports.list",
+      "amicited.reports.links",
+      "amicited.reports.get",
+      "amicited.reports.snapshots",
+      "amicited.reports.templates",
+      "amicited.reports.subscribe",
+    ] as const)
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationReadScope);
+    for (const method of [
+      "amicited.reports.create",
+      "amicited.reports.update",
+      "amicited.reports.archive",
+      "amicited.reports.restore",
+      "amicited.reports.delete",
+      "amicited.reports.duplicate",
+      "amicited.reports.run",
+      "amicited.reports.deleteSnapshot",
+      "amicited.reports.edit",
+    ] as const)
+      expect(requiredScopeForRpcMethod(method)).toBe(AuthOrchestrationOperateScope);
+  });
+
   it("keeps webhook delivery logs, which hold request bodies, behind operate scope", () => {
     for (const method of [
       WS_METHODS.scheduledTasksListWebhookDeliveries,

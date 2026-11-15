@@ -5,6 +5,7 @@ export const CloudConnection = Schema.Union([
   Schema.Struct({ state: Schema.Literal("connecting") }),
   Schema.Struct({
     state: Schema.Literal("connected"),
+    auth: Schema.optionalKey(Schema.Literals(["apiKey", "oauth"])),
     workspace: Schema.String,
     plan: Schema.optionalKey(Schema.String),
     access: Schema.optionalKey(Schema.Literals(["free", "full", "unknown"])),

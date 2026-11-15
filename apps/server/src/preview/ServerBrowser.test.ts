@@ -200,11 +200,11 @@ function makeContext(onClose?: (context: BrowserContext) => void, initialUrl = "
       viewport = size;
     }),
     goto: vi.fn(async (next: string) => {
-      url = next;
-      events.emit("load");
       const pending = initialNavigation;
       initialNavigation = null;
       await pending?.();
+      url = next;
+      events.emit("load");
     }),
     goBack: vi.fn(async () => {}),
     goForward: vi.fn(async () => {}),
@@ -487,6 +487,24 @@ it.live("tells the desktop once per thread when its agent turns start and end", 
     yield* endSecond;
     expect(yield* Queue.take(turns)).toEqual([threadId, false]);
     expect(yield* Queue.size(turns)).toBe(0);
+  }).pipe(Effect.scoped, Effect.provide(layer)),
+);
+
+it.live("a fresh server tab does not navigate again while its initial navigation is pending", () =>
+  Effect.gen(function* () {
+    const { browser } = yield* ready;
+    const manager = yield* Manager.PreviewManager;
+    const navigation = Promise.withResolvers<void>();
+    initialNavigation = () => navigation.promise;
+    yield* Effect.addFinalizer(() => Effect.sync(() => navigation.resolve()));
+    const opened = yield* manager.open({
+      threadId: scope.thread.threadId,
+      runtime: "server",
+      url: "https://example.com/report",
+    });
+    yield* browser.attachViewer(viewerInput(opened.tabId, true));
+    expect(contexts[1]!.page.goto).toHaveBeenCalledTimes(1);
+    navigation.resolve();
   }).pipe(Effect.scoped, Effect.provide(layer)),
 );
 

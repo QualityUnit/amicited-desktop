@@ -27,6 +27,7 @@
   "dependencies": {
     "@amicited/cloud-client": "workspace:*",
     "@amicited/identity": "workspace:*",
+    "@amicited/reports": "workspace:*",
     "@amicited/tools-core": "workspace:*",
     "effect": "catalog:"
   },

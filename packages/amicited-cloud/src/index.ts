@@ -543,6 +543,7 @@ export class CloudClient {
     return {
       state: "connected",
       workspace: "your AmICited workspace",
+      auth: credential.apiKey ? "apiKey" : "oauth",
       access: this.current.state === "connected" ? (this.current.access ?? "unknown") : "unknown",
       scopes: credential.apiKey
         ? [...SCOPES]
@@ -561,6 +562,10 @@ export class CloudClient {
     } finally {
       release();
     }
+  }
+  async restHeaders(): Promise<{ "Api-Key"?: string }> {
+    const credential = await this.credential();
+    return credential?.apiKey ? { "Api-Key": credential.apiKey } : {};
   }
   async status(): Promise<Connection> {
     if (

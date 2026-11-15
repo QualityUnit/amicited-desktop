@@ -1,3 +1,4 @@
+import { ReportsToolkit, layer as reportsHandlers } from "../amicited/ReportsToolkit.ts";
 import {
   SitePreviewToolkit,
   layer as sitePreviewHandlers,
@@ -1213,6 +1214,7 @@ export const layerTools = Layer.mergeAll(
   // AmICited cloud uses the same authenticated transport as provider tools.
   toolkitRegistration(CloudToolkit, cloudHandlers),
   toolkitRegistration(IssuesToolkit, issuesHandlers),
+  toolkitRegistration(ReportsToolkit, reportsHandlers),
   layerPreviewToolkit,
   layerOrchestratorToolkit,
   layerThreadToolkit,

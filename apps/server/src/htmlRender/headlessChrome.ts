@@ -530,7 +530,13 @@ const launchBrowser = Effect.fnUntraced(function* (input: {
       Effect.ignore,
     );
 
-    return { load, screenshot, consoleMessages, close };
+    const pdf = send(
+      "Page.printToPDF",
+      { preferCSSPageSize: true, printBackground: true },
+      Schema.Struct({ data: Schema.String }),
+      sessionId,
+    ).pipe(Effect.map(({ data }) => Buffer.from(data, "base64")));
+    return { load, screenshot, pdf, consoleMessages, close };
   });
 
   return { openPage };
@@ -611,3 +617,20 @@ export const measureHtmlHeights = Effect.fn("headlessChrome.measureHtmlHeights")
     { concurrency: MEASURE_CONCURRENCY },
   );
 }, Effect.scoped);
+
+export const printHtmlPdf = Effect.fn("headlessChrome.printHtmlPdf")(
+  function* (input: { executable: string; noSandbox: boolean; html: string }) {
+    const path = yield* Path.Path;
+    const directory = yield* scratchDirectory;
+    const browser = yield* launchBrowser({
+      executable: input.executable,
+      noSandbox: input.noSandbox,
+      profileDirectory: path.join(directory, "profile"),
+    });
+    const page = yield* browser.openPage(1200, "light");
+    yield* page.load(pageBody(input.html), "");
+    return yield* page.pdf;
+  },
+  Effect.scoped,
+  Effect.timeout("30 seconds"),
+);
