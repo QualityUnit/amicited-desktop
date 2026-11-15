@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { T3_PROJECT_FILE_NAME, type T3ProjectFile } from "@t3tools/contracts";
+import { T3_PROJECT_FILE_NAMES, type T3ProjectFile } from "@t3tools/contracts";
 import { T3ProjectFileFromJson } from "@t3tools/shared/t3ProjectFile";
 
 const decodeT3ProjectFileJson = Schema.decodeEffect(T3ProjectFileFromJson);
@@ -21,7 +21,7 @@ export class T3ProjectFileLoadError extends Schema.TaggedError<T3ProjectFileLoad
   },
 ) {
   override get message(): string {
-    return `Failed to ${this.operation} ${T3_PROJECT_FILE_NAME} at ${this.filePath}.`;
+    return `Failed to ${this.operation} the project file at ${this.filePath}.`;
   }
 }
 
@@ -50,7 +50,13 @@ export const make = Effect.gen(function* () {
 
   const load: T3ProjectFileLoader["Service"]["load"] = Effect.fn("T3ProjectFileLoader.load")(
     function* (workspaceRoot) {
-      const filePath = path.join(workspaceRoot, T3_PROJECT_FILE_NAME);
+      // The first name that exists wins; the legacy name is only a read fallback.
+      let filePath = "";
+      for (const name of T3_PROJECT_FILE_NAMES) {
+        filePath = path.join(workspaceRoot, name);
+        // An unreadable entry counts as present, so the read below reports it.
+        if (yield* fileSystem.exists(filePath).pipe(Effect.orElseSucceed(() => true))) break;
+      }
       const raw = yield* fileSystem.readFileString(filePath).pipe(
         Effect.asSome,
         Effect.catchTags({

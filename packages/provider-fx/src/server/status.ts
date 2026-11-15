@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import { type ServerProviderAuth, type ServerProviderModel } from "@t3tools/contracts";
 import type { FxSettings } from "../settings.ts";
 import { createModelCapabilities } from "@t3tools/shared/model";
@@ -101,7 +102,7 @@ export const buildInitialFxProviderSnapshot = (
       auth: { status: "unknown" },
       message: settings.enabled
         ? "Checking fx CLI availability..."
-        : "fx is disabled in T3 Code settings.",
+        : `fx is disabled in ${PRODUCT_NAME} settings.`,
     }),
   );
 
@@ -159,7 +160,7 @@ export const checkFxProviderStatus = Effect.fn("checkFxProviderStatus")(function
       version: null,
       status: "warning",
       auth: { status: "unknown" },
-      message: "fx is disabled in T3 Code settings.",
+      message: `fx is disabled in ${PRODUCT_NAME} settings.`,
     });
   }
 

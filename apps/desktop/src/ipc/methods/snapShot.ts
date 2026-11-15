@@ -27,7 +27,7 @@ class SnapShotIpcUnauthorizedSenderError extends Schema.TaggedError<SnapShotIpcU
   {},
 ) {
   override get message(): string {
-    return "Snapshot request was rejected.";
+    return "Screen capture request was rejected.";
   }
 }
 

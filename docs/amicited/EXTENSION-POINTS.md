@@ -840,3 +840,14 @@ on the changed line only.
 - `apps/server/src/htmlRender/HtmlRender.ts`: report PDF printing shares browser permits and launch-failure diagnosis with html_render.
 - `apps/web/src/reportEditing.ts` and its focused test: reveal the returned report preview tab on the destination thread before navigation, including new threads.
 - `apps/web/src/reportChangeAtom.ts` and its focused test: retain only the selected report's change notifications so unrelated reports do not invalidate HTML resources.
+
+## Rebrand: server, desktop and package copy
+
+- User-visible copy in `apps/server/src/**`, `apps/desktop/src/**` and `packages/*/src/**` (error messages, notifications, provider status, connection diagnosis, recovery page, Codex sign-in callback pages): string literals read `PRODUCT_NAME` (and `CLI_NAME` for command hints) from `@amicited/identity` instead of hard-coding T3 Code. Each touched package lists `@amicited/identity` in its `package.json`. Desktop screen-capture messages say "screen capture" instead of "SnapShot".
+- `packages/amicited-identity/src/projectFile.ts`, `packages/contracts/src/t3ProjectFile.ts`: the project file is `amicited.json`, schema `https://amicited.com/schema/amicited.json`; `t3.json` is still read when it is missing.
+- `apps/server/src/project/T3ProjectFileLoader.ts`, `apps/server/src/vcs/GitVcsDriverCore.ts`: read `amicited.json`, then `t3.json`.
+- `apps/server/src/workspace/WorkspaceFileSystem.ts`: an optional (`allowMissing`) read of `amicited.json` falls back to `t3.json`, so web and mobile clients load either file.
+- `apps/web/src/components/ProjectScriptsControl.tsx`, `settings/ProjectActionsSettings.tsx`, `ProjectDefaultsSettings.tsx`, `SettingInheritance.tsx`, `settingsLayout.tsx`: project-file labels say `amicited.json`.
+- `packages/shared/src/themePalettes.ts`: the `t3-chat` theme is labelled "Orchid" (id unchanged).
+- `apps/web/src/components/settings/SnapShotSettings.tsx`, `SnapShotSetupDialog.tsx`, `settingsSearch.ts`: the settings page and nav say "Screen capture", matching the desktop messages and the GNOME extension name.
+- `apps/server/src/policy/policyTemplates.ts` (allowed-clients help), `packages/client-runtime/src/relay/errorPresentation.ts`, `apps/server/src/preview/PreviewBrowserHost.ts` (AppArmor profile comment): the last "T3 Code" mentions left after the Link and CLI rebrands.

@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 /**
  * DesktopUpdatePolicy - what the administrator's managed policy allows the desktop updater to do.
  * The desktop reads the policy file itself, before any backend runs, and fails closed: a policy it
@@ -76,7 +77,7 @@ const make = Effect.gen(function* () {
             mode: "off",
             feedUrl: undefined,
             allowNightly: false,
-            message: `Updates are off because T3 Code cannot use the managed policy at ${error.path}. Contact your administrator.`,
+            message: `Updates are off because ${PRODUCT_NAME} cannot use the managed policy at ${error.path}. Contact your administrator.`,
           }),
         ),
     }),

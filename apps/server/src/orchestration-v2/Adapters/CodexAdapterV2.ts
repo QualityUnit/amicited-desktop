@@ -1,4 +1,4 @@
-import { MCP_SERVER_KEY } from "@amicited/identity";
+import { MCP_SERVER_KEY, PRODUCT_NAME } from "@amicited/identity";
 import { pipe } from "effect/Function";
 import * as DocumentText from "../../provider/DocumentText.ts";
 import { revertCodexThread } from "../../provider/CodexThreadRevert.ts";
@@ -1835,7 +1835,7 @@ export const makeCodexAdapterV2 = Effect.fn("makeCodexAdapterV2")(function* (
               return yield* new ProviderSetupError({
                 instanceId: adapterOptions.instanceId,
                 operation: "runtime",
-                detail: `Codex ${version} does not work with this T3 Code release. Update Codex to ${target}, then retry.`,
+                detail: `Codex ${version} does not work with this ${PRODUCT_NAME} release. Update Codex to ${target}, then retry.`,
               });
             }
             yield* client.notify("initialized", undefined);

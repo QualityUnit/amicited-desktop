@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // @effect-diagnostics globalTimers:off -- D-Bus deadlines run at a native async boundary.
 // @effect-diagnostics nodeBuiltinImport:off -- Read the portal file through one bounded file descriptor at the native adapter boundary.
 
@@ -134,7 +135,7 @@ class LinuxCaptureConnection {
         pending,
         this.disconnected,
         new Promise<never>((_, reject) => {
-          timer = setTimeout(() => reject(new Error("Snapshot timed out.")), timeoutMs);
+          timer = setTimeout(() => reject(new Error("Screen capture timed out.")), timeoutMs);
         }),
       ]);
     } finally {
@@ -280,8 +281,8 @@ class LinuxCaptureConnection {
       );
       const [status, results] = decodeResponse(body);
       completed = true;
-      if (status === 1) throw new Error("Snapshot was cancelled.");
-      if (status !== 0) throw new Error("Your desktop did not allow the snapshot.");
+      if (status === 1) throw new Error("Screen capture was cancelled.");
+      if (status !== 0) throw new Error("Your desktop did not allow the screen capture.");
       const uri = decodeUri(results.uri).value;
       return { png: await readPortalPng(uri) };
     } finally {
@@ -305,7 +306,7 @@ class LinuxCaptureConnection {
       this.bus.requestName(`${appId}.SnapShot`, NameFlag.DO_NOT_QUEUE),
     );
     if (result !== RequestNameReply.PRIMARY_OWNER) {
-      throw new Error("Another T3 Code instance is capturing a window. Try again.");
+      throw new Error(`Another ${PRODUCT_NAME} instance is capturing a window. Try again.`);
     }
     const withFeedback = this.feedbackAvailable && options !== undefined;
     const reply = await this.call({

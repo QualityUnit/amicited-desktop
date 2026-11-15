@@ -1,7 +1,7 @@
 // @effect-diagnostics nodeBuiltinImport:off
 // @effect-diagnostics globalTimers:off
 // The launcher must survive unloadable server versions; use Node built-ins without Effect.
-import { HOME_ENV_VAR } from "@amicited/identity";
+import { HOME_ENV_VAR, PRODUCT_NAME } from "@amicited/identity";
 import { toUpstreamEnvName } from "@amicited/identity/env";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
@@ -807,7 +807,7 @@ export class Launcher {
     // Signal listeners alone do not keep Node alive.
     this.#timer = setInterval(() => {}, 2_147_483_647);
     process.stderr.write(
-      "[service-launcher] Another T3 Code server owns this T3 home. Stop it, then restart this service.\n",
+      `[service-launcher] Another ${PRODUCT_NAME} server owns this data directory. Stop it, then restart this service.\n`,
     );
   }
 
@@ -838,7 +838,7 @@ export class Launcher {
 export async function main(): Promise<void> {
   const baseDir = process.env.T3CODE_HOME?.trim();
   if (baseDir === undefined || baseDir === "") {
-    throw new Error(`${HOME_ENV_VAR} is required by the T3 Code service launcher.`);
+    throw new Error(`${HOME_ENV_VAR} is required by the ${PRODUCT_NAME} service launcher.`);
   }
   const environment = await readServiceEnvironment(baseDir);
   const statePath = NodePath.join(baseDir, "runtime", SERVICE_STATE_FILE);

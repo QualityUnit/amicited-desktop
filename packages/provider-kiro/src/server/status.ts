@@ -1,4 +1,4 @@
-import { USER_AGENT_PRODUCT } from "@amicited/identity";
+import { PRODUCT_NAME, USER_AGENT_PRODUCT } from "@amicited/identity";
 import {
   type ModelCapabilities,
   ProviderDriverKind,
@@ -105,7 +105,7 @@ export const buildInitialKiroProviderSnapshot = Effect.fn(
     auth: { status: "unknown" },
     message: settings.enabled
       ? "Checking Kiro CLI availability..."
-      : "Kiro is disabled in T3 Code settings.",
+      : `Kiro is disabled in ${PRODUCT_NAME} settings.`,
   });
 });
 
@@ -370,7 +370,7 @@ export const checkKiroProviderStatus = Effect.fn("checkKiroProviderStatus")(func
       version: null,
       status: "warning",
       auth: { status: "unknown" },
-      message: "Kiro is disabled in T3 Code settings.",
+      message: `Kiro is disabled in ${PRODUCT_NAME} settings.`,
     });
   }
 

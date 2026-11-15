@@ -23,7 +23,7 @@ import { ChildProcessSpawner } from "effect/process";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import { CLOUD_ENDPOINT_RUNTIME_CONFIG } from "./config.ts";
 import * as ManagedEndpointRuntime from "./ManagedEndpointRuntime.ts";
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { CLI_NAME, PRODUCT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 // cloudflared finds the edge through the SRV record `_v2-origintunneld._tcp.argotunnel.com`,
 // which names these two hosts on port 7844. QUIC and HTTP/2 both use that port.
@@ -75,21 +75,21 @@ export function classifyReachability(
     fix: string,
     hint: string | null = null,
   ): Unreachable => ({ status: "unreachable", checkedAt, cause, reason, hint, fix });
-  const restart = "Restart T3 Code. If it stays, run `t3 connect` again.";
+  const restart = `Restart ${PRODUCT_NAME}. If it stays, run \`${CLI_NAME} connect\` again.`;
 
   if (!facts.managedTunnelConfigured) {
     // A running server reads the link `t3 connect` stores only at startup.
     return fail(
       "not_linked",
       `The server has not set up a ${REMOTE_ACCESS_NAME} tunnel.`,
-      "Run `t3 connect`, then restart T3 Code so it applies the link.",
+      `Run \`${CLI_NAME} connect\`, then restart ${PRODUCT_NAME} so it applies the link.`,
     );
   }
   if (connector === null) {
     return fail(
       "connector_not_running",
       "The tunnel client (cloudflared) is not running.",
-      "Restart T3 Code. If it stays down, check the server log for relay client errors.",
+      `Restart ${PRODUCT_NAME}. If it stays down, check the server log for relay client errors.`,
     );
   }
   const status = endpoint?.kind === "status" ? endpoint.status : null;
@@ -122,7 +122,7 @@ export function classifyReachability(
     return fail(
       "origin_unreachable",
       "The tunnel is up, but it cannot reach the T3 server on this machine.",
-      "Restart T3 Code so the tunnel uses the port the server listens on.",
+      `Restart ${PRODUCT_NAME} so the tunnel uses the port the server listens on.`,
     );
   }
   if (endpoint === null || connector.readyConnections === 0) {

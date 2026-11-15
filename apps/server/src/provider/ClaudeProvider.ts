@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import {
   type ClaudeSettings,
   type ModelCapabilities,
@@ -544,7 +545,7 @@ export const checkClaudeProviderStatus = Effect.fn("checkClaudeProviderStatus")(
         version: null,
         status: "warning",
         auth: { status: "unknown" },
-        message: "Claude is disabled in T3 Code settings.",
+        message: `Claude is disabled in ${PRODUCT_NAME} settings.`,
       },
     });
   }
@@ -766,7 +767,7 @@ export const makePendingClaudeProvider = Effect.fn("ClaudeProvider.makePendingCl
           version: null,
           status: "warning",
           auth: { status: "unknown" },
-          message: "Claude is disabled in T3 Code settings.",
+          message: `Claude is disabled in ${PRODUCT_NAME} settings.`,
         },
       });
     }

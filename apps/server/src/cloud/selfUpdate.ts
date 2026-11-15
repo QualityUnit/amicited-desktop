@@ -1,3 +1,4 @@
+import { CLI_NAME, PRODUCT_NAME } from "@amicited/identity";
 import {
   ServerSelfUpdateError,
   type ServerSelfUpdateCapability,
@@ -180,12 +181,12 @@ export const make = Effect.fn("cloud.server_self_update.make")(function* () {
         );
       }
       return yield* failWith(
-        "This server is managed by the AmICited Desktop app on its machine; update the desktop app to update it.",
+        `This server is managed by the ${PRODUCT_NAME} app on its machine; update the desktop app to update it.`,
       );
     }
     if (capability === null) {
       return yield* failWith(
-        "Remote updates require the AmICited background service. Run `amicited service install` on the server machine.",
+        `Remote updates require the ${PRODUCT_NAME} background service. Run \`${CLI_NAME} service install\` on the server machine.`,
       );
     }
 

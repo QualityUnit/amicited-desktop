@@ -1941,6 +1941,9 @@ importers:
 
   packages/provider-fx:
     dependencies:
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../amicited-identity
       '@t3tools/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -2449,6 +2452,9 @@ importers:
 
   packages/source-control-forgejo:
     dependencies:
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../amicited-identity
       '@t3tools/contracts':
         specifier: workspace:*
         version: link:../contracts

@@ -1,5 +1,5 @@
+import { MCP_SERVER_KEY, PRODUCT_NAME, USER_AGENT_PRODUCT } from "@amicited/identity";
 // @effect-diagnostics nodeBuiltinImport:off
-import { MCP_SERVER_KEY, USER_AGENT_PRODUCT } from "@amicited/identity";
 
 import {
   type ChatAttachment,
@@ -6323,8 +6323,8 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
               Effect.fail(
                 EffectAcpErrors.AcpRequestError.internalError(
                   disposition === "ask"
-                    ? `The active T3 runtime policy requires approval for ${operation}. Request permission with session/request_permission before retrying.`
-                    : `The active T3 runtime policy does not allow ${operation}.`,
+                    ? `The active runtime policy requires approval for ${operation}. Request permission with session/request_permission before retrying.`
+                    : `The active runtime policy does not allow ${operation}.`,
                 ),
               ),
             ),
@@ -7827,7 +7827,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
                 "failed",
                 makeProviderFailure({
                   class: "provider_error",
-                  message: `${flavor.runtimeHarness ?? driver} sent nothing for ${minutes} ${minutes === 1 ? "minute" : "minutes"}, so T3 Code stopped the turn and restarted the agent. Send a message to continue.`,
+                  message: `${flavor.runtimeHarness ?? driver} sent nothing for ${minutes} ${minutes === 1 ? "minute" : "minutes"}, so ${PRODUCT_NAME} stopped the turn and restarted the agent. Send a message to continue.`,
                 }),
               );
               return "retired" as const;

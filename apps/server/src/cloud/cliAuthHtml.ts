@@ -1,4 +1,4 @@
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { PRODUCT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export type LoopbackAuthorizationStage = "dev" | "nightly" | "latest";
 
@@ -9,9 +9,9 @@ function resolveLoopbackAuthorizationStage(): LoopbackAuthorizationStage {
 }
 
 const stageBrands = {
-  dev: "T3 Code (Dev)",
-  nightly: "T3 Code (Nightly)",
-  latest: "T3 Code",
+  dev: `${PRODUCT_NAME} (Dev)`,
+  nightly: `${PRODUCT_NAME} (Nightly)`,
+  latest: PRODUCT_NAME,
 } as const satisfies Record<LoopbackAuthorizationStage, string>;
 
 export function renderLoopbackAuthorizationCompleteHtml(
