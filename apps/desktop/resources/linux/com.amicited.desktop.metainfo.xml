@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.amicited.desktop</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <update_contact>support@flowhunt.io</update_contact>
+  <name>AmICited Desktop</name>
+  <summary>Local-first AI agent workstation for marketers</summary>
+  <developer id="io.flowhunt">
+    <name>FlowHunt</name>
+  </developer>
+  <description>
+    <p>
+      AmICited Desktop is a local-first AI agent workstation for marketers. It
+      runs on your own machine and works with the AI subscriptions you already
+      have.
+    </p>
+    <p>
+      Agents work in your logged-in browser and on your own files, and every
+      action that posts, spends money or sends email waits for your approval.
+    </p>
+  </description>
+  <launchable type="desktop-id">amicited-desktop.desktop</launchable>
+  <icon type="stock">amicited-desktop</icon>
+  <provides>
+    <binary>amicited-desktop</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+  </categories>
+  <url type="homepage">https://amicited.com</url>
+</component>

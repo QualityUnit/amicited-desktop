@@ -96,7 +96,7 @@ child.stderr.on("data", (chunk) => {
     const browser = await chromium.connectOverCDP(`http://localhost:${debugPort}`);
     try {
       const context = browser.contexts()[0];
-      const isApplication = (url) => url.protocol === "t3code-dev:" || url.protocol === "data:";
+      const isApplication = (url) => url.protocol === "amicited-dev:" || url.protocol === "data:";
       const applicationPage = async (page) => {
         await page.waitForURL(isApplication);
         return page;

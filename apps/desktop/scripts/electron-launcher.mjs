@@ -4,6 +4,13 @@ import * as NodeModule from "node:module";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
+import {
+  APP_ID,
+  APP_ID_DEV,
+  PRODUCT_NAME,
+  PROTOCOL_SCHEME,
+  PROTOCOL_SCHEME_DEV,
+} from "@amicited/identity";
 import { ensureElectronRuntime } from "./ensure-electron-runtime.mjs";
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
@@ -13,12 +20,10 @@ const repoRoot = NodePath.resolve(desktopDir, "..", "..");
 const devBundleIdSuffix = NodePath.basename(repoRoot)
   .toLowerCase()
   .replaceAll(/[^a-z0-9]+/g, "");
-const APP_DISPLAY_NAME = isDevelopment ? "T3 Code (Dev)" : "T3 Code (Beta)";
-const APP_BUNDLE_ID = isDevelopment
-  ? `com.t3tools.t3code.dev.${devBundleIdSuffix || "local"}`
-  : "com.t3tools.t3code";
-const APP_PROTOCOL_SCHEMES = isDevelopment ? ["t3code-dev"] : ["t3code"];
-const LAUNCHER_VERSION = 20;
+const APP_DISPLAY_NAME = isDevelopment ? `${PRODUCT_NAME} (Dev)` : PRODUCT_NAME;
+const APP_BUNDLE_ID = isDevelopment ? `${APP_ID_DEV}.${devBundleIdSuffix || "local"}` : APP_ID;
+const APP_PROTOCOL_SCHEMES = isDevelopment ? [PROTOCOL_SCHEME_DEV] : [PROTOCOL_SCHEME];
+const LAUNCHER_VERSION = 21;
 const developmentMacIconPngPath = NodePath.join(
   repoRoot,
   "assets",
@@ -267,9 +272,8 @@ function resolveMacBundleInfoPlistStrings(executableName) {
     CFBundleIdentifier: APP_BUNDLE_ID,
     CFBundleExecutable: executableName,
     CFBundleIconFile: "icon.icns",
-    NSScreenCaptureUsageDescription:
-      "T3 Code captures the active window when you use the snapshot shortcut.",
-    NSDocumentsFolderUsageDescription: "T3 Code reads project files you open in the desktop app.",
+    NSScreenCaptureUsageDescription: `${PRODUCT_NAME} captures the active window when you use the screen capture shortcut.`,
+    NSDocumentsFolderUsageDescription: `${PRODUCT_NAME} reads project files you open in the desktop app.`,
   };
 }
 

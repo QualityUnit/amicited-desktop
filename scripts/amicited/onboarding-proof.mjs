@@ -84,14 +84,14 @@ export async function assertCaptureReady(page, cdp) {
 
 export async function applicationPage(context) {
   const application = async (page) => {
-    await page.waitForURL((url) => url.protocol === "t3code-dev:", { timeout: 120000 });
+    await page.waitForURL((url) => url.protocol === "amicited-dev:", { timeout: 120000 });
     await page
       .locator('[data-sidebar="sidebar"], [data-onboarding-surface]')
       .first()
       .waitFor({ timeout: 120000 });
     return page;
   };
-  const existing = context.pages().find((page) => page.url().startsWith("t3code-dev:"));
+  const existing = context.pages().find((page) => page.url().startsWith("amicited-dev:"));
   if (existing) return application(existing);
   return Promise.any([
     ...context.pages().map(application),

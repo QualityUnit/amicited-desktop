@@ -1,3 +1,4 @@
+import { PROTOCOL_SCHEME, PROTOCOL_SCHEME_DEV } from "@amicited/identity";
 import { ORCHESTRATION_PROTOCOL_HEADER } from "@t3tools/contracts";
 
 export const browserApiCorsAllowedMethods = ["GET", "POST", "OPTIONS"] as const;
@@ -10,4 +11,7 @@ export const browserApiCorsAllowedHeaders = [
   ORCHESTRATION_PROTOCOL_HEADER,
 ] as const;
 
-export const DESKTOP_RENDERER_ORIGINS = ["t3code://app", "t3code-dev://app"] as const;
+export const DESKTOP_RENDERER_ORIGINS = [
+  `${PROTOCOL_SCHEME}://app`,
+  `${PROTOCOL_SCHEME_DEV}://app`,
+] as const;

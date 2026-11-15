@@ -29,6 +29,7 @@ import {
   parseWslRuntimeArchiveMembers,
   readWorkspaceConfig,
   createBuildConfig,
+  resolveDesktopProductName,
   DESKTOP_FILE_EXCLUSIONS,
   InvalidMacPasskeyRpDomainError,
   InvalidMacPasskeyPublishableKeyError,
@@ -496,6 +497,69 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     }),
   );
 
+  it.effect("registers only AmICited identities with the OS", () =>
+    Effect.gen(function* () {
+      const linux = yield* createBuildConfig(
+        "linux",
+        "AppImage",
+        "1.2.3",
+        false,
+        false,
+        undefined,
+        undefined,
+      );
+      const mac = yield* createBuildConfig(
+        "mac",
+        "dmg",
+        "1.2.3",
+        false,
+        false,
+        undefined,
+        undefined,
+      );
+      const mockUpdates = yield* createBuildConfig(
+        "linux",
+        "AppImage",
+        "1.2.3",
+        false,
+        true,
+        4321,
+        undefined,
+      );
+      const config = JSON.stringify({ linux, mac });
+
+      assert.strictEqual(linux.appId, "com.amicited.desktop");
+      assert.strictEqual(linux.productName, "AmICited Desktop");
+      assert.strictEqual(
+        resolveDesktopProductName("1.2.3-nightly.20261115.1"),
+        "AmICited Desktop (Nightly)",
+      );
+      assert.strictEqual(linux.artifactName, "AmICited-Desktop-${version}-${arch}.${ext}");
+      assert.deepInclude(linux.linux as object, {
+        executableName: "amicited-desktop",
+        maintainer: "AmICited <support@flowhunt.io>",
+        protocols: [{ name: "AmICited Desktop", schemes: ["amicited", "amicited-dev"] }],
+        desktop: { entry: { StartupWMClass: "amicited-desktop" } },
+      });
+      assert.include(config, "=/usr/share/metainfo/com.amicited.desktop.metainfo.xml");
+      assert.include(config, "=/usr/share/doc/amicited-desktop/copyright");
+      assert.include(config, '"schemes":["amicited","amicited-dev"]');
+      assert.notMatch(config, /t3code|t3tools|t3\.codes|T3 Code|T3-Code/u);
+      // Without a repository env the feed is AmICited's, never the upstream repository.
+      assert.deepStrictEqual(linux.publish, [
+        {
+          provider: "github",
+          owner: "QualityUnit",
+          repo: "amicited-desktop",
+          releaseType: "release",
+        },
+      ]);
+      assert.deepStrictEqual(mockUpdates.publish, [
+        { provider: "generic", url: "http://localhost:4321" },
+      ]);
+    }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} })))),
+  );
+
   it.effect("omits update feeds for pull request preview builds", () =>
     Effect.gen(function* () {
       const preview = yield* createBuildConfig(
@@ -532,15 +596,15 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       assert.deepStrictEqual(release.publish, [
         {
           provider: "github",
-          owner: "pingdotgg",
-          repo: "t3code",
+          owner: "QualityUnit",
+          repo: "amicited-desktop",
           releaseType: "release",
         },
       ]);
     }).pipe(
       Effect.provide(
         ConfigProvider.layer(
-          ConfigProvider.fromEnv({ env: { GITHUB_REPOSITORY: "pingdotgg/t3code" } }),
+          ConfigProvider.fromEnv({ env: { GITHUB_REPOSITORY: "QualityUnit/amicited-desktop" } }),
         ),
       ),
     ),
@@ -1393,7 +1457,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     });
 
     assert.deepStrictEqual(configuration, {
-      appId: "com.t3tools.t3code",
+      appId: "com.amicited.desktop",
       teamId: "ABC1234567",
       rpDomains: ["example.clerk.accounts.dev"],
       provisioningProfilePath: "/tmp/t3code.provisionprofile",
@@ -1416,7 +1480,7 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
       "clerk.example.com",
       "example.clerk.accounts.dev",
     ]);
-    assert.include(entitlements, "<string>ABC1234567.com.t3tools.t3code</string>");
+    assert.include(entitlements, "<string>ABC1234567.com.amicited.desktop</string>");
     assert.include(entitlements, "<string>webcredentials:clerk.example.com</string>");
     assert.include(entitlements, "<string>webcredentials:example.clerk.accounts.dev</string>");
     assert.include(entitlements, "<key>com.apple.security.cs.allow-jit</key>");

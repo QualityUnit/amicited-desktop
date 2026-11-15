@@ -46,7 +46,10 @@ describe("Codex desktop handoff", () => {
   });
   it("rejects other handlers, schemes, arbitrary return sites, and non-OpenAI authorization", () => {
     const link = codexAuthHandoffUrl(input);
+    expect(link.startsWith("amicited://auth/codex?")).toBe(true);
+    expect(codexAuthHandoffUrl(input, true).startsWith("amicited-dev://auth/codex?")).toBe(true);
     expect(readCodexAuthHandoff(link, true)).toBeUndefined();
+    expect(readCodexAuthHandoff(link.replace("amicited:", "t3code:"), false)).toBeUndefined();
     expect(readCodexAuthHandoff(link.replace("auth/codex", "auth/other"), false)).toBeUndefined();
     expect(
       readCodexAuthHandoff(
