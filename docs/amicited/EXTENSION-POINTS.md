@@ -598,3 +598,28 @@ shares the same domain editor across setup, New domain and Edit domain.
 - `apps/server/src/ws.ts`: domain list starts a background favicon sync.
 - `apps/server/src/amicited/Cloud.ts`: project deletion also removes the domain's saved favicon.
 - `apps/server/src/ws.test.ts`: mocks the favicon service in the shared unused RPC services.
+
+## CI runners
+
+Upstream runs CI on Blacksmith. This repository has no Blacksmith runners, so a job
+with a `blacksmith-*` label queues until GitHub cancels it a day later. Workflows we
+run use GitHub-hosted labels:
+
+- `.github/workflows/ci.yml`: `runs-on` is `ubuntu-24.04` or `macos-26`; job timeouts are raised for the 4 vCPU hosted runners.
+- `.github/workflows/windows-tests.yml`: `runs-on` is `windows-2025`.
+
+Workflows we do not run are disabled in repository settings, not deleted, so their
+files stay identical to upstream and never conflict in the weekly merge. The state
+is not in the repository: `gh workflow list --all` shows it, and a workflow that
+arrives with a merge starts enabled. After each merge, disable or convert anything
+new, and check the two files above kept their labels.
+
+- Disabled until we own the infrastructure they need (signing certificates, Vercel, Expo):
+  `release.yml`, `release-desktop.yml`, `publish-aur.yml`, `desktop-macos-preview.yml`,
+  `desktop-macos-preview-publish.yml`, `web-preview.yml`, `mobile-eas-preview.yml`,
+  `mobile-eas-preview-fork.yml`, `mobile-eas-production.yml`, `mobile-fingerprint-check.yml`,
+  `mobile-fingerprint-label.yml`, `mobile-showcase-screenshots.yml`. Convert their runner
+  labels when enabling them.
+- Disabled for good, because they operate T3's own accounts and community:
+  `deploy-relay.yml`, `relay-preview.yml`, `relay-preview-cleanup.yml`,
+  `mobile-android-apk.yml`, `pr-vouch.yml`.
