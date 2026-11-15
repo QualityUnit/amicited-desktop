@@ -641,12 +641,12 @@
 }
 
 .am-assistant-card[data-selected="true"] {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+  border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px var(--ring);
 }
 [data-am="am-assistant-status"][data-state="ready"] {
   color: var(--success-foreground);
-  background: var(--success);
+  background: color-mix(in oklab, var(--success) 15%, var(--background));
 }
 [data-automatic="true"] > div:first-child {
   display: none;
