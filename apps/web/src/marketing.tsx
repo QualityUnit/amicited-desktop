@@ -38,10 +38,16 @@ import { useSidebarStageBackdropVariant } from "./components/SidebarStageBackdro
 import { SidebarHeaderIconButton } from "./components/sidebar/SidebarThreadHeader";
 import {
   SidebarFooter,
+  SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
   useSidebarVisibility,
 } from "./components/ui/sidebar";
+import {
+  SidebarUpdateArchitectureWarning,
+  SidebarUpdatePill,
+} from "./components/sidebar/SidebarUpdatePill";
 import { AmICitedMark } from "@amicited/ui-marketing";
 import { Archive } from "lucide-react";
 import { RelativeTime } from "./components/RelativeTime";
@@ -301,26 +307,29 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
               />
               <MarketingHistory archived={archived} setArchived={setArchived} />
               <SidebarFooter>
-                <div className="flex gap-2">
+                <SidebarUpdateArchitectureWarning />
+                <SidebarMenu className="flex-row items-center">
                   {[
                     ["Settings", "/settings/general", Settings],
                     ["Reports", "/reports", FileText],
                     ["AmICited", "/marketing-settings", PlugZap],
                   ].map(([label, href, Icon]) => (
-                    <SidebarMenuButton
-                      key={String(label)}
-                      size="icon"
-                      aria-label={String(label)}
-                      render={<a href={String(href)} />}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        void navigate({ to: String(href) });
-                      }}
-                    >
-                      {typeof Icon !== "string" && Icon && <Icon />}
-                    </SidebarMenuButton>
+                    <SidebarMenuItem key={String(label)} className="shrink-0">
+                      <SidebarMenuButton
+                        size="icon"
+                        aria-label={String(label)}
+                        render={<a href={String(href)} />}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          void navigate({ to: String(href) });
+                        }}
+                      >
+                        {typeof Icon !== "string" && Icon && <Icon />}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   ))}
-                </div>
+                  <SidebarUpdatePill />
+                </SidebarMenu>
               </SidebarFooter>
             </>
           }
