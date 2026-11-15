@@ -1,10 +1,9 @@
 // @effect-diagnostics nodeBuiltinImport:off
+import { CLI_NAME } from "@amicited/identity";
 import * as NodeModule from "node:module";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import { enablePreparedServerCache } from "../../../scripts/lib/server-compile-cache.ts";
-// Relative, like the import above: this boot-time bundle inlines only relative imports.
-import { CLI_NAME } from "../../../packages/amicited-identity/src/index.ts";
 
 // Linux /tmp is shared; macOS and Windows temp dirs are per user.
 // AppImage mounts change paths each launch, so Node's path-keyed cache would miss and accumulate copies.

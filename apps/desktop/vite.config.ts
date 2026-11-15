@@ -96,6 +96,8 @@ export default defineConfig({
       entry: ["src/boot.ts", "src/compileCache.ts", "src/serverCompileCache.ts"],
       clean: false,
       deps: {
+        // The identity package ships as TypeScript source, so it must be inlined.
+        alwaysBundle: (id) => id.startsWith("@amicited/identity"),
         neverBundle: (id) => id === "./main.cjs" || id === "./compileCache.cjs",
       },
     },
