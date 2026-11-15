@@ -1,0 +1,1644 @@
+/// <reference lib="dom" />
+// @effect-diagnostics nodeBuiltinImport:off - Standalone browser harness owns its Node processes and temporary files.
+// @effect-diagnostics globalTimers:off - Bounds startup readiness outside the Effect runtime.
+// @effect-diagnostics globalConsole:off - CLI prints the capture destination.
+
+import * as NodeHttp from "node:http";
+import * as NodeNet from "node:net";
+import * as NodeFS from "node:fs";
+import * as NodeChildProcess from "node:child_process";
+import * as NodeFSP from "node:fs/promises";
+import * as NodeOS from "node:os";
+import * as NodePath from "node:path";
+import { chromium } from "playwright-core";
+
+const captureDomain =
+  process.env.AMICITED_CAPTURE_SITE_FILES === "1" ? "flowhunt.io" : "example.com";
+const out = NodePath.resolve(process.argv[2] ?? ".amicited-shots/wave0");
+await NodeFSP.mkdir(out, { recursive: true });
+await NodeFSP.writeFile(
+  NodePath.join(out, "capture-head.txt"),
+  NodeChildProcess.execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }),
+);
+const { CloudClient } = await import(String("../../packages/amicited-cloud/src/index.ts"));
+// Exercise the real client against a local MCP fixture; no production credentials.
+const fixtureCalls: { tool: string; arguments: unknown }[] = [];
+const fixture = NodeHttp.createServer(async (req, res) => {
+  const path = req.url ?? "";
+  const fixtureOrigin = `http://127.0.0.1:${(fixture.address() as NodeNet.AddressInfo).port}`;
+  if (path.startsWith("/.well-known/oauth-protected-resource")) {
+    res.writeHead(200, { "Content-Type": "application/json" }).end(
+      JSON.stringify({
+        resource: fixtureOrigin + "/mcp",
+        authorization_servers: [fixtureOrigin],
+      }),
+    );
+    return;
+  }
+  if (path.startsWith("/.well-known/")) {
+    res.writeHead(200, { "Content-Type": "application/json" }).end(
+      JSON.stringify({
+        issuer: fixtureOrigin,
+        authorization_endpoint: fixtureOrigin + "/authorize",
+        token_endpoint: fixtureOrigin + "/token",
+        registration_endpoint: fixtureOrigin + "/register",
+        response_types_supported: ["code"],
+        code_challenge_methods_supported: ["S256"],
+        token_endpoint_auth_methods_supported: ["none"],
+      }),
+    );
+    return;
+  }
+  if (path.startsWith("/authorize")) {
+    res.end("Capture sign-in boundary. Return to AmICited and cancel.");
+    return;
+  }
+  if (path === "/mcp" && !req.headers.authorization) {
+    res
+      .writeHead(401, {
+        "WWW-Authenticate": `Bearer resource_metadata="${fixtureOrigin}/.well-known/oauth-protected-resource/mcp/amicited"`,
+      })
+      .end();
+    return;
+  }
+  if (req.method !== "POST") {
+    res.writeHead(405).end();
+    return;
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  const rpc = JSON.parse(Buffer.concat(chunks).toString());
+  if (path === "/register") {
+    res
+      .writeHead(201, { "Content-Type": "application/json" })
+      .end(JSON.stringify({ ...rpc, client_id: "capture-client" }));
+    return;
+  }
+  if (rpc.method === "tools/call")
+    fixtureCalls.push({ tool: rpc.params.name, arguments: rpc.params.arguments });
+  if (rpc.id === undefined) {
+    res.writeHead(202).end();
+    return;
+  }
+  const result =
+    rpc.method === "initialize"
+      ? {
+          protocolVersion: "2025-03-26",
+          capabilities: { tools: {} },
+          serverInfo: { name: "capture-fixture", version: "1" },
+        }
+      : rpc.method === "tools/list"
+        ? {
+            tools: [
+              {
+                name: "delete_prompt",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: true },
+              },
+              {
+                name: "list_prompts",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
+                name: "free_brand_visibility_start",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: false },
+              },
+              {
+                name: "free_brand_visibility_get",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
+                name: "free_site_health_start",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: false },
+              },
+              {
+                name: "free_query_fanout_start",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: false, destructiveHint: false },
+              },
+              {
+                name: "free_query_fanout_get",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
+                name: "prompt_analytics",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+              {
+                name: "free_site_health_get",
+                inputSchema: { type: "object" },
+                annotations: { readOnlyHint: true, destructiveHint: false },
+              },
+            ],
+          }
+        : {
+            content: [
+              {
+                type: "text",
+                text:
+                  rpc.params.name === "list_prompts"
+                    ? JSON.stringify({
+                        prompts: [
+                          {
+                            prompt_id: "3f9c0000-0000-4000-8000-000000000001",
+                            domain_id: "capture-domain",
+                            content: "Brand recommendations",
+                            tag_id: null,
+                            country: null,
+                            status: "active",
+                            schedule: "daily",
+                            providers: null,
+                            created_at: "2026-11-07T00:00:00Z",
+                            updated_at: "2026-11-07T00:00:00Z",
+                          },
+                        ],
+                        count: 1,
+                      })
+                    : rpc.params.name === "free_query_fanout_start"
+                      ? JSON.stringify({ run_id: "expired-query-1", status: "pending" })
+                      : rpc.params.name === "free_query_fanout_get"
+                        ? "Report expired: not found"
+                        : rpc.params.name.startsWith("free_brand_visibility")
+                          ? JSON.stringify({
+                              run_id: "free-brand-1",
+                              workspace_id: "capture",
+                              website: `https://${captureDomain}`,
+                              domain: captureDomain,
+                              domain_id: "capture-domain",
+                              brand_name: "Example",
+                              status: rpc.params.name.endsWith("_start") ? "pending" : "success",
+                              providers: [
+                                {
+                                  provider: "chatgpt",
+                                  status: "success",
+                                  mentioned: true,
+                                  visibility_score: 74,
+                                },
+                                {
+                                  provider: "perplexity",
+                                  status: "success",
+                                  mentioned: true,
+                                  visibility_score: 50,
+                                },
+                                {
+                                  provider: "gemini",
+                                  status: "success",
+                                  mentioned: false,
+                                  visibility_score: 0,
+                                },
+                              ],
+                              competitive_landscape: [],
+                              error: null,
+                            })
+                          : rpc.params.name === "prompt_analytics"
+                            ? "`prompt_analytics` needs an AmICited subscription, and this workspace does not have one yet. On the free plan this connection runs the free tools only: brand visibility, query fan-out, llms.txt generator, site health and AI watermark detection and removal (the `free_tools` toolset; see list_toolsets). A Pro plan or the trial unlocks every AmICited tool on this endpoint: daily tracking of how ChatGPT, Gemini, Perplexity and Google AI Overviews cite the brand, share of voice against competitors, the sources AI answers cite, AI-crawler site audits, Search Console, GA4 and ad-platform reports, and content the agent can write and publish. FlowHunt's AI Studio adds its own MCP endpoint for building and running AI agents and flows. Tell the user they can upgrade at https://app.flowhunt.io/amicited/subscription."
+                            : rpc.params.name === "free_site_health_get"
+                              ? JSON.stringify({
+                                  run_id: "replay-site-health",
+                                  workspace_id: "capture",
+                                  target: `https://${captureDomain}`,
+                                  status: "success",
+                                  report: {
+                                    score: 72,
+                                    fixes: [{ title: "Add an AI website guide" }],
+                                  },
+                                })
+                              : JSON.stringify(
+                                  rpc.params.name === "free_site_health_start"
+                                    ? {
+                                        run_id: "replay-site-health",
+                                        workspace_id: "capture",
+                                        status: "pending",
+                                        report: null,
+                                      }
+                                    : {
+                                        tools: [
+                                          {
+                                            name: "free_site_health_start",
+                                            inputSchema: { type: "object", required: ["request"] },
+                                          },
+                                        ],
+                                      },
+                                ),
+              },
+            ],
+            ...(["prompt_analytics", "free_query_fanout_get"].includes(rpc.params.name)
+              ? { isError: true }
+              : {}),
+          };
+  res
+    .writeHead(200, { "Content-Type": "application/json" })
+    .end(JSON.stringify({ jsonrpc: "2.0", id: rpc.id, result }));
+});
+await new Promise<void>((resolve) => fixture.listen(0, "127.0.0.1", resolve));
+const fixtureAddress = fixture.address();
+if (!fixtureAddress || typeof fixtureAddress === "string") throw new Error("Fixture port missing");
+let fixtureSecret: string | undefined;
+const fixtureClient = new CloudClient({
+  endpoint: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
+  secrets: {
+    read: async () => fixtureSecret,
+    write: async (value: string) => {
+      fixtureSecret = value;
+    },
+    clear: async () => {
+      fixtureSecret = undefined;
+    },
+  },
+  openExternal: async () => {},
+});
+let cloudFixtures;
+try {
+  await fixtureClient.connectApiKey("capture-only");
+  const upgrade = await fixtureClient.call("prompt_analytics");
+  const free = await fixtureClient.status();
+  const policy = await fixtureClient.toolPolicy("free_site_health_get");
+  if (policy.needsApproval) throw new Error("Fixture read unexpectedly needs approval");
+  const result = await fixtureClient.call("free_site_health_get", { run_id: "fixture" });
+  await fixtureClient.call("paid_success");
+  cloudFixtures = { free, full: await fixtureClient.status(), result, upgrade };
+} finally {
+  await fixtureClient.disconnect();
+}
+const home =
+  process.env.AMICITED_CAPTURE_HOME ??
+  (await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-journey-")));
+async function availablePort() {
+  const socket = NodeNet.createServer();
+  await new Promise<void>((done, reject) => {
+    socket.once("error", reject);
+    socket.listen(0, "127.0.0.1", done);
+  });
+  const address = socket.address();
+  if (!address || typeof address === "string") throw new Error("No port");
+  await new Promise<void>((done) => socket.close(() => done()));
+  return address.port;
+}
+// Disable installed assistants in this temporary home so captures cannot spend provider usage.
+await NodeFSP.mkdir(NodePath.join(home, "userdata"), { recursive: true });
+await NodeFSP.writeFile(
+  NodePath.join(home, "userdata", "settings.json"),
+  JSON.stringify({
+    providerInstances: Object.fromEntries(
+      [
+        "devReplay",
+        "codex",
+        "claudeAgent",
+        "cursor",
+        "grok",
+        "opencode",
+        "antigravity",
+        "kiro",
+        "muse",
+        "pi",
+        "fx",
+      ].map((driver) => [
+        driver,
+        { driver, enabled: process.env.AMICITED_REUSE_REAL === "1" && driver === "devReplay" },
+      ]),
+    ),
+  }),
+);
+const serverPort = await availablePort();
+const webPort = await availablePort();
+const env: NodeJS.ProcessEnv = {
+  ...process.env,
+  T3CODE_HOME: home,
+  T3CODE_PORT: String(serverPort),
+  PORT: String(webPort),
+  VITE_DEV_SERVER_URL: "http://127.0.0.1:" + webPort,
+  T3CODE_SINGLE_ORIGIN_DEV: "1",
+  T3CODE_NO_BROWSER: "1",
+  T3CODE_TELEMETRY_ENABLED: "false",
+  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "0",
+  T3CODE_DEV_SEED: "0",
+  T3CODE_DEV_REPLAY_CAPTURE: "1",
+  T3CODE_PORT_OFFSET: "173",
+  AMICITED_CAPTURE_DOMAIN: captureDomain,
+  AMICITED_CAPTURE_FULL_ACCESS: process.env.AMICITED_CAPTURE_FULL_ACCESS ?? "",
+  T3CODE_DEV_AMICITED_ENDPOINT: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
+};
+delete env.VITE_HTTP_URL;
+delete env.VITE_WS_URL;
+delete env.T3_SERVICE_LAUNCHER_CONTEXT;
+delete env.T3_BOOT_SERVICE_UNIT;
+const runner = NodeChildProcess.spawn(process.execPath, ["apps/server/src/bin.ts"], {
+  cwd: NodePath.resolve(import.meta.dirname, "../.."),
+  env,
+  stdio: ["ignore", "pipe", "pipe"],
+});
+const web = NodeChildProcess.spawn(process.execPath, ["scripts/amicited/serve-web.ts"], {
+  cwd: NodePath.resolve(import.meta.dirname, "../.."),
+  env,
+  stdio: ["ignore", "pipe", "pipe"],
+});
+let logs = "";
+const ready = new Promise<{ url: string; pairing: string }>((resolveReady, reject) => {
+  const timeout = setTimeout(
+    () => reject(new Error("Dev stack did not become ready. See dev-stack.log")),
+    900_000,
+  );
+  const consume = (chunk: Buffer) => {
+    logs += chunk.toString();
+    NodeFS.writeFileSync(NodePath.join(out, "dev-stack.log"), logs);
+    const port = String(webPort);
+    const pairing = /pairingUrl:\s*(https?:\/\/[^\s\x1b]+)/.exec(logs)?.[1];
+    if (port && pairing && logs.includes("Local:")) {
+      clearTimeout(timeout);
+      resolveReady({ url: "http://127.0.0.1:" + port, pairing });
+    }
+  };
+  runner.stdout!.on("data", consume);
+  runner.stderr!.on("data", consume);
+  web.stdout!.on("data", consume);
+  web.stderr!.on("data", consume);
+  runner.once("exit", (code) => {
+    clearTimeout(timeout);
+    reject(new Error("Dev stack exited: " + code));
+  });
+});
+let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+let ownedSite: string | undefined;
+try {
+  const { url, pairing } = await ready;
+  browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 2,
+  });
+  let page = await context.newPage();
+  page.setDefaultTimeout(120_000);
+  page.on("pageerror", (e) => console.error("BROWSER ERROR", e));
+  page.on("console", (m) => {
+    if (m.type() === "error") console.error("BROWSER CONSOLE", m.text());
+  });
+  await page.addStyleTag({
+    content: "*, *::before, *::after { transition: none !important; animation: none !important; }",
+  });
+  await page.goto(pairing.replace(new URL(pairing).origin, url));
+  await page.locator("[data-amicited-shell]").waitFor({ timeout: 120000 });
+  const waitForOperate = () =>
+    page.waitForFunction(async () => {
+      const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+      const { readEnvironmentScope } = await import(String("/src/state/session.ts"));
+      const environment = readPrimaryEnvironmentId();
+      return environment !== null && readEnvironmentScope(environment, "orchestration:operate");
+    });
+  const openChatActions = async (index = 0) => {
+    const action = page.getByRole("button", { name: /Chat actions for/ }).nth(index);
+    await action.locator("..").hover();
+    await action.click();
+  };
+  const capture = async (name: string) => {
+    const only = process.env.AMICITED_CAPTURE_ONLY?.split(",");
+    if (only && !only.some((prefix) => name.startsWith(prefix))) return;
+    const intendedRoute = page.url();
+    for (const [theme, width, height] of [
+      ["light", 1344, 1016],
+      ["dark", 1344, 1016],
+      ["light", 1440, 900],
+    ] as const) {
+      if (only && width !== 1344) continue;
+      console.log(`Capturing ${name} ${theme} ${width}`);
+      await page.setViewportSize({ width, height });
+      await page.evaluate(
+        (theme) => document.documentElement.classList.toggle("dark", theme === "dark"),
+        theme,
+      );
+      await page.addStyleTag({
+        content:
+          "*, *::before, *::after { transition: none !important; animation: none !important; }",
+      });
+      if (!name.startsWith("reference-")) await page.locator("[data-amicited-shell]").waitFor();
+      await page.locator("#boot-shell").waitFor({ state: "detached" });
+      await page
+        .locator('main:visible, [role="dialog"]:visible, [data-testid="composer-editor"]:visible')
+        .first()
+        .waitFor();
+      if (page.url() !== intendedRoute) throw new Error(`Route changed before ${name}`);
+      await page.waitForFunction(
+        (dark) => document.documentElement.classList.contains("dark") === dark,
+        theme === "dark",
+      );
+      if (name === "09-failed-tool") {
+        await page
+          .getByText("Could not check: the website did not respond. Try again later.", {
+            exact: true,
+          })
+          .waitFor();
+      }
+      if (name === "12-sign-in-recovery" || name === "12b-sidebar-statuses") {
+        await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
+        await page.mouse.move(1000, 100);
+        await page.getByTestId("composer-editor").focus();
+        await page.getByRole("tooltip").waitFor({ state: "hidden" });
+      }
+      if (name === "03-tool-card-turn" || name === "11-real-haiku-turn")
+        await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      if (name === "02c-website-popover") {
+        await page.getByRole("button", { name: "Create domain", exact: true }).waitFor();
+      }
+      if (name === "05a-chat-hover") {
+        await page.locator("[data-sidebar-row]").first().hover();
+        await page
+          .getByRole("button", { name: /Chat actions for/ })
+          .first()
+          .waitFor();
+      }
+
+      if (name === "38-site-edit-approval")
+        await page
+          .getByRole("group", { name: "File change approval", exact: true })
+          .scrollIntoViewIfNeeded();
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({ path: NodePath.join(out, `${name}-${theme}-${width}.png`) });
+    }
+  };
+  if (process.env.AMICITED_CAPTURE_SITE_FILES === "1") {
+    await page.getByTestId("composer-editor").waitFor();
+    await waitForOperate();
+    const fixtureRoot = await NodeFSP.mkdtemp(
+      NodePath.join(NodeOS.tmpdir(), "amicited-site-capture-"),
+    );
+    const site = NodePath.join(NodeOS.homedir(), "Sites", "flowhunt.io");
+    const bare = NodePath.join(fixtureRoot, "site.git");
+    await NodeFSP.mkdir(NodePath.dirname(site), { recursive: true });
+    await NodeFSP.mkdir(site);
+    ownedSite = site;
+    await NodeFSP.writeFile(
+      NodePath.join(site, "package.json"),
+      JSON.stringify({ dependencies: { next: "16" } }),
+    );
+    await NodeFSP.writeFile(NodePath.join(site, "README.md"), "Fixture site\n");
+    await NodeFSP.mkdir(NodePath.join(site, "src"));
+    await NodeFSP.writeFile(
+      NodePath.join(site, "src/math.ts"),
+      "export const clamp = (n: number) => n;\n",
+    );
+    NodeChildProcess.execFileSync("git", ["init", site]);
+    NodeChildProcess.execFileSync("git", ["-C", site, "add", "."]);
+    NodeChildProcess.execFileSync("git", [
+      "-C",
+      site,
+      "-c",
+      "user.name=Fixture",
+      "-c",
+      "user.email=fixture@example.com",
+      "commit",
+      "-m",
+      "Fixture",
+    ]);
+    NodeChildProcess.execFileSync("git", ["clone", "--bare", site, bare]);
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByLabel("Website", { exact: true }).fill("flowhunt.io");
+    await capture("38-new-domain-cms");
+    await page.getByRole("combobox", { name: "CMS", exact: true }).click();
+    await page.getByRole("option", { name: /^Git-based site/ }).click();
+    await page.getByRole("combobox", { name: "Site files", exact: true }).click();
+    await page.getByRole("option", { name: "Use a folder on this computer" }).click();
+    await page.getByRole("textbox", { name: "Folder path", exact: true }).fill(site);
+    await page.getByRole("textbox", { name: "Folder path", exact: true }).blur();
+    await page.getByText(/Detected Next.js/).waitFor();
+    await capture("38-folder-detected");
+    await page.getByRole("button", { name: "Create domain", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "New domain", exact: true })
+      .waitFor({ state: "hidden" });
+    await page.getByText("flowhunt.io", { exact: true }).first().waitFor();
+    await page.locator(".am-composer-context").getByText("flowhunt.io", { exact: true }).waitFor();
+    await capture("38-sidebar-cms-folder");
+    await page.evaluate(async () => {
+      const { serverEnvironment, primaryServerSettingsAtom } = await import(
+        String("/src/state/server.ts")
+      );
+      const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+      const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+      const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.devReplay;
+      const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+        environmentId: readPrimaryEnvironmentId(),
+        input: {
+          providerInstanceMutation: {
+            operation: "upsert",
+            instanceId: "devReplay",
+            instance: {
+              ...instance,
+              enabled: true,
+              config: {
+                ...instance.config,
+                enabled: true,
+                commandArgs: [
+                  ...(Array.isArray(instance.config?.commandArgs)
+                    ? instance.config.commandArgs
+                    : []),
+                  "--live-cloud",
+                ],
+              },
+            },
+          },
+          patch: {},
+        },
+      });
+      if (result._tag !== "Success") throw new Error("Could not enable the free Replay fixture");
+      await serverEnvironment.refreshProviders.run(appAtomRegistry, {
+        environmentId: readPrimaryEnvironmentId(),
+        input: {},
+      });
+    });
+    await page.waitForFunction(async () => {
+      const { primaryServerProvidersAtom } = await import(String("/src/state/server.ts"));
+      const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+      return appAtomRegistry
+        .get(primaryServerProvidersAtom)
+        .some(
+          (p: { instanceId: string; enabled: boolean; models: { slug: string }[] }) =>
+            p.instanceId === "devReplay" &&
+            p.enabled &&
+            p.models.some((m: { slug: string }) => m.slug === "showcase"),
+        );
+    });
+
+    if (process.env.AMICITED_CAPTURE_FULL_ACCESS !== "1") {
+      await page.reload();
+      await page.getByTestId("composer-editor").waitFor();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("showcase"),
+      );
+      await page.getByRole("group", { name: "File change approval", exact: true }).waitFor();
+      await capture("38-site-edit-approval");
+      await page
+        .getByRole("group", { name: "File change approval", exact: true })
+        .getByRole("button", { name: /^(Yes|Approve|Allow once)$/ })
+        .first()
+        .click();
+      await NodeFSP.writeFile(
+        NodePath.join(site, "src/math.ts"),
+        "export const clamp = (n: number) => Math.max(0, n);\n",
+      );
+      await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).waitFor();
+      await capture("38-changed-files-review");
+      await page.getByRole("button", { name: /^Changed .*files? · Review$/ }).click();
+      await page.getByRole("button", { name: "Close review", exact: true }).waitFor();
+      await page.getByRole("button", { name: "Expand src/math.ts", exact: true }).click();
+      await page.getByRole("button", { name: "Collapse src/math.ts", exact: true }).waitFor();
+      await capture("39-review-diff-open");
+      await page.getByRole("button", { name: "Close review", exact: true }).click();
+      await capture("39-review-diff-closed");
+    }
+    const siteThreadRoute = page.url();
+    if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
+      await page.goto(url + "/marketing-settings");
+      await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+      await page.getByText("Use an API key instead", { exact: true }).click();
+      await page.getByLabel("Workspace API key").fill("capture-only");
+      await page.getByRole("button", { name: "Connect with key", exact: true }).click();
+      await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+      await page.goto(siteThreadRoute);
+      await page.getByTestId("composer-editor").waitFor();
+      await waitForOperate();
+      await page.evaluate(() => {
+        void (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-cloud", "full-access");
+      });
+      await page.getByText(/Delete prompt on (example.com|flowhunt.io)/).waitFor();
+      await capture("47-site-full-access-free-check-and-destructive-confirmation");
+      await NodeFSP.writeFile(
+        NodePath.join(out, "47-site-cloud-transcript.txt"),
+        await page.locator("body").innerText(),
+      );
+      await NodeFSP.writeFile(
+        NodePath.join(out, "47-site-cloud-calls.json"),
+        JSON.stringify(fixtureCalls, null, 2),
+      );
+      await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
+      await page.locator('[data-chat-provider-model-picker="true"]').first().click();
+      await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
+      await capture("47-site-access-mode-selector");
+      await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
+    }
+
+    if (process.env.AMICITED_CAPTURE_THREAD_CONTEXT === "1") {
+      await capture("45-site-folder-location");
+      for (const [name, delta] of [
+        ["narrow", -1000],
+        ["wide", 200],
+      ] as const) {
+        const rail = page.locator('[data-sidebar="rail"]');
+        const box = await rail.boundingBox();
+        if (!box) throw new Error("Sidebar resize rail is missing");
+        await page.mouse.move(box.x + box.width / 2, box.y + 80);
+        await page.mouse.down();
+        await page.mouse.move(Math.max(0, box.x + delta), box.y + 80);
+        await page.mouse.up();
+        await capture(`45-sidebar-${name}`);
+      }
+      await page.locator('[data-sidebar="rail"]').dblclick();
+
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Settle chat", exact: true }).click();
+      await page.getByRole("button", { name: /Settled 1/ }).waitFor();
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await capture("45-sidebar-settled-snoozed");
+      const settledShelf = page.getByRole("button", { name: /Settled 1/ });
+      if ((await settledShelf.getAttribute("aria-expanded")) === "false")
+        await settledShelf.click();
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Un-settle chat", exact: true }).click();
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Snooze", exact: true }).hover();
+      await page.getByRole("menuitem", { name: /In 1 hour/ }).click();
+      const snoozedShelf = page.getByRole("button", { name: /Snoozed 1/ });
+      await snoozedShelf.waitFor();
+      await capture("45-sidebar-snoozed");
+      if ((await snoozedShelf.getAttribute("aria-expanded")) === "false")
+        await snoozedShelf.click();
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Wake chat", exact: true }).click();
+      await page.getByRole("button", { name: "New chat", exact: true }).click();
+      await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+      await page.getByLabel("Website", { exact: true }).fill("managed.example");
+      await page.getByRole("button", { name: "Create domain", exact: true }).click();
+      await page
+        .getByRole("dialog", { name: "New domain", exact: true })
+        .waitFor({ state: "hidden" });
+      await capture("45-managed-domain-location");
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+      await page.reload();
+      await capture("reference-t3-empty-chat");
+      await page.goto(siteThreadRoute);
+      await page.getByTestId("composer-editor").waitFor();
+      await capture("reference-t3-showcase");
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "marketer"));
+      await page.reload();
+      let fixtureActive = true;
+      const inject = (value: unknown): void => {
+        if (!fixtureActive) return;
+        if (!value || typeof value !== "object") return;
+        if (Array.isArray(value)) {
+          value.forEach(inject);
+          return;
+        }
+        const record = value as Record<string, unknown>;
+        if (Array.isArray(record.threads))
+          for (const thread of record.threads) {
+            thread.pullRequests = [
+              {
+                host: "github.com",
+                repository: "fixture/site",
+                number: 45,
+                url: "https://github.com/fixture/site/pull/45",
+                source: "manual",
+                linkedAt: "2026-11-08T00:00:00Z",
+                stack: null,
+                snapshot: {
+                  state: "open",
+                  title: "Improve the website",
+                  headBranch: "website",
+                  baseBranch: "main",
+                  isDraft: false,
+                  updatedAt: null,
+                  syncedAt: "2026-11-08T00:00:00Z",
+                },
+              },
+            ];
+          }
+        if ("projectId" in record && "runtimeMode" in record && "title" in record) {
+          if (!record.pullRequests || !(record.pullRequests as unknown[]).length) {
+            record.pullRequests = [
+              {
+                host: "github.com",
+                repository: "fixture/site",
+                number: 45,
+                url: "https://github.com/fixture/site/pull/45",
+                source: "manual",
+                linkedAt: "2026-11-08T00:00:00Z",
+                stack: null,
+                snapshot: {
+                  state: "open",
+                  title: "Improve the website",
+                  headBranch: "website",
+                  baseBranch: "main",
+                  isDraft: false,
+                  updatedAt: null,
+                  syncedAt: "2026-11-08T00:00:00Z",
+                },
+              },
+            ];
+          }
+        }
+        Object.values(record).forEach(inject);
+      };
+      let freezeFixture = false;
+      await page.routeWebSocket("**/ws?*", (socket) => {
+        const server = socket.connectToServer();
+        server.onMessage((message) => {
+          if (freezeFixture) return;
+          if (typeof message !== "string") {
+            socket.send(message);
+            return;
+          }
+          try {
+            const value = JSON.parse(message);
+            inject(value);
+            socket.send(JSON.stringify(value));
+          } catch {
+            socket.send(message);
+          }
+        });
+      });
+      await page.route("**/api/orchestration/shell*", async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        inject(body);
+        await route.fulfill({ response, json: body });
+      });
+      await page.reload();
+      await page
+        .getByRole("link", { name: /PR #45/ })
+        .first()
+        .waitFor();
+      await page
+        .locator("[data-sidebar-row]")
+        .getByRole("link", { name: /PR #45/ })
+        .first()
+        .waitFor();
+      freezeFixture = true;
+      await capture("45-thread-row-full");
+      await capture("45-linked-pr");
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Open pull request", exact: true }).waitFor();
+      await capture("45-thread-menu-settle-snooze");
+      await page.keyboard.press("Escape");
+      freezeFixture = false;
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+      await page.reload();
+      await page
+        .locator("[data-sidebar-row]")
+        .getByRole("link", { name: /PR #45/ })
+        .first()
+        .waitFor();
+      freezeFixture = true;
+      await capture("reference-t3-thread-row-full");
+      freezeFixture = false;
+      await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "marketer"));
+      fixtureActive = false;
+      const fixturePage = page;
+      page = await fixturePage.context().newPage();
+      page.setDefaultTimeout(120_000);
+      await fixturePage.close();
+      await page.goto(siteThreadRoute);
+      await waitForOperate();
+      await page
+        .getByTestId("sidebar-project-folder")
+        .filter({ hasText: "flowhunt.io" })
+        .first()
+        .waitFor();
+    }
+
+    await page.mouse.move(800, 400);
+    await capture("42-domain-header-rest");
+    await page
+      .getByTestId("sidebar-project-folder")
+      .filter({ hasText: "flowhunt.io" })
+      .first()
+      .hover();
+    await capture("42-domain-header-hover");
+    await page.mouse.move(800, 400);
+
+    await page.goto(url + "/settings/general");
+    await page.getByText("Folder:", { exact: false }).first().waitFor();
+    await capture("38-settings-domains");
+    await page.goto(url + "/marketing-settings");
+    await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+    const refusal = new CloudClient({
+      endpoint: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
+      secrets: { read: async () => undefined, write: async () => {}, clear: async () => {} },
+      openExternal: async (value: string) => {
+        const authorize = new URL(value);
+        const callback = new URL(authorize.searchParams.get("redirect_uri")!);
+        callback.searchParams.set("state", authorize.searchParams.get("state")!);
+        callback.searchParams.set("error", "access_denied");
+        callback.searchParams.set(
+          "error_description",
+          "You must belong to a workspace before authorizing third-party applications.",
+        );
+        const tab = await browser!.newPage({
+          viewport: { width: 1440, height: 900 },
+          deviceScaleFactor: 2,
+        });
+        await tab.goto(callback.href);
+        for (const theme of ["light", "dark"] as const) {
+          await tab.emulateMedia({ colorScheme: theme });
+          await tab.screenshot({ path: NodePath.join(out, `43-oauth-callback-${theme}.png`) });
+        }
+        await tab.close();
+      },
+    });
+    const error = await refusal.connectOAuth();
+    await refusal.close();
+    await page.evaluate(
+      (detail) => window.dispatchEvent(new CustomEvent("amicited-cloud-evidence", { detail })),
+      error,
+    );
+    await page
+      .getByText("Finish setting up your AmICited workspace, then connect again.", { exact: true })
+      .waitFor();
+    await capture("43-oauth-error");
+    await page.getByText("Sign-in details", { exact: true }).click();
+    await capture("46-oauth-details");
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await page.goto(url + "/");
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByLabel("Website", { exact: true }).fill("clone.example");
+    await page.getByRole("combobox", { name: "CMS", exact: true }).click();
+    await page.getByRole("option", { name: /^Git-based site/ }).click();
+    await page.getByRole("combobox", { name: "Site files", exact: true }).click();
+    await page.getByRole("option", { name: "Clone from a Git URL" }).click();
+    await page.getByRole("textbox", { name: "Git URL", exact: true }).fill(bare);
+    await capture("38-clone-flow");
+    await page.getByRole("button", { name: "Clone site files", exact: true }).click();
+    await page.getByText(/^Copied to /).waitFor();
+    await page.getByText(/Detected Next.js/).waitFor();
+    await capture("38-clone-done");
+    await page.getByRole("button", { name: "Create domain", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "New domain", exact: true })
+      .waitFor({ state: "hidden" });
+    await NodeFSP.writeFile(
+      NodePath.join(out, "site-fixture.json"),
+      JSON.stringify({ site, bare, localOnly: true }),
+    );
+  } else {
+    if (process.env.AMICITED_REUSE_REAL !== "1") {
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page.getByTestId("composer-editor").waitFor();
+      await page.getByRole("button", { name: "Connect Claude", exact: true }).waitFor();
+      await capture("01-first-launch");
+      await page.getByTestId("composer-editor").fill("Plan my next campaign");
+      await page.getByRole("button", { name: "Connect Claude", exact: true }).click();
+      if (
+        !(await page.getByTestId("composer-editor").innerText()).includes("Plan my next campaign")
+      )
+        throw new Error("Connecting lost the typed prompt");
+      await page.getByTestId("composer-editor").fill("");
+      await page.evaluate(async () => {
+        const { serverEnvironment, primaryServerSettingsAtom } = await import(
+          String("/src/state/server.ts")
+        );
+        const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+        const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+        const instance = appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.devReplay;
+        const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+          environmentId: readPrimaryEnvironmentId(),
+          input: {
+            providerInstanceMutation: {
+              operation: "upsert",
+              instanceId: "devReplay",
+              instance: {
+                ...instance,
+                enabled: true,
+                config: {
+                  ...instance.config,
+                  enabled: true,
+                  commandArgs: [
+                    ...(Array.isArray(instance.config?.commandArgs)
+                      ? instance.config.commandArgs
+                      : []),
+                    "--live-cloud",
+                  ],
+                },
+              },
+            },
+            patch: {},
+          },
+        });
+        if (result._tag !== "Success") throw new Error("Could not enable the free Replay fixture");
+        await serverEnvironment.refreshProviders.run(appAtomRegistry, {
+          environmentId: readPrimaryEnvironmentId(),
+          input: {},
+        });
+      });
+      await page.waitForFunction(async () => {
+        const { primaryServerProvidersAtom } = await import(String("/src/state/server.ts"));
+        const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+        return appAtomRegistry
+          .get(primaryServerProvidersAtom)
+          .some(
+            (p: { instanceId: string; enabled: boolean; models: { slug: string }[] }) =>
+              p.instanceId === "devReplay" && p.enabled && p.models.length,
+          );
+      });
+      await page.evaluate(() =>
+        localStorage.setItem(
+          "amicited.brand",
+          JSON.stringify({ website: "https://example.com", name: "Example" }),
+        ),
+      );
+      await page.reload();
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page
+        .locator("[data-app-sidebar]")
+        .getByText("example.com", { exact: true })
+        .first()
+        .waitFor();
+      await capture("02-empty-chat");
+      await page.locator("[data-chat-provider-model-picker]").last().click();
+      await page.getByPlaceholder("Search models...").waitFor();
+      await capture("02e-model-picker");
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+      await page.getByRole("button", { name: "Create domain" }).waitFor();
+      await capture("02c-website-popover");
+      await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+      await page.getByRole("button", { name: "Collapse sidebar" }).click();
+      await page
+        .locator('[data-slot="sidebar"][data-state="collapsed"]')
+        .waitFor({ state: "attached" });
+      await capture("02d-collapsed-sidebar");
+      await page.getByRole("button", { name: "Expand sidebar" }).click();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing"),
+      );
+      await page.getByText("Thinking…", { exact: true }).waitFor();
+      const workingShelf = page.getByRole("button", { name: /Working 1/, exact: true });
+      await workingShelf.waitFor();
+      if ((await workingShelf.getAttribute("aria-expanded")) === "false")
+        await workingShelf.click();
+      await capture("46-working");
+      await capture("03b-thinking");
+      await page.locator('[data-state="pending"]').waitFor({ timeout: 45000 });
+      await capture("03a-mid-stream");
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .first()
+        .waitFor()
+        .catch(async (e) => {
+          console.error("BEFORE EXPAND", await page.locator("body").innerText());
+          await page
+            .getByRole("button", { name: /Worked for/ })
+            .first()
+            .click();
+          console.error("EXPANDED", await page.locator("body").innerText());
+          await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+          throw e;
+        });
+      await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+      await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+      await capture("03-tool-card-turn");
+      await page.getByRole("button", { name: /Ran website health audit.*Partial/ }).waitFor();
+      await capture("03c-partial-coverage");
+      await page.getByRole("complementary", { name: "More with AmICited" }).waitFor();
+      await capture("03d-connection-offer");
+      await page.evaluate(() =>
+        localStorage.setItem("amicited.cloud.upsell", JSON.stringify({ dismissed: true })),
+      );
+      const offerChatUrl = page.url();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-hidden"),
+      );
+      await page.getByText("This is a controlled Replay result", { exact: false }).waitFor();
+      await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+      await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      if (await page.getByRole("complementary", { name: "More with AmICited" }).count())
+        throw new Error("Hidden offer rendered");
+      await capture("03e-connection-hidden");
+      await page.evaluate(() => localStorage.setItem("amicited.cloud.upsell", "{}"));
+      await page.goto(offerChatUrl);
+      await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      const marketingChatUrl = page.url();
+      await page.getByRole("button", { name: "Open full result" }).click();
+      await page.getByRole("region", { name: "Tool result" }).waitFor();
+      await capture("04-full-result");
+      await page.goto(marketingChatUrl);
+      await page
+        .getByRole("button", { name: "Connect AmICited (free)", exact: true })
+        .first()
+        .click();
+      await page
+        .getByText("Waiting for you to finish in your browser…", { exact: true })
+        .first()
+        .waitFor();
+      await capture("03j-connect-waiting-live");
+      await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+      await page.goto(url + "/marketing-settings");
+      await page.getByRole("button", { name: "Connection details", exact: true }).first().click();
+      await page.getByText("Use an API key instead", { exact: true }).click();
+      await page.getByLabel("Workspace API key").fill("capture-only");
+      await page.getByRole("button", { name: "Connect with key", exact: true }).click();
+      await page.getByRole("button", { name: "Disconnect", exact: true }).waitFor();
+      await page.goto(marketingChatUrl);
+      await page
+        .getByText("Connected · access confirmed on your next check", { exact: true })
+        .waitFor();
+      await capture("03f-connected-free-persisted");
+      await page.reload();
+      await page
+        .getByText("Connected · access confirmed on your next check", { exact: true })
+        .waitFor();
+      await waitForOperate();
+      await page.evaluate((fullAccess) => {
+        void (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-cloud", fullAccess ? "full-access" : undefined);
+      }, process.env.AMICITED_CAPTURE_FULL_ACCESS === "1");
+      if (process.env.AMICITED_CAPTURE_FULL_ACCESS === "1") {
+        await page.getByText(/Delete prompt on (example.com|flowhunt.io)/).waitFor();
+        await capture("47-full-access-free-check-and-destructive-confirmation");
+        await page.getByRole("button", { name: "Don’t allow", exact: true }).click();
+        await page.locator('[data-chat-provider-model-picker="true"]').first().click();
+        await page.getByRole("button", { name: "Permissions: Full access", exact: true }).click();
+        await capture("47-access-mode-selector");
+        await page.keyboard.press("Escape");
+        await page.keyboard.press("Escape");
+      } else {
+        await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+
+        await capture("03g-cloud-approval-live");
+        await page
+          .getByRole("button", { name: "Allow these checks in this chat", exact: true })
+          .click();
+        await page.getByText(/View prompts on example.com/).waitFor();
+        await page.getByRole("button", { name: "Allow", exact: true }).click();
+        await page.getByText(/The free site health check is complete/).waitFor();
+        await page.getByRole("article", { name: "AmICited tool result" }).last().waitFor();
+        await capture("03e-cloud-site-health");
+        await page.getByRole("complementary", { name: "AmICited approval", exact: true }).waitFor();
+        await page
+          .getByText(/Checked brand visibility on example.com/)
+          .first()
+          .waitFor();
+        await capture("03k-brand-visibility-merged");
+        await page
+          .getByRole("button", { name: /Checked brand visibility on example.com/ })
+          .first()
+          .click();
+        await page
+          .getByText(/Mentioned by ChatGPT and Perplexity/)
+          .first()
+          .waitFor();
+        await capture("03l-brand-visibility-summary");
+        await page.getByText("Report expired: not found", { exact: true }).waitFor();
+        await page
+          .getByText(/Check prompt analytics on example.com \/ Brand recommendations/)
+          .waitFor();
+        await capture("03m-failed-poll");
+        await capture("03h-paid-approval-live");
+        await page.getByRole("button", { name: "Allow", exact: true }).click();
+        await page
+          .getByText("Needs a Pro plan or trial. Free checks still work.", { exact: true })
+          .first()
+          .waitFor();
+        await capture("03i-subscription-refusal-live");
+      }
+      await NodeFSP.writeFile(
+        NodePath.join(out, "cloud-live-transcript.txt"),
+        await page.locator("body").innerText(),
+      );
+      await NodeFSP.writeFile(
+        NodePath.join(out, "cloud-live-mcp-calls.json"),
+        JSON.stringify(fixtureCalls, null, 2),
+      );
+      await page.goto(marketingChatUrl);
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .first()
+        .waitFor()
+        .catch(async (e) => {
+          console.error("BEFORE EXPAND", await page.locator("body").innerText());
+          await page
+            .getByRole("button", { name: /Worked for/ })
+            .first()
+            .click();
+          console.error("EXPANDED", await page.locator("body").innerText());
+          await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+          throw e;
+        });
+      await page.getByRole("button", { name: "Open full result" }).click();
+      await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+      await page.waitForURL(marketingChatUrl);
+      if (!(await page.getByTestId("composer-editor").innerText()).includes("41"))
+        throw new Error("Ask AI did not attach the tool result");
+      await capture("04b-result-context-chat");
+      await page.getByTestId("composer-editor").fill("");
+      await page.goto(marketingChatUrl);
+      await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing"),
+      );
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .first()
+        .waitFor()
+        .catch(async (e) => {
+          console.error("BEFORE EXPAND", await page.locator("body").innerText());
+          await page
+            .getByRole("button", { name: /Worked for/ })
+            .first()
+            .click();
+          console.error("EXPANDED", await page.locator("body").innerText());
+          await page.screenshot({ path: NodePath.join(out, "journey-error.png") });
+          throw e;
+        });
+      await page.getByRole("button", { name: /Stop generating/ }).waitFor({ state: "hidden" });
+      await page
+        .getByText("This is a controlled Replay result", { exact: false })
+        .first()
+        .waitFor();
+      await page.mouse.move(1000, 100);
+      await capture("05-chat-list");
+      await capture("05a-chat-hover");
+      await openChatActions();
+      await capture("05b-chat-menu");
+      await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+      await page.getByRole("alertdialog").waitFor();
+      await capture("05c-delete-confirmation");
+      await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Archive chat", exact: true }).click();
+      const archiveConfirmation = page.getByRole("alertdialog");
+      if (await archiveConfirmation.isVisible())
+        await archiveConfirmation.getByRole("button", { name: /Archive/ }).click();
+      await page.getByRole("button", { name: "Archived", exact: true }).click();
+      await page.getByRole("button", { name: "Restore", exact: true }).waitFor();
+      await capture("05d-archived");
+      await page.getByRole("button", { name: "Restore", exact: true }).click();
+      await page.getByText("No archived chats", { exact: true }).waitFor();
+      await capture("05e-archived-empty");
+      await page.getByRole("button", { name: "Back to chats", exact: true }).click();
+      await openChatActions();
+      await page.getByRole("menuitem", { name: "Rename chat", exact: true }).click();
+      await page.getByRole("textbox", { name: "Thread title" }).fill("Website audit review");
+      await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
+      await page
+        .getByRole("button", { name: /Website audit review/ })
+        .first()
+        .waitFor();
+      const firstHistory = page.locator("[data-sidebar-row]").first();
+      await firstHistory.focus();
+      await firstHistory.press("ArrowDown");
+      if (await firstHistory.evaluate((element) => element === document.activeElement))
+        throw new Error("History ArrowDown did not move focus");
+      await page.getByRole("button", { name: "New chat", exact: true }).click();
+      await page.waitForURL(/\/draft\//);
+      await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+      await page.evaluate(async () => {
+        const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+        const draftId = location.pathname.split("/").at(-1);
+        useComposerDraftStore
+          .getState()
+          .setModelSelection(
+            draftId,
+            { instanceId: "devReplay", model: "marketing" },
+            { replaceOptions: true, explicit: true },
+          );
+      });
+      await page.locator("[data-chat-provider-model-picker]").last().waitFor();
+      await capture("02b-empty-connected");
+      for (const [path, name] of [
+        ["/tools", "06-tools"],
+        ["/marketing-settings", "07-amicited"],
+        ["/settings/general", "08-settings"],
+      ]) {
+        await page.goto(url + path);
+        await page.locator("[data-app-sidebar]").waitFor();
+        if (path === "/tools")
+          await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
+        if (path === "/marketing-settings") {
+          const disconnect = page.getByRole("button", { name: "Disconnect", exact: true });
+          if (await disconnect.count()) await disconnect.click();
+          await page.getByRole("button", { name: "Connect", exact: true }).first().waitFor();
+        }
+        if (path === "/settings/general")
+          await page.getByRole("heading", { name: "Domains", exact: true }).waitFor();
+        await capture(name!);
+        if (path === "/marketing-settings") {
+          await page
+            .getByRole("button", { name: "Connection details", exact: true })
+            .first()
+            .click();
+          for (const state of ["waiting", "free", "upgrade", "full"]) {
+            await page.evaluate(
+              async ({ state, fixtures }) => {
+                window.dispatchEvent(
+                  new CustomEvent("amicited-cloud-evidence", {
+                    detail:
+                      state === "waiting"
+                        ? { state: "connecting" }
+                        : state === "full"
+                          ? fixtures.full
+                          : fixtures.free,
+                  }),
+                );
+              },
+              { state, fixtures: cloudFixtures },
+            );
+            if (state === "waiting")
+              await page.getByRole("button", { name: "Cancel", exact: true }).waitFor();
+            else await page.getByText(/Connected to your AmICited workspace/).waitFor();
+            await capture("07-cloud-" + state);
+          }
+        }
+        if (path === "/tools") {
+          await page.locator(".am-tool-list > a").first().hover();
+          await capture("06b-tools-hover");
+        }
+      }
+      await page.getByRole("link", { name: "Tools", exact: true }).click();
+      await page.getByRole("button", { name: "Content tools", exact: true }).click();
+      await page.locator('a[href="/tools/content.readability"]').click();
+      await page
+        .getByRole("textbox", { name: "text", exact: true })
+        .fill("Our campaign helps small teams write clearly. Keep the message useful and concise.");
+      await page.getByRole("button", { name: "Run check", exact: true }).click();
+      await page.getByRole("button", { name: "Ask AI about this", exact: true }).waitFor();
+      await capture("08b-readability-result");
+      await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
+      await page.getByTestId("composer-editor").waitFor();
+      await capture("08c-readability-context");
+      await NodeFSP.writeFile(
+        NodePath.join(out, "readability-report-context.json"),
+        await page.evaluate(() =>
+          JSON.stringify(
+            Object.fromEntries(
+              Object.entries(sessionStorage).filter(([key]) =>
+                key.startsWith("amicited.report-context."),
+              ),
+            ),
+            null,
+            2,
+          ),
+        ),
+      );
+      await page.goto(marketingChatUrl);
+      await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-failed"),
+      );
+      await page
+        .getByText("Could not check: the website did not respond. Try again later.", {
+          exact: true,
+        })
+        .waitFor();
+      await page
+        .getByRole("button", { name: "Stop generating", exact: false })
+        .waitFor({ state: "hidden" });
+      await capture("09-failed-tool");
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-approval"),
+      );
+
+      await capture("10-pending-approval");
+      await page
+        .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
+        .last()
+        .click();
+      await page
+        .getByText("This is a controlled Replay result", { exact: false })
+        .first()
+        .waitFor();
+      await waitForOperate();
+      await page.evaluate(() =>
+        (
+          window as unknown as {
+            t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+          }
+        ).t3dev.replay("marketing-readability-approval"),
+      );
+      await page.getByRole("group", { name: "Marketing approval" }).waitFor();
+      await capture("10b-readability-approval");
+      await page.getByRole("button", { name: "Don't allow", exact: true }).click();
+      if (process.env.AMICITED_REAL_PROVIDER === "1") {
+        await page.evaluate(async () => {
+          const { serverEnvironment, primaryServerSettingsAtom } = await import(
+            String("/src/state/server.ts")
+          );
+          const { appAtomRegistry } = await import(String("/src/rpc/atomRegistry.ts"));
+          const { readPrimaryEnvironmentId } = await import(String("/src/state/environments.ts"));
+          const instance =
+            appAtomRegistry.get(primaryServerSettingsAtom).providerInstances.claudeAgent;
+          const result = await serverEnvironment.mutateProviderInstance.run(appAtomRegistry, {
+            environmentId: readPrimaryEnvironmentId(),
+            input: {
+              providerInstanceMutation: {
+                operation: "upsert",
+                instanceId: "claudeAgent",
+                instance: {
+                  ...instance,
+                  enabled: true,
+                  config: {
+                    ...instance.config,
+                    enabled: true,
+                    commandArgs: [
+                      ...(Array.isArray(instance.config?.commandArgs)
+                        ? instance.config.commandArgs
+                        : []),
+                      "--live-cloud",
+                    ],
+                  },
+                },
+              },
+              patch: {},
+            },
+          });
+          if (result._tag !== "Success") throw new Error("Could not enable Claude");
+        });
+        const cli = async (args: string[]) => {
+          const child = NodeChildProcess.spawn(
+            process.execPath,
+            ["apps/server/src/bin.ts", ...args, "--base-dir", home],
+            { env, stdio: ["ignore", "pipe", "pipe"] },
+          );
+          let output = "";
+          child.stdout.on("data", (b) => {
+            output += b.toString();
+          });
+          child.stderr.on("data", (b) => {
+            output += b.toString();
+          });
+          const code = await new Promise<number | null>((resolve) => child.once("exit", resolve));
+          return { code, output };
+        };
+        const project = await cli(["project", "add", process.cwd()]);
+        await NodeFSP.writeFile(NodePath.join(out, "real-provider-project.txt"), project.output);
+        await page.getByRole("button", { name: "New chat", exact: true }).click();
+        await page.waitForURL(/\/draft\//);
+        await page.getByTestId("composer-editor").waitFor();
+        await waitForOperate();
+        await page.evaluate(async () => {
+          const { useComposerDraftStore } = await import(String("/src/composerDraftStore.ts"));
+          const state = useComposerDraftStore.getState();
+          state.setStickyModelSelection({ instanceId: "claudeAgent", model: "claude-haiku-4-5" });
+          state.setModelSelection(
+            location.pathname.split("/").at(-1),
+            { instanceId: "claudeAgent", model: "claude-haiku-4-5" },
+            { replaceOptions: true, explicit: true },
+          );
+        });
+        console.log(
+          "REAL SELECTION",
+          await page
+            .getByTestId("composer-editor")
+            .locator("..")
+            .innerText()
+            .catch(() => ""),
+        );
+        await page
+          .getByRole("button", { name: /Claude Haiku/ })
+          .waitFor({ timeout: 30000 })
+          .catch(async (error) => {
+            await NodeFSP.writeFile(
+              NodePath.join(out, "real-selection-debug.txt"),
+              await page.locator("body").innerText(),
+            );
+            throw error;
+          });
+        await page
+          .getByTestId("composer-editor")
+          .fill(
+            "Audit my website example.com for AI search. Give me the three most useful next steps.",
+          );
+        await page.getByTestId("composer-editor").press("Enter");
+        await page
+          .getByRole("article", { name: "Marketing tool result" })
+          .first()
+          .waitFor({ timeout: 180000 });
+        await page
+          .getByRole("button", { name: "Submit message", exact: true })
+          .waitFor({ timeout: 180000 });
+        const realChatUrl = page.url();
+        const match = /\/([^/]+)$/.exec(new URL(realChatUrl).pathname);
+        if (match) {
+          await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+          const transcript = await page.locator("body").innerText();
+          await NodeFSP.writeFile(
+            NodePath.join(out, "real-provider-transcript.txt"),
+            "\nRendered transcript:\n" + transcript,
+          );
+          await page.getByRole("button", { name: "Open full result" }).click();
+          const result = await page.evaluate(() => sessionStorage.getItem("amicited.last-result"));
+          await NodeFSP.writeFile(
+            NodePath.join(out, "real-provider-tool-result.json"),
+            result ?? "null",
+          );
+          await page.goto(realChatUrl);
+          await page.getByRole("article", { name: "Marketing tool result" }).first().waitFor();
+          await page
+            .getByRole("article", { name: "Marketing tool result" })
+            .filter({ hasText: "Website health audit" })
+            .evaluate((element) => element.scrollIntoView({ block: "center" }));
+          await openChatActions();
+          await page.getByRole("menuitem", { name: "Rename chat", exact: true }).click();
+          await page
+            .getByRole("textbox", { name: "Chat name" })
+            .fill("Website audit — technical snapshot for example.com");
+          await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
+          await capture("11-real-haiku-turn");
+        }
+      }
+    }
+    if (process.env.AMICITED_REUSE_REAL === "1") {
+      await page.evaluate(() =>
+        localStorage.setItem(
+          "amicited.brand",
+          JSON.stringify({ website: "https://example.com", name: "Example" }),
+        ),
+      );
+      const { DatabaseSync } = await import("node:sqlite");
+      const database = new DatabaseSync(NodePath.join(home, "userdata/statev2.sqlite"), {
+        readOnly: true,
+      });
+      const run = database
+        .prepare(
+          "SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' AND status = 'completed' ORDER BY requested_at DESC LIMIT 1",
+        )
+        .get() as { thread_id: string };
+      const events = database
+        .prepare(
+          "SELECT payload_json FROM orchestration_v2_projection_turn_items WHERE thread_id = ? ORDER BY ordinal",
+        )
+        .all(run.thread_id);
+      database.close();
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-events.json"),
+        JSON.stringify(
+          events.map((row) => JSON.parse(String(row.payload_json))),
+          null,
+          2,
+        ),
+      );
+      const environment = await page.evaluate(async () =>
+        (await import(String("/src/state/environments.ts"))).readPrimaryEnvironmentId(),
+      );
+      const chatUrl = `${url}/${environment}/${run.thread_id}`;
+      await page.goto(chatUrl);
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .waitFor();
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-transcript.txt"),
+        await page.locator("body").innerText(),
+      );
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .evaluate((element) => element.scrollIntoView({ block: "center" }));
+      await capture("11-real-haiku-turn");
+      await page
+        .getByRole("article", { name: "Marketing tool result" })
+        .filter({ hasText: "Website health audit" })
+        .getByRole("button", { name: "Open full result" })
+        .click();
+      await NodeFSP.writeFile(
+        NodePath.join(out, "real-provider-tool-result.json"),
+        (await page.evaluate(() => sessionStorage.getItem("amicited.last-result"))) ?? "null",
+      );
+      await page.goto(chatUrl);
+    }
+    await page.getByRole("button", { name: "New chat", exact: true }).click();
+    await page.waitForURL(/\/draft\//);
+    await page.getByTestId("composer-editor").waitFor();
+    await waitForOperate();
+    await page.evaluate(() =>
+      (
+        window as unknown as {
+          t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+        }
+      ).t3dev.replay("marketing-auth"),
+    );
+    await page.getByRole("button", { name: "Sign in to Claude", exact: true }).waitFor();
+    await capture("12-sign-in-recovery");
+    for (const [index, title] of [
+      "Website audit — review crawler access and discovery recommendations",
+      "Website audit — technical snapshot for example.com",
+      "AI search visibility — review the latest website findings",
+    ].entries()) {
+      await openChatActions(index);
+      await page.getByRole("menuitem", { name: "Rename chat", exact: true }).click();
+      await page.getByRole("textbox", { name: "Thread title" }).fill(title);
+      await page.getByRole("textbox", { name: "Thread title" }).press("Enter");
+      await page.getByRole("textbox", { name: "Chat name" }).waitFor({ state: "hidden" });
+    }
+    await capture("12b-sidebar-statuses");
+    await NodeFSP.writeFile(
+      NodePath.join(out, "sign-in-recovery-transcript.txt"),
+      await page.locator("body").innerText(),
+    );
+    await page.reload();
+    await page.evaluate(() => localStorage.setItem("t3code:theme", "dark"));
+    await page.reload();
+    await page.getByRole("button", { name: "New chat", exact: true }).click();
+    await page.waitForURL(/\/draft\//);
+    await page.getByTestId("composer-editor").waitFor();
+    await page.getByRole("heading", { name: "What do you want to work on?" }).waitFor();
+    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await page.addStyleTag({ content: "* { transition: none !important; }" });
+    await page.setViewportSize({ width: 1344, height: 1016 });
+    await page.getByRole("button", { name: "New domain", exact: true }).first().click();
+    await page.getByRole("dialog", { name: "New domain" }).waitFor();
+    await page.screenshot({ path: NodePath.join(out, "13-fresh-dark-1344.png") });
+    await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
+    await page.goto(url + "/");
+    await page.getByTestId("composer-editor").waitFor();
+    await capture("reference-t3-empty-chat");
+    await waitForOperate();
+    await page.evaluate(() =>
+      (
+        window as unknown as {
+          t3dev: { replay(s: string, mode?: "full-access"): Promise<unknown> };
+        }
+      ).t3dev.replay("showcase"),
+    );
+    await page
+      .getByRole("button", { name: /^(Yes|Approve|Allow once|Allow)$/ })
+      .last()
+      .click();
+    await page.getByText("I added", { exact: false }).first().waitFor();
+    const fold = page.getByRole("button", { name: /^Worked for/ });
+    if (await fold.count()) await fold.first().click();
+    await capture("reference-t3-showcase");
+    await capture("reference-t3-sidebar");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByText("General", { exact: true }).first().waitFor();
+    await capture("reference-t3-settings");
+  }
+  const fonts = await page.evaluate(async () => {
+    const result: Record<string, boolean> = {};
+    for (const family of ["-apple-system", "system-ui"])
+      result[family] = document.fonts.check(`14px ${family}`);
+    return { faces: result, devicePixelRatio };
+  });
+  await NodeFSP.writeFile(NodePath.join(out, "browser-fonts.json"), JSON.stringify(fonts, null, 2));
+  await NodeFSP.rm(NodePath.join(out, "journey-error.png"), { force: true });
+  console.log(out);
+} catch (error) {
+  const failedPage = browser?.contexts()[0]?.pages()[0];
+  if (failedPage) {
+    await failedPage.screenshot({ path: NodePath.join(out, "journey-error.png") });
+    await NodeFSP.writeFile(
+      NodePath.join(out, "journey-error.txt"),
+      await failedPage.locator("body").innerText(),
+    );
+  }
+  throw error;
+} finally {
+  if (ownedSite) await NodeFSP.rm(ownedSite, { recursive: true, force: true });
+  fixture.closeAllConnections();
+  await new Promise<void>((resolve) => fixture.close(() => resolve()));
+  await browser?.close();
+  runner.kill("SIGTERM");
+  web.kill("SIGTERM");
+  await new Promise<void>((resolveExit) => {
+    if (runner.exitCode !== null) resolveExit();
+    else runner.once("exit", () => resolveExit());
+  });
+  await new Promise<void>((done) => {
+    if (web.exitCode !== null) done();
+    else web.once("exit", () => done());
+  });
+  await NodeFSP.writeFile(NodePath.join(out, "dev-stack.log"), logs);
+  if (process.env.AMICITED_KEEP_HOME === "1")
+    await NodeFSP.writeFile(NodePath.join(out, "isolated-home.txt"), home);
+  else await NodeFSP.rm(home, { recursive: true, force: true });
+}

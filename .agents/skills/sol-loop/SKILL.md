@@ -17,10 +17,10 @@ scope creep and don't be scared to push back.
 
 ## Pick the reviewer
 
-| Trigger | Reviewer |
-| --- | --- |
-| "sol loop" | GPT Sol, through `codex exec` |
-| "opus loop" | Claude Opus, through `claude -p` |
+| Trigger                                           | Reviewer                                                                                   |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| "sol loop"                                        | GPT Sol, through `codex exec`                                                              |
+| "opus loop"                                       | Claude Opus, through `claude -p`                                                           |
 | from `full-send` / `full-stop`, or no model named | the other provider: GPT Sol when you run in Claude Code, Claude Opus when you run in Codex |
 
 Use the latest flagship model of that provider unless the user or `AGENTS.md`

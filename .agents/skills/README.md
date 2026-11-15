@@ -4,17 +4,17 @@ Workflow skills for maintainers, shared by Claude Code and Codex. Codex reads
 them from `.agents/skills/`. Claude Code reads them through the
 `.claude/skills` symlink, so there is one copy to edit.
 
-| Skill | Say | What it does |
-|---|---|---|
-| `full-send` | "full send" | Takes a change to a merged PR with nobody watching: proves it, reviews it, files it, babysits it, merges it. |
-| `full-stop` | "full stop" | Same as `full-send`, but stops when the PR is ready for you to merge. |
-| `council` | "council" | Gets independent review from Claude Opus and GPT Sol, and loops until both agree. |
-| `sol-loop` | "sol loop" / "opus loop" | Reviews a change with the other provider's model in a loop until both agents agree. |
-| `file-pr` | "file a PR" | Files a short PR that leads with the problem, not an inventory of changes. |
-| `takeover` | "take over" | Finishes someone else's PR, branch, or agent session, and keeps their credit. |
-| `babysit-pr` | "babysit" | Watches a PR through CI and review bots, and fixes the real findings. |
-| `modernize` | "modernize" | Rebases an old PR and decides if it should still exist. |
-| `leaving-pr-comments` | (automatic) | Formats comments that an agent posts on your behalf. |
+| Skill                 | Say                      | What it does                                                                                                 |
+| --------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `full-send`           | "full send"              | Takes a change to a merged PR with nobody watching: proves it, reviews it, files it, babysits it, merges it. |
+| `full-stop`           | "full stop"              | Same as `full-send`, but stops when the PR is ready for you to merge.                                        |
+| `council`             | "council"                | Gets independent review from Claude Opus and GPT Sol, and loops until both agree.                            |
+| `sol-loop`            | "sol loop" / "opus loop" | Reviews a change with the other provider's model in a loop until both agents agree.                          |
+| `file-pr`             | "file a PR"              | Files a short PR that leads with the problem, not an inventory of changes.                                   |
+| `takeover`            | "take over"              | Finishes someone else's PR, branch, or agent session, and keeps their credit.                                |
+| `babysit-pr`          | "babysit"                | Watches a PR through CI and review bots, and fixes the real findings.                                        |
+| `modernize`           | "modernize"              | Rebases an old PR and decides if it should still exist.                                                      |
+| `leaving-pr-comments` | (automatic)              | Formats comments that an agent posts on your behalf.                                                         |
 
 Some skills call others: `full-send` uses `sol-loop`, `file-pr`, and
 `babysit-pr`; `full-stop` uses `full-send`; `takeover` uses `modernize`,
