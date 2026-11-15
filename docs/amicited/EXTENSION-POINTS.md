@@ -710,7 +710,7 @@ carries a default for them: Link stays disabled until all of its values are conf
 Each open decision is marked `TODO(amicited-infra)` in code.
 
 - Hosted web app origin: `packages/shared/src/connectAuth.ts` (`DEFAULT_HOSTED_APP_URL` is
-  null), `apps/server/src/cloud/publicConfig.ts` (`T3CODE_HOSTED_APP_URL` only),
+  null), `apps/server/src/cloud/publicConfig.ts` (`AMICITED_HOSTED_APP_URL` only),
   `apps/web/src/hostedPairing.ts` (`VITE_HOSTED_APP_URL` only). Without one, copied thread
   links are in-app links, prompt links open the desktop app, outside MCP clients get in-app
   links (`apps/server/src/auth/McpOAuth.ts`), hosted pairing links are not offered, and the
