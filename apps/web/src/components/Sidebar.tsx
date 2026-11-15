@@ -3522,24 +3522,37 @@ export default function Sidebar({
                               onNewThread: startThreadInProjectFolder,
                               onContextMenu: handleProjectFolderContextMenu,
                             };
-                            items.push(
-                              <Fragment key={`project-folder:${folder.group.projectKey}`}>
-                                {renderProjectFolder ? (
-                                  renderProjectFolder(folderProps)
-                                ) : (
-                                  <SidebarProjectFolderHeader {...folderProps} />
-                                )}
-                              </Fragment>,
+                            const folderHeader = renderProjectFolder ? (
+                              renderProjectFolder(folderProps)
+                            ) : (
+                              <SidebarProjectFolderHeader {...folderProps} />
                             );
-                            for (const thread of folder.threads) {
-                              items.push(
-                                renderThreadRow(
-                                  thread,
-                                  "active",
-                                  sidebarFolderRowId(folder.group.projectKey),
-                                ),
-                              );
-                            }
+                            const folderRows = folder.threads.map((thread) =>
+                              renderThreadRow(
+                                thread,
+                                "active",
+                                sidebarFolderRowId(folder.group.projectKey),
+                              ),
+                            );
+                            // Marketers see each domain as one panel holding its chats.
+                            items.push(
+                              marketer && folderHeader ? (
+                                <li
+                                  key={`project-folder:${folder.group.projectKey}`}
+                                  className="mt-2 list-none rounded-xl border border-border/70 bg-muted/30 p-1"
+                                >
+                                  <ul role="presentation" className="flex flex-col gap-px">
+                                    {folderHeader}
+                                    {folderRows}
+                                  </ul>
+                                </li>
+                              ) : (
+                                <Fragment key={`project-folder:${folder.group.projectKey}`}>
+                                  {folderHeader}
+                                  {folderRows}
+                                </Fragment>
+                              ),
+                            );
                           }
                           continue;
                         }
