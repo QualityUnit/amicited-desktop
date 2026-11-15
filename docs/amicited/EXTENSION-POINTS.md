@@ -225,6 +225,18 @@ a recorded migration id whose name differs from its own.
 - `apps/desktop/src/app/DesktopEnvironment.ts`: AmICited window name with existing stage suffixes.
 - `apps/desktop/src/app/DesktopAppIdentity.test.ts`, `apps/desktop/src/app/DesktopPreReadyPlatform.test.ts`: expect the AmICited name in the runtime name, About panel and Linux desktop entry.
 
+## OS identity
+
+The packaged app registers with the OS only under the constants in `@amicited/identity`
+(`src/index.ts`, plus OS-only values in `src/os.ts`), so it never replaces, uninstalls or
+takes deep links from a T3 Code install on the same machine.
+
+- `scripts/build-desktop-artifact.ts`: app ID, product and artifact names, Info.plist usage text, protocols, Linux package, executable, `StartupWMClass`, maintainer, metainfo and doc paths; the update feed falls back to our repository.
+- `apps/desktop/src/electron/ElectronProtocol.ts`, `apps/server/src/httpCors.ts`, `packages/shared/src/{remote,codexAuthHandoff,promptLinks,providerAuthReturnUrl}.ts`: the `amicited` scheme (`amicited-dev`, `amicited-preview`).
+- `apps/desktop/src/app/{DesktopEnvironment,DesktopEarlyElectronStartup}.ts`: Windows AppUserModelID and the Linux desktop entry ID.
+- `apps/desktop/resources/linux/com.amicited.desktop.metainfo.xml` (renamed), `apps/desktop/resources/installer.nsh`, `apps/desktop/scripts/electron-launcher.mjs`, `native/browser-secret/main.c`.
+- `apps/desktop/gnome-extension/*`, `apps/desktop/src/snapShot/{KdeSnapShot,HyprlandSnapShot,GnomeCaptureSetup,LinuxSnapShot,linuxCaptureSession}.ts`: screen capture extension UUID, D-Bus names and helper paths under `~/.local/share/amicited`.
+
 The marketer assistant picker saves the existing environment text-generation setting;
 local tools resolve that selection per invocation. Tool inputs survive the connection
 detour in session storage. No provider credentials are stored in the browser.
