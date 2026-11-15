@@ -8,7 +8,11 @@ jobs:
   preview:
     name: EAS Preview
     # Fork PRs deploy one reviewed commit per label through mobile-eas-preview-fork.yml.
+    # TODO(amicited-infra): needs our own Expo (EAS) project, Apple team and
+    # Play listing. Off unless a maintainer sets AMICITED_MOBILE_ENABLED to `true`.
     if: |
+      github.repository == 'QualityUnit/amicited-desktop' &&
+      vars.AMICITED_MOBILE_ENABLED == 'true' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, '🚀 Mobile Continuous Deployment') &&
       (github.event.action != 'labeled' || github.event.label.name == '🚀 Mobile Continuous Deployment')

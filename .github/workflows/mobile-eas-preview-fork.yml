@@ -19,7 +19,11 @@ permissions:
 jobs:
   preview:
     name: EAS Preview
+    # TODO(amicited-infra): needs our own Expo (EAS) project, Apple team and
+    # Play listing. Off unless a maintainer sets AMICITED_MOBILE_ENABLED to `true`.
     if: >-
+      github.repository == 'QualityUnit/amicited-desktop' &&
+      vars.AMICITED_MOBILE_ENABLED == 'true' &&
       github.event.pull_request.head.repo.full_name != github.repository &&
       github.event.label.name == '🚀 Mobile Continuous Deployment'
     runs-on: blacksmith-8vcpu-ubuntu-2404

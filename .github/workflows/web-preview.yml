@@ -5,10 +5,13 @@ name: Web Preview
 # non-aliased) deploy into the existing hosted-web Vercel project, so the
 # latest/nightly channel aliases are never touched.
 #
-# The build intentionally omits the T3 Connect cloud config (Clerk keys, relay
-# URL): previews boot as the hosted-static app with manual pairing only. Pair a
-# server into a preview with `t3 pair --tailscale` (or any reachable HTTPS
-# backend) and open the pairing URL against the preview origin.
+# The build intentionally omits the AmICited Link cloud config (Clerk keys,
+# relay URL): previews boot as the hosted-static app with manual pairing only.
+# Pair a server into a preview with `amicited pair --tailscale` (or any
+# reachable HTTPS backend) and open the pairing URL against the preview origin.
+#
+# TODO(amicited-infra): there is no AmICited hosted web app or Vercel project
+# yet. The job is off unless AMICITED_WEB_PREVIEW_ENABLED is `true`.
 #
 # The preview must be opened at the exact deployment URL from the PR comment.
 # Vite bakes that URL in as the hosted origin (via VERCEL_URL), and
@@ -34,6 +37,8 @@ jobs:
     # workflow should skip rather than fail for them. On `labeled` events, only
     # the preview label itself triggers a deploy.
     if: >-
+      github.repository == 'QualityUnit/amicited-desktop' &&
+      vars.AMICITED_WEB_PREVIEW_ENABLED == 'true' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       contains(github.event.pull_request.labels.*.name, 'preview:web') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview:web')
@@ -111,7 +116,7 @@ jobs:
               `${process.env.DEPLOYMENT_URL} (for ${process.env.HEAD_SHA.slice(0, 7)})`,
               "",
               "Open this exact URL — the hosted-app origin is baked in at build time.",
-              "Pair a server into it with `t3 pair --tailscale`, or paste a host + pairing",
+              "Pair a server into it with `amicited pair --tailscale`, or paste a host + pairing",
               "code under Settings → Connections.",
             ].join("\n");
 

@@ -25,6 +25,8 @@ concurrency:
 jobs:
   fingerprint:
     name: Native fingerprint diff
+    # Off with the rest of the mobile pipeline until AMICITED_MOBILE_ENABLED is `true`.
+    if: github.repository == 'QualityUnit/amicited-desktop' && vars.AMICITED_MOBILE_ENABLED == 'true'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     permissions:
       contents: read

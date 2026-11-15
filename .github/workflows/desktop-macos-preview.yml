@@ -29,7 +29,11 @@ concurrency:
 jobs:
   build:
     name: Build preview JS bundle
-    if: github.event.label.name == 'preview:mac'
+    # Off unless a maintainer sets AMICITED_DESKTOP_PREVIEW_ENABLED to `true`.
+    if: >-
+      github.repository == 'QualityUnit/amicited-desktop' &&
+      vars.AMICITED_DESKTOP_PREVIEW_ENABLED == 'true' &&
+      github.event.label.name == 'preview:mac'
     runs-on: blacksmith-32vcpu-ubuntu-2404
     timeout-minutes: 30
     steps:
@@ -61,7 +65,9 @@ jobs:
 
       # The publish workflow derives the same version from this run's number,
       # so the version baked into the bundle matches the packaged app.
-      - name: Set preview version and public configuration
+      # The bundle gets no .env, so previews ship with AmICited Link disabled.
+      # TODO(amicited-infra): pass our relay and Clerk identifiers once they exist.
+      - name: Set preview version
         shell: bash
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -70,8 +76,6 @@ jobs:
 
           base_version="$(node -p "require('./apps/desktop/package.json').version")"
           node scripts/update-release-package-versions.ts "${base_version}-pr.${PR_NUMBER}.${GITHUB_RUN_NUMBER}"
-          # Public T3 Connect identifiers (Clerk publishable key, relay URL).
-          cp .env.example .env
 
       - uses: ./.github/actions/setup-apt-mirrors
 
@@ -81,7 +85,7 @@ jobs:
       # desktop-macos-preview-publish.yml packages this bundle as the preview channel.
       - name: Build JS bundle
         env:
-          T3CODE_TELEMETRY_CHANNEL: ${{ github.repository == 'pingdotgg/t3code' && 'preview' || 'dev' }}
+          T3CODE_TELEMETRY_CHANNEL: ${{ github.repository == 'QualityUnit/amicited-desktop' && 'preview' || 'dev' }}
         run: vp run build:desktop
 
       # Same layout as release.yml's js-bundle so release-desktop.yml can

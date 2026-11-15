@@ -1,4 +1,4 @@
-name: Deploy T3 Connect relay
+name: Deploy AmICited Link relay
 
 on:
   push:
@@ -26,7 +26,10 @@ jobs:
   deploy_relay:
     name: Deploy production relay
     # A manual run from another branch would deploy that branch to production.
-    if: github.repository == 'pingdotgg/t3code' && github.ref == 'refs/heads/main'
+    # TODO(amicited-infra): there is no AmICited relay yet. Off unless a
+    # maintainer sets AMICITED_RELAY_ENABLED to `true` after provisioning our
+    # Cloudflare, PlanetScale, Axiom and Clerk accounts.
+    if: github.repository == 'QualityUnit/amicited-desktop' && vars.AMICITED_RELAY_ENABLED == 'true' && github.ref == 'refs/heads/main'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 15
     environment:
@@ -80,7 +83,6 @@ jobs:
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
           APNS_PRIVATE_KEY: ${{ secrets.APNS_PRIVATE_KEY }}
           FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
-          T3CHAT_LINK_SECRET: ${{ secrets.T3CHAT_LINK_SECRET }}
 
       - name: Publish relay deploy commit status
         uses: actions/github-script@v8

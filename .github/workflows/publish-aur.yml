@@ -37,7 +37,9 @@ concurrency:
 jobs:
   publish:
     name: Validate and publish
-    if: github.repository == 'pingdotgg/t3code'
+    # Off until the AUR packages exist. Both variables are needed, so a manual
+    # dispatch cannot publish while releases are off.
+    if: github.repository == 'QualityUnit/amicited-desktop' && vars.AMICITED_RELEASES_ENABLED == 'true' && vars.AMICITED_AUR_ENABLED == 'true'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 30
     container:

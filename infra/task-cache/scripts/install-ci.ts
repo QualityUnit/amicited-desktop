@@ -4,7 +4,10 @@ import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeURL from "node:url";
 
-if (process.env.GITHUB_REPOSITORY !== "pingdotgg/t3code" || process.env.GITHUB_ACTIONS !== "true")
+if (
+  process.env.GITHUB_REPOSITORY !== "QualityUnit/amicited-desktop" ||
+  process.env.GITHUB_ACTIONS !== "true"
+)
   throw new Error("This setup is only for the maintainer repository's GitHub Actions.");
 const root = NodePath.resolve(import.meta.dirname, "../../..");
 const hookConfig = NodePath.join(NodeOS.homedir(), ".config/vite-plus/run-hook.json");
@@ -16,9 +19,11 @@ await NodeFSP.writeFile(
     module: NodePath.join(root, "infra/task-cache/src/runHook.ts"),
   }),
 );
-const { endpoint } = JSON.parse(
-  await NodeFSP.readFile(NodePath.join(root, ".task-cache.json"), "utf8"),
-);
+// The workspace is the checkout root in CI; tests point it at a fixture. There is no
+// default endpoint: without .task-cache.json the remote cache stays off.
+const config = NodePath.join(process.env.GITHUB_WORKSPACE || root, ".task-cache.json");
+const { endpoint } = JSON.parse(await NodeFSP.readFile(config, "utf8"));
+if (typeof endpoint !== "string") throw new Error(`Missing task cache endpoint in ${config}`);
 const token = process.env.T3_TASK_CACHE_READ_TOKEN;
 if (!token || token.length < 32) throw new Error("Missing task-cache read credential");
 const credentialFile = NodePath.join(NodeOS.homedir(), ".config/t3-task-cache/credentials.json");

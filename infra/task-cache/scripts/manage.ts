@@ -34,7 +34,7 @@ const updateWriter = Effect.fn("TaskCache.manageWriter")(function* (
           `${import.meta.dirname}/../node_modules/alchemy/bin/cli.js`,
           "state",
           "read",
-          "T3TaskCache/prod/output",
+          "AmICitedTaskCache/prod/output",
           "--backend",
           "cloudflare",
           "--no-input",
