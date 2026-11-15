@@ -1,8 +1,8 @@
+import { CLI_NAME, DOWNLOAD_URL, PRODUCT_NAME, SUPPORT_EMAIL } from "@amicited/identity";
 import type { DesktopBridge, DesktopUpdateState } from "@t3tools/contracts";
 
-const FALLBACK_TRIAGE_COMMAND = "npx t3 triage";
-const DOWNLOAD_URL = "https://t3.codes/download";
-const ISSUE_URL = "https://github.com/pingdotgg/t3code/issues/new";
+// No npm package publishes the AmICited CLI, so the fallback assumes it is installed.
+const FALLBACK_TRIAGE_COMMAND = `${CLI_NAME} triage`;
 const LAST_FAILURE_KEY = "t3code:boot-failed-at";
 const REPEAT_FAILURE_MS = 5 * 60_000;
 const MAX_CAUSES = 3;
@@ -29,7 +29,7 @@ export async function resolveTriageCommand(bridge: DesktopBridge | undefined) {
     const state = await bridge?.cliCommand.getState();
     // Windows reports onPath from its PATH entry alone; only an existing launcher proves it runs.
     if (state?.launcherPath) {
-      return state.onPath ? "t3 triage" : `${launcherCommand(state.launcherPath)} triage`;
+      return state.onPath ? `${CLI_NAME} triage` : `${launcherCommand(state.launcherPath)} triage`;
     }
   } catch (error) {
     console.warn("Could not read the desktop CLI state.", error);
@@ -235,7 +235,7 @@ function mountUpdateButton(
           : undefined;
     run?.then(
       (result) => render(result.state),
-      (error: unknown) => console.warn("Could not update T3 Code.", error),
+      (error: unknown) => console.warn(`Could not update ${PRODUCT_NAME}.`, error),
     );
   });
   // A pushed state is newer than the initial read, so the read must not overwrite it.
@@ -255,7 +255,7 @@ function mountUpdateButton(
 }
 
 export function showBootError(error: unknown) {
-  console.error("T3 Code failed to start.", error);
+  console.error(`${PRODUCT_NAME} failed to start.`, error);
   const bootShell = document.getElementById("boot-shell");
   if (!bootShell) return;
 
@@ -274,7 +274,7 @@ export function showBootError(error: unknown) {
   };
 
   const message = element("div", {}, [
-    element("h1", { textContent: "T3 Code failed to start" }),
+    element("h1", { textContent: `${PRODUCT_NAME} failed to start` }),
     element("p", {
       textContent: offline
         ? "This browser appears to be offline. Check the connection, then reload."
@@ -342,12 +342,18 @@ export function showBootError(error: unknown) {
     ),
   );
 
-  const issue = new URL(ISSUE_URL);
-  issue.searchParams.set("template", "bug_report.yml");
-  issue.searchParams.set("title", "T3 Code failed to start");
-  issue.searchParams.set("area", "apps/web");
-  issue.searchParams.set("version", `${environment.version} (${environment.channel})`);
-  issue.searchParams.set("environment", `${environment.surface}, ${environment.platform}`);
+  // The source repository may be private, so bug reports go to support by email.
+  const issueBody = [
+    `Version: ${environment.version} (${environment.channel})`,
+    `Environment: ${environment.surface}, ${environment.platform}`,
+    "Area: apps/web",
+    "",
+    "What happened (paste the copied error details below):",
+    "",
+  ].join("\n");
+  const issueHref = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(
+    `${PRODUCT_NAME} failed to start`,
+  )}&body=${encodeURIComponent(issueBody)}`;
   const link = (href: string, textContent: string) =>
     element("a", { href, textContent, target: "_blank", rel: "noreferrer" });
   const nightly = environment.channel === "nightly";
@@ -360,14 +366,13 @@ export function showBootError(error: unknown) {
             nightly ? `${DOWNLOAD_URL}?channel=nightly` : DOWNLOAD_URL,
             nightly
               ? "Download and reinstall the latest nightly build"
-              : "Download and reinstall T3 Code",
+              : `Download and reinstall ${PRODUCT_NAME}`,
           ),
         ]
       : []),
     element("div", {}, [
       element("p", {
-        textContent:
-          "Run this on the computer that runs T3 Code. Your agent can check the local logs and help you file a bug report.",
+        textContent: `Run this on the computer that runs ${PRODUCT_NAME}. Your agent can check the local logs and help you file a bug report.`,
       }),
       element("div", { id: "boot-error-command" }, [command, copyCommand]),
     ]),
@@ -378,7 +383,7 @@ export function showBootError(error: unknown) {
       }),
       element("div", { id: "boot-error-report" }, [
         copyDetails,
-        link(issue.href, "File a bug report on GitHub"),
+        link(issueHref, "Email a bug report"),
       ]),
     ]),
   ]);

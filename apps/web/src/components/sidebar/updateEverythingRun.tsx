@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import { useAtomValue } from "@effect/atom-react";
 import { serverUpdateStateAtom } from "@t3tools/client-runtime/state/server";
 import { EnvironmentId } from "@t3tools/contracts";
@@ -342,7 +343,7 @@ export function startDesktopUpdateLaunchNotice(): () => void {
         stackedThreadToast({
           type: "error",
           title: "Update did not apply",
-          description: `T3 Code is still on ${APP_VERSION}. Install ${notAppliedVersion} again from the update button.`,
+          description: `${PRODUCT_NAME} is still on ${APP_VERSION}. Install ${notAppliedVersion} again from the update button.`,
         }),
       );
     },

@@ -1,3 +1,4 @@
+import { PRODUCT_NAME, PRODUCT_SHORT_NAME } from "@amicited/identity";
 import type {
   AuthClientMetadataDeviceType,
   AuthClientPresentationMetadata,
@@ -77,7 +78,7 @@ export function clientPresentationMetadata(input: {
 }): AuthClientPresentationMetadata {
   if (input.desktopBridge !== undefined) {
     return {
-      label: "T3 Code Desktop",
+      label: PRODUCT_NAME,
       deviceType: "desktop",
       os: clientOsFromElectronPlatform(input.desktopBridge.getClientPlatform()),
       surface: "desktop",
@@ -86,7 +87,7 @@ export function clientPresentationMetadata(input: {
   }
 
   return {
-    label: "T3 Code Web",
+    label: `${PRODUCT_SHORT_NAME} Web`,
     deviceType: browserDeviceType(input.identity),
     os: browserClientOs(input.identity),
     surface: "web",

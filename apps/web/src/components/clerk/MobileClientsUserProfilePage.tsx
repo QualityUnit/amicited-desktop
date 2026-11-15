@@ -16,7 +16,7 @@ import {
   ClerkUserProfileRefreshButton,
   ClerkUserProfileRow,
 } from "./ClerkUserProfilePage";
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { PRODUCT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const MOBILE_CLIENT_SKELETON_ROWS = ["primary", "secondary"] as const;
 
@@ -95,7 +95,7 @@ function EmptyMobileClients() {
       <EmptyHeader>
         <EmptyTitle>No mobile clients</EmptyTitle>
         <EmptyDescription>
-          Install T3 Code on your phone and sign in to {REMOTE_ACCESS_NAME} to get push
+          Install {PRODUCT_NAME} on your phone and sign in to {REMOTE_ACCESS_NAME} to get push
           notifications and Live Activities.
         </EmptyDescription>
       </EmptyHeader>

@@ -40,6 +40,19 @@ describe("ElectronShell", () => {
     }).pipe(Effect.provide(ElectronShell.layer)),
   );
 
+  it.effect("opens a support email draft", () =>
+    Effect.gen(function* () {
+      openExternalMock.mockResolvedValue(undefined);
+
+      const url = "mailto:support@flowhunt.io?subject=AmICited%20Desktop%20failed%20to%20start";
+      const electronShell = yield* ElectronShell.ElectronShell;
+      const result = yield* electronShell.openExternal(url);
+
+      assert.equal(result, true);
+      assert.deepEqual(openExternalMock.mock.calls, [[url]]);
+    }).pipe(Effect.provide(ElectronShell.layer)),
+  );
+
   it.effect("opens the JetBrains Toolbox ssh deep link", () =>
     Effect.gen(function* () {
       openExternalMock.mockResolvedValue(undefined);

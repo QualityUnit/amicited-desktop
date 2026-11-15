@@ -1,3 +1,4 @@
+import { PRODUCT_SHORT_NAME } from "@amicited/identity";
 import {
   AuthOrchestrationOperateScope,
   AuthProvidersManageScope,
@@ -324,7 +325,7 @@ export function AcpSessionManagementSection(props: {
     <div className="grid gap-3">
       <SettingsRow
         title="Native sessions"
-        description="Resume agent-owned conversations as T3 threads."
+        description={`Resume agent-owned conversations as ${PRODUCT_SHORT_NAME} threads.`}
         status={
           canList && props.projects.length === 0
             ? "Add a project before importing sessions."

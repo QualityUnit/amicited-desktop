@@ -13,7 +13,7 @@ import { LegacyFeaturesSection } from "./SettingsPanels";
 import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings";
 import { useOptionalSettingsScope } from "./SettingsScopeContext";
 import { firstManagedDenial, usePrimaryManagedPolicy } from "~/state/managedPolicy";
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { PRODUCT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 /** Features still settling in, and legacy behavior kept for people who rely on it. */
 export function LabsSettingsPanel() {
@@ -188,7 +188,7 @@ function SimlockHostsRow() {
           <Link to="/settings/devices" className="underline underline-offset-2">
             Devices
           </Link>
-          . An alpha that may change or break. T3 Code never installs Simlock.
+          . An alpha that may change or break. {PRODUCT_NAME} never installs Simlock.
         </>
       }
       control={

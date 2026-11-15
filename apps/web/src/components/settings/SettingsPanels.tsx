@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import { useAtomValue } from "@effect/atom-react";
 import { NotificationSettings } from "./NotificationSettings";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
@@ -36,7 +37,6 @@ import {
 } from "../../branding";
 import { AboutVersionTitle } from "./AboutVersionTitle";
 import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
-import { MobileAppSettingsRow } from "./MobileAppSettingsRow";
 import {
   canCheckForUpdate,
   getDesktopUpdateButtonTooltip,
@@ -2110,7 +2110,6 @@ export function AboutSettingsPanel() {
             />
           </>
         )}
-        <MobileAppSettingsRow />
       </SettingsSection>
 
       <SettingsSection id="legal" title="Legal">
@@ -2133,7 +2132,7 @@ export function AboutSettingsPanel() {
         />
         <SettingsRow
           {...searchableSetting("open-source-licenses")}
-          description="Notices for dependencies, assets, and optional tools used by T3 Code."
+          description={`Notices for dependencies, assets, and optional tools used by ${PRODUCT_NAME}.`}
           control={
             <Button
               render={<Link to="/settings/open-source-licenses" />}
