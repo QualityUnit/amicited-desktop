@@ -17,7 +17,9 @@ import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
+import { MarketingIcon, marketingStarters } from "@amicited/ui-marketing";
 import {
+  ArrowRight,
   Check,
   ChevronDown,
   ChevronRight,
@@ -1003,55 +1005,110 @@ export function IssuesSidebarRow({ active, onOpen }: { active: boolean; onOpen: 
   );
 }
 
-/** The most important open issue for this domain, offered under a new chat's composer. */
-export function MarketingNextFix({
+const landingHeading =
+  "flex h-5 items-center gap-2 px-2 text-caption font-semibold uppercase tracking-wide text-muted-foreground";
+const landingRow = "flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-1.5";
+
+function priorityDot(issue: Issue) {
+  if (issue.kind === "connect") return { label: "Connect next", color: "bg-info" };
+  if (issue.priority === "high") return { label: "High priority", color: "bg-destructive" };
+  if (issue.priority === "medium") return { label: "Medium priority", color: "bg-warning" };
+  return { label: "Low priority", color: "bg-muted-foreground/50" };
+}
+
+/** Under a new chat's composer: this domain's top open issues beside prompts that start new work. */
+export function MarketingLanding({
   environmentId,
   projectId,
+  onStarter,
 }: {
   environmentId: EnvironmentId | null | undefined;
   projectId: ProjectId | null | undefined;
+  onStarter: (prompt: string) => void;
 }) {
   const snapshot = useIssues(environmentId);
   const actions = useIssueActions(environmentId ?? null);
   const navigate = useNavigate();
   const links = useDomainLinks(environmentId, projectId ? [projectId] : []);
-  const [skipped, setSkipped] = useState<string | null>(null);
+  const linked = projectId ? links.get(projectId) === "linked" : false;
   const open = snapshot.issues
     .filter(
       (issue) =>
+        linked &&
         issue.projectId === projectId &&
         issue.status === "open" &&
-        issue.id !== skipped &&
         issueStage(issue, issue.threadId ? actions.threads.get(issue.threadId) : undefined) ===
           "todo",
     )
     .toSorted(compareIssues);
-  const next = open[0];
-  if (!next || links.get(next.projectId) !== "linked") return null;
   return (
-    <section
-      aria-label="Next fix"
-      className="flex flex-col gap-2 rounded-lg border bg-card p-3 text-left"
-    >
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className="font-semibold uppercase tracking-wide">Next fix</span>
-        {priorityBadge(next)}
-        <span className="flex-1" />
-        <Button size="xs" variant="ghost" onClick={() => void navigate({ to: "/issues" })}>
-          All {open.length + (skipped ? 1 : 0)} issues
-        </Button>
-      </div>
-      <span className="text-sm font-semibold text-foreground">{next.title}</span>
-      <span className="text-xs text-muted-foreground">{next.report}</span>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={() => void actions.start(next)}>
-          {next.kind === "connect" ? "Connect" : "Start fix"}
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => setSkipped(next.id)}>
-          Skip for now
-        </Button>
-      </div>
-    </section>
+    <div className="grid gap-x-5 gap-y-4 pt-3 pb-1 text-left @lg/composer-surface:auto-cols-fr @lg/composer-surface:grid-flow-col">
+      {open.length > 0 ? (
+        <section aria-label="Fix what’s holding you back" className="flex min-w-0 flex-col gap-1">
+          <div className={landingHeading}>
+            <span>Fix what’s holding you back</span>
+            <Badge variant="secondary" size="sm">
+              {open.length}
+            </Badge>
+          </div>
+          <ol className="flex flex-col">
+            {open.slice(0, 3).map((issue, index) => {
+              const dot = priorityDot(issue);
+              return (
+                <li key={issue.id} className={landingRow}>
+                  <span
+                    role="img"
+                    aria-label={dot.label}
+                    className={cn("mx-0.5 size-1.5 shrink-0 rounded-full", dot.color)}
+                  />
+                  <span className="line-clamp-3 min-w-0 flex-1 text-sm font-medium text-foreground">
+                    {issue.title}
+                  </span>
+                  <Button
+                    size="xs"
+                    variant={index === 0 ? "default" : "outline"}
+                    onClick={() => void actions.start(issue)}
+                  >
+                    {issue.kind === "connect" ? "Connect" : "Start fix"}
+                  </Button>
+                </li>
+              );
+            })}
+          </ol>
+          <div>
+            <Button size="xs" variant="ghost" onClick={() => void navigate({ to: "/issues" })}>
+              All {open.length} issues
+              <ArrowRight />
+            </Button>
+          </div>
+        </section>
+      ) : null}
+      <section aria-label="Start something new" className="flex min-w-0 flex-col gap-1">
+        <div className={landingHeading}>Start something new</div>
+        <ul className={cn("grid", open.length === 0 && "gap-x-5 @lg/composer-surface:grid-cols-2")}>
+          {marketingStarters.map((starter) => (
+            <li key={starter.prompt}>
+              <button
+                type="button"
+                className={cn(
+                  landingRow,
+                  "w-full cursor-pointer text-left text-sm font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                )}
+                onClick={() => onStarter(starter.prompt)}
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground [&_svg]:size-3.5"
+                >
+                  <MarketingIcon name={starter.icon} />
+                </span>
+                {starter.prompt}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 

@@ -6,12 +6,13 @@ import {
   MarketingWorkDisclosure,
   MarketingIcon,
   MarketingDisclosure,
+  type MarketingIconName,
 } from "./primitives.js";
-export const marketingStarters = [
-  "Audit my website for AI search",
-  "Check whether ChatGPT and Claude mention my brand",
-  "Write or repurpose a LinkedIn post",
-  "Find keyword and People Also Ask ideas",
+export const marketingStarters: readonly { prompt: string; icon: MarketingIconName }[] = [
+  { prompt: "Audit my website for AI search", icon: "seo.site.audit" },
+  { prompt: "Check whether ChatGPT and Claude mention my brand", icon: "ai.visibility.check" },
+  { prompt: "Write or repurpose a LinkedIn post", icon: "content.write" },
+  { prompt: "Find keyword and People Also Ask ideas", icon: "search" },
 ];
 function record(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};

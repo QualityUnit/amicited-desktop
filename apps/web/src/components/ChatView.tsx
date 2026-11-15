@@ -1,5 +1,6 @@
 import { PRODUCT_NAME } from "@amicited/identity";
 import { MarketingSitePreview } from "../marketingSitePreview";
+import { MarketingBranchSlot, MarketingComposerHeader } from "../marketingChat";
 import { resolveEffectiveRuntimeMode } from "./chat/runtimeModeConfig";
 import { Button } from "./ui/button";
 import { useDomains } from "../marketingDomains";
@@ -504,6 +505,8 @@ export default function ChatView(props: ChatViewProps) {
         });
   const promptRef = useRef("");
   const [marketingContextTarget, setMarketingContextTarget] = useState<HTMLDivElement | null>(null);
+  const [marketingSiteTarget, setMarketingSiteTarget] = useState<HTMLDivElement | null>(null);
+  const [marketingBranchTarget, setMarketingBranchTarget] = useState<HTMLDivElement | null>(null);
   const localComposerRef = useRef<ChatComposerHandle | null>(null);
   const composerRef = useComposerHandleContext() ?? localComposerRef;
   const queuedRunEdit = useQueuedRunEdit({
@@ -3640,9 +3643,16 @@ export default function ChatView(props: ChatViewProps) {
                               }
                             />
                           ) : null}
+                          {!developerMode && isDraftHeroState && composerMounted ? (
+                            <MarketingComposerHeader
+                              siteRef={setMarketingSiteTarget}
+                              branchRef={setMarketingBranchTarget}
+                            />
+                          ) : null}
                           {!composerMounted ? null : (
                             <ChatComposer
                               marketingContextTarget={marketingContextTarget}
+                              marketingSiteTarget={marketingSiteTarget}
                               canOperateThread={canOperateThread}
                               reportedModelSelection={reportedModelSelection}
                               multipleModelSelections={multipleModelSelections}
@@ -3827,7 +3837,7 @@ export default function ChatView(props: ChatViewProps) {
                           className="relative z-0"
                         >
                           {showComposerContextStrip && (
-                            <div className="pointer-events-auto">
+                            <MarketingBranchSlot target={marketingBranchTarget}>
                               <BranchToolbar
                                 forceNewWorktree={multipleModelSelections !== null}
                                 ref={branchToolbarRef}
@@ -3882,7 +3892,7 @@ export default function ChatView(props: ChatViewProps) {
                                       ),
                                     })}
                               />
-                            </div>
+                            </MarketingBranchSlot>
                           )}
                         </div>
                       </div>

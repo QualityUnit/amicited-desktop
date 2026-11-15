@@ -16,7 +16,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `apps/server/src/auth/RpcAuthorization.ts`: requires orchestration read for listing and orchestration operate for running tools.
 - `apps/web/package.json`: dependencies on marketing UI and tool types.
 - `apps/web/src/branding.ts`: sources the marketer-facing product name from one package constant.
-- `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls (except for domains with a git site folder), terminal drawer, and developer panel launchers and mounts marketer composer context in the existing ContextStrip outside Host.
+- `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls (except for domains with a git site folder), terminal drawer, and developer panel launchers and mounts marketer composer context in the existing ContextStrip outside Host. On a new chat it mounts the marketer header inside Host, above the composer form, and moves the branch controls into it.
 - `apps/web/src/routes/_chat.settings.general.tsx`: provides the reverse switch from developer to marketer mode.
 - `apps/web/src/routeTree.gen.ts`: generated route registration for the marketing mounts.
 - `knip.jsonc`: declares the scripted screenshot entry points.
@@ -99,7 +99,7 @@ upstream settings and navigation remain available through Developer features.
 - `apps/web/src/routes/_chat.index.tsx`: prevents draft creation on the marketer landing path.
 - `apps/web/src/routes/_chat.new.tsx`: empty links open a task composer and invalid links offer recovery.
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: exports a provider-filtered connection step for direct marketer sign-in.
-- `apps/web/src/components/chat/ChatComposer.tsx`: provides the marketer composer prompt and portals website, connection and starter controls to that context strip; disconnected assistants disable sending.
+- `apps/web/src/components/chat/ChatComposer.tsx`: provides the marketer composer prompt and portals website and connection controls to the composer header on a new chat, or to that context strip in a thread; disconnected assistants disable sending.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: friendly subscription label; the existing popup retains advanced model selection.
 - `apps/web/src/components/chat/useThreadLifecycle.tsx`: labels completed marketer tasks Done.
 
@@ -232,7 +232,7 @@ a recorded migration id whose name differs from its own.
 - `apps/server/src/ws.ts`: thin issue handlers; connecting or disconnecting a domain turns its daily audit on or off.
 - `apps/server/src/server.ts`: provides the issues service beside the domain favicons.
 - `apps/server/src/mcp/McpHttpServer.ts`: registers `issues_list`, `issue_upsert` and `issue_set_status`; `agentContextBudget.json` records them.
-- `apps/web/src/components/chat/ChatComposer.tsx`: mounts the Next fix card under a new chat and the issue strip in an issue's thread.
+- `apps/web/src/components/chat/ChatComposer.tsx`: mounts the top issues and starter prompts under a new chat and the issue strip in an issue's thread.
 - `apps/web/src/components/CommandPalette.tsx`: Open issues replaces Open Tools.
 - `packages/contracts/src/ipc.ts`, `apps/desktop/src/{preload.ts,ipc/channels.ts,ipc/DesktopIpcHandlers.ts}`: optional open-at-login bridge so a missed audit runs at startup (XDG autostart on Linux).
 
