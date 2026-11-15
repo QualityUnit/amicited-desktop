@@ -20,16 +20,16 @@ const webPort = await port(),
   debugPort = Number(process.env.DEBUG_PORT ?? 9333);
 const env = {
   ...process.env,
-  T3CODE_HOME: NodePath.join(home, "state"),
-  T3CODE_PORT_OFFSET: "219",
-  T3CODE_PORT: String(serverPort),
+  AMICITED_HOME: NodePath.join(home, "state"),
+  AMICITED_PORT_OFFSET: "219",
+  AMICITED_PORT: String(serverPort),
   PORT: String(webPort),
   VITE_DEV_SERVER_URL: `http://localhost:${webPort}`,
-  T3CODE_DEV_SEED: "0",
-  T3CODE_NO_BROWSER: "1",
-  T3CODE_SINGLE_ORIGIN_DEV: "1",
-  T3CODE_TELEMETRY_ENABLED: "false",
-  T3CODE_DEV_REPLAY_CAPTURE: "1",
+  AMICITED_DEV_SEED: "0",
+  AMICITED_NO_BROWSER: "1",
+  AMICITED_SINGLE_ORIGIN_DEV: "1",
+  AMICITED_TELEMETRY_ENABLED: "false",
+  AMICITED_DEV_REPLAY_CAPTURE: "1",
 };
 delete env.ELECTRON_RUN_AS_NODE;
 delete env.VITE_HTTP_URL;

@@ -2519,6 +2519,9 @@ importers:
 
   packages/ssh:
     dependencies:
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../amicited-identity
       '@t3tools/contracts':
         specifier: workspace:*
         version: link:../contracts

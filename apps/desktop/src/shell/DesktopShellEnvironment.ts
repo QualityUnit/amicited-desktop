@@ -1,3 +1,4 @@
+import { toAmicitedEnvName } from "@amicited/identity/env";
 import { DesktopShellEnvironmentSnapshot, ShellEnvironmentPatch } from "@t3tools/contracts";
 import {
   applyShellEnvironment,
@@ -104,8 +105,9 @@ const LOGIN_SHELL_ENV_NAMES = [
   "SSL_CERT_FILE",
   "SSL_CERT_DIR",
   "NODE_EXTRA_CA_CERTS",
-  "T3CODE_TELEMETRY_ENABLED",
-  "T3CODE_GITHUB_APP_CLIENT_ID",
+  // Read AmICited's names from the login shell, never T3 Code's.
+  "AMICITED_TELEMETRY_ENABLED",
+  "AMICITED_GITHUB_APP_CLIENT_ID",
   "__MISE_DIFF",
   "JAVA_HOME",
 ] as const;
@@ -479,8 +481,9 @@ const installPosixEnvironment = Effect.fn("desktop.shellEnvironment.installPosix
       "T3CODE_TELEMETRY_ENABLED",
       "T3CODE_GITHUB_APP_CLIENT_ID",
     ] as const) {
-      if (!config.env[name] && shellEnvironment[name]) {
-        config.env[name] = shellEnvironment[name];
+      const shellValue = shellEnvironment[toAmicitedEnvName(name)];
+      if (!config.env[name] && shellValue) {
+        config.env[name] = shellValue;
       }
     }
 

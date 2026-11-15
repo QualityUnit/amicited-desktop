@@ -1,3 +1,4 @@
+import { toAmicitedEnvName, toUpstreamEnvName } from "@amicited/identity/env";
 import * as NodeUtil from "node:util";
 
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -62,13 +63,16 @@ export const upsertServiceEnv = (
   return lines.length === 0 ? "" : `${lines.join("\n")}\n`;
 };
 
-/** `service.env` under `baseDir`, parsed as the service launcher parses it. */
+/**
+ * `service.env` under `baseDir`, parsed as the service launcher parses it. Entries use upstream's
+ * T3CODE_* names, whether the file spells them AMICITED_* or not.
+ */
 export const readServiceEnv = Effect.fn("cli.service.read_env")(function* (baseDir: string) {
   const fs = yield* FileSystem.FileSystem;
   const path = (yield* Path.Path).join(baseDir, SERVICE_ENV_FILE);
   const contents = (yield* fs.exists(path)) ? yield* fs.readFileString(path) : "";
   const entries = Object.entries(NodeUtil.parseEnv(contents)).flatMap(([key, value]) =>
-    value === undefined ? [] : [[key, value] as const],
+    value === undefined ? [] : [[toUpstreamEnvName(key), value] as const],
   );
   return { path, contents, entries: Object.fromEntries(entries) };
 });
@@ -79,7 +83,21 @@ export const writeServiceEnv = Effect.fn("cli.service.write_env")(function* (
 ) {
   const fs = yield* FileSystem.FileSystem;
   const current = yield* readServiceEnv(baseDir);
-  const next = upsertServiceEnv(current.contents, entries);
+  // Users edit this file, so it uses AmICited's names; a T3CODE_* spelling of the same entry is replaced.
+  const next = upsertServiceEnv(
+    current.contents,
+    Object.fromEntries(
+      Object.entries(entries).flatMap(([key, value]) => {
+        const name = toAmicitedEnvName(key);
+        return name === key
+          ? [[key, value]]
+          : [
+              [name, value],
+              [key, undefined],
+            ];
+      }),
+    ),
+  );
   if (next === current.contents) return;
   yield* fs.makeDirectory(baseDir, { recursive: true });
   yield* fs.writeFileString(current.path, next);

@@ -1,4 +1,11 @@
 import {
+  POLICY_FILE_PATH_DARWIN,
+  POLICY_FILE_PATH_LINUX,
+  POLICY_FILE_PATH_WIN32,
+  POLICY_PREFERENCES_DOMAIN,
+  POLICY_REGISTRY_SUBKEY,
+} from "@amicited/identity/policy";
+import {
   ManagedPolicyClient,
   ManagedPolicyDocument,
   SERVER_EXIT_CODE_MANAGED_POLICY,
@@ -36,13 +43,13 @@ export class ManagedPolicyFileError extends Schema.TaggedError<ManagedPolicyFile
 export function managedPolicyPath(platform: NodeJS.Platform): string {
   switch (platform) {
     case "darwin":
-      return "/Library/Application Support/T3Code/policy.json";
+      return POLICY_FILE_PATH_DARWIN;
     case "win32":
       // Not ProgramData, where a user can create the folder first and own it; and not
       // %ProgramFiles%, which a user can point somewhere they write.
-      return "C:\\Program Files\\T3Code\\policy.json";
+      return POLICY_FILE_PATH_WIN32;
     default:
-      return "/etc/t3code/policy.json";
+      return POLICY_FILE_PATH_LINUX;
   }
 }
 
@@ -95,9 +102,8 @@ export const readManagedPolicyFile = Effect.fn("readManagedPolicyFile")(function
 });
 
 /** Where a configuration profile's managed preferences land on macOS. */
-export const MACOS_MANAGED_PREFERENCES_PATH =
-  "/Library/Managed Preferences/com.t3tools.t3code.plist";
-const WINDOWS_POLICY_SUBKEY = "SOFTWARE\\Policies\\T3Tools\\T3Code";
+export const MACOS_MANAGED_PREFERENCES_PATH = `/Library/Managed Preferences/${POLICY_PREFERENCES_DOMAIN}.plist`;
+const WINDOWS_POLICY_SUBKEY = POLICY_REGISTRY_SUBKEY;
 /**
  * The registry key Group Policy and Intune write to on Windows. It holds either the Group Policy
  * template's values, one per control, or a `Policy` string with the whole policy as JSON.

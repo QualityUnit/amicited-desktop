@@ -12,9 +12,24 @@ const { version } = JSON.parse(
 
 const SUPPORTED = ["darwin-arm64", "linux-arm64", "linux-x64", "win32-arm64", "win32-x64"];
 
+// The same mapping as applyAmicitedEnv in packages/amicited-identity/src/env.ts, inlined
+// because this file ships without dependencies: AMICITED_* configures the CLI, and a
+// T3 Code user's T3CODE_* variables never do.
+if (process.env.AMICITED_ENV_MAPPED !== "1") {
+  for (const key of Object.keys(process.env)) {
+    if (key.toUpperCase().startsWith("T3CODE_")) delete process.env[key];
+  }
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined && key !== "AMICITED_ENV_MAPPED" && /^AMICITED_/i.test(key)) {
+      process.env[`T3CODE_${key.slice("AMICITED_".length)}`] = value;
+    }
+  }
+  process.env.AMICITED_ENV_MAPPED = "1";
+}
+
 function t3Home() {
   const raw = (process.env.T3CODE_HOME || "").trim();
-  if (raw === "") return path.join(os.homedir(), ".t3");
+  if (raw === "") return path.join(os.homedir(), ".amicited");
   if (raw === "~") return os.homedir();
   if (raw.startsWith("~/") || raw.startsWith("~\\")) return path.join(os.homedir(), raw.slice(2));
   return path.resolve(raw);

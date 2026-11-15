@@ -4,6 +4,7 @@
  * They and Codex's managed-token helper dispatch before the full CLI module graph (seconds
  * of evaluation) loads; everything else defers to the real CLI in ./binCli.ts.
  */
+import { applyAmicitedEnv } from "@amicited/identity/env";
 import { isEntrypoint } from "./entrypoint.ts";
 import { enableCliCompileCache } from "./cliCompileCache.ts";
 
@@ -14,6 +15,7 @@ if (
     runtimeMain: import.meta.main,
   })
 ) {
+  applyAmicitedEnv();
   const command = process.argv[2];
   // Guard sockets before either dispatch path can load outbound-capable modules.
   const { ignoreMacosTypeOfServiceEinval } = await import("./outboundHttp.ts");

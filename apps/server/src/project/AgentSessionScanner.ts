@@ -1,3 +1,4 @@
+import { DATA_DIR_NAME } from "@amicited/identity";
 import * as NodeOS from "node:os";
 
 import {
@@ -663,7 +664,7 @@ function isT3ManagedWorktree(
   const normalized = normalizeForWorktreeMatch(candidatePath, caseFold);
   return (
     normalized.startsWith(normalizeForWorktreeMatch(worktreesDir, caseFold)) ||
-    normalized.includes("/.t3/worktrees/")
+    normalized.includes(`/${DATA_DIR_NAME}/worktrees/`)
   );
 }
 

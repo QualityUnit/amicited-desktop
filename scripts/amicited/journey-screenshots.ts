@@ -309,20 +309,20 @@ const serverPort = await availablePort();
 const webPort = await availablePort();
 const env: NodeJS.ProcessEnv = {
   ...process.env,
-  T3CODE_HOME: home,
-  T3CODE_PORT: String(serverPort),
+  AMICITED_HOME: home,
+  AMICITED_PORT: String(serverPort),
   PORT: String(webPort),
   VITE_DEV_SERVER_URL: "http://127.0.0.1:" + webPort,
-  T3CODE_SINGLE_ORIGIN_DEV: "1",
-  T3CODE_NO_BROWSER: "1",
-  T3CODE_TELEMETRY_ENABLED: "false",
-  T3CODE_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "0",
-  T3CODE_DEV_SEED: "0",
-  T3CODE_DEV_REPLAY_CAPTURE: "1",
-  T3CODE_PORT_OFFSET: "173",
+  AMICITED_SINGLE_ORIGIN_DEV: "1",
+  AMICITED_NO_BROWSER: "1",
+  AMICITED_TELEMETRY_ENABLED: "false",
+  AMICITED_AUTO_BOOTSTRAP_PROJECT_FROM_CWD: "0",
+  AMICITED_DEV_SEED: "0",
+  AMICITED_DEV_REPLAY_CAPTURE: "1",
+  AMICITED_PORT_OFFSET: "173",
   AMICITED_CAPTURE_DOMAIN: captureDomain,
   AMICITED_CAPTURE_FULL_ACCESS: process.env.AMICITED_CAPTURE_FULL_ACCESS ?? "",
-  T3CODE_DEV_AMICITED_ENDPOINT: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
+  AMICITED_DEV_AMICITED_ENDPOINT: `http://127.0.0.1:${fixtureAddress.port}/mcp`,
 };
 delete env.VITE_HTTP_URL;
 delete env.VITE_WS_URL;

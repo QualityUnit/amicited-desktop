@@ -1,3 +1,4 @@
+import { ENV_MAPPED_MARKER } from "@amicited/identity/env";
 import * as NodeOS from "node:os";
 
 import { parsePersistedServerObservabilitySettings } from "@t3tools/shared/serverSettings";
@@ -84,6 +85,8 @@ const DESKTOP_BACKEND_ENV_NAMES = [
 
 // Windows forwards these variables into WSL only through WSLENV.
 const WSL_FORWARDED_ENV_NAMES = [
+  // The Linux server keeps the T3CODE_* values forwarded below instead of dropping them as inherited.
+  ENV_MAPPED_MARKER,
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
   "T3CODE_TELEMETRY_ENABLED",

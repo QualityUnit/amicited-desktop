@@ -43,7 +43,7 @@ const hostFlag = Flag.String("host").pipe(
 );
 export const baseDirFlag = Flag.String("base-dir").pipe(
   Flag.withDescription(
-    "Explicit T3 Code data directory; runtime state is stored under userdata (equivalent to T3CODE_HOME).",
+    "Explicit AmICited data directory; runtime state is stored under userdata (equivalent to AMICITED_HOME).",
   ),
   Flag.optional,
 );
@@ -69,7 +69,7 @@ const autoBootstrapProjectFromCwdFlag = Flag.Boolean("auto-bootstrap-project-fro
 );
 const logWebSocketEventsFlag = Flag.Boolean("log-websocket-events").pipe(
   Flag.withDescription(
-    "Emit server-side logs for outbound WebSocket push traffic (equivalent to T3CODE_LOG_WS_EVENTS).",
+    "Emit server-side logs for outbound WebSocket push traffic (equivalent to AMICITED_LOG_WS_EVENTS).",
   ),
   Flag.withAlias("log-ws-events"),
   Flag.optional,
@@ -87,7 +87,7 @@ const tailscaleServePortFlag = Flag.Int("tailscale-serve-port").pipe(
 );
 const lanFlag = Flag.Boolean("lan").pipe(
   Flag.withDescription(
-    "Accept connections from your local network and tailnet, not only this machine (equivalent to T3CODE_LAN).",
+    "Accept connections from your local network and tailnet, not only this machine (equivalent to AMICITED_LAN).",
   ),
   Flag.optional,
 );
@@ -183,7 +183,7 @@ const DevAuthTokenConfig = Config.Redacted("T3CODE_DEV_AUTH_TOKEN").pipe(
           new Config.ConfigError(
             new Schema.SchemaError(
               new SchemaIssue.InvalidValue({
-                message: "T3CODE_DEV_AUTH_TOKEN must contain at least 32 characters.",
+                message: "AMICITED_DEV_AUTH_TOKEN must contain at least 32 characters.",
               }),
             ),
           ),

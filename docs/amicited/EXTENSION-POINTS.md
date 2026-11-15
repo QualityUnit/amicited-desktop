@@ -44,6 +44,20 @@ only bridge upstream environment RPC, routing and task creation to `@amicited/ui
 Home Ask and New task seed the selected assistant and send through the upstream
 composer once it mounts. Fix this with AI opens the same composer for review.
 
+## Data, env and service isolation from T3 Code
+
+AmICited must run beside a real T3 Code install without sharing anything. New
+values come from `@amicited/identity` (`index.ts`, plus `env.ts` and `policy.ts`).
+
+- Entry points `apps/server/src/bin.ts`, `apps/desktop/src/main.ts`, `scripts/dev-runner.ts` and `scripts/npm-launcher/t3.mjs` (inlined, it ships without dependencies) call `applyAmicitedEnv`: inherited `T3CODE_*` are dropped and `AMICITED_X` is copied to `T3CODE_X`, so upstream readers stay unchanged; the `AMICITED_ENV_MAPPED` marker keeps the values the app sets for its own children.
+- Writers that start a fresh entry point use `AMICITED_*`: `apps/server/src/cloud/bootService.ts` (unit and plist), `apps/desktop/src/app/DesktopCliShim.ts`, `packages/ssh/src/tunnel.ts`, `apps/server/src/cli/service.ts` and `apps/server/src/serviceLauncher.ts` (`service.env`), `apps/desktop/src/shell/DesktopShellEnvironment.ts` (login-shell names), and the scripts that launch the app (`scripts/amicited/*`, `scripts/smoke-*.ts`, `scripts/profile-startup.mjs`). `apps/desktop/scripts/electron-launcher.mjs` and `apps/desktop/src/backend/DesktopBackendConfiguration.ts` (WSL) forward the marker. `apps/server/src/terminal/Manager.ts` strips `AMICITED_*` from terminals as it strips `T3CODE_*`.
+- Data home `~/.amicited`: `apps/server/src/os-jank.ts`, `apps/desktop/src/app/DesktopStatePaths.ts`, `apps/server/src/cli/browser.ts`, `packages/shared/src/devHome.ts`, `scripts/dev-runner.ts` and `apps/server/scripts/migrate-dev-db.ts` (dev seed source), `apps/server/src/device/*` and `packages/ssh/src/tunnel.ts` (remote hosts), `apps/desktop/src/wsl/DesktopWslEnvironment.ts`, `apps/server/src/project/AgentSessionScanner.ts`, `scripts/install.{sh,ps1}`; project-local `.amicited/vcs.json` in `apps/server/src/vcs/VcsProjectConfig.ts`.
+- Electron profile `amicited`/`amicited-dev` with no T3 profile or `Local State` copy: `apps/desktop/src/app/DesktopUserData.ts`; `apps/desktop/src/app/DesktopLegacyLocalStorage.ts` imports no V1 profile.
+- Service, slices, IPC, caches, port: `apps/server/src/cloud/bootService.ts`, `serviceProtection.ts`, `apps/server/src/cli/update.ts`, `apps/server/src/process/agentScope.ts`, `packages/shared/src/desktopAppControl.ts`, `apps/desktop/src/compileCache.ts` (with `apps/desktop/vite.config.ts` inlining the identity package into the boot bundle), `apps/server/src/cliCompileCache.ts`, `apps/server/src/config.ts` and `apps/desktop/src/app/DesktopApp.ts` (port 3873).
+- Managed policy locations and template identities: `packages/shared/src/managedPolicyFile.ts`, `apps/server/src/policy/policyTemplates.ts`, `apps/server/src/cli/policy.ts`.
+- Messages that name an env var say `AMICITED_*`: `apps/server/src/cli/{config,up,automaticPort}.ts`, `apps/server/src/policy/managedLimits.ts`, `apps/server/src/preview/PreviewBrowserHost.ts`, `packages/shared/src/otelEnvironment.ts`, `packages/source-control-bitbucket/src/server/BitbucketApi.ts`.
+- `.gitignore`: worktree dev state in `.amicited`. Manifests listed in `scripts/release-smoke.ts` and the consumers' `package.json` files depend on `@amicited/identity`.
+
 ## Tools and transports
 
 `@amicited/tools-core` owns definitions, JSON Schemas, registry search and the

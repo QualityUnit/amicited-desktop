@@ -1,3 +1,5 @@
+import { HOME_ENV_VAR } from "@amicited/identity";
+import { ENV_MAPPED_MARKER, toAmicitedEnvName } from "@amicited/identity/env";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -17,6 +19,11 @@ const shellWord = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
 /** cmd.exe expands `%` even inside quotes; Windows paths cannot contain `"`. */
 const cmdText = (value: string) => value.replaceAll("%", "%%");
 const cmdWord = (value: string) => `"${cmdText(value)}"`;
+
+// The shim starts a fresh AmICited CLI: it passes AMICITED_* names and clears the marker, so the
+// CLI maps them again and drops any T3CODE_* it inherited.
+const CLI_PATH_ENV = toAmicitedEnvName("T3CODE_CLI_PATH");
+const CLI_LAUNCHER_ENV = toAmicitedEnvName("T3CODE_DESKTOP_CLI_LAUNCHER");
 
 const MOVED = "T3 Code has moved or been removed. Open the app once to update this command.";
 
@@ -49,11 +56,12 @@ export const renderCliShim = (input: {
             "chcp 65001 >nul",
           ]
         : []),
-      `set "T3CODE_CLI_PATH=${cmdText(input.shimPath)}"`,
-      `if not defined T3CODE_HOME set "T3CODE_HOME=${cmdText(input.t3Home)}"`,
+      `set "${ENV_MAPPED_MARKER}="`,
+      `set "${CLI_PATH_ENV}=${cmdText(input.shimPath)}"`,
+      `if not defined ${HOME_ENV_VAR} set "${HOME_ENV_VAR}=${cmdText(input.t3Home)}"`,
       'set "ELECTRON_RUN_AS_NODE=1"',
       // Electron's Windows executable starts without stdin; this tells the CLI to reopen the console.
-      'set "T3CODE_DESKTOP_CLI_LAUNCHER=1"',
+      `set "${CLI_LAUNCHER_ENV}=1"`,
       // A goto, not a parenthesized block: "Program Files (x86)" would close the block early.
       `if exist ${cmdWord(target.executable)} goto run`,
       ...restore,
@@ -70,9 +78,10 @@ export const renderCliShim = (input: {
   const header = [
     "#!/bin/sh",
     `# ${MARKER}`,
-    `export T3CODE_CLI_PATH=${shellWord(input.shimPath)}`,
+    `unset ${ENV_MAPPED_MARKER}`,
+    `export ${CLI_PATH_ENV}=${shellWord(input.shimPath)}`,
     `home=${shellWord(input.t3Home)}`,
-    'export T3CODE_HOME="${T3CODE_HOME:-$home}"',
+    `export ${HOME_ENV_VAR}="\${${HOME_ENV_VAR}:-$home}"`,
     "export ELECTRON_RUN_AS_NODE=1",
     `app=${shellWord(target.kind === "appimage" ? target.appImage : target.executable)}`,
     'if [ ! -x "$app" ]; then',

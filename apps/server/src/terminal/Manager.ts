@@ -1,5 +1,6 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- Effect's Crypto digest is effectful; a sync hash keeps historyPath a plain function.
 import * as NodeCrypto from "node:crypto";
+import { ENV_PREFIX } from "@amicited/identity";
 
 import { withWorkspaceLease } from "../workspace/workspaceLease.ts";
 import {
@@ -1297,7 +1298,8 @@ function toSessionKey(threadId: string, terminalId: string): string {
 
 function shouldExcludeTerminalEnvKey(key: string): boolean {
   const normalizedKey = key.toUpperCase();
-  if (normalizedKey.startsWith("T3CODE_")) {
+  // AMICITED_* includes the env-mapping marker, so a CLI started in the terminal maps its env afresh.
+  if (normalizedKey.startsWith("T3CODE_") || normalizedKey.startsWith(ENV_PREFIX)) {
     return true;
   }
   if (normalizedKey.startsWith("VITE_")) {

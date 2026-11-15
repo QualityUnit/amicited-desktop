@@ -140,9 +140,9 @@ it.layer(NodeServices.layer)("build-npm-launcher", (it) => {
         const home = path.join(root, "home");
         const env = {
           PATH: (yield* HostProcess.Environment).PATH,
-          T3CODE_HOME: home,
-          T3CODE_TEST_CALLS: path.join(root, "calls"),
-          T3CODE_RELEASE_BASE_URL: release.baseUrl,
+          AMICITED_HOME: home,
+          AMICITED_TEST_CALLS: path.join(root, "calls"),
+          AMICITED_RELEASE_BASE_URL: release.baseUrl,
         };
         const launcher = path.join(packageDir, "bin/t3.mjs");
         const first = yield* run(process.execPath, [launcher, "serve", "a b"], {
@@ -152,7 +152,7 @@ it.layer(NodeServices.layer)("build-npm-launcher", (it) => {
         assert.equal(first.stdout.trim(), `stub serve a b launcher=${launcher}`, first.stderr);
         assert.equal(first.exitCode, 7);
         assert.deepStrictEqual(
-          (yield* fs.readFileString(env.T3CODE_TEST_CALLS)).trim().split("\n"),
+          (yield* fs.readFileString(env.AMICITED_TEST_CALLS)).trim().split("\n"),
           ["--version|", `serve a b|${launcher}`],
         );
         const versionDir = path.join(home, "runtime/versions", VERSION);
@@ -171,7 +171,7 @@ it.layer(NodeServices.layer)("build-npm-launcher", (it) => {
         assert.equal(second.exitCode, 0);
         assert.equal(release.requests.length, requestsAfterFirst);
         assert.deepStrictEqual(
-          (yield* fs.readFileString(env.T3CODE_TEST_CALLS)).trim().split("\n"),
+          (yield* fs.readFileString(env.AMICITED_TEST_CALLS)).trim().split("\n"),
           ["--version|", `serve a b|${launcher}`, `--version|${launcher}`],
         );
 
@@ -212,7 +212,7 @@ it.layer(NodeServices.layer)("build-npm-launcher", (it) => {
         const raceHome = path.join(root, "race-home");
         const launch = run(process.execPath, [launcher, "--version"], {
           cwd: root,
-          env: { ...env, T3CODE_HOME: raceHome },
+          env: { ...env, AMICITED_HOME: raceHome },
         });
         const [one, two] = yield* Effect.all([launch, launch], { concurrency: "unbounded" });
         assert.equal(one.exitCode, 0, one.stderr);
@@ -290,7 +290,7 @@ fs.readFileSync = (file, ...rest) => {
         const recovered = yield* run(
           process.execPath,
           ["--import", peerHook, launcher, "--version"],
-          { cwd: root, env: { ...env, T3CODE_HOME: staleHome } },
+          { cwd: root, env: { ...env, AMICITED_HOME: staleHome } },
         );
         const checks = (yield* fs.readFileString(peerChecks)).trim().split("\n");
         assert.isAtLeast(checks.length, 2);
@@ -310,7 +310,7 @@ fs.readFileSync = (file, ...rest) => {
         yield* fs.makeDirectory(`${staleOnlyDir}.lock`);
         const locked = yield* run(process.execPath, [launcher, "--version"], {
           cwd: root,
-          env: { ...env, T3CODE_HOME: staleOnlyHome },
+          env: { ...env, AMICITED_HOME: staleOnlyHome },
         });
         assert.equal(locked.exitCode, 1);
         assert.include(locked.stderr, `delete ${staleOnlyDir}.lock`);
@@ -320,7 +320,7 @@ fs.readFileSync = (file, ...rest) => {
         yield* fs.remove(`${staleOnlyDir}.lock`, { recursive: true });
         const replaced = yield* run(process.execPath, [launcher, "--version"], {
           cwd: root,
-          env: { ...env, T3CODE_HOME: staleOnlyHome },
+          env: { ...env, AMICITED_HOME: staleOnlyHome },
         });
         assert.equal(replaced.stdout.trim(), VERSION, replaced.stderr);
         assert.equal(replaced.exitCode, 0);
@@ -332,7 +332,7 @@ fs.readFileSync = (file, ...rest) => {
         release.corruptChecksum();
         const corrupt = yield* run(process.execPath, [launcher, "--version"], {
           cwd: root,
-          env: { ...env, T3CODE_HOME: path.join(root, "other-home") },
+          env: { ...env, AMICITED_HOME: path.join(root, "other-home") },
         });
         assert.equal(corrupt.exitCode, 1);
         assert.include(corrupt.stderr, "checksum mismatch");
@@ -375,10 +375,10 @@ syncBuiltinESMExports();
           );
           const env = {
             PATH: (yield* HostProcess.Environment).PATH,
-            T3CODE_HOME: home,
-            T3CODE_RELEASE_BASE_URL: release.baseUrl,
-            T3CODE_TEST_READY: path.join(root, "probe-ready"),
-            T3CODE_TEST_TERM: path.join(root, "probe-term"),
+            AMICITED_HOME: home,
+            AMICITED_RELEASE_BASE_URL: release.baseUrl,
+            AMICITED_TEST_READY: path.join(root, "probe-ready"),
+            AMICITED_TEST_TERM: path.join(root, "probe-term"),
           };
           const launcher = path.join(output.packageDir, "bin/t3.mjs");
           const failed = yield* run(
@@ -393,8 +393,8 @@ syncBuiltinESMExports();
             assert.include(failed.stderr, "runtime loader failed");
           }
           if (executable.includes("trap")) {
-            assert.isTrue(yield* fs.exists(env.T3CODE_TEST_READY));
-            assert.isFalse(yield* fs.exists(env.T3CODE_TEST_TERM));
+            assert.isTrue(yield* fs.exists(env.AMICITED_TEST_READY));
+            assert.isFalse(yield* fs.exists(env.AMICITED_TEST_TERM));
           }
           if ((yield* HostProcess.Platform) === "linux") {
             assert.include(failed.stderr, "glibc");
