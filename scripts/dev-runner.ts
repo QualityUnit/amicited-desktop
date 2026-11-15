@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { DATA_DIR_NAME } from "@amicited/identity";
-import { applyAmicitedEnv } from "@amicited/identity/env";
+import { applyAmicitedEnv, toUpstreamEnvName } from "@amicited/identity/env";
 import * as NodeOS from "node:os";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
@@ -26,8 +26,14 @@ import { type DevShareError, shareDevServer, unshareDevServer } from "./lib/dev-
 import { loadRepoEnv } from "./lib/public-config.ts";
 
 // Before the repo .env: a T3 Code user's shell variables must not configure AmICited dev servers.
+// The repo .env is AmICited's own, so it keeps T3CODE_* names and has its AMICITED_* names mapped.
 if (import.meta.main) applyAmicitedEnv();
-Object.assign(process.env, loadRepoEnv());
+Object.assign(
+  process.env,
+  Object.fromEntries(
+    Object.entries(loadRepoEnv()).map(([name, value]) => [toUpstreamEnvName(name), value]),
+  ),
+);
 
 const BASE_SERVER_PORT = 13773;
 const BASE_WEB_PORT = 5733;
