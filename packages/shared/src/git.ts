@@ -1,3 +1,4 @@
+import { GIT_REF_NAMESPACE } from "@amicited/identity/agent-identity";
 import type {
   BranchNamingOptions,
   VcsRef,
@@ -9,7 +10,7 @@ import type {
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
 
-export const WORKTREE_BRANCH_PREFIX = "t3";
+export const WORKTREE_BRANCH_PREFIX = GIT_REF_NAMESPACE;
 const TEMP_WORKTREE_HEX_TOKEN = "[0-9a-f]{8}";
 const TEMP_WORKTREE_UUID_V4_TOKEN =
   "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";

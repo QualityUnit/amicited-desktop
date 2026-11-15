@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import {
   ProviderSetupError,
   type ProviderAuthMethod,
@@ -70,7 +71,7 @@ export const makeAcpRegistryAuth = Effect.fn("makeAcpRegistryAuth")(function* (o
               fs: { readTextFile: false, writeTextFile: false },
               terminal: false,
             },
-            clientInfo: { name: "t3-code-provider-auth", version: "0.0.0" },
+            clientInfo: { name: `${USER_AGENT_PRODUCT}-provider-auth`, version: "0.0.0" },
           }).pipe(
             Layer.provide(
               Layer.mergeAll(

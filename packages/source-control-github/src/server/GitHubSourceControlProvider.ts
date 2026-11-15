@@ -254,7 +254,7 @@ export const makeDiscovery = Effect.gen(function* () {
       const signedIn =
         appSignIn.enabled && !savedToken && (settings.signIns["github.com"] ?? "").trim() !== "";
       const variable = environmentTokenVariable(environment);
-      const appName = GitHubClient.APP_SIGN_IN.appName;
+      const appName = GitHubClient.APP_SIGN_IN?.appName ?? "GitHub App";
       const tokenSource = savedToken
         ? "the token saved in Settings"
         : signedIn

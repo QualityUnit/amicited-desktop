@@ -1,3 +1,5 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
+import { GITHUB_APP_CLIENT_ID_ENV_VAR } from "@amicited/identity/agent-identity";
 import {
   SourceControlProviderKind,
   SourceControlSignInError,
@@ -24,10 +26,13 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as GitHubClient from "../shared/definition.ts";
 
 /**
- * The public client ID of the T3 Code for GitHub app, which the device flow needs (no secret).
- * Unset turns the app sign-in off: no app tokens, no sign-in, nothing for clients to show.
+ * The public client ID of our GitHub App, which the device flow needs (no secret). Unset, or no
+ * app configured, turns app sign-in off: no app tokens, no sign-in, nothing for clients to show.
+ * TODO(amicited-infra): our GitHub App. https://github.com/QualityUnit/amicited-desktop/issues/17
  */
-export const CLIENT_ID_VARIABLE = "T3CODE_GITHUB_APP_CLIENT_ID";
+export const CLIENT_ID_VARIABLE = GITHUB_APP_CLIENT_ID_ENV_VAR;
+const APP_NAME = GitHubClient.APP_SIGN_IN?.appName ?? "the GitHub App";
+const APP_HOSTS: ReadonlyArray<string> = GitHubClient.APP_SIGN_IN?.hosts ?? [];
 
 const KIND = SourceControlProviderKind.make("github");
 const REQUEST_TIMEOUT = Duration.seconds(15);
@@ -73,7 +78,7 @@ export class GitHubAppSessionError extends Schema.TaggedError<GitHubAppSessionEr
   { host: Schema.String, cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return `Could not refresh the ${GitHubClient.APP_SIGN_IN.appName} sign-in for ${this.host}. Check the server's connection to GitHub, or sign in again in Settings → Source Control.`;
+    return `Could not refresh the ${APP_NAME} sign-in for ${this.host}. Check the server's connection to GitHub, or sign in again in Settings → Source Control.`;
   }
 }
 
@@ -108,14 +113,13 @@ export const make = Effect.gen(function* () {
   const sourceControlHost = yield* SourceControlHost.SourceControlHost;
   const httpClient = yield* HttpClient.HttpClient;
   const clientId = (yield* HostProcess.Environment)[CLIENT_ID_VARIABLE]?.trim() ?? "";
-  const enabled = clientId !== "";
+  const enabled = clientId !== "" && GitHubClient.APP_SIGN_IN !== undefined;
   const scope = yield* Effect.scope;
   const refreshLock = yield* Semaphore.make(1);
   const refused = yield* Ref.make<ReadonlySet<string>>(new Set());
   const pending = yield* Ref.make<ReadonlyMap<string, PendingSignIn>>(new Map());
 
-  const isAppHost = (host: string) =>
-    enabled && GitHubClient.APP_SIGN_IN.hosts.includes(host.trim().toLowerCase());
+  const isAppHost = (host: string) => enabled && APP_HOSTS.includes(host.trim().toLowerCase());
 
   const readSignIns = sourceControlHost.settings.get.pipe(
     Effect.map(
@@ -167,7 +171,10 @@ export const make = Effect.gen(function* () {
     httpClient
       .execute(
         HttpClientRequest.post(`https://${host}${path}`).pipe(
-          HttpClientRequest.setHeaders({ accept: "application/json", "user-agent": "t3code" }),
+          HttpClientRequest.setHeaders({
+            accept: "application/json",
+            "user-agent": USER_AGENT_PRODUCT,
+          }),
           HttpClientRequest.bodyUrlParams(body),
         ),
       )
@@ -371,14 +378,14 @@ export const make = Effect.gen(function* () {
         return yield* signInError(
           host,
           "unsupported",
-          `This server is not set up to sign in with ${GitHubClient.APP_SIGN_IN.appName}.`,
+          `This server is not set up to sign in with ${APP_NAME}.`,
         );
       }
       if (!isAppHost(host)) {
         return yield* signInError(
           host,
           "unsupported",
-          `${GitHubClient.APP_SIGN_IN.appName} only signs in to ${GitHubClient.APP_SIGN_IN.hosts.join(", ")}. Use a token or the GitHub CLI for ${host}.`,
+          `${APP_NAME} only signs in to ${APP_HOSTS.join(", ")}. Use a token or the GitHub CLI for ${host}.`,
         );
       }
       const code = yield* postForm(

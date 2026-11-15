@@ -911,8 +911,8 @@ export interface SearchMatchHint {
   readonly ranges: ReadonlyArray<SearchRange>;
 }
 
-// Most threads' branches start with the app's own worktree prefix ("t3/", and
-// "t3code/" before it), so "t3 connect" would match nearly every thread.
+// Most threads' branches start with the app's own worktree prefix ("amicited/", and
+// upstream's "t3code/"), so "amicited connect" would match nearly every thread.
 // Only before more text, so typing "t3/" does not empty the list for a keystroke.
 const WORKTREE_BRANCH_PREFIX_PATTERN = new RegExp(`^(?:${WORKTREE_BRANCH_PREFIX}|t3code)/(?=\\S)`);
 

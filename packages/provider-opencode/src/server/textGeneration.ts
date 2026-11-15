@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -212,7 +213,7 @@ export const makeOpenCodeTextGeneration = Effect.fn("makeOpenCodeTextGeneration"
           try: (signal) =>
             client.session.create(
               {
-                title: `T3 Code ${input.operation}`,
+                title: `${PRODUCT_NAME} ${input.operation}`,
                 // OpenCode Zen refuses free-model requests that carry no tools, so keep read.
                 permission: [
                   { permission: "*", pattern: "*", action: "deny" },

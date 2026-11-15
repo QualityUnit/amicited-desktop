@@ -1259,14 +1259,14 @@ describe("extractMcpToolCallIdentity", () => {
       sessionUpdate: "tool_call",
       toolCallId: "exec-f4591587-0754-4bb4-990b-f2767894ba93",
       kind: "execute",
-      title: "mcp.t3-code.orchestrator_capabilities",
+      title: "mcp.amicited-local.orchestrator_capabilities",
       status: "in_progress",
-      rawInput: { server: "t3-code", tool: "orchestrator_capabilities", arguments: {} },
+      rawInput: { server: "amicited-local", tool: "orchestrator_capabilities", arguments: {} },
       _meta: { is_mcp_tool_call: true },
     });
 
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "amicited-local",
       tool: "orchestrator_capabilities",
     });
   });
@@ -1286,7 +1286,7 @@ describe("extractMcpToolCallIdentity", () => {
           '/usr/bin/node /srv/t3/bin.ts acp-mcp-call delegate_task {"task":"x"}',
         ],
       }),
-    ).toEqual({ server: "t3-code", tool: "delegate_task", input: { task: "x" } });
+    ).toEqual({ server: "amicited-local", tool: "delegate_task", input: { task: "x" } });
   });
 
   it("recovers T3 identity from pi-acp title-only fallback execs", () => {
@@ -1308,7 +1308,7 @@ describe("extractMcpToolCallIdentity", () => {
 
     expect(toolCall.title).toBe("Ran command");
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "amicited-local",
       tool: "orchestrator_capabilities",
       input: {},
     });
@@ -1333,7 +1333,7 @@ describe("extractMcpToolCallIdentity", () => {
     const merged = mergeToolCallState(created, completed);
 
     expect(extractMcpToolCallIdentity(merged)).toEqual({
-      server: "t3-code",
+      server: "amicited-local",
       tool: "orchestrator_capabilities",
     });
   });
@@ -1360,7 +1360,32 @@ describe("extractMcpToolCallIdentity", () => {
         status: "pending",
       });
       expect(extractMcpToolCallIdentity(toolCall), title).toEqual({
-        server: "t3-code",
+        server: "amicited-local",
+        tool: "delegate_task",
+      });
+    }
+  });
+
+  it("recovers T3 identity from the amicited-local server name in each convention", () => {
+    for (const title of [
+      "amicited-local___delegate_task",
+      "amicited-local-delegate_task",
+      'mcp__amicited_local__delegate_task: {"mode":"async"}',
+      "mcp__amicited-local__delegate_task",
+      "delegate_task_amicited-local",
+      "amicited-local/delegate_task",
+      "@amicited-local/delegate_task",
+      "delegate_task (amicited-local MCP Server)",
+    ]) {
+      const toolCall = toolCallFromUpdate({
+        sessionUpdate: "tool_call",
+        toolCallId: "convention-amicited",
+        kind: "other",
+        title,
+        status: "pending",
+      });
+      expect(extractMcpToolCallIdentity(toolCall), title).toEqual({
+        server: "amicited-local",
         tool: "delegate_task",
       });
     }
@@ -1376,7 +1401,10 @@ describe("extractMcpToolCallIdentity", () => {
         status: "pending",
         rawInput: { tool_id: `t3-code::${tool}`, arguments: { threadId: "thread-1" } },
       });
-      expect(extractMcpToolCallIdentity(toolCall), tool).toEqual({ server: "t3-code", tool });
+      expect(extractMcpToolCallIdentity(toolCall), tool).toEqual({
+        server: "amicited-local",
+        tool,
+      });
     }
   });
 
@@ -1407,7 +1435,7 @@ describe("extractMcpToolCallIdentity", () => {
     });
 
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "amicited-local",
       tool: "task_status",
     });
   });
@@ -1424,7 +1452,7 @@ describe("extractMcpToolCallIdentity", () => {
     });
 
     expect(extractMcpToolCallIdentity(toolCall)).toEqual({
-      server: "t3-code",
+      server: "amicited-local",
       tool: "t3_thread_send",
     });
   });

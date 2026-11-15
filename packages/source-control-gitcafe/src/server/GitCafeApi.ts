@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -150,7 +151,10 @@ export const make = Effect.gen(function* () {
     const send = (url: string) => {
       const base = HttpClientRequest.make(method)(url).pipe(
         HttpClientRequest.bearerToken(Redacted.value(credential.token)),
-        HttpClientRequest.setHeaders({ accept: "application/json", "user-agent": "t3code" }),
+        HttpClientRequest.setHeaders({
+          accept: "application/json",
+          "user-agent": USER_AGENT_PRODUCT,
+        }),
       );
       return Effect.gen(function* () {
         const response = yield* httpClient

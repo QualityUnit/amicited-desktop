@@ -1,6 +1,7 @@
 // Relay JSON-RPC verbatim; schema decoding would reject foreign payloads.
 // @effect-diagnostics nodeBuiltinImport:off globalJsonInEffect:off
 import * as NodeReadline from "node:readline";
+import { PRODUCT_NAME, USER_AGENT_PRODUCT } from "@amicited/identity";
 
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -111,7 +112,7 @@ export const mcpToolSession = (
     if (!response.ok) {
       yield* discardResponseBody(response);
       return yield* new AcpMcpBridgeError({
-        message: `T3 Code MCP endpoint responded with HTTP ${response.status}.`,
+        message: `${PRODUCT_NAME} MCP endpoint responded with HTTP ${response.status}.`,
       });
     }
     const payloads = yield* Stream.runCollect(responsePayloads(response, bridgeError));
@@ -130,7 +131,7 @@ export const mcpToolSession = (
     const envelope = asEnvelope(responses.find((entry) => asEnvelope(entry)?.id === id));
     if (envelope === null || envelope.error !== undefined) {
       return yield* new AcpMcpBridgeError({
-        message: `T3 Code MCP ${method} failed${envelope?.error === undefined ? "." : `: ${JSON.stringify(envelope.error)}`}`,
+        message: `${PRODUCT_NAME} MCP ${method} failed${envelope?.error === undefined ? "." : `: ${JSON.stringify(envelope.error)}`}`,
       });
     }
     return envelope;
@@ -176,7 +177,7 @@ function callAcpMcpTool(options: {
   readonly tool: string;
   readonly arguments: Readonly<Record<string, unknown>>;
 }): Effect.Effect<unknown, AcpMcpBridgeError> {
-  return mcpToolSession({ ...options, clientName: "t3-code-acp-cli" }).pipe(
+  return mcpToolSession({ ...options, clientName: `${USER_AGENT_PRODUCT}-acp-cli` }).pipe(
     Effect.flatMap((session) => session.call(options.tool, options.arguments)),
     Effect.scoped,
   );
@@ -239,7 +240,7 @@ export function runAcpMcpStdioBridge(options: AcpMcpStdioBridgeOptions): Effect.
           if (envelope.id !== undefined) {
             yield* respondWithError(
               envelope.id,
-              `T3 Code MCP endpoint responded with HTTP ${response.status}.`,
+              `${PRODUCT_NAME} MCP endpoint responded with HTTP ${response.status}.`,
             );
           }
           return yield* discardResponseBody(response);
@@ -253,7 +254,7 @@ export function runAcpMcpStdioBridge(options: AcpMcpStdioBridgeOptions): Effect.
             const error = Cause.squash(cause);
             return respondWithError(
               envelope.id,
-              `T3 Code MCP bridge request failed: ${error instanceof Error ? error.message : String(error)}`,
+              `${PRODUCT_NAME} MCP bridge request failed: ${error instanceof Error ? error.message : String(error)}`,
             );
           }),
         ),

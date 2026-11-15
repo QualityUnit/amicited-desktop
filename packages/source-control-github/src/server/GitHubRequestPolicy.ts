@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import { normalizeHost } from "@t3tools/source-control-core/server/pullRequestUtils";
 import { SourceControlProviderKind } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
@@ -21,7 +22,7 @@ import * as GitHubQuota from "./GitHubQuota.ts";
 const DEFAULT_TIMEOUT = Duration.seconds(30);
 /** GitHub's secondary limits penalize concurrent bursts. */
 const CONCURRENCY = 8;
-const REQUEST_HEADERS = { "x-github-api-version": "2022-11-28", "user-agent": "t3code" };
+const REQUEST_HEADERS = { "x-github-api-version": "2022-11-28", "user-agent": USER_AGENT_PRODUCT };
 
 /** Pin requests to this host's credential across account switches. Keep it out of RPCs/cache keys. */
 export const PinnedGitHubCredential = Context.Reference<{

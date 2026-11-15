@@ -12,6 +12,13 @@ describe("resolveT3McpToolPresentation", () => {
     for (const tool of T3_MCP_TOOL_NAMES) {
       const presentation = resolveT3McpToolPresentation(tool);
       for (const prefix of [
+        "mcp__amicited-local__",
+        "mcp__amicited_local__",
+        "amicited-local-direct.",
+        "mcp__amicited_local_direct__",
+        "amicited-local/",
+        "mcp_amicited-local_",
+        "amicited-local · ",
         "mcp__t3-code__",
         "mcp__t3_code__",
         "mcp__t3code__",
@@ -38,6 +45,10 @@ describe("resolveT3McpToolPresentation", () => {
       resolveT3McpToolPresentation("t3-code-thread_opencode2-adapter_delegate_task")?.displayName,
     ).toBe("Delegate a child task");
     expect(resolveT3McpToolPresentation("t3-code-thread_opencode2-adapter_not_a_tool")).toBeNull();
+    expect(
+      resolveT3McpToolPresentation("amicited-local-thread_opencode2-adapter_delegate_task")
+        ?.displayName,
+    ).toBe("Delegate a child task");
   });
 });
 

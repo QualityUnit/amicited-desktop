@@ -1,3 +1,4 @@
+import { MCP_SERVER_KEY } from "@amicited/identity";
 import { MspError, type ProcessExit, type SendUserTurnOptions } from "@muse-code/sdk";
 import {
   MUSE_DEFAULT_MODEL,
@@ -1844,7 +1845,7 @@ export const makeMuseAdapterV2 = Effect.fn("makeMuseAdapterV2")(function* (
             ? {
                 mcpServers: {
                   // Muse's required default fails runs if T3 tools are unreachable; make them optional.
-                  "t3-code": {
+                  [MCP_SERVER_KEY]: {
                     transport: "streamableHttp",
                     mode: "optional",
                     url: mcpSession.endpoint,

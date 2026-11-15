@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import {
   type ModelCapabilities,
   ProviderDriverKind,
@@ -348,7 +349,7 @@ const probeKiroAgents = Effect.fn("KiroProvider.probeKiroAgents")(function* (
     settings,
     environment,
     cwd: yield* HostProcess.WorkingDirectory,
-    clientInfo: { name: "t3-code-provider-probe", version: "0.0.0" },
+    clientInfo: { name: `${USER_AGENT_PRODUCT}-provider-probe`, version: "0.0.0" },
   });
   yield* runtime.initialize();
   return kiroAgentDescriptor(yield* runtime.request("_kiro/config/template", {}));

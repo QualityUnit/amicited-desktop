@@ -753,9 +753,9 @@ function assertReinjectedInstructions(
   request: string,
 ) {
   const text = blocks[0]?.text ?? "";
-  assert.include(text, "T3 Code interaction mode: Default");
-  assert.include(text, "## T3 Code browser");
-  assert.include(text, "T3 Code orchestration");
+  assert.include(text, "AmICited Desktop interaction mode: Default");
+  assert.include(text, "## AmICited Desktop browser");
+  assert.include(text, "AmICited Desktop orchestration");
   assert.include(text, `<user_request>\n${request}\n</user_request>`);
 }
 
@@ -2143,17 +2143,17 @@ describe("AcpAdapterV2", () => {
 
         const command = yield* runTurn(0, defaultPolicy, "/compact");
         assert.isTrue(command.prompt.startsWith("/compact"));
-        assert.notInclude(command.prompt, "<t3_code_instructions>");
+        assert.notInclude(command.prompt, "<amicited_instructions>");
         assert.equal(command.textBlockCount, 1);
         const whitespaceCommand = yield* runTurn(1, defaultPolicy, "  /repro-skill");
         assert.equal(whitespaceCommand.prompt, "  /repro-skill");
         assert.equal(whitespaceCommand.textBlockCount, 1);
-        assert.notInclude(whitespaceCommand.prompt, "<t3_code_instructions>");
+        assert.notInclude(whitespaceCommand.prompt, "<amicited_instructions>");
         const firstDefault = yield* runTurn(2, defaultPolicy, "First default request.");
         assert.equal(firstDefault.textBlockCount, 2);
-        assert.include(firstDefault.prompt, "T3 Code interaction mode: Default");
-        assert.include(firstDefault.prompt, "## T3 Code browser");
-        assert.include(firstDefault.prompt, "T3 Code orchestration");
+        assert.include(firstDefault.prompt, "AmICited Desktop interaction mode: Default");
+        assert.include(firstDefault.prompt, "## AmICited Desktop browser");
+        assert.include(firstDefault.prompt, "AmICited Desktop orchestration");
         assert.notInclude(
           firstDefault.methods,
           "session/set_config_option",
@@ -2166,14 +2166,14 @@ describe("AcpAdapterV2", () => {
 
         const planPolicy = policy("plan");
         const firstPlan = yield* runTurn(4, planPolicy, "Plan this change.");
-        assert.include(firstPlan.prompt, "T3 Code interaction mode: Plan");
+        assert.include(firstPlan.prompt, "AmICited Desktop interaction mode: Plan");
         assert.deepEqual(firstPlan.modeSets, [planModeId]);
         assert.include(
           (yield* runTurn(5, planPolicy, "Continue planning.")).prompt,
           "Continue planning.",
         );
         const restoredBuild = yield* runTurn(6, defaultPolicy, "Implement the change.");
-        assert.include(restoredBuild.prompt, "T3 Code interaction mode: Default");
+        assert.include(restoredBuild.prompt, "AmICited Desktop interaction mode: Default");
         assert.deepEqual(
           restoredBuild.modeSets,
           [buildModeId],
@@ -2357,7 +2357,7 @@ describe("AcpAdapterV2", () => {
                         title: "Wait for the child",
                         status: "in_progress",
                         rawInput: {
-                          server: "t3-code",
+                          server: "amicited-local",
                           tool: "t3_thread_wait",
                           arguments: { threadId: "child" },
                         },
@@ -2976,7 +2976,7 @@ describe("AcpAdapterV2", () => {
           (item) =>
             item.threadId === task?.childThreadId &&
             item.type === "dynamic_tool" &&
-            item.toolName === "t3-code.task_status",
+            item.toolName === "amicited-local.task_status",
         ),
       );
       const childMcp = items.find(
@@ -4377,7 +4377,7 @@ describe("AcpAdapterV2", () => {
         mcpServers: [
           {
             type: "stdio",
-            name: "t3-code",
+            name: "amicited-local",
             command: process.execPath,
             args: [
               process.argv[1] === undefined ? "t3" : NodePath.resolve(process.argv[1]),

@@ -47,14 +47,14 @@ export function buildCodexAdditionalContext(
   return {
     ...Object.fromEntries(
       T3_CODE_ORCHESTRATION_SECTIONS.map((section, index) => [
-        `t3_code_orchestration_${String(index + 1).padStart(2, "0")}`,
+        `amicited_orchestration_${String(index + 1).padStart(2, "0")}`,
         { kind: "application" as const, value: section },
       ]),
     ),
-    t3_code_runtime: {
+    amicited_runtime: {
       kind: "application",
       value: buildRuntimeInstructions({ harness: "Codex", ...runtime }),
     },
-    ...(tools ? { t3_code_tools: { kind: "application", value: tools } } : {}),
+    ...(tools ? { amicited_tools: { kind: "application", value: tools } } : {}),
   };
 }

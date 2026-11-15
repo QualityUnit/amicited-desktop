@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -682,7 +683,7 @@ function toV2InitializeRequest(
   const capabilities = request.clientCapabilities;
   return {
     protocolVersion: 2,
-    info: request.clientInfo ?? { name: "t3-code", version: "unknown" },
+    info: request.clientInfo ?? { name: USER_AGENT_PRODUCT, version: "unknown" },
     capabilities: {
       ...(capabilities?.auth?.terminal === true ? { auth: { terminal: {} } } : {}),
       ...(capabilities?.elicitation == null ? {} : { elicitation: capabilities.elicitation }),

@@ -1,5 +1,6 @@
 // Generate endpoints return 403 on the free tier; use and remove a temporary prompt session.
 import { AbsolutePath, Location, Model, Provider, Session } from "@opencode/client/effect";
+import { PRODUCT_NAME } from "@amicited/identity";
 import { TextGenerationError } from "@t3tools/contracts";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import * as NodeURL from "node:url";
@@ -120,7 +121,7 @@ const runOnServer = Effect.fn("Opencode2TextGeneration.runOnServer")(function* (
   // either request can stall while the event stream stays connected.
   const generate = Effect.gen(function* () {
     const session = yield* client.session.create({
-      title: `T3 Code ${input.operation}`,
+      title: `${PRODUCT_NAME} ${input.operation}`,
       location: Location.PublicRef.make({ directory: AbsolutePath.make(input.cwd) }),
       model: Model.Ref.make({
         providerID: Provider.ID.make(parsed.providerID),

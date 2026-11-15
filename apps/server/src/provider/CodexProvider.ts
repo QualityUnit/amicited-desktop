@@ -1,3 +1,4 @@
+import { CLIENT_NAME } from "@amicited/identity";
 import { pipe } from "effect/Function";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -73,7 +74,10 @@ const CODEX_APP_SERVER_PROBE_FORCE_KILL_AFTER = "2 seconds" as const;
 const CODEX_CATALOG_REFRESH_TIMEOUT_MS = 3_000;
 const CODEX_CONFIG_PROBE_TIMEOUT_MS = 3_000;
 const CODEX_CATALOG_REFRESH_POLL = "100 millis" as const;
-const CODEX_CLIENT_NAME = "T3 Code";
+// Codex's clientInfo and originator. OpenAI's backend tailors the model catalog and ChatGPT plan
+// sharing per originator; nothing in this repo gates on it.
+// TODO(amicited-infra): confirm originator with OpenAI. https://github.com/QualityUnit/amicited-desktop/issues/17
+const CODEX_CLIENT_NAME = CLIENT_NAME;
 // Handshake plus account/models/skills requests can exceed the shared 10s probe budget.
 const CODEX_AUTH_PROBE_TIMEOUT_MS = 20_000;
 const CODEX_DISCOVERY_MARGIN_MS = 250;

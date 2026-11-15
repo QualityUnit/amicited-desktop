@@ -1,3 +1,5 @@
+import { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "@amicited/identity";
+import { GIT_REF_NAMESPACE } from "@amicited/identity/agent-identity";
 import * as NodeBuffer from "node:buffer";
 
 import * as Context from "effect/Context";
@@ -912,15 +914,18 @@ export const makeVcsDriverShape = Effect.fn("makeGitVcsDriverShape")(function* (
       ];
       const { gitCommonDir, indexPath, headExists } = yield* resolveCaptureRepository(input.cwd);
       const indexId = yield* random.uuidV4();
-      const tempIndexPath = path.join(gitCommonDir, `t3-checkpoint-index-${indexId}`);
+      const tempIndexPath = path.join(
+        gitCommonDir,
+        `${GIT_REF_NAMESPACE}-checkpoint-index-${indexId}`,
+      );
       const hostEnv = yield* HostProcess.Environment;
       const commitEnv: NodeJS.ProcessEnv = {
         ...hostEnv,
         GIT_INDEX_FILE: tempIndexPath,
-        GIT_AUTHOR_NAME: "T3 Code",
-        GIT_AUTHOR_EMAIL: "t3code@users.noreply.github.com",
-        GIT_COMMITTER_NAME: "T3 Code",
-        GIT_COMMITTER_EMAIL: "t3code@users.noreply.github.com",
+        GIT_AUTHOR_NAME,
+        GIT_AUTHOR_EMAIL,
+        GIT_COMMITTER_NAME: GIT_AUTHOR_NAME,
+        GIT_COMMITTER_EMAIL: GIT_AUTHOR_EMAIL,
       };
 
       const cleanupTempIndex = Effect.forEach(

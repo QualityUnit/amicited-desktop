@@ -1,3 +1,4 @@
+import { GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME } from "@amicited/identity";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Redacted from "effect/Redacted";
@@ -71,9 +72,9 @@ export const cascadeRebaseStack = Effect.fn("cascadeRebaseStack")(function* (inp
     GIT_CONFIG_KEY_0: `http.${remote}.extraheader`,
     GIT_CONFIG_VALUE_0: authorization,
     GIT_CONFIG_KEY_1: "user.name",
-    GIT_CONFIG_VALUE_1: "T3 Code",
+    GIT_CONFIG_VALUE_1: GIT_AUTHOR_NAME,
     GIT_CONFIG_KEY_2: "user.email",
-    GIT_CONFIG_VALUE_2: "noreply@t3.codes",
+    GIT_CONFIG_VALUE_2: GIT_AUTHOR_EMAIL,
   };
   const git = (args: ReadonlyArray<string>, allowNonZeroExit = false) =>
     process.run({

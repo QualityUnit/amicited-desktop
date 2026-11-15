@@ -1,3 +1,4 @@
+import { MCP_SERVER_KEY, PRODUCT_NAME } from "@amicited/identity";
 import type {
   AgentMessage,
   AgentOptions,
@@ -206,7 +207,7 @@ export function cursorMcpServers(
     return undefined;
   }
   return {
-    "t3-code": {
+    [MCP_SERVER_KEY]: {
       type: "http",
       url: session.endpoint,
       headers: {
@@ -305,7 +306,7 @@ export function makeCursorAgentOptions(input: {
   const mcpServers = cursorMcpServers(input.mcpSession);
   return {
     model: cursorSdkModelSelection(input.modelSelection),
-    name: `T3 Code ${input.threadId}`,
+    name: `${PRODUCT_NAME} ${input.threadId}`,
     mode: input.runtimePolicy.interactionMode === "plan" ? "plan" : "agent",
     ...(input.apiKey === undefined ? {} : { apiKey: input.apiKey }),
     local: {

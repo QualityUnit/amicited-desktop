@@ -1657,7 +1657,7 @@ it("does not read a Codex cell's JavaScript as a file write, and still fails its
   const task = `Use the returned command: open <app> first, then help <command> for syntax. The unlock PIN is ${PIN}.`;
   const cell = {
     tool: "exec",
-    input: `const result = await tools.mcp__t3_code__delegate_task({\n  title: "Onboarding",\n  task: ${JSON.stringify(task)}\n});\ntext(result);`,
+    input: `const result = await tools.mcp__amicited_local__delegate_task({\n  title: "Onboarding",\n  task: ${JSON.stringify(task)}\n});\ntext(result);`,
     step: 2,
   };
   assert.deepEqual(gradeSecretValues({ values: [PIN], maxShellCommands: 2 }, run([cell])), []);
@@ -1721,7 +1721,7 @@ it("exempts a pasted value handed to request_secret, and fails it anywhere else"
   // A Codex cell that only saves the value is not a shell command.
   const cell = {
     tool: "exec",
-    input: `text(await tools.mcp__t3_code__request_secret({label:"Pixel PIN",value:${JSON.stringify(PIN)}}));`,
+    input: `text(await tools.mcp__amicited_local__request_secret({label:"Pixel PIN",value:${JSON.stringify(PIN)}}));`,
     step: 3,
   };
   const inner = { ...save, step: 3 };

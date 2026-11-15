@@ -761,6 +761,30 @@ Names come from `@amicited/identity` (`index.ts`) and `@amicited/identity/cli` (
 - `apps/server/src/triage/*`, `.github/triage/PLAYBOOK.md`: no remote playbook; source from our repository; reports go to support by email.
 - `knip.jsonc`: the identity package keeps its shared manifest as written.
 
+## Agent and provider identity
+
+Identity values come from `@amicited/identity` (`packages/amicited-identity`). Its
+`src/index.ts` is shared byte-identical across the rebrand branches; this slice adds
+`src/agent-identity.ts`. Each upstream file below imports a constant instead of a T3 literal.
+Every package that imports it lists `@amicited/identity` in its `package.json`.
+
+- `apps/server/src/provider/CodexProvider.ts`, `apps/server/src/provider/CodexChatGptAuth.ts`: Codex originator, clientInfo and ChatGPT `agent_name_hint` are `CLIENT_NAME`.
+- `apps/server/src/provider/Drivers/ClaudeHome.ts`: `CLAUDE_CODE_ENTRYPOINT` is `USER_AGENT_PRODUCT`.
+- `packages/provider-grok/src/server/acpSupport.ts`: no longer sets `GROK_OAUTH2_REFERRER` (T3's xAI partner value).
+- `packages/source-control-github/src/server/GitHubRequestPolicy.ts`, `GitHubAppSignIn.ts`, `packages/source-control-gitcafe/src/server/GitCafeApi.ts`: User-Agent is `USER_AGENT_PRODUCT`.
+- `packages/source-control-github/src/shared/definition.ts`, `src/server/GitHubAppSignIn.ts`, `src/server/GitHubSourceControlProvider.ts`: GitHub App sign-in reads `GITHUB_APP` and `AMICITED_GITHUB_APP_CLIENT_ID`; with no app configured it is hidden.
+- `apps/server/src/mcp/McpHttpServer.ts`: MCP `serverInfo.name` is `PRODUCT_NAME`.
+- MCP registration key `MCP_SERVER_KEY` (`amicited-local`, Codex direct twin `amicited-local-direct`): `apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.ts` (also its tool allowlist), `CodexAdapterV2.ts`, `packages/provider-acp/src/server/adapter.ts`, `mcpOverAcpBridge.ts`, `runtimeModel.ts`, `packages/provider-cursor/src/server/adapter.ts`, `packages/provider-opencode/src/server/adapter.ts`, `v2/adapter.ts`, `packages/provider-muse/src/server/adapter.ts`, `packages/provider-pi/src/server/mcpExtensionSource.ts`, `packages/provider-core/src/server/orchestrationInstructions.ts`.
+- `packages/shared/src/t3McpToolPresentation.ts`, `packages/provider-acp/src/server/runtimeModel.ts`: tool-name parsing accepts `amicited-local` and still accepts the upstream `t3-code` names so recorded replays resolve.
+- Agent-facing copy names the product through `PRODUCT_NAME` / `PRODUCT_SHORT_NAME`: `packages/provider-core/src/server/orchestrationInstructions.ts` (also the `<amicited_instructions>` tags), `runtimeInstructions.ts`, `textGenerationPrompts.ts`, `apps/server/src/provider/CodexDeveloperInstructions.ts` (`amicited_*` context keys), `apps/server/src/mcp/` tool titles, descriptions and errors, `apps/server/src/device/AgentDeviceShim.ts`, and the orchestration wake and status messages in `apps/server/src/orchestration-v2/`.
+- Client names sent to agent runtimes use `USER_AGENT_PRODUCT` or `CLIENT_NAME`: `packages/effect-acp/src/client.ts`, `packages/provider-acp/src/server/adapter.ts`, `packages/provider-acp-registry/src/server/auth.ts`, `probe.ts`, `packages/provider-grok/src/server/status.ts`, `textGeneration.ts`, `packages/provider-kiro/src/server/status.ts`, `packages/provider-muse/src/server/sdk.ts`, `apps/server/src/mcp/AcpMcpStdioBridge.ts`, MCP Apps host context in `apps/web/src/components/chat/McpAppFrame.tsx`, `apps/mobile/src/features/threads/McpAppWebView.tsx` and `packages/client-runtime/src/mcpApps/host.ts`.
+- Objects created in users' accounts use `PRODUCT_NAME`: `packages/provider-cursor/src/server/auth.ts`, `adapter.ts`, `packages/provider-opencode/src/server/textGeneration.ts`, `v2/textGeneration.ts`, `apps/server/src/peer/PeerLinks.ts` (and `PeerLinks.testkit.ts`), `apps/server/src/device/EasDeviceHost.ts`.
+- Git identity and refs in users' repositories use `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL` and the `amicited` namespace: `apps/server/src/vcs/GitVcsDriver.ts`, `GitVcsDriverCore.ts`, `apps/server/src/git/GitManager.ts`, `apps/server/src/orchestration-v2/CheckpointService.ts`, `apps/server/src/pullRequest/PullRequestReviewGuideService.ts`, `packages/shared/src/git.ts`, `packages/source-control-bitbucket/src/server/BitbucketApi.ts`, `packages/source-control-github/src/server/githubStackRebase.ts`.
+- `packages/shared/src/usageLimits.ts`: the ChatGPT workspace admin request names `PRODUCT_NAME`.
+- `knip.jsonc`: `packages/amicited-identity` ignores its unused `vite-plus` devDependency.
+- `scripts/release-smoke.ts`: lists `packages/amicited-identity/package.json`.
+- `evals/mcp-tool-use/run.ts`, `trim-capture.ts` and their tests: the eval harness names tools `mcp__amicited-local__*` like the real harnesses, and still recognizes the upstream names in the committed captures.
+
 ## Backported from upstream
 
 These lines are identical to upstream `main`, applied early because CI needed them. The

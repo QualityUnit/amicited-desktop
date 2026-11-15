@@ -1,3 +1,4 @@
+import { USER_AGENT_PRODUCT } from "@amicited/identity";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -39,7 +40,7 @@ export const makeGrokTextGeneration = Effect.fn("makeGrokTextGeneration")(functi
         grokSettings,
         environment,
         cwd,
-        clientInfo: { name: "t3-code-git-text", version: "0.0.0" },
+        clientInfo: { name: `${USER_AGENT_PRODUCT}-git-text`, version: "0.0.0" },
       }).pipe(
         Effect.provideService(SecureRandom.SecureRandom, random),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, commandSpawner),

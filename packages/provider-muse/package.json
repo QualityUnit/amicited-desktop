@@ -29,6 +29,7 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@amicited/identity": "workspace:*",
     "@muse-code/sdk": "1.4.6",
     "@t3tools/contracts": "workspace:*",
     "@t3tools/provider-core": "workspace:*",

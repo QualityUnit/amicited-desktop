@@ -1,4 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off
+import { MCP_SERVER_KEY, USER_AGENT_PRODUCT } from "@amicited/identity";
 
 import {
   type ChatAttachment,
@@ -845,7 +846,7 @@ function acpMcpContext(
   return {
     servers: [
       {
-        name: "t3-code",
+        name: MCP_SERVER_KEY,
         command: self.command,
         args: [...selfInvocationArgs(self, ["acp-mcp-bridge"])],
         env: [
@@ -855,13 +856,13 @@ function acpMcpContext(
         ],
       },
     ],
-    acpServers: [{ type: "acp", name: "t3-code", serverId: "t3-code" }],
+    acpServers: [{ type: "acp", name: MCP_SERVER_KEY, serverId: MCP_SERVER_KEY }],
     httpServers:
       mcpOverHttp === true
         ? [
             {
               type: "http",
-              name: "t3-code",
+              name: MCP_SERVER_KEY,
               url: session.endpoint,
               headers: [{ name: "Authorization", value: session.authorizationHeader }],
             },
@@ -2382,7 +2383,7 @@ export const makeAcpAdapterV2 = Effect.fn("makeAcpAdapterV2")(function* (
               elicitation: { form: {}, ...(flavor.onUrlElicitation ? { url: {} } : {}) },
               ...(flavor.clientCapabilitiesMeta ? { _meta: flavor.clientCapabilitiesMeta } : {}),
             },
-            clientInfo: { name: "t3-code", version: "0.0.0" },
+            clientInfo: { name: USER_AGENT_PRODUCT, version: "0.0.0" },
             onTermination: (error) =>
               Effect.sync(() => agentRequests.clear()).pipe(Effect.andThen(onTermination(error))),
             ...(promptInactivityTimeoutMillis === undefined

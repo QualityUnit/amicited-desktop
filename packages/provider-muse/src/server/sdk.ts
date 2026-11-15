@@ -1,4 +1,5 @@
 // @effect-diagnostics globalTimers:off
+import { CLIENT_NAME, USER_AGENT_PRODUCT } from "@amicited/identity";
 // The SDK owns process shutdown; native deadlines cover initialize before an Effect resource exists.
 // @effect-diagnostics-next-line nodeBuiltinImport:off -- FileSystem.realPath is Node's JS realpath; museCanonicalPath needs the native one.
 import * as NodeFSP from "node:fs/promises";
@@ -157,7 +158,7 @@ export function museServeArgs(
 
 export function museInitializeParams(readOnly = false) {
   return {
-    clientInfo: { name: "t3_code", title: "T3 Code", version: "1" },
+    clientInfo: { name: USER_AGENT_PRODUCT.replaceAll("-", "_"), title: CLIENT_NAME, version: "1" },
     capabilities: { requestedCapabilities: readOnly ? [] : ["sessionMcp"] },
   };
 }
