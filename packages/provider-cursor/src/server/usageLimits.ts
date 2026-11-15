@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import type { ServerProviderUsageWindow } from "@t3tools/contracts";
 import type { CursorSettings } from "../settings.ts";
 import * as HostProcess from "@t3tools/shared/HostProcess";
@@ -100,7 +101,7 @@ export const readCursorUsageLimits = Effect.fn("readCursorUsageLimits")(function
         return makeUnavailableUsageLimits({
           checkedAt,
           reason: "unsupported",
-          message: "Enable Cursor account usage in T3 Code to read its Keychain login.",
+          message: `Enable Cursor account usage in ${PRODUCT_NAME} to read its Keychain login.`,
         });
       }
       if (endpoint !== DEFAULT_CURSOR_API_ENDPOINT) {

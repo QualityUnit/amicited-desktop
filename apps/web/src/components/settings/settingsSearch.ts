@@ -94,7 +94,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/chat": "Chat",
   "/settings/diffs": "Diffs & pull requests",
   "/settings/keybindings": "Keybindings",
-  "/settings/snap-shot": "SnapShots",
+  "/settings/snap-shot": "Screen capture",
   "/settings/providers": "Providers",
   "/settings/threads": "Threads",
   "/settings/browser": "Browser",
@@ -775,8 +775,8 @@ export const SETTINGS_SEARCH_ITEMS = [
   ...KEYBINDING_SEARCH_ITEMS,
   {
     id: "snap-shot-enabled",
-    title: "SnapShots",
-    searchTerms: ["window capture screenshot"],
+    title: "Screen capture",
+    searchTerms: ["window capture screenshot snapshot"],
     to: "/settings/snap-shot",
   },
   {

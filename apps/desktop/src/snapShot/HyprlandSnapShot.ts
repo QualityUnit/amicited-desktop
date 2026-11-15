@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // @effect-diagnostics nodeBuiltinImport:off -- Bundled Wayland helper installed only by explicit setup.
 import * as NodeChildProcess from "node:child_process";
 import * as NodeFSP from "node:fs/promises";
@@ -102,7 +103,7 @@ export class HyprlandCaptureSetup {
       const bundle = await regularFile(this.paths.bundle);
       if (!bundle)
         throw new Error(
-          "The Hyprland capture helper is missing from this build. Update or reinstall T3 Code.",
+          `The Hyprland capture helper is missing from this build. Update or reinstall ${PRODUCT_NAME}.`,
         );
       if (!installed.equals(bundle))
         return {

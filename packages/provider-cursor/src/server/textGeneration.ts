@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import * as FileSystem from "effect/FileSystem";
 
 import type { AgentOptions, RunResult } from "@cursor/sdk";
@@ -62,7 +63,7 @@ export const makeCursorTextGeneration = Effect.fn("makeCursorTextGeneration")(fu
     if (!cursorSettings.enabled) {
       return yield* new TextGenerationError({
         operation,
-        detail: "Cursor is disabled in T3 Code settings.",
+        detail: `Cursor is disabled in ${PRODUCT_NAME} settings.`,
       });
     }
 

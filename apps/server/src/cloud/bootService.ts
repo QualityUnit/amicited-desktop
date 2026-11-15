@@ -1,4 +1,4 @@
-import { APP_ID, HOME_ENV_VAR, PRODUCT_NAME, SERVICE_NAME } from "@amicited/identity";
+import { APP_ID, CLI_NAME, HOME_ENV_VAR, PRODUCT_NAME, SERVICE_NAME } from "@amicited/identity";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
@@ -456,7 +456,7 @@ export class BootServiceInstallError extends Schema.TaggedError<BootServiceInsta
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return "Could not set up the T3 Code background service.";
+    return `Could not set up the ${PRODUCT_NAME} background service.`;
   }
 }
 
@@ -477,13 +477,13 @@ export function formatBootServiceProblem(problem: BootServiceProblem): string {
     case "linger-unavailable":
       return 'Cannot check whether this user can run services after logout. Run `loginctl show-user "$(id -un)" --property=Linger` and check that systemd-logind is available.';
     case "linger-disabled":
-      return 'Lingering is disabled. T3 Code will stop when your last login session ends and will not start at boot. Run `sudo loginctl enable-linger "$(id -un)"` on this machine, then retry the service command as your normal user.';
+      return `Lingering is disabled. ${PRODUCT_NAME} will stop when your last login session ends and will not start at boot. Run \`sudo loginctl enable-linger "$(id -un)"\` on this machine, then retry the service command as your normal user.`;
     case "service-disabled":
-      return "The service is not enabled to start automatically. Run `t3 service install` to repair it.";
+      return `The service is not enabled to start automatically. Run \`${CLI_NAME} service install\` to repair it.`;
     case "service-stopped":
       return `The service is not running. Check the service log and \`systemctl --user status ${BOOT_SERVICE_UNIT_FILE}\`, then run \`t3 service install\`.`;
     case "restart-pending":
-      return "A newer version is installed but the service is still running the previous one. Run `t3 service restart` to switch.";
+      return `A newer version is installed but the service is still running the previous one. Run \`${CLI_NAME} service restart\` to switch.`;
   }
 }
 

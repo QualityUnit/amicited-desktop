@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import { SourceControlProviderKind } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -1161,7 +1162,10 @@ export const make = Effect.gen(function* () {
           };
         }
         default:
-          return yield* failure(input.action, `GitCafe cannot ${input.action} from T3 Code.`);
+          return yield* failure(
+            input.action,
+            `GitCafe cannot ${input.action} from ${PRODUCT_NAME}.`,
+          );
       }
     }),
     updateChangeRequest: Effect.fn("GitCafePullRequestProvider.updateChangeRequest")(

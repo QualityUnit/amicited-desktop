@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // @effect-diagnostics nodeBuiltinImport:off -- Local socket ownership checks need lstat, an atomic rename, and a directory watch at the Node adapter boundary.
 import { pipe } from "effect/Function";
 import * as NodeCrypto from "node:crypto";
@@ -162,7 +163,10 @@ export async function startDesktopAppControlServer(input: {
       activeRequestId = parsed.requestId;
       void input.handle(parsed).then(finish, () => {
         finish(
-          invalidResponse(parsed.requestId, "T3 Code could not process the desktop app request."),
+          invalidResponse(
+            parsed.requestId,
+            `${PRODUCT_NAME} could not process the desktop app request.`,
+          ),
         );
       });
     });

@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import {
   ProviderSetupError,
   type ChatGptReconnectProfile,
@@ -80,7 +81,7 @@ export const makeProviderAuthService = Effect.gen(function* () {
         instanceId,
         operation,
         detail: instance
-          ? "This provider does not support sign-in in T3 Code."
+          ? `This provider does not support sign-in in ${PRODUCT_NAME}.`
           : "This provider instance is no longer available.",
       });
     }

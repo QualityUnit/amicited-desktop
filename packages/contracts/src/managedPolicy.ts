@@ -1,4 +1,4 @@
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { PRODUCT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 
@@ -144,7 +144,7 @@ export type ManagedPolicySummary = typeof ManagedPolicySummary.Type;
 
 /** The message every surface shows when the policy stops an update. */
 export function managedUpdatesMessage(organization: string): string {
-  return `${organization} manages T3 Code updates.`;
+  return `${organization} manages ${PRODUCT_NAME} updates.`;
 }
 
 /** The message when the policy allows only stable releases. */

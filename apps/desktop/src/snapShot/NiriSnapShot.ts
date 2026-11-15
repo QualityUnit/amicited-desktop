@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // @effect-diagnostics nodeBuiltinImport:off -- Niri exposes its compositor API through a local Unix socket.
 // @effect-diagnostics globalTimers:off -- Bound native socket operations outside Effect fibers.
 
@@ -112,7 +113,7 @@ class NiriConnection {
           fail(error instanceof Error ? error : new Error("Invalid Niri response."));
         }
       };
-      const timer = setTimeout(() => fail(new Error("Niri snapshot timed out.")), TIMEOUT_MS);
+      const timer = setTimeout(() => fail(new Error("Niri screen capture timed out.")), TIMEOUT_MS);
       this.listeners.add(listener);
       this.failures.add(fail);
     });
@@ -148,7 +149,7 @@ export async function checkNiriCaptureSupport(path: string): Promise<void> {
   // 25.11 introduced both caller-selected screenshot paths and completion events.
   const match = /^(?:niri )?(\d+)\.(\d+)/.exec(version);
   if (!match || Number(match[1]) < 25 || (Number(match[1]) === 25 && Number(match[2]) < 11))
-    throw new Error("SnapShots require Niri 25.11 or newer.");
+    throw new Error("Screen capture requires Niri 25.11 or newer.");
 }
 
 async function activateNiriWindow(path: string, title: string, signal: AbortSignal): Promise<void> {
@@ -173,7 +174,7 @@ async function activateNiriWindow(path: string, title: string, signal: AbortSign
         (window) => window.pid === process.pid && window.title === title,
       );
       if (matches.length > 1)
-        throw new Error("More than one T3 Code window matches the capture destination.");
+        throw new Error(`More than one ${PRODUCT_NAME} window matches the capture destination.`);
       return matches[0];
     });
     connection.send("EventStream");

@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // @effect-diagnostics nodeBuiltinImport:off -- Stable shortcut IDs and unique portal request tokens.
 // @effect-diagnostics globalTimers:off -- Bounded D-Bus calls and user-consent requests at the native boundary.
 import * as NodeCrypto from "node:crypto";
@@ -130,7 +131,7 @@ export class PortalCaptureShortcut {
       throw new Error("Change the capture binding in your Hyprland config, then save it.");
     if (!this.hasSession || this.version < 2)
       throw new Error(
-        "Open your desktop's shortcut settings and allow T3 Code's capture shortcut.",
+        `Open your desktop's shortcut settings and allow ${PRODUCT_NAME}'s capture shortcut.`,
       );
     await this.call({
       destination: this.owner,
@@ -158,7 +159,7 @@ export class PortalCaptureShortcut {
       shortcutPending: false,
       shortcutCanRetry: !this.managedByHyprland,
       shortcutMessage: this.managedByHyprland
-        ? "Couldn't connect to Hyprland shortcuts. Make sure xdg-desktop-portal-hyprland is running, then restart T3 Code."
+        ? `Couldn't connect to Hyprland shortcuts. Make sure xdg-desktop-portal-hyprland is running, then restart ${PRODUCT_NAME}.`
         : error instanceof Error
           ? error.message
           : "Could not register the capture shortcut.",
@@ -298,7 +299,7 @@ export class PortalCaptureShortcut {
             shortcutMessage:
               this.version >= 2
                 ? "Shortcut permission wasn't granted. Open shortcut permissions to allow it."
-                : "Shortcut permission wasn't granted. Allow T3 Code in your desktop's shortcut settings.",
+                : `Shortcut permission wasn't granted. Allow ${PRODUCT_NAME} in your desktop's shortcut settings.`,
           });
           return undefined;
         }
@@ -321,7 +322,7 @@ export class PortalCaptureShortcut {
         shortcutPending: false,
         shortcutMessage: shortcut
           ? "Managed by Hyprland. Add the binding to your config and save it."
-          : "Hyprland did not register the capture action. Check that xdg-desktop-portal-hyprland is running, then restart T3 Code.",
+          : `Hyprland did not register the capture action. Check that xdg-desktop-portal-hyprland is running, then restart ${PRODUCT_NAME}.`,
       });
       return;
     }

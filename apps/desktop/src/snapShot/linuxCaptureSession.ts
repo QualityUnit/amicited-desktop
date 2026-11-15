@@ -14,7 +14,7 @@ export class CaptureSetupRequiredError extends Schema.TaggedError<CaptureSetupRe
   { state: Schema.String, cause: Schema.optional(Schema.Defect()) },
 ) {
   override get message(): string {
-    return `${this.state} Open Settings → SnapShots to continue setup.`;
+    return `${this.state} Open Settings → Screen capture to continue setup.`;
   }
 }
 export const NIRI_CAPTURE_PATH = "/com/amicited/desktop/ScreenCapture";

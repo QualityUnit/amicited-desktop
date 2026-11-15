@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import * as Effect from "effect/Effect";
 import type * as Fiber from "effect/Fiber";
 
@@ -114,7 +115,7 @@ function createWindow(
     resizable: false,
     show: false,
     skipTaskbar: true,
-    title: "T3 Code Snapshot Animation",
+    title: `${PRODUCT_NAME} Screen Capture Animation`,
     transparent: true,
     webPreferences: {
       backgroundThrottling: false,

@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // Shared with the client settings form; keep schema code browser-safe.
 import {
   CustomModelSetting,
@@ -30,7 +31,7 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
         title: "Server URL",
-        description: "Leave blank to let T3 Code spawn the server when needed.",
+        description: `Leave blank to let ${PRODUCT_NAME} spawn the server when needed.`,
         providerSettingsForm: {
           placeholder: "http://127.0.0.1:4096",
           clearWhenEmpty: "omit",

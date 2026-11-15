@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 // @effect-diagnostics nodeBuiltinImport:off - Effect has no incremental digest.
 import {
   ProviderDriverKind,
@@ -292,7 +293,7 @@ export const makeCodexInstallation = Effect.fn("makeCodexInstallation")(function
       return executable;
     },
     Effect.mapError(
-      wrapFailure("resolve", "Codex is not installed in T3 Code. Install it to continue."),
+      wrapFailure("resolve", `Codex is not installed in ${PRODUCT_NAME}. Install it to continue.`),
     ),
   );
   const acquire = Effect.fn("CodexInstallation.acquire")(function* () {

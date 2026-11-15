@@ -429,6 +429,34 @@ it.layer(layerTest, { excludeTestServices: true })("WorkspaceFileSystemLive", (i
         }),
     );
 
+    it.effect("reads a legacy t3.json when the optional amicited.json is missing", () =>
+      Effect.gen(function* () {
+        const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
+        const cwd = yield* makeTempDir;
+        const read = (relativePath: string) =>
+          workspaceFileSystem.readFile({ cwd, relativePath, allowMissing: true });
+
+        expect(yield* read("amicited.json")).toMatchObject({
+          relativePath: "amicited.json",
+          exists: false,
+        });
+
+        yield* writeTextFile(cwd, "t3.json", '{ "iconPath": "legacy.svg" }');
+        const legacy = yield* read("amicited.json");
+        expect(legacy).toMatchObject({
+          relativePath: "amicited.json",
+          contents: '{ "iconPath": "legacy.svg" }',
+        });
+        expect(legacy.exists).not.toBe(false);
+
+        yield* writeTextFile(cwd, "amicited.json", '{ "iconPath": "new.svg" }');
+        expect((yield* read("amicited.json")).contents).toBe('{ "iconPath": "new.svg" }');
+        // Only the optional project-file read falls back.
+        const exact = yield* workspaceFileSystem.readFile({ cwd, relativePath: "t3.json" });
+        expect(exact.contents).toBe('{ "iconPath": "legacy.svg" }');
+      }),
+    );
+
     it.effect("drops a multibyte character split by the read limit", () =>
       Effect.gen(function* () {
         const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;

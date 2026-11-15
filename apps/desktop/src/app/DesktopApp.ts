@@ -1,4 +1,4 @@
-import { DEFAULT_SERVER_PORT } from "@amicited/identity";
+import { DEFAULT_SERVER_PORT, PRODUCT_NAME } from "@amicited/identity";
 import * as Cause from "effect/Cause";
 import * as Config from "effect/Config";
 import * as Duration from "effect/Duration";
@@ -144,7 +144,7 @@ const handleFatalStartupError = Effect.fn("desktop.startup.handleFatalStartupErr
   const wasQuitting = yield* Ref.getAndSet(state.quitting, true);
   if (!wasQuitting) {
     yield* electronDialog.showErrorBox(
-      "T3 Code failed to start",
+      `${PRODUCT_NAME} failed to start`,
       `Stage: ${stage}\n${message}${detail}`,
     );
   }

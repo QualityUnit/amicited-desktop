@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 /**
  * A one-use pairing code for linking, minted on the environment being linked to with the
  * user's own session there, so a link card can be answered without fetching a code by hand.
@@ -20,7 +21,7 @@ import { executeAuthenticatedEnvironmentHttpRequest } from "./environmentHttpAut
 import { createEnvironmentCommand } from "./runtime.ts";
 
 const MINT_TIMEOUT_MS = 8_000;
-const PEER_PAIRING_CODE_LABEL = "T3 Code link";
+const PEER_PAIRING_CODE_LABEL = `${PRODUCT_NAME} link`;
 
 /** Minting failed; the user can still paste a code from the other environment. */
 export class PeerPairingCodeError extends Schema.TaggedError<PeerPairingCodeError>()(

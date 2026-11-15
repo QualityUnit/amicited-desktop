@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import {
   CLIENT_CAPABILITIES_QUERY_PARAM,
   ORCHESTRATION_PROTOCOL_QUERY_PARAM,
@@ -23,7 +24,7 @@ export function orchestrationProtocolCompatibilityError(
       })
     : new ConnectionBlockedError({
         reason: "unsupported",
-        detail: `This client requires a newer server. Update T3 Code on ${descriptor.label} to connect.`,
+        detail: `This client requires a newer server. Update ${PRODUCT_NAME} on ${descriptor.label} to connect.`,
         ...(canSelfUpdate(descriptor) ? { serverUpdateRequired: true } : {}),
       });
 }

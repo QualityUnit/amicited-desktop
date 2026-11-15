@@ -2,6 +2,8 @@
 import * as NodeFS from "node:fs";
 import * as NodeFSP from "node:fs/promises";
 
+import { LEGACY_PROJECT_FILE_NAME, PROJECT_FILE_NAME } from "@amicited/identity/projectFile";
+
 import type {
   FilesystemEntryMetadata,
   FilesystemGetMetadataInput,
@@ -336,7 +338,7 @@ export const make = Effect.gen(function* () {
     };
   });
 
-  const readFile: WorkspaceFileSystem["Service"]["readFile"] = Effect.fn(
+  const readFileAt: WorkspaceFileSystem["Service"]["readFile"] = Effect.fn(
     "WorkspaceFileSystem.readFile",
   )(function* (input) {
     const target = yield* resolveReadTarget(input);
@@ -591,6 +593,24 @@ export const make = Effect.gen(function* () {
     }
     return { relativePath: target.relativePath };
   });
+
+  // Clients read the optional project file by its AmICited name; a checkout with only the
+  // legacy t3.json still loads it.
+  const readFile: WorkspaceFileSystem["Service"]["readFile"] = (input) =>
+    readFileAt(input).pipe(
+      Effect.filterOrElse(
+        (result) =>
+          result.exists !== false ||
+          input.allowMissing !== true ||
+          input.relativePath !== PROJECT_FILE_NAME,
+        (result) =>
+          readFileAt({ ...input, relativePath: LEGACY_PROJECT_FILE_NAME }).pipe(
+            Effect.map((legacy) =>
+              legacy.exists === false ? result : { ...legacy, relativePath: result.relativePath },
+            ),
+          ),
+      ),
+    );
 
   return WorkspaceFileSystem.of({ getMetadata, readFile, writeFile });
 });

@@ -1,7 +1,7 @@
+import { PRODUCT_NAME, USER_AGENT_PRODUCT } from "@amicited/identity";
 // Relay JSON-RPC verbatim; schema decoding would reject foreign payloads.
 // @effect-diagnostics nodeBuiltinImport:off globalJsonInEffect:off
 import * as NodeReadline from "node:readline";
-import { PRODUCT_NAME, USER_AGENT_PRODUCT } from "@amicited/identity";
 
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";

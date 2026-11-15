@@ -1,3 +1,4 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 
@@ -183,7 +184,7 @@ export const renderTerminalQrCode = (value: string, margin = 2): string => {
 
 export const formatHeadlessServeOutput = (accessInfo: HeadlessServeAccessInfo): string =>
   [
-    "T3 Code server is ready.",
+    `${PRODUCT_NAME} server is ready.`,
     `Connection string: ${accessInfo.connectionString}`,
     `Token: ${accessInfo.token}`,
     `Pairing URL: ${accessInfo.pairingUrl}`,

@@ -86,7 +86,7 @@ export function startMacModifierPairShortcutProcess(
       fail(error);
     });
     poller.once("exit", (code) => {
-      fail(new Error(`Snapshot shortcut helper exited with code ${code}`));
+      fail(new Error(`Screen capture shortcut helper exited with code ${code}`));
     });
   });
 }
