@@ -15,6 +15,7 @@ import {
 } from "./model.ts";
 import { ManagedRelayRequestFailedError } from "../relay/managedRelay.ts";
 import { RemoteEnvironmentAuthFetchError } from "../rpc/http.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const backoff = (lastFailure: ConnectionAttemptError): SupervisorConnectionState => ({
   ...AVAILABLE_CONNECTION_STATE,
@@ -85,7 +86,9 @@ describe("presentConnectionDiagnosis", () => {
         cause: new TypeError("Failed to fetch"),
       }),
     );
-    expect(diagnose(backoff(failure))?.headline).toBe("This device can't reach T3 Connect");
+    expect(diagnose(backoff(failure))?.headline).toBe(
+      `This device can't reach ${REMOTE_ACCESS_NAME}`,
+    );
     expect(results(backoff(failure))).toEqual([
       "device:ok",
       "relay:failed",
@@ -103,7 +106,7 @@ describe("presentConnectionDiagnosis", () => {
       }),
     );
     const diagnosis = diagnose(backoff(failure));
-    expect(diagnosis?.headline).toBe("T3 Connect returned an error");
+    expect(diagnosis?.headline).toBe(`${REMOTE_ACCESS_NAME} returned an error`);
     expect(diagnosis?.steps.join(" ")).not.toContain("this device");
   });
 
@@ -133,7 +136,7 @@ describe("presentConnectionDiagnosis", () => {
   it("blames this device, not the host, while its own T3 Connect sign-in loads", () => {
     const failure = new ConnectionTransientError({
       reason: "session-pending",
-      detail: "Waiting for the T3 Connect sign-in to load.",
+      detail: `Waiting for the ${REMOTE_ACCESS_NAME} sign-in to load.`,
     });
     const diagnosis = diagnose(backoff(failure));
     expect(diagnosis?.headline).not.toContain("did not answer");

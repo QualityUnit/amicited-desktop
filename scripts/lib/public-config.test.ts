@@ -51,6 +51,33 @@ describe("loadRepoEnv", () => {
       VITE_T3CODE_RELAY_URL: "https://ci.example.test",
     });
   });
+
+  it("reads AmICited names, and builds with no cloud config from the example file", () => {
+    const repoRoot = makeTemporaryDirectory();
+    NodeFS.copyFileSync(
+      NodePath.join(import.meta.dirname, "../../.env.example"),
+      NodePath.join(repoRoot, ".env"),
+    );
+    const env = loadRepoEnv({ baseEnv: {}, repoRoot });
+    expect(env.T3CODE_RELAY_URL).toBeUndefined();
+    expect(env.T3CODE_CLERK_PUBLISHABLE_KEY).toBeUndefined();
+    expect(env.T3CODE_CLERK_CLI_OAUTH_CLIENT_ID).toBeUndefined();
+
+    expect(
+      loadRepoEnv({
+        baseEnv: {
+          AMICITED_CLERK_PUBLISHABLE_KEY: "pk_amicited",
+          AMICITED_RELAY_URL: "https://relay.example.test",
+        },
+        repoRoot,
+      }),
+    ).toMatchObject({
+      T3CODE_CLERK_PUBLISHABLE_KEY: "pk_amicited",
+      VITE_CLERK_PUBLISHABLE_KEY: "pk_amicited",
+      T3CODE_RELAY_URL: "https://relay.example.test",
+      VITE_T3CODE_RELAY_URL: "https://relay.example.test",
+    });
+  });
 });
 
 function makeTemporaryDirectory() {

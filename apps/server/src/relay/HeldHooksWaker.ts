@@ -7,6 +7,7 @@ import * as CloudManagedEndpointRuntime from "../cloud/ManagedEndpointRuntime.ts
 import { readHoldWebhooksWhileOffline, readRelayConnection } from "../cloud/config.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import { makeRelayEnvironmentClient } from "./relayEnvironmentClient.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const wakeHeldHooks = Effect.fn("HeldHooksWaker.wake")(function* () {
   if (!(yield* readHoldWebhooksWhileOffline)) return false;
@@ -26,10 +27,14 @@ export const layer = Layer.effectDiscard(
       Effect.timeout("10 seconds"),
       Effect.retry({ schedule: Schedule.exponential("2 seconds"), times: 3 }),
       Effect.tap((pending) =>
-        pending ? Effect.logInfo("T3 Connect is delivering held webhook requests") : Effect.void,
+        pending
+          ? Effect.logInfo(`${REMOTE_ACCESS_NAME} is delivering held webhook requests`)
+          : Effect.void,
       ),
       Effect.catchCause((cause) =>
-        Effect.logWarning("Could not ask T3 Connect to deliver held webhook requests", { cause }),
+        Effect.logWarning(`Could not ask ${REMOTE_ACCESS_NAME} to deliver held webhook requests`, {
+          cause,
+        }),
       ),
     );
     yield* runtime.tunnelConnected.pipe(

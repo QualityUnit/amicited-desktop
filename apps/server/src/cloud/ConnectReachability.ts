@@ -23,6 +23,7 @@ import { ChildProcessSpawner } from "effect/process";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import { CLOUD_ENDPOINT_RUNTIME_CONFIG } from "./config.ts";
 import * as ManagedEndpointRuntime from "./ManagedEndpointRuntime.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 // cloudflared finds the edge through the SRV record `_v2-origintunneld._tcp.argotunnel.com`,
 // which names these two hosts on port 7844. QUIC and HTTP/2 both use that port.
@@ -80,7 +81,7 @@ export function classifyReachability(
     // A running server reads the link `t3 connect` stores only at startup.
     return fail(
       "not_linked",
-      "The server has not set up a T3 Connect tunnel.",
+      `The server has not set up a ${REMOTE_ACCESS_NAME} tunnel.`,
       "Run `t3 connect`, then restart T3 Code so it applies the link.",
     );
   }
@@ -145,20 +146,20 @@ export function classifyReachability(
     const code = cloudflareError === undefined ? "" : ` (Cloudflare error ${cloudflareError})`;
     return fail(
       "unexpected_response",
-      `The T3 Connect address answered with HTTP ${status}${code}.`,
+      `The ${REMOTE_ACCESS_NAME} address answered with HTTP ${status}${code}.`,
       restart,
     );
   }
   return endpoint.kind === "dns_failed"
     ? fail(
         "dns_failed",
-        "The T3 Connect address does not resolve from this machine.",
+        `The ${REMOTE_ACCESS_NAME} address does not resolve from this machine.`,
         "Check the DNS settings on this machine or its VPN.",
         exitNodeHint(exitNode),
       )
     : fail(
         "timeout",
-        "The T3 Connect address did not answer from this machine.",
+        `The ${REMOTE_ACCESS_NAME} address did not answer from this machine.`,
         "Check the network, VPN, or proxy on this machine.",
         exitNodeHint(exitNode),
       );
@@ -167,7 +168,7 @@ export function classifyReachability(
 /** The loud diagnosis the CLI prints and the server logs. */
 export function formatReachabilityFailure(result: Unreachable): string {
   return [
-    "✕ T3 Connect is NOT reachable from other devices",
+    `✕ ${REMOTE_ACCESS_NAME} is NOT reachable from other devices`,
     `  ${result.reason}`,
     ...(result.hint ? [`  ${result.hint}`] : []),
     `  Fix: ${result.fix}`,
@@ -406,7 +407,7 @@ const make = Effect.gen(function* () {
       );
     } else {
       yield* Effect.logInfo(
-        `T3 Connect is reachable from other devices. ${formatConnectReachable(result)}`,
+        `${REMOTE_ACCESS_NAME} is reachable from other devices. ${formatConnectReachable(result)}`,
       );
     }
     return result;

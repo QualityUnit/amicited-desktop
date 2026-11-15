@@ -138,6 +138,7 @@ import {
   SavedBackendListRow,
 } from "./SavedEnvironmentRows";
 import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
 const EMPTY_ADVERTISED_ENDPOINTS: ReadonlyArray<AdvertisedEndpoint> = [];
@@ -1326,7 +1327,7 @@ function ConnectionsSettingsContent({
                 <AlertDialogDescription>
                   {pendingDesktopServerExposureMode === "network-accessible"
                     ? "Let your other devices connect to T3 Code over the network. Pair devices to give them access. T3 Code will restart."
-                    : "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. T3 Code will restart."}
+                    : `Devices connected over your local network will disconnect. Existing tunnels, such as ${REMOTE_ACCESS_NAME} or Tailscale HTTPS, keep working. T3 Code will restart.`}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

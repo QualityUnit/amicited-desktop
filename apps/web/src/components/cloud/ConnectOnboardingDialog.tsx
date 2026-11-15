@@ -14,7 +14,6 @@ import {
   ConnectOnboardingOptOutSchema,
   EMPTY_CONNECT_ONBOARDING_OPT_OUT_STATE,
 } from "~/cloud/connectOnboarding";
-import { useManagedTunnelUsage } from "~/cloud/managedRelayState";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 import { useCloudLinkController } from "~/cloud/useCloudLinkController";
 import { useLocalStorage } from "~/hooks/useLocalStorage";
@@ -38,6 +37,7 @@ import { Dialog } from "../ui/dialog";
 import { Switch } from "../ui/switch";
 import { toastManager } from "../ui/toast";
 import { WizardSteps, WizardPopup, WizardHeader, WizardPanel, WizardFooter } from "../ui/wizard";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export function ConnectOnboardingDialog() {
   if (!hasCloudPublicConfig()) return null;
@@ -188,9 +188,9 @@ function ConfiguredConnectOnboardingDialog() {
     if (!ok) return;
     toastManager.add({
       type: "success",
-      title: "T3 Connect enabled",
+      title: `${REMOTE_ACCESS_NAME} enabled`,
       description: exposeEnvironment
-        ? "This environment is available to your other devices through T3 Connect."
+        ? `This environment is available to your other devices through ${REMOTE_ACCESS_NAME}.`
         : "This environment publishes agent activity to your mobile clients.",
     });
     setStep("devices");
@@ -214,7 +214,7 @@ function ConfiguredConnectOnboardingDialog() {
     >
       <WizardPopup>
         <WizardHeader
-          title="Set up T3 Connect"
+          title={`Set up ${REMOTE_ACCESS_NAME}`}
           description={
             <>
               Mesh your devices together. Publish this environment and connect the rest, all in one
@@ -336,7 +336,7 @@ function PublishStep({
       <div className="rounded-lg border">
         <OnboardingToggleRow
           title="Publish this environment"
-          description="Make this environment available to your other devices through T3 Connect."
+          description={`Make this environment available to your other devices through ${REMOTE_ACCESS_NAME}.`}
           checked={exposeEnvironment}
           disabled={disabled}
           onCheckedChange={onExposeEnvironmentChange}
@@ -362,11 +362,8 @@ function OnboardingTunnelLimitAlert({
 }: {
   readonly onOpenAccountPage: ((page: T3ConnectAccountPageUrl) => void) | null;
 }) {
-  const { upgrade } = useManagedTunnelUsage();
   return (
     <TunnelLimitAlert
-      upgrade={upgrade}
-      onLinkT3Chat={onOpenAccountPage ? () => onOpenAccountPage("t3-chat") : null}
       onManageTunnels={onOpenAccountPage ? () => onOpenAccountPage("t3-connect") : null}
     />
   );

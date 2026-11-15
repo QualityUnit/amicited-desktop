@@ -47,6 +47,7 @@ import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import { forkParked } from "../serverActivation.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export class AgentAwarenessRelay extends Context.Service<
   AgentAwarenessRelay,
@@ -797,11 +798,13 @@ export const make = Effect.gen(function* () {
       switch (startupState) {
         case "waiting-for-link":
           yield* Effect.logInfo(
-            "agent activity publishing standby; waiting for T3 Connect link reconciliation",
+            `agent activity publishing standby; waiting for ${REMOTE_ACCESS_NAME} link reconciliation`,
           );
           break;
         case "disabled":
-          yield* Effect.logInfo("agent activity publishing disabled by T3 Connect configuration");
+          yield* Effect.logInfo(
+            `agent activity publishing disabled by ${REMOTE_ACCESS_NAME} configuration`,
+          );
           break;
         case "enabled":
           yield* Effect.logInfo("agent activity publishing enabled", {

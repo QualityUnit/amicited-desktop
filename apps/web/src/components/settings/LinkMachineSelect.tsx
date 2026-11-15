@@ -4,6 +4,7 @@ import { useId } from "react";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { Badge } from "../ui/badge";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 /** The machine choice for linking by an address typed in. */
 export const ANOTHER_ADDRESS = "another-address";
@@ -20,7 +21,7 @@ export function LinkMachineBadge({ machine }: { readonly machine: LinkableMachin
   if (machine.connected) return null;
   return (
     <Badge variant="outline" size="sm">
-      {machine.connectOnly ? "T3 Connect" : "Not connected"}
+      {machine.connectOnly ? REMOTE_ACCESS_NAME : "Not connected"}
     </Badge>
   );
 }

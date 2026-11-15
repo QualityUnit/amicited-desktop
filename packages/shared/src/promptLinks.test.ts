@@ -93,27 +93,37 @@ describe("thread links", () => {
 });
 
 describe("link round trips", () => {
-  it("builds a link that parses back to the same prompt", () => {
+  it("builds a desktop link that parses back to the same prompt without a hosted app", () => {
     const link = buildNewThreadLink({
       prompt: "Swear count & rating?",
       repository: { owner: "pingdotgg", name: "t3code" },
       provider: "claudeAgent",
       model: "opus",
     });
+    expect(link).toMatch(/^amicited:\/\/new\?/);
     const path = promptLinkAppPath(link);
-    expect(path).toBe(new URL(link).pathname + new URL(link).search);
+    expect(path).toBe(`/new${new URL(link).search}`);
     const parsed = parseNewThreadLink(new URL(link).search);
     expect(parsed.ok && parsed.value.kind === "new" && parsed.value.prompt.text).toBe(
       "Swear count & rating?",
     );
   });
 
+  it("builds a hosted link that parses back on that hosted app", () => {
+    const origin = "https://hosted.example";
+    const link = buildNewThreadLink({ prompt: "hi", origin });
+    expect(link).toBe("https://hosted.example/new?prompt=hi");
+    expect(promptLinkAppPath(link, origin)).toBe("/new?prompt=hi");
+    expect(buildNewThreadLink({ prompt: "hi", origin: null })).toBe("amicited://new?prompt=hi");
+  });
+
   it("opens a copied thread link in the app at that thread", () => {
-    const link = hostedThreadLink({
-      environmentId: EnvironmentId.make("env-1"),
-      threadId: ThreadId.make("mcp:1"),
-    });
-    const path = promptLinkAppPath(link);
+    const origin = "https://hosted.example";
+    const link = hostedThreadLink(
+      { environmentId: EnvironmentId.make("env-1"), threadId: ThreadId.make("mcp:1") },
+      origin,
+    );
+    const path = promptLinkAppPath(link, origin);
     expect(path).toBe("/env-1/mcp%3A1");
     const deepLink = promptLinkDeepLink(path!);
     expect(deepLink).toBe("amicited://threads/env-1/mcp%3A1");
@@ -121,23 +131,27 @@ describe("link round trips", () => {
   });
 
   it("maps app scheme and hosted links to in-app paths, and nothing else", () => {
+    const origin = "https://hosted.example";
     expect(promptLinkAppPath("amicited://new?prompt=hi")).toBe("/new?prompt=hi");
     expect(promptLinkAppPath("amicited-dev://threads/env-1/thread-1")).toBe("/env-1/thread-1");
-    expect(promptLinkAppPath("https://app.t3.codes/env-1/thread-1?prompt=go")).toBe(
+    expect(promptLinkAppPath("https://hosted.example/env-1/thread-1?prompt=go", origin)).toBe(
       "/env-1/thread-1?prompt=go",
     );
-    expect(promptLinkAppPath("https://app.t3.codes/threads/env-1/thread-1")).toBe(
+    expect(promptLinkAppPath("https://hosted.example/threads/env-1/thread-1", origin)).toBe(
       "/env-1/thread-1",
     );
-    expect(promptLinkAppPath("https://app.t3.codes/threads/env-1/thread-1?prompt=go")).toBe(
-      "/env-1/thread-1?prompt=go",
-    );
+    expect(
+      promptLinkAppPath("https://hosted.example/threads/env-1/thread-1?prompt=go", origin),
+    ).toBe("/env-1/thread-1?prompt=go");
     // The web app's own thread route, reloaded, is no link.
-    expect(promptLinkAppPath("https://app.t3.codes/env-1/thread-1")).toBeNull();
-    expect(promptLinkAppPath("https://app.t3.codes/threads/env-1")).toBeNull();
-    expect(promptLinkAppPath("https://app.t3.codes/settings/general")).toBeNull();
-    expect(promptLinkAppPath("https://evil.test/new?prompt=hi")).toBeNull();
+    expect(promptLinkAppPath("https://hosted.example/env-1/thread-1", origin)).toBeNull();
+    expect(promptLinkAppPath("https://hosted.example/threads/env-1", origin)).toBeNull();
+    expect(promptLinkAppPath("https://hosted.example/settings/general", origin)).toBeNull();
+    expect(promptLinkAppPath("https://evil.test/new?prompt=hi", origin)).toBeNull();
     expect(promptLinkAppPath("amicited://app/index.html")).toBeNull();
     expect(promptLinkAppPath("t3code://new?prompt=hi")).toBeNull();
+    // Without a hosted app, no web link is a prompt link.
+    expect(promptLinkAppPath("https://app.t3.codes/new?prompt=hi")).toBeNull();
+    expect(promptLinkAppPath("https://hosted.example/new?prompt=hi")).toBeNull();
   });
 });

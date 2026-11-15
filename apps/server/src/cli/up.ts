@@ -30,6 +30,7 @@ import {
 } from "./connect.ts";
 import { resolveHostCliCommand } from "./invocation.ts";
 import * as CliService from "./service.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 type Route = "connect" | "lan";
 type Routes = Readonly<Record<Route, boolean>>;
@@ -119,7 +120,7 @@ const needsRestart = (before: Routes, after: Routes) =>
   after.lan !== before.lan || (after.connect && !before.connect);
 
 const CHOICES = {
-  connect: { title: "T3 Connect", description: "Creates a tunnel to control your PC." },
+  connect: { title: REMOTE_ACCESS_NAME, description: "Creates a tunnel to control your PC." },
   lan: { title: "Local network", description: "LAN and tailnet. Pairing code required." },
 } satisfies Record<Route, { readonly title: string; readonly description: string }>;
 
@@ -138,9 +139,9 @@ const formatSetup = (setup: Setup) => {
       ? []
       : [
           [
-            "T3 Connect",
+            REMOTE_ACCESS_NAME,
             setup.connect
-              ? "on · your T3 account"
+              ? "on · your AmICited account"
               : setup.connectRevoked
                 ? "off · link revoked. Run `t3 connect`."
                 : "off",
@@ -174,7 +175,7 @@ const formatSetup = (setup: Setup) => {
 const formatNextSteps = (routes: Routes, serviceInstalled: boolean, pairCommand: string) =>
   [
     ...(routes.connect
-      ? ["On your other device, sign in to T3 Connect with the same account."]
+      ? [`On your other device, sign in to ${REMOTE_ACCESS_NAME} with the same account.`]
       : []),
     ...(routes.lan ? [`Run \`${pairCommand}\`. Use the code on your other device.`] : []),
     ...(routes.connect || routes.lan
@@ -206,7 +207,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
   if (before.connect === null && Option.getOrElse(flags.connect, () => false)) {
     return yield* new CliError.UserError({
       cause: "connect",
-      userMessage: "T3 Connect is unavailable in this build.",
+      userMessage: `${REMOTE_ACCESS_NAME} is unavailable in this build.`,
     });
   }
 
@@ -293,7 +294,7 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
     });
     if (linked === null) return;
     yield* Console.log(
-      `✓ Signed in to T3 Connect${linked.identity ? ` as ${linked.identity}` : ""}`,
+      `✓ Signed in to ${REMOTE_ACCESS_NAME}${linked.identity ? ` as ${linked.identity}` : ""}`,
     );
   }
   // A running server unlinks live; when that fails, only a restart stops its tunnel.
@@ -381,13 +382,12 @@ const setUp = Effect.fn("cli.up")(function* (flags: {
         !interactive ||
         (yield* Prompt.run(
           Prompt.Confirm({
-            message:
-              "The running service still has T3 Connect on. Restart it? Running agent turns will stop.",
+            message: `The running service still has ${REMOTE_ACCESS_NAME} on. Restart it? Running agent turns will stop.`,
             initial: true,
           }),
         ).pipe(Effect.catchTags({ QuitError: () => Effect.succeed(false) })));
       if (!confirmed) {
-        yield* Console.log("Run `t3 service restart` to turn T3 Connect off.");
+        yield* Console.log(`Run \`t3 service restart\` to turn ${REMOTE_ACCESS_NAME} off.`);
       } else {
         if (!interactive && !stopped) {
           yield* Console.log("Restarting T3 Code. Running agent turns will stop.");
@@ -422,7 +422,7 @@ export const upCommand = Command.make("up", {
   ...projectLocationFlags,
   connect: Flag.Boolean("connect").pipe(
     Flag.withDescription(
-      "Allow access through T3 Connect with your T3 account. Turn off with --no-connect.",
+      `Allow access through ${REMOTE_ACCESS_NAME} with your AmICited account. Turn off with --no-connect.`,
     ),
     Flag.optional,
   ),
@@ -434,7 +434,7 @@ export const upCommand = Command.make("up", {
   ),
   yes: Flag.Boolean("yes").pipe(
     Flag.withDescription(
-      "Ask nothing. Keep the access settings; a new machine gets T3 Connect. A restart stops running agent turns.",
+      `Ask nothing. Keep the access settings; a new machine gets ${REMOTE_ACCESS_NAME}. A restart stops running agent turns.`,
     ),
     Flag.withDefault(false),
   ),
@@ -446,7 +446,10 @@ export const upCommand = Command.make("up", {
   ),
   Command.withExamples([
     { command: "t3 up", description: "Choose remote access." },
-    { command: "t3 up --connect", description: "Turn on T3 Connect. Keep other settings." },
+    {
+      command: "t3 up --connect",
+      description: `Turn on ${REMOTE_ACCESS_NAME}. Keep other settings.`,
+    },
     { command: "t3 up --lan", description: "Allow LAN access with pairing codes." },
     { command: "t3 up --no-lan", description: "Stop LAN access." },
     { command: "t3 up --yes", description: "Take the defaults with no questions." },
@@ -459,7 +462,9 @@ export const connectCommand = Command.make("connect", {
   ...projectLocationFlags,
   headless: headlessFlag,
 }).pipe(
-  Command.withDescription("Set up T3 Connect for this machine. Same as `t3 up --connect`."),
+  Command.withDescription(
+    `Set up ${REMOTE_ACCESS_NAME} for this machine. Same as \`t3 up --connect\`.`,
+  ),
   Command.withHandler((flags) =>
     runCloudCommand(
       flags,

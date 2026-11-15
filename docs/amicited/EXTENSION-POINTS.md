@@ -702,6 +702,34 @@ keep our version and port only upstream changes that still apply to AmICited.
   `packages/client-runtime/src/connection/diagnosis.ts`; `apps/server/src/cloud/ConnectReachability.test.ts`,
   `scripts/check-changed.ts` and `.github/scripts/ci-changes.cjs` read the file by name.
 
+## AmICited Link and hosted links
+
+T3 Connect is renamed AmICited Link (`REMOTE_ACCESS_NAME` from `@amicited/identity`), and
+it ships off. AmICited runs no hosted web app, relay or Clerk instance yet, so no build
+carries a default for them: Link stays disabled until all of its values are configured.
+Each open decision is marked `TODO(amicited-infra)` in code.
+
+- Hosted web app origin: `packages/shared/src/connectAuth.ts` (`DEFAULT_HOSTED_APP_URL` is
+  null), `apps/server/src/cloud/publicConfig.ts` (`AMICITED_HOSTED_APP_URL` only),
+  `apps/web/src/hostedPairing.ts` (`VITE_HOSTED_APP_URL` only). Without one, copied thread
+  links are in-app links, prompt links open the desktop app, outside MCP clients get in-app
+  links (`apps/server/src/auth/McpOAuth.ts`), hosted pairing links are not offered, and the
+  CLI signs in with a device code (`apps/server/src/cloud/CliTokenManager.ts`).
+  `packages/shared/src/{threadLinks,promptLinks,providerAuthReturnUrl}.ts`,
+  `packages/client-runtime/src/threadReference.ts` and the mobile `App.tsx` and
+  `ThreadFeed.tsx` follow it.
+- Hosted web router: `apps/web/vercel.ts` reads `AMICITED_HOSTED_WEB_ROUTER_HOST`,
+  `AMICITED_HOSTED_WEB_LATEST_ORIGIN` and `AMICITED_HOSTED_WEB_NIGHTLY_ORIGIN`.
+- Relay and Clerk: `.env.example` holds empty `AMICITED_*` placeholders, which
+  `scripts/lib/public-config.ts` reads before the upstream `T3CODE_*` names.
+- T3 Chat account linking is removed from the web client (`TunnelUsage.tsx`,
+  `T3ConnectAccountPages.tsx`, `T3ConnectUserProfilePage.tsx`, `managedRelayState.ts`;
+  `T3ChatUserProfilePage.tsx` and `useT3ChatLink.ts` are deleted) and off in the relay
+  unless both `T3CHAT_LINK_SECRET` and `T3CHAT_URL` are set (`infra/relay/src/worker.ts`).
+- Product copy: user-visible "T3 Connect" strings in `apps/server/src`, `apps/web/src`,
+  `packages/client-runtime/src` and `packages/contracts/src` use `REMOTE_ACCESS_NAME`.
+  Comments, identifiers, file names and test titles keep the upstream name.
+
 ## Backported from upstream
 
 These lines are identical to upstream `main`, applied early because CI needed them. The

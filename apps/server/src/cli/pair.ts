@@ -48,6 +48,7 @@ import {
 } from "../startupAccess.ts";
 import { authScopesFlag } from "./authScopes.ts";
 import { baseDirFlag, DurationFromString } from "./config.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const WELL_KNOWN_ENVIRONMENT_PATH = "/.well-known/t3/environment";
 const PAIR_PROBE_TIMEOUT = Duration.millis(2_500);
@@ -74,7 +75,7 @@ export class NoRunningServerError extends Schema.TaggedError<NoRunningServerErro
       ...(this.inLinkedWorktree
         ? ["In a linked worktree, pass --base-dir to pair with a server outside it."]
         : []),
-      "Start one with `npx t3 serve`, or connect this machine with T3 Connect: `npx t3 connect`.",
+      `Start one with \`npx t3 serve\`, or connect this machine with ${REMOTE_ACCESS_NAME}: \`npx t3 connect\`.`,
     ].join("\n");
   }
 }
@@ -526,7 +527,7 @@ export const pairCommand = Command.make("pair", {
           );
         } else if (target.state.privateNetworkOnly) {
           notes.push(
-            "This URL works only from this machine's local network. From elsewhere, re-run with --tailscale or use T3 Connect.",
+            `This URL works only from this machine's local network. From elsewhere, re-run with --tailscale or use ${REMOTE_ACCESS_NAME}.`,
           );
         }
         if (target.variant === "dev" && target.state.devUrl === undefined) {

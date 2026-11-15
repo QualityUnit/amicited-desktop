@@ -382,10 +382,13 @@ Required Vercel domains:
 - `nightly.app.t3.codes`: channel alias updated by nightly releases.
 
 The router domain uses `apps/web/vercel.ts` routes. Users opt into a channel by
-visiting `/__t3code/channel?channel=latest` or
-`/__t3code/channel?channel=nightly`; the router stores the
-`t3code_web_channel` cookie and rewrites future requests on `app.t3.codes` to
-the matching channel alias.
+visiting `/__amicited/channel?channel=latest` or
+`/__amicited/channel?channel=nightly`; the router stores the
+`amicited_web_channel` cookie and rewrites future requests on the router host to
+the matching channel alias. The router deployment reads its host and channel
+origins from `AMICITED_HOSTED_WEB_ROUTER_HOST`,
+`AMICITED_HOSTED_WEB_LATEST_ORIGIN` and `AMICITED_HOSTED_WEB_NIGHTLY_ORIGIN`;
+without them it routes no channel host.
 
 The release deploy job rewrites release package versions before upload so the
 hosted app's About panel renders the release version. Stable deploys alias the
@@ -393,7 +396,7 @@ same deployment to both the `latest` channel and the router domain so the router
 rules stay current. Nightly deploys only alias the `nightly` channel. The job
 also passes `VITE_HOSTED_APP_CHANNEL=latest|nightly`, which renders the hosted
 update track selector in the About panel. Changing the selector navigates
-through `/__t3code/channel` on the router domain so the user's channel cookie is
+through `/__amicited/channel` on the router domain so the user's channel cookie is
 updated before redirecting to the hosted app root.
 
 One-time Vercel dashboard setup:

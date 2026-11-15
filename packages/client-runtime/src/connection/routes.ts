@@ -13,6 +13,7 @@ import {
   type ConnectionRoute,
 } from "./catalog.ts";
 import { BearerConnectionTarget, type ConnectionTarget } from "./model.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export type ConnectionRouteKind =
   | "relay"
@@ -163,7 +164,7 @@ function routeAddressKey(route: ConnectionRoute): string | null {
 export function connectionRouteLabel(route: ConnectionRoute): string {
   switch (connectionRouteKind(route)) {
     case "relay":
-      return "T3 Connect";
+      return REMOTE_ACCESS_NAME;
     case "loopback":
       return "This device";
     case "lan":

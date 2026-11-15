@@ -10,6 +10,7 @@ import { isElectron } from "../../env";
 import { StandalonePage, StandalonePageHeader } from "../ui/standalone-page";
 import { resolveClerkSignInProps } from "../clerk/authRedirect";
 import { Button } from "../ui/button";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const invalidLinkMessage = {
   context: "Authorization request",
@@ -73,8 +74,8 @@ export function ConnectCliAuthorizeSurface() {
         title="Connecting your terminal"
         description={
           isSignedIn
-            ? "Redirecting to authorize T3 Connect for your CLI…"
-            : "Sign in to continue authorizing T3 Connect for your CLI."
+            ? `Redirecting to authorize ${REMOTE_ACCESS_NAME} for your CLI…`
+            : `Sign in to continue authorizing ${REMOTE_ACCESS_NAME} for your CLI.`
         }
       />
       {isLoaded && !isSignedIn ? (

@@ -1025,6 +1025,9 @@ importers:
       '@amicited/cloud-client':
         specifier: workspace:*
         version: link:../../packages/amicited-cloud
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../../packages/amicited-identity
       '@amicited/tools-core':
         specifier: workspace:*
         version: link:../../packages/amicited-tools-core
@@ -1614,6 +1617,9 @@ importers:
 
   packages/client-runtime:
     dependencies:
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../amicited-identity
       '@pierre/diffs':
         specifier: 1.6.1
         version: 1.6.1(patch_hash=322ac5f5db8b5715189c010802047f8235c3a45d8ed5ca0ba60fac266e2eba34)(@shikijs/themes@4.2.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1681,6 +1687,9 @@ importers:
       '@amicited/cloud-client':
         specifier: workspace:*
         version: link:../amicited-cloud
+      '@amicited/identity':
+        specifier: workspace:*
+        version: link:../amicited-identity
       '@amicited/tools-core':
         specifier: workspace:*
         version: link:../amicited-tools-core

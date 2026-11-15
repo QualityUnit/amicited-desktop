@@ -4,7 +4,7 @@ import type {
   ThreadPullRequestLink,
 } from "@t3tools/contracts";
 import { threadContextRecord } from "@t3tools/shared/composerContextReferences";
-import { hostedThreadLink } from "@t3tools/shared/threadLinks";
+import { threadLinkCopyText } from "@t3tools/shared/threadLinks";
 
 import { resolveThreadCurrentPullRequestLink } from "./threadPullRequests.ts";
 
@@ -28,12 +28,12 @@ export interface ThreadReferenceCopyTarget {
 export function threadChipCopyTarget(
   threadRef: ScopedThreadRef,
   title: string,
-  hostedAppUrl?: string,
+  hostedAppUrl?: string | null,
 ): ThreadReferenceCopyTarget {
   const record = threadContextRecord(threadRef, title);
   return {
     kind: "thread",
-    value: hostedThreadLink(threadRef, hostedAppUrl),
+    value: threadLinkCopyText(threadRef, hostedAppUrl),
     description: record.title,
     fragment: { version: 1, source: { environmentId: threadRef.environmentId }, records: [record] },
     clipboardTarget: "thread",
@@ -49,7 +49,7 @@ export function resolveThreadReferenceCopyTarget(input: {
   readonly openPanelPullRequestUrl?: string | null | undefined;
   readonly pullRequests?: ReadonlyArray<ThreadPullRequestLink> | undefined;
   readonly linkedPullRequestUrl?: string | null;
-  readonly hostedAppUrl?: string;
+  readonly hostedAppUrl?: string | null;
 }): ThreadReferenceCopyTarget | null {
   if (input.openPanelPullRequestUrl === null) return null;
   const pullRequestUrl =

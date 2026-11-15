@@ -11,6 +11,7 @@ import type {
   ConnectionHop,
   SupervisorConnectionState,
 } from "./model.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export type ConnectionHopResult = "ok" | "failed" | "unchecked";
 
@@ -100,19 +101,19 @@ function headline(host: string, located: Located, failure: ConnectionAttemptErro
     case "offline":
       return "This device is offline";
     case "session_pending":
-      return "This device is still loading its T3 Connect sign-in";
+      return `This device is still loading its ${REMOTE_ACCESS_NAME} sign-in`;
     case "outdated":
       return `${host} runs an older T3 Code`;
     case "clock_skew":
       return "This device's clock is off";
     case "not_linked":
-      return `${host} is not linked to your T3 Connect account`;
+      return `${host} is not linked to your AmICited account`;
     case "relay_error":
-      return "T3 Connect returned an error";
+      return `${REMOTE_ACCESS_NAME} returned an error`;
     case "tunnel_pending":
       return `${host}'s tunnel is still being set up`;
     case "tunnel_not_enabled":
-      return `T3 Connect is not turned on for ${host}`;
+      return `${REMOTE_ACCESS_NAME} is not turned on for ${host}`;
     case "released":
     case "tunnel_down":
       return `${host}'s tunnel is offline`;
@@ -137,15 +138,15 @@ function headline(host: string, located: Located, failure: ConnectionAttemptErro
       return "This device could not prepare the connection";
     case "relay":
       return failure?.reason === "authentication"
-        ? "T3 Connect did not accept this device's sign-in"
-        : "This device can't reach T3 Connect";
+        ? `${REMOTE_ACCESS_NAME} did not accept this device's sign-in`
+        : `This device can't reach ${REMOTE_ACCESS_NAME}`;
     case "tunnel":
       // The relay already reached the host when this device fails on its own.
       return failure?.reason === "network" ||
         failure?.reason === "transport" ||
         failure?.reason === "timeout"
         ? `This device can't reach ${host}'s tunnel`
-        : `T3 Connect could not reach ${host}'s tunnel`;
+        : `${REMOTE_ACCESS_NAME} could not reach ${host}'s tunnel`;
     case "server":
       return failure?.reason === "authentication" || failure?.reason === "permission"
         ? `T3 Code on ${host} did not accept this device`
@@ -169,8 +170,8 @@ function steps(host: string, located: Located, failure: ConnectionAttemptError |
       return [`Turn on automatic date and time on this device and on ${host}, then retry.`];
     case "not_linked":
       return [
-        "Check that this device is signed in to the same T3 Connect account as the host.",
-        `On ${host}, open Settings > Sharing & access and turn T3 Connect on.`,
+        "Check that this device is signed in to the same AmICited account as the host.",
+        `On ${host}, open Settings > Sharing & access and turn ${REMOTE_ACCESS_NAME} on.`,
       ];
     case "tunnel_pending":
       return ["Wait a minute. T3 Code retries on its own.", checkHost];
@@ -180,7 +181,7 @@ function steps(host: string, located: Located, failure: ConnectionAttemptError |
         "If it keeps failing, copy the diagnostics and report it.",
       ];
     case "tunnel_not_enabled":
-      return [`On ${host}, open Settings > Sharing & access and turn T3 Connect on.`];
+      return [`On ${host}, open Settings > Sharing & access and turn ${REMOTE_ACCESS_NAME} on.`];
     case "released":
     case "tunnel_down":
       return [
@@ -209,10 +210,10 @@ function steps(host: string, located: Located, failure: ConnectionAttemptError |
       ];
     case "relay":
       return failure?.reason === "authentication"
-        ? ["Sign out of T3 Connect and sign in again."]
+        ? [`Sign out of ${REMOTE_ACCESS_NAME} and sign in again.`]
         : [
             "Check this device's internet connection.",
-            "A VPN, firewall, or ad blocker on this device can block T3 Connect.",
+            `A VPN, firewall, or ad blocker on this device can block ${REMOTE_ACCESS_NAME}.`,
           ];
     case "tunnel":
       return failure?.reason === "network" ||
@@ -294,7 +295,7 @@ function hopLabel(hop: ConnectionHop, host: string): string {
     case "device":
       return "This device";
     case "relay":
-      return "T3 Connect";
+      return REMOTE_ACCESS_NAME;
     case "tunnel":
       return `${host} tunnel`;
     case "server":
@@ -346,7 +347,7 @@ export function presentConnectionDiagnosis(
       ? null
       : DateTime.formatIso(DateTime.makeUnsafe(input.state.retryAt)),
   );
-  add("Route", relayPath ? "T3 Connect" : "Direct");
+  add("Route", relayPath ? REMOTE_ACCESS_NAME : "Direct");
   add("App version", input.clientVersion);
   add("Host version", input.serverVersion);
   add("Error", failure?.detail);

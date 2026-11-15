@@ -15,6 +15,7 @@ import {
 } from "@t3tools/shared/managedPolicyFile";
 
 import { knownDriverLabels } from "./managedProviders.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 type ValueName = keyof typeof WINDOWS_POLICY_VALUES;
 type ListKey = keyof typeof WINDOWS_POLICY_LISTS;
@@ -84,7 +85,7 @@ const policies = (): ReadonlyArray<Policy> => [
   {
     id: "Clients",
     title: "Allowed clients",
-    help: "What may connect to T3 Code on this machine.\n\nWithout Remote, T3 Code only listens on this machine, does not create pairing links, signs out devices that paired earlier, and turns T3 Connect off. Check at least one client.\n\nDisabled or Not Configured: no restriction.",
+    help: `What may connect to T3 Code on this machine.\n\nWithout Remote, T3 Code only listens on this machine, does not create pairing links, signs out devices that paired earlier, and turns ${REMOTE_ACCESS_NAME} off. Check at least one client.\n\nDisabled or Not Configured: no restriction.`,
     elements: [
       {
         kind: "checkbox",
@@ -104,15 +105,15 @@ const policies = (): ReadonlyArray<Policy> => [
         kind: "checkbox",
         list: "Clients",
         name: "remote",
-        label: "Remote: phones, other computers, app.t3.codes",
+        label: "Remote: phones, other computers, the hosted web app",
         defaultChecked: false,
       },
     ],
   },
   {
     id: "Connect",
-    title: "Allow T3 Connect",
-    help: "Disabled turns T3 Connect off and unlinks this machine. Other remote access still follows Allowed clients.\n\nEnabled or Not Configured leaves T3 Connect available.",
+    title: `Allow ${REMOTE_ACCESS_NAME}`,
+    help: `Disabled turns ${REMOTE_ACCESS_NAME} off and unlinks this machine. Other remote access still follows Allowed clients.\n\nEnabled or Not Configured leaves ${REMOTE_ACCESS_NAME} available.`,
     toggle: "Connect",
   },
   {
