@@ -45,7 +45,11 @@ export const startup = Promise.resolve().then(() => globalThis.onStarted(Shared(
       publicDir: NodeURL.fileURLToPath(new URL("../public", import.meta.url)),
       logLevel: "silent",
       resolve: {
-        alias: { react: NodePath.dirname(NodeURL.fileURLToPath(import.meta.resolve("react"))) },
+        alias: {
+          react: NodePath.dirname(NodeURL.fileURLToPath(import.meta.resolve("react"))),
+          // bootError.ts names the product; the copied bootstrap resolves it from the workspace.
+          "@amicited/identity": NodeURL.fileURLToPath(import.meta.resolve("@amicited/identity")),
+        },
       },
       experimental: { bundledDev: true },
       plugins: [

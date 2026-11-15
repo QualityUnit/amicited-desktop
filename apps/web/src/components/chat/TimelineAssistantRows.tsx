@@ -1,3 +1,4 @@
+import { PRODUCT_SHORT_NAME } from "@amicited/identity";
 import { useEnvironmentProviders } from "../../state/environments";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingTurnOffer } from "../../marketingChat";
@@ -49,7 +50,7 @@ export function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind
     <>
       <div className="relative min-w-0 px-1 py-0.5">
         <MessageAuthorHeading>
-          {marketer ? (driver === "codex" ? "ChatGPT" : "Claude") : "T3 Code"}
+          {marketer ? (driver === "codex" ? "ChatGPT" : "Claude") : PRODUCT_SHORT_NAME}
         </MessageAuthorHeading>
         <div data-thread-find-text="true">
           <AssistantCitationSource

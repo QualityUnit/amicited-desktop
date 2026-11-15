@@ -1,3 +1,4 @@
+import { PRODUCT_SHORT_NAME } from "@amicited/identity";
 import { ProcessSignalActions } from "./ProcessSignalActions";
 import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
@@ -122,7 +123,7 @@ function categoryLabel(category: ResourceTelemetryProcessCategory): string {
     case "resource-monitor":
       return "Monitor";
     case "unknown-t3":
-      return "T3 process";
+      return `${PRODUCT_SHORT_NAME} process`;
   }
 }
 

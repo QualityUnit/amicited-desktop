@@ -44,7 +44,10 @@ export function parseSafeExternalUrl(rawUrl: unknown): Option.Option<string> {
 
   try {
     const url = new URL(rawUrl);
-    return SAFE_WEB_PROTOCOLS.has(url.protocol) || isRemoteEditorUrl(url)
+    // mailto: opens a draft in the mail client; the web app's bug reports go to support by email.
+    return SAFE_WEB_PROTOCOLS.has(url.protocol) ||
+      url.protocol === "mailto:" ||
+      isRemoteEditorUrl(url)
       ? Option.some(url.href)
       : Option.none();
   } catch {

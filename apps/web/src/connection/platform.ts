@@ -62,7 +62,7 @@ import {
 } from "./desktopLocal";
 import * as ConnectionStorage from "./storage";
 import { clientPresentationMetadata } from "./clientMetadata";
-import { REMOTE_ACCESS_NAME } from "@amicited/identity";
+import { PRODUCT_NAME, REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 let nextObservedRpcRequestId = 0;
 
@@ -249,7 +249,7 @@ export const provisionDesktopSshEnvironment = Effect.fn(
       }
       return new ConnectionBlockedError({
         reason: "configuration",
-        detail: `${descriptor.label} runs T3 Code ${descriptor.serverVersion}, but this desktop is ${APP_VERSION}, and that server could not accept its pairing. Restart the T3 server on ${descriptor.label} so it runs ${APP_VERSION}, then retry.`,
+        detail: `${descriptor.label} runs ${PRODUCT_NAME} ${descriptor.serverVersion}, but this desktop is ${APP_VERSION}, and that server could not accept its pairing. Restart the ${PRODUCT_NAME} server on ${descriptor.label} so it runs ${APP_VERSION}, then retry.`,
       });
     },
   });

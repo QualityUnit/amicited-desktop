@@ -1,12 +1,10 @@
+import { PRODUCT_NAME } from "@amicited/identity";
 import { useAtomValue } from "@effect/atom-react";
 import type { EnvironmentId, ProviderDriverKind } from "@t3tools/contracts";
 import { InfoIcon } from "lucide-react";
 
 import { serverEnvironment } from "../../state/server";
 import { Alert, AlertDescription } from "../ui/alert";
-
-const MULTIPLE_ACCOUNTS_FAQ_URL =
-  "https://github.com/pingdotgg/t3code/blob/main/docs/user/faq.md#can-i-add-a-bunch-of-accounts-for-one-provider";
 
 const PROVIDER_NAMES = new Map<string, string>([
   ["codex", "Codex"],
@@ -34,15 +32,9 @@ export function MultipleAccountsNote({
       <InfoIcon aria-hidden />
       <AlertDescription>
         <p>
-          We do not recommend managing multiple {providerName} accounts in T3 Code.{" "}
-          <a
-            href={MULTIPLE_ACCOUNTS_FAQ_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="underline underline-offset-2 hover:text-foreground"
-          >
-            More info
-          </a>
+          We do not recommend managing multiple {providerName} accounts in {PRODUCT_NAME}. A
+          separate work account is fine, but switching between many accounts can break{" "}
+          {providerName}&rsquo;s terms of service.
         </p>
       </AlertDescription>
     </Alert>

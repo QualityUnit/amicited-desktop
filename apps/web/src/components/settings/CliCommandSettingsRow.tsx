@@ -1,3 +1,4 @@
+import { CLI_NAME, PRODUCT_NAME } from "@amicited/identity";
 import { useState } from "react";
 
 import {
@@ -37,12 +38,12 @@ export function CliCommandSettingsRow() {
   if (!bridge || !state?.supported) return null;
   const installed = state.installedPath !== null;
   const description = state.shadowedBy
-    ? `Another t3 at ${state.shadowedBy} runs first in a new terminal. Remove it to use T3 Code's.`
+    ? `Another ${CLI_NAME} at ${state.shadowedBy} runs first in a new terminal. Remove it to use ${PRODUCT_NAME}'s.`
     : !installed
-      ? "Run T3 Code's CLI as `t3` from any terminal."
+      ? `Run ${PRODUCT_NAME}'s CLI as \`${CLI_NAME}\` from any terminal.`
       : state.onPath
         ? `Installed at ${state.installedPath}. Open a new terminal to use it.`
-        : `Installed at ${state.installedPath}, which is not on your PATH yet. Add its folder to your PATH to run \`t3\`.`;
+        : `Installed at ${state.installedPath}, which is not on your PATH yet. Add its folder to your PATH to run \`${CLI_NAME}\`.`;
 
   return (
     <SettingsRow

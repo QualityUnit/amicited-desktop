@@ -737,3 +737,22 @@ weekly merge carries the same text, so drop each entry once it arrives.
 
 - `apps/server/src/vcs/GitVcsDriverCore.ts`, `apps/server/src/storageCleanup.ts`: `isNonRepositoryGitStderr` also accepts Git 2.56's "gitfile does not point to a valid repository" wording.
 - `pnpm-workspace.yaml` and the matching `pnpm-lock.yaml` overrides entry: `unenv` is pinned to the exact `2.0.0-rc.24` that `@cloudflare/unenv-preset` peers on.
+
+## Rebrand: web copy and brand mark
+
+The web UI names the product through `@amicited/identity` (`PRODUCT_NAME`,
+`PRODUCT_SHORT_NAME`, `CLI_NAME`, `SUPPORT_EMAIL`, `DOWNLOAD_URL`) instead of hard-coding
+T3 Code. Each change below is a string swap or one import, so an upstream merge conflicts
+on the changed line only.
+
+- `apps/web/package.json`: depends on `@amicited/identity`; drops `canvas-confetti`, which only the star prompt used.
+- About 60 `apps/web/src` components, settings panels and logic files: "T3 Code" in copy becomes `PRODUCT_NAME` (`PRODUCT_SHORT_NAME` for "Sent by", the assistant author heading and the default theme label).
+- `apps/web/src/components/sidebar/SidebarChrome.tsx` and `onboarding/WelcomeWizard.tsx`: pair the AmICited mark (`T3Wordmark.tsx`, redrawn by the brand art change) with the product name instead of "Code".
+- `apps/web/src/components/chat/useComposerSend.ts`: no longer calls the GitHub star prompt. `GitHubStarPrompt.tsx` and its test are deleted.
+- `apps/web/src/components/settings/SettingsPanels.tsx` and `settingsSearch.ts`: the mobile app row (T3's store QR codes) is removed until AmICited ships mobile apps. `MobileAppSettingsRow.tsx` is deleted.
+- `apps/web/src/components/settings/MultipleAccountsNote.tsx`: drops the T3 FAQ link.
+- `apps/web/src/lib/bootError.ts`: bug reports go by email to support, reinstall points to the AmICited site, and the triage command uses the AmICited CLI name.
+- `apps/desktop/src/electron/ElectronShell.ts`: `parseSafeExternalUrl` also accepts `mailto:`, so the boot screen's support email link opens the mail client.
+- `apps/web/src/connection/clientMetadata.ts`: client labels name AmICited.
+- `apps/web/public/manifest.webmanifest`, `apps/web/index.html`: PWA name and the head comment.
+- `scripts/amicited/electron-screenshots.mjs`: selects the sidebar brand by its new label.

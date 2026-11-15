@@ -179,7 +179,7 @@ try {
         composer: '[data-testid="composer-editor"]',
         timeline: "[data-thread-find-text] p",
         brandHeader:
-          '.am-chat-brand > div:first-child, [data-slot="sidebar"] > div:has(a[aria-label="T3 Code home"])',
+          '.am-chat-brand > div:first-child, [data-slot="sidebar"] > div:has(a[aria-label="AmICited Desktop home"])',
         collapseToggle: "[data-sidebar-control] button",
         contextLine: '.am-composer-context button, button[aria-label^="Permissions:"]',
         selectionBounds:
@@ -199,7 +199,7 @@ try {
               ? elements[elements.length - 1]
               : Array.from(elements).find((element) => element.getBoundingClientRect().width > 0);
           if (name === "brandHeader" && !document.querySelector(".am-chat-brand"))
-            el = document.querySelector('a[aria-label="T3 Code home"]')?.parentElement
+            el = document.querySelector('a[aria-label="AmICited Desktop home"]')?.parentElement
               ?.parentElement?.parentElement;
           if (name === "contextLine" && !el)
             el = Array.from(document.querySelectorAll("button")).find((button) =>
@@ -345,12 +345,12 @@ try {
   await capture("expanded-after-shortcut");
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.reload();
-  await page.getByRole("link", { name: "T3 Code home", exact: true }).waitFor();
+  await page.getByRole("link", { name: "AmICited Desktop home", exact: true }).waitFor();
   const developerInset = await page.evaluate(() => {
     const toggle = document.querySelector(
       '[data-sidebar-control] button[aria-label="Toggle main sidebar"]',
     );
-    const brand = document.querySelector('a[aria-label="T3 Code home"]');
+    const brand = document.querySelector('a[aria-label="AmICited Desktop home"]');
     return {
       left: toggle.getBoundingClientRect().left,
       brandLeft: brand.getBoundingClientRect().left,
@@ -530,7 +530,7 @@ try {
   await page.getByTestId("composer-editor").waitFor();
   await page.evaluate(() => localStorage.setItem("amicited.workspace-mode", "developer"));
   await page.reload();
-  await page.getByRole("link", { name: "T3 Code home", exact: true }).waitFor();
+  await page.getByRole("link", { name: "AmICited Desktop home", exact: true }).waitFor();
   await page.evaluate(() => window.t3dev.replay("showcase"));
   await page
     .getByRole("button", { name: /Allow|Approve/, exact: false })
