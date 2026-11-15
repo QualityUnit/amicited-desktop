@@ -22,6 +22,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `knip.jsonc`: declares the scripted screenshot entry points.
 - `scripts/lib/third-party-licenses.ts`: treats the fork’s @amicited packages as first-party while retaining their dependency notices.
 - `scripts/lib/third-party-licenses.test.ts`: covers first-party exclusion in the existing notice-generation fixture.
+- `scripts/release-smoke.ts`: copies the @amicited package manifests into the lockfile-free install fixture; add each new @amicited package there.
 - `pnpm-lock.yaml`: workspace importer entries for the new packages and their consumers only.
 - `.gitignore`: excludes local journey captures.
 
@@ -191,6 +192,7 @@ all free cards and append optional cloud explainers.
 - `apps/web/index.html`: AmICited boot title and splash label, with upstream attribution retained.
 - `apps/desktop/package.json`: packaged product name is AmICited Desktop.
 - `apps/desktop/src/app/DesktopEnvironment.ts`: AmICited window name with existing stage suffixes.
+- `apps/desktop/src/app/DesktopAppIdentity.test.ts`, `apps/desktop/src/app/DesktopPreReadyPlatform.test.ts`: expect the AmICited name in the runtime name, About panel and Linux desktop entry.
 
 The marketer assistant picker saves the existing environment text-generation setting;
 local tools resolve that selection per invocation. Tool inputs survive the connection
