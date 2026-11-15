@@ -27,7 +27,8 @@ export function CliCommandSettingsRow() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
-            title: action === "install" ? "Could not install t3" : "Could not remove t3",
+            title:
+              action === "install" ? "Could not install amicited" : "Could not remove amicited",
             description: error instanceof Error ? error.message : "Something went wrong.",
           }),
         );

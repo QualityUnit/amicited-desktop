@@ -7,7 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { satisfiesSemverRange } from "@t3tools/shared/semver";
 import * as Schema from "effect/Schema";
-import packageJson from "../../package.json" with { type: "json" };
+import { UPSTREAM_T3_CODE_VERSION } from "@amicited/identity/cli";
 
 const StableVersion = TrimmedNonEmptyString.pipe(
   Schema.check(Schema.makeFilter((value) => /^\d+\.\d+\.\d+$/.test(value))),
@@ -58,7 +58,8 @@ export function resolveProviderCompatibility(
   policies: ReadonlyArray<ProviderCompatibilityPolicy> | undefined,
   driver: ProviderDriverKind,
   version: string | null,
-  t3CodeVersion = packageJson.version,
+  // Advisories name T3 Code releases; match the one this build is merged from, not ours.
+  t3CodeVersion: string = UPSTREAM_T3_CODE_VERSION,
 ): ServerProviderCompatibilityAdvisory | undefined {
   const policy = policies?.find(
     (entry) => entry.driver === driver && satisfiesSemverRange(t3CodeVersion, entry.t3CodeRange),

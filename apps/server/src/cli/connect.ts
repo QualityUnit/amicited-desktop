@@ -196,13 +196,13 @@ function formatCloudStatus(status: CloudCliStatus, options?: { readonly json?: b
         ? "pending server startup"
         : "not provisioned";
   const nextStep = !status.authenticated
-    ? `Run \`t3 connect link\` to authorize and enable ${REMOTE_ACCESS_NAME}.`
+    ? `Run \`amicited connect link\` to authorize and enable ${REMOTE_ACCESS_NAME}.`
     : status.revoked
-      ? "Run `t3 connect link` to link this environment again."
+      ? "Run `amicited connect link` to link this environment again."
       : !status.desired
-        ? `Run \`t3 connect link\` to enable ${REMOTE_ACCESS_NAME}.`
+        ? `Run \`amicited connect link\` to enable ${REMOTE_ACCESS_NAME}.`
         : !status.linked
-          ? "Start T3 to provision the environment link and launch its managed tunnel."
+          ? "Start AmICited to provision the environment link and launch its managed tunnel."
           : undefined;
 
   return [
@@ -218,7 +218,7 @@ function formatCloudStatus(status: CloudCliStatus, options?: { readonly json?: b
       : status.reachability === null
         ? [
             "",
-            "No running server answered, so reachability was not checked. Check the background service with `t3 service status`.",
+            "No running server answered, so reachability was not checked. Check the background service with `amicited service status`.",
           ]
         : status.reachability.status === "reachable"
           ? [
@@ -293,7 +293,7 @@ const withCloudCliSessionToken = <A, E, R>(
     environmentAuth.issueSession({
       scopes: [scope],
       subject: "cloud-cli",
-      label: "t3 connect cli",
+      label: "amicited connect cli",
     }),
     (issued) => run(issued.token),
     (issued) => environmentAuth.revokeSession(issued.sessionId).pipe(Effect.ignore({ log: true })),
@@ -365,7 +365,7 @@ function formatAlertBox(text: string): string {
 }
 
 /**
- * Waits for the server that `t3 connect` just started to prove other devices
+ * Waits for the server that `amicited connect` just started to prove other devices
  * can reach it, so a broken tunnel fails setup instead of looking green.
  */
 export const waitForReachability = Effect.fn("cloud.cli.wait_for_reachability")(function* () {
@@ -385,7 +385,7 @@ export const waitForReachability = Effect.fn("cloud.cli.wait_for_reachability")(
   yield* Console.error(
     formatAlertBox(
       last === null
-        ? `✕ Could not check ${REMOTE_ACCESS_NAME}\n  The T3 server on this machine did not answer.\n  Fix: run \`t3 service status\`, then \`t3 connect status\`.`
+        ? `✕ Could not check ${REMOTE_ACCESS_NAME}\n  The AmICited server on this machine did not answer.\n  Fix: run \`amicited service status\`, then \`amicited connect status\`.`
         : formatReachabilityFailure(last),
     ),
   );
@@ -472,11 +472,11 @@ const reportCloudDisconnectResults = Effect.fn("cloud.cli.report_disconnect_resu
       yield* Console.warn(
         input.clearAuthorization
           ? "Could not revoke the relay-side environment record before signing out.\nThe stored CLI authorization was still removed locally."
-          : `Could not revoke the relay-side environment record yet.\nRun \`t3 connect unlink\` again when the relay is reachable, or deregister it from the ${REMOTE_ACCESS_NAME} page of your AmICited account.`,
+          : `Could not revoke the relay-side environment record yet.\nRun \`amicited connect unlink\` again when the relay is reachable, or deregister it from the ${REMOTE_ACCESS_NAME} page of your AmICited account.`,
       );
     } else if (input.relayResult.value.status === "not-authenticated") {
       yield* Console.warn(
-        `The relay-side environment record was not revoked.\nDeregister it from the ${REMOTE_ACCESS_NAME} page of your AmICited account, or run \`t3 connect login\` and retry.`,
+        `The relay-side environment record was not revoked.\nDeregister it from the ${REMOTE_ACCESS_NAME} page of your AmICited account, or run \`amicited connect login\` and retry.`,
       );
     } else if (input.relayResult.value.status === "revoked") {
       yield* Console.log("Revoked the relay-side environment record.");
@@ -505,7 +505,7 @@ export const disconnectCloud = Effect.fn("cloud.cli.disconnect")(function* (opti
 
   if (options.clearAuthorization) {
     yield* Console.log(
-      `Signed out of ${REMOTE_ACCESS_NAME} locally.\nThe background service is managed separately with \`t3 service\`.`,
+      `Signed out of ${REMOTE_ACCESS_NAME} locally.\nThe background service is managed separately with \`amicited service\`.`,
     );
   }
   return liveResult;
@@ -572,7 +572,7 @@ function formatRelayClientReady(version: string): string {
 const linkEnvironmentForConnect = Effect.fn("cloud.cli.link_environment")(function* (options: {
   readonly headless: boolean;
   readonly publishOnly?: boolean;
-  /** For `t3 up`, where the user already chose T3 Connect: install it quietly, without asking. */
+  /** For `amicited up`, where the user already chose T3 Connect: install it quietly, without asking. */
   readonly installRelayClient?: boolean;
 }) {
   const publishOnly = options.publishOnly ?? false;
@@ -654,7 +654,7 @@ const connectLinkCommand = Command.make("link", {
           const serveCommand = yield* resolveCliCommand("serve");
           yield* Console.log(
             flags.publishOnly
-              ? `✓ Authorized${connectedAs(linked.identity)}\n\nNext\n  Start T3 to publish agent activity (no managed tunnel).`
+              ? `✓ Authorized${connectedAs(linked.identity)}\n\nNext\n  Start AmICited to publish agent activity (no managed tunnel).`
               : `✓ Authorized${connectedAs(linked.identity)}\n\nNext\n  Start the server with \`${serveCommand}\` to make this machine reachable.`,
           );
         }
@@ -767,20 +767,20 @@ const connectPublishCommand = Command.make("publish", {
 
         if (!(yield* tokens.hasCredential)) {
           yield* Console.log(
-            "Run `t3 connect login` first so this environment can be authorized to publish.",
+            "Run `amicited connect login` first so this environment can be authorized to publish.",
           );
           return;
         }
         // A desired managed link already covers publishing and must not be downgraded.
         if (yield* CliState.readCliDesiredCloudLink) {
           yield* Console.log(
-            `A ${REMOTE_ACCESS_NAME} link is already pending. Start T3 to finish provisioning it; publishing starts once it links.`,
+            `A ${REMOTE_ACCESS_NAME} link is already pending. Start AmICited to finish provisioning it; publishing starts once it links.`,
           );
           return;
         }
         yield* CliState.setCliDesiredCloudLink(true, "publish_only");
         yield* Console.log(
-          "Restart T3 to finish authorizing this environment to publish (no managed tunnel is created).",
+          "Restart AmICited to finish authorizing this environment to publish (no managed tunnel is created).",
         );
       }),
     ),
@@ -807,7 +807,7 @@ const connectLogoutCommand = Command.make("logout", {
   ),
 );
 
-// `t3 connect` itself is `t3 up --connect`, in up.ts.
+// `amicited connect` itself is `amicited up --connect`, in up.ts.
 export const connectSubcommands = [
   connectLoginCommand,
   connectLinkCommand,

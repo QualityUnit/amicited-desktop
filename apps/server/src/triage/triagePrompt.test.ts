@@ -28,17 +28,31 @@ it("launch prompt stays a single argv-safe line naming the prompt file", () => {
   assert.isBelow(launch.length, 1_000);
 });
 
+it("takes instructions only from the bundled playbook and reports to AmICited support", () => {
+  assert.notMatch(
+    TRIAGE_PLAYBOOK,
+    /pingdotgg|t3\.codes|T3 Code|newer playbook|raw\.githubusercontent/u,
+  );
+  assert.include(
+    TRIAGE_PLAYBOOK,
+    "https://github.com/QualityUnit/amicited-desktop <source-cache-dir>",
+  );
+  assert.include(TRIAGE_PLAYBOOK, "mailto:support@flowhunt.io");
+  assert.notInclude(TRIAGE_PLAYBOOK, "gh issue create");
+});
+
 it("context file labels the CLI version as the CLI's, not the user's build", () => {
   const context = buildTriageContext({
     ...contextInput,
-    entry: { kind: "cli", cliVersion: "0.0.42", launchedAs: "npx t3 triage" },
+    entry: { kind: "cli", cliVersion: "0.0.42", launchedAs: "npx amicited triage" },
     server: "running (pid 42, http://127.0.0.1:3773, version 0.0.43-nightly.20260923.2173)",
   });
+  assert.include(context, "- Repo: https://github.com/QualityUnit/amicited-desktop\n");
   assert.notInclude(context, "Installed version");
   assert.notInclude(context, "Release tag");
   assert.include(context, "- Triage CLI version: 0.0.42 (");
   assert.include(context, "version 0.0.43-nightly.20260923.2173");
-  assert.notInclude(context, "runs inside T3 Code");
+  assert.notInclude(context, "runs inside AmICited");
 });
 
 it("in-app context warns the agent off its own server and points at the clone in progress", () => {
@@ -56,7 +70,7 @@ it("in-app context warns the agent off its own server and points at the clone in
   });
   assert.notInclude(context, "Triage CLI version");
   assert.include(context, "- Started from: T3 Code Desktop version 0.1.1 on macos (");
-  assert.include(context, "## This session runs inside T3 Code");
+  assert.include(context, "## This session runs inside AmICited");
   assert.include(context, "/home/u/.t3/source/abc123  (v0.1.1, commit abc123)");
   assert.include(context, "Wait for it instead of\ncloning again.");
 });

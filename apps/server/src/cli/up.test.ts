@@ -182,7 +182,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
     },
     {
       label: "the local network opens",
-      prints: "Run `t3 pair --base-dir <baseDir>`.",
+      prints: "Run `amicited pair --base-dir <baseDir>`.",
       installed: true,
       env: "AMICITED_LAN=false\n",
       args: ["--lan"],
@@ -221,7 +221,7 @@ it.layer(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer))
     {
       label: "a failed update keeps service.env matching the old service",
       // The old service still runs, so no foreground server is offered.
-      prints: "Fix that, then run `t3 up` again.",
+      prints: "Fix that, then run `amicited up` again.",
       installed: true,
       status: { current: false },
       installFails: true,

@@ -3,12 +3,15 @@ import {
   TrimmedNonEmptyString,
   type ProviderDriverKind,
 } from "@t3tools/contracts";
+import { MODEL_MANIFEST_URL_ENV_VAR } from "@amicited/identity/cli";
 import * as Clock from "effect/Clock";
+import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
@@ -22,8 +25,11 @@ import bundledManifestJson from "./model-manifest.json" with { type: "json" };
 import { ProviderCompatibilityPolicy } from "./providerCompatibility.ts";
 import * as ModelCatalog from "@t3tools/provider-core/server/ModelCatalog";
 
-const MODEL_MANIFEST_URL =
-  "https://raw.githubusercontent.com/pingdotgg/t3code/main/apps/server/src/provider/model-manifest.json";
+/** Unset by default, so the server uses only the manifest bundled with this build. */
+const ModelManifestUrlConfig = Config.String(MODEL_MANIFEST_URL_ENV_VAR).pipe(
+  Config.map((value) => value.trim()),
+  Config.option,
+);
 
 const MANIFEST_TTL_MS = 60 * 60 * 1000;
 
@@ -195,6 +201,9 @@ export const make = Effect.gen(function* () {
   const settingsService = yield* ServerSettings.ServerSettingsService;
   const httpClient = yield* HttpClient.HttpClient;
   const serviceScope = yield* Effect.scope;
+  const manifestUrl = Option.getOrUndefined(yield* ModelManifestUrlConfig) || undefined;
+  // Without a URL, a cache written while one was set must not stay in use either.
+  if (manifestUrl === undefined) return ModelManifest.of(BundledOnlyModelManifest);
 
   const cachePath = path.join(config.stateDir, "model-manifest.json");
   let manifest = BUNDLED_MODEL_MANIFEST;
@@ -233,7 +242,7 @@ export const make = Effect.gen(function* () {
     if (settings !== null && !settings.enableProviderUpdateChecks) return manifest;
 
     lastAttemptMs = now;
-    const fetched = yield* httpClient.get(MODEL_MANIFEST_URL).pipe(
+    const fetched = yield* httpClient.get(manifestUrl).pipe(
       Effect.flatMap(HttpClientResponse.filterStatusOk),
       Effect.flatMap((response) => response.json),
       Effect.flatMap((json) => decodeManifest(json)),

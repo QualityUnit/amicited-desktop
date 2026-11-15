@@ -15,6 +15,8 @@ import { injectLinuxArm64Sea } from "../../../scripts/lib/linux-arm64-sea.ts";
 import rootPackageJson from "../../../package.json" with { type: "json" };
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { CLI_NAME } from "@amicited/identity";
+import { NPM_PACKAGE_NAME } from "@amicited/identity/cli";
 import {
   ServerCliBuildAssetMissingError,
   ServerCliCommandExitError,
@@ -151,13 +153,13 @@ const buildExeCmd = Command.make(
       if (linuxArm64) {
         yield* injectLinuxArm64Sea({
           bundlePath,
-          outputPath: path.join(serverDir, "dist-exe/t3"),
+          outputPath: path.join(serverDir, "dist-exe", CLI_NAME),
           nodeVersion: rootPackageJson.engines.node,
           verbose: config.verbose,
         });
       }
       yield* Effect.log(
-        "[cli] Built dist-exe/t3 (expects client/, resource-monitor/, and the runtime-external node_modules beside it; scripts/build-cli-archive.ts assembles that tree)",
+        `[cli] Built dist-exe/${CLI_NAME} (expects client/, resource-monitor/, and the runtime-external node_modules beside it; scripts/build-cli-archive.ts assembles that tree)`,
       );
     }),
 ).pipe(
@@ -184,7 +186,7 @@ const publishCmd = Command.make(
       const path = yield* Path.Path;
       const fs = yield* FileSystem.FileSystem;
       const packagesDir = path.resolve(config.packagesDir);
-      const launcherTarball = path.join(packagesDir, "t3.tgz");
+      const launcherTarball = path.join(packagesDir, `${NPM_PACKAGE_NAME}.tgz`);
       if (!(yield* fs.exists(launcherTarball))) {
         return yield* new ServerCliBuildAssetMissingError({ assetPath: launcherTarball });
       }
@@ -193,7 +195,7 @@ const publishCmd = Command.make(
       if (config.provenance) args.push("--provenance");
       if (config.dryRun) args.push("--dry-run");
       const spawnCommand = yield* resolveSpawnCommand("npm", [...args, launcherTarball]);
-      yield* Effect.log(`[cli] npm ${args.join(" ")} t3.tgz`);
+      yield* Effect.log(`[cli] npm ${args.join(" ")} ${NPM_PACKAGE_NAME}.tgz`);
       yield* runCommand(
         ChildProcess.make(spawnCommand.command, spawnCommand.args, {
           cwd: packagesDir,
@@ -203,10 +205,10 @@ const publishCmd = Command.make(
         }),
       );
     }),
-).pipe(Command.withDescription("Publish the t3 launcher to npm."));
+).pipe(Command.withDescription(`Publish the ${NPM_PACKAGE_NAME} launcher to npm.`));
 
 const cli = Command.make("cli").pipe(
-  Command.withDescription("T3 server build & publish CLI."),
+  Command.withDescription("AmICited server build & publish CLI."),
   Command.withSubcommands([buildCmd, buildExeCmd, publishCmd]),
 );
 
