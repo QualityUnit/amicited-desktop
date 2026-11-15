@@ -136,6 +136,10 @@
     margin: auto;
     font-size: 14px;
   }
+  .am-wide-page {
+    padding: 24px 32px 48px;
+    font-size: 14px;
+  }
   .am-secondary-page > h1,
   .am-page > h1 {
     font-size: 20px;

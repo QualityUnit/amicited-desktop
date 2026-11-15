@@ -53,7 +53,9 @@ export function MarketingShell({
                 </span>
               )}
             </MarketingHeader>
-            <div className="am-secondary-page">{children}</div>
+            <div className={path.startsWith("/issues") ? "am-wide-page" : "am-secondary-page"}>
+              {children}
+            </div>
           </>
         ) : (
           children

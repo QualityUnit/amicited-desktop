@@ -17,7 +17,22 @@ import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
-import { ChevronDown, ChevronRight, Clock, ListChecks } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  CircleCheck,
+  Clock,
+  Ellipsis,
+  Globe,
+  Kanban,
+  List,
+  ListChecks,
+  Loader,
+  Plug,
+  X,
+} from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import ChatMarkdown from "./components/ChatMarkdown";
@@ -33,18 +48,29 @@ import {
   DialogTitle,
 } from "./components/ui/dialog";
 import { Input } from "./components/ui/input";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./components/ui/menu";
+import {
+  Menu,
+  MenuItem,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuTrigger,
+} from "./components/ui/menu";
 import { SidebarMenuButton } from "./components/ui/sidebar";
 import { Switch } from "./components/ui/switch";
 import { Textarea } from "./components/ui/textarea";
 import { toastManager } from "./components/ui/toast";
+import { Toggle, ToggleGroup } from "./components/ui/toggle-group";
 import { connectionAtomRuntime } from "./connection/runtime";
 import { isElectron } from "./env";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
+import { cn } from "./lib/utils";
 import {
   DomainConnection,
   NewDomainDialog,
   useDomainConnection,
+  useDomainLinks,
   useDomains,
 } from "./marketingDomains";
 import { usePrimaryEnvironmentId } from "./state/environments";
@@ -148,96 +174,209 @@ const stageLabel: Record<IssueStage, string> = {
 
 const effortLabel = { small: "about 10 min", medium: "about 30 min", large: "an hour or more" };
 
+const priorityLabel = { high: "High", medium: "Medium", low: "Low" };
+
+const barHeights = ["h-1", "h-1.5", "h-2.5"];
+
+function PriorityBars({ priority }: { priority: Issue["priority"] }) {
+  const lit = priority === "high" ? 3 : priority === "medium" ? 2 : 1;
+  const tone =
+    priority === "high"
+      ? "bg-destructive-foreground"
+      : priority === "medium"
+        ? "bg-warning-foreground"
+        : "bg-muted-foreground";
+  return (
+    <span aria-hidden="true" className="inline-flex h-2.5 shrink-0 items-end gap-0.5">
+      {barHeights.map((height, index) => (
+        <span
+          key={height}
+          className={cn("w-0.75 rounded-xs", height, index < lit ? tone : "bg-foreground/15")}
+        />
+      ))}
+    </span>
+  );
+}
+
+function StageIcon({ stage }: { stage: IssueStage }) {
+  if (stage === "review")
+    return <CircleCheck className="size-4 shrink-0 text-success-foreground" aria-hidden="true" />;
+  if (stage === "working")
+    return <Loader className="size-4 shrink-0 text-info-foreground" aria-hidden="true" />;
+  if (stage === "done")
+    return <Check className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
+  if (stage === "dismissed")
+    return <X className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
+  return <Circle className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />;
+}
+
+function issueProgress(issue: Issue, stage: IssueStage): string | null {
+  if (stage === "working") return "agent working";
+  if (stage === "review") return "agent finished";
+  if (stage === "done") return issue.resolution === "audit" ? "verified by the audit" : "done";
+  if (stage === "dismissed") return "dismissed";
+  return issue.effort ? effortLabel[issue.effort] : null;
+}
+
+function IssueMeta({
+  issue,
+  details,
+}: {
+  issue: Issue;
+  details: ReadonlyArray<string | null | undefined>;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {issue.kind === "connect" ? (
+        <Plug className="size-3 shrink-0" aria-hidden="true" />
+      ) : (
+        <PriorityBars priority={issue.priority} />
+      )}
+      <span className="truncate">
+        <span className="text-foreground/85">
+          {issue.kind === "connect" ? "Connection" : priorityLabel[issue.priority]}
+        </span>
+        {details
+          .filter(Boolean)
+          .map((detail) => ` · ${detail}`)
+          .join("")}
+      </span>
+    </span>
+  );
+}
+
+function primaryLabel(issue: Issue, stage: IssueStage, long: boolean): string | null {
+  if (stage === "todo") return issue.kind === "connect" ? "Connect" : long ? "Start fix" : "Start";
+  if (stage === "working") return "Open thread";
+  if (stage === "review") return long ? "Review changes" : "Review";
+  return null;
+}
+
+type StagedIssue = { issue: Issue; stage: IssueStage };
+
+/** `embedded` sits under its own row, which already shows the title and the main action. */
+function IssueDetail({
+  issue,
+  stage,
+  hostname,
+  embedded,
+  actions,
+}: StagedIssue & {
+  hostname?: string | undefined;
+  embedded?: boolean;
+  actions: ReturnType<typeof useIssueActions>;
+}) {
+  const day = (value: string) =>
+    new Date(value).toLocaleDateString(undefined, { dateStyle: "medium" });
+  const primary = primaryLabel(issue, stage, true);
+  return (
+    <div className="flex min-w-0 flex-col gap-4">
+      {embedded ? null : (
+        <header className="flex flex-col gap-2.5">
+          <p className="text-xs text-muted-foreground">
+            {[
+              issue.report,
+              hostname,
+              `First seen ${day(issue.firstSeenAt)}`,
+              `Last seen ${day(issue.lastSeenAt)}`,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">{issue.title}</h2>
+          <div className="flex flex-wrap gap-1.5">
+            {priorityBadge(issue)}
+            {issue.effort ? <Badge variant="secondary">{effortLabel[issue.effort]}</Badge> : null}
+            <Badge variant="outline">{stageLabel[stage]}</Badge>
+          </div>
+        </header>
+      )}
+      <div className="text-sm">
+        <ChatMarkdown text={issue.body} cwd={undefined} />
+      </div>
+      {issue.status === "open" ? (
+        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+          {!embedded && primary ? (
+            <Button onClick={() => void actions.start(issue)}>{primary}</Button>
+          ) : null}
+          <Button variant="outline" onClick={() => void actions.setStatus(issue, "done")}>
+            Mark as done
+          </Button>
+          <span className="flex-1" />
+          <Button variant="ghost-muted" onClick={() => void actions.setStatus(issue, "dismissed")}>
+            Dismiss
+          </Button>
+        </div>
+      ) : embedded ? null : (
+        <div className="flex border-t pt-4">
+          <Button variant="outline" onClick={() => void actions.setStatus(issue, "open")}>
+            {issue.status === "done" ? "Reopen" : "Restore"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IssueRow({
   issue,
   stage,
-  index,
+  rank,
   hostname,
+  selected,
+  split,
+  onSelect,
   actions,
-}: {
-  issue: Issue;
-  stage: IssueStage;
-  index?: number | undefined;
+}: StagedIssue & {
+  rank?: number | undefined;
   hostname?: string | undefined;
+  selected: boolean;
+  /** In the split layout the detail pane carries the actions, so the row stays compact. */
+  split: boolean;
+  onSelect: () => void;
   actions: ReturnType<typeof useIssueActions>;
 }) {
-  const [open, setOpen] = useState(false);
-  const meta = [
-    issue.report,
-    hostname,
-    stage === "working"
-      ? "agent working in its thread"
-      : stage === "review"
-        ? "agent finished, check the changes"
-        : issue.resolution === "audit"
-          ? "verified by the daily audit"
-          : issue.effort
-            ? effortLabel[issue.effort]
-            : null,
-  ].filter(Boolean);
-  const primary =
-    stage === "todo" ? (
-      <Button size="sm" onClick={() => void actions.start(issue)}>
-        {issue.kind === "connect" ? "Connect" : "Start"}
-      </Button>
-    ) : stage === "working" || stage === "review" ? (
-      <Button size="sm" variant="outline" onClick={() => void actions.start(issue)}>
-        {stage === "review" ? "Review" : "Open thread"}
-      </Button>
-    ) : null;
+  const primary = primaryLabel(issue, stage, false);
   return (
-    <li className="border-b last:border-b-0">
+    <li className={cn("border-b last:border-b-0", split && selected && "bg-accent")}>
       <div className="flex items-center gap-3 px-3 py-2.5">
-        {index !== undefined ? (
-          <span className="w-5 text-right text-xs text-muted-foreground tabular-nums">{index}</span>
-        ) : null}
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-start gap-2 text-left"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
+          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+          aria-expanded={split ? undefined : selected}
+          aria-current={split && selected ? "true" : undefined}
+          onClick={onSelect}
         >
-          {open ? (
-            <ChevronDown className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-          )}
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">{issue.title}</span>
-            <span className="block truncate text-xs text-muted-foreground">{meta.join(" · ")}</span>
+          <span className="flex size-5 shrink-0 items-center justify-center text-xs text-muted-foreground tabular-nums">
+            {rank ?? <StageIcon stage={stage} />}
+          </span>
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className={cn("text-sm font-medium", split ? "line-clamp-2" : "truncate")}>
+              {issue.title}
+            </span>
+            <IssueMeta
+              issue={issue}
+              details={[issue.report, hostname, issueProgress(issue, stage)]}
+            />
           </span>
         </button>
-        {stage === "todo" ? (
-          priorityBadge(issue)
+        {split ? null : primary ? (
+          <Button
+            size="sm"
+            variant={stage === "review" ? "default" : "outline"}
+            onClick={() => void actions.start(issue)}
+          >
+            {primary}
+          </Button>
         ) : (
-          <Badge variant="outline">{stageLabel[stage]}</Badge>
+          <Button size="sm" variant="ghost" onClick={() => void actions.setStatus(issue, "open")}>
+            {issue.status === "done" ? "Reopen" : "Restore"}
+          </Button>
         )}
-        {primary}
-        <Menu>
-          <MenuTrigger render={<Button size="icon-xs" variant="ghost" aria-label="More actions" />}>
-            ⋯
-          </MenuTrigger>
-          <MenuPopup align="end">
-            {issue.status === "open" ? (
-              <>
-                <MenuItem onClick={() => void actions.setStatus(issue, "done")}>
-                  Mark as done
-                </MenuItem>
-                <MenuItem onClick={() => void actions.setStatus(issue, "dismissed")}>
-                  Dismiss
-                </MenuItem>
-              </>
-            ) : (
-              <MenuItem onClick={() => void actions.setStatus(issue, "open")}>
-                {issue.status === "done" ? "Reopen" : "Restore"}
-              </MenuItem>
-            )}
-          </MenuPopup>
-        </Menu>
       </div>
-      {open ? (
-        <div className="px-11 pb-3 text-sm">
-          <ChatMarkdown text={issue.body} cwd={undefined} />
+      {!split && selected ? (
+        <div className="pr-3 pb-3 pl-11">
+          <IssueDetail issue={issue} stage={stage} embedded actions={actions} />
         </div>
       ) : null}
     </li>
@@ -250,8 +389,7 @@ function auditRunning(audit: IssueAudit, threads: ReadonlyMap<string, Environmen
   return audit.lastRunStatus === "running" || (thread !== undefined && isThreadWorking(thread));
 }
 
-function auditSummary(audit: IssueAudit, running: boolean): string {
-  if (running) return "Audit running now";
+function auditSummary(audit: IssueAudit): string {
   const when = audit.lastRunAt
     ? `last ran ${new Date(audit.lastRunAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
     : "has not run yet";
@@ -410,52 +548,86 @@ function DomainAuditSetup({
   );
 }
 
-function AuditStatus({
+function AuditBar({
   environmentId,
   audit,
   hostname,
+  showHost,
   running,
 }: {
   environmentId: EnvironmentId;
   audit: IssueAudit;
   hostname: string;
+  showHost: boolean;
   running: boolean;
 }) {
   const navigate = useNavigate();
   const run = useAtomCommand(runAuditCommand);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const threadId = audit.threadId;
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <Clock className="size-3.5" />
-      <span>
-        {hostname} · {auditSummary(audit, running)}
-        {audit.lastRunStatus === "failed" && audit.lastRunError ? ` · ${audit.lastRunError}` : ""}
-      </span>
-      {audit.threadId ? (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-muted py-1.5 pr-1.5 pl-3 text-sm">
+      {running ? (
+        <span
+          aria-hidden="true"
+          className="size-2 shrink-0 rounded-full bg-info ring-3 ring-info/25"
+        />
+      ) : (
+        <Clock className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+      )}
+      <p role={running ? "status" : undefined} className="min-w-0 flex-1">
+        {showHost ? <span className="font-medium">{hostname} · </span> : null}
+        {running ? (
+          <>
+            <span className="font-medium">Audit running.</span>{" "}
+            <span className="text-muted-foreground">Issues appear here as they are found.</span>
+          </>
+        ) : (
+          <span className="text-muted-foreground">
+            {auditSummary(audit)}
+            {audit.lastRunStatus === "failed" && audit.lastRunError
+              ? ` · ${audit.lastRunError}`
+              : ""}
+          </span>
+        )}
+      </p>
+      {running ? (
+        threadId ? (
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={() => void navigate(openThreadRoute(environmentId, threadId))}
+          >
+            Watch the audit
+          </Button>
+        ) : null
+      ) : (
         <Button
           size="xs"
           variant="ghost"
-          onClick={() => void navigate(openThreadRoute(environmentId, audit.threadId!))}
+          onClick={() =>
+            void run({ environmentId, input: { projectId: audit.projectId } }).then((result) => {
+              if (result._tag !== "Success")
+                toastManager.add({ type: "error", title: "Could not start the audit." });
+            })
+          }
         >
-          {running ? "Watch the audit" : "Audit thread"}
+          Run audit now
         </Button>
-      ) : null}
-      <Button
-        size="xs"
-        variant="ghost"
-        disabled={running}
-        onClick={() =>
-          void run({ environmentId, input: { projectId: audit.projectId } }).then((result) => {
-            if (result._tag !== "Success")
-              toastManager.add({ type: "error", title: "Could not start the audit." });
-          })
-        }
-      >
-        Run audit now
-      </Button>
-      <Button size="xs" variant="ghost" onClick={() => setSettingsOpen(true)}>
-        Settings
-      </Button>
+      )}
+      <Menu>
+        <MenuTrigger render={<Button size="icon-xs" variant="ghost" aria-label="Audit options" />}>
+          <Ellipsis />
+        </MenuTrigger>
+        <MenuPopup align="end">
+          {threadId && !running ? (
+            <MenuItem onClick={() => void navigate(openThreadRoute(environmentId, threadId))}>
+              Audit thread
+            </MenuItem>
+          ) : null}
+          <MenuItem onClick={() => setSettingsOpen(true)}>Settings</MenuItem>
+        </MenuPopup>
+      </Menu>
       {settingsOpen ? (
         <AuditSettingsDialog
           audit={audit}
@@ -469,21 +641,36 @@ function AuditStatus({
   );
 }
 
-const boardColumns: ReadonlyArray<IssueStage> = ["todo", "working", "review", "done"];
+const listStages = ["review", "working", "todo"] as const;
+const boardColumns = ["todo", "working", "review", "done"] as const;
+const emptyLane: Record<(typeof boardColumns)[number], string> = {
+  todo: "Nothing to do. The next audit checks again.",
+  working: "Issues you start move here while an agent works on them.",
+  review: "Finished work waits here until you check it.",
+  done: "Fixed issues land here.",
+};
+const doneLanePreview = 4;
 
 export function IssuesPage() {
   const environmentId = usePrimaryEnvironmentId();
   const domains = useDomains(environmentId);
   const snapshot = useIssues(environmentId);
   const actions = useIssueActions(environmentId);
+  const links = useDomainLinks(
+    environmentId,
+    domains.rows.map((domain) => domain.projectId),
+  );
+  const wide = useMediaQuery("xl");
   const [domainFilter, setDomainFilter] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "board">("list");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [closedOpen, setClosedOpen] = useState(false);
+  const [doneOpen, setDoneOpen] = useState(false);
   const [newDomainOpen, setNewDomainOpen] = useState(false);
   if (!environmentId) return <p role="status">Connecting…</p>;
   if (domains.loaded && domains.rows.length === 0)
     return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-2 p-6">
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-2">
         <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
         <h1 className="text-xl font-semibold">Issues</h1>
         <p className="text-sm text-muted-foreground">
@@ -500,166 +687,224 @@ export function IssuesPage() {
   );
   const hostnames = new Map(domains.rows.map((row) => [row.projectId, row.hostname]));
   const auditFor = new Map(snapshot.audits.map((audit) => [audit.projectId, audit]));
-  const issues = snapshot.issues
-    .filter((issue) => shown.some((row) => row.projectId === issue.projectId))
-    .toSorted(compareIssues);
-  const staged = issues.map((issue) => ({
-    issue,
-    stage: issueStage(issue, issue.threadId ? actions.threads.get(issue.threadId) : undefined),
-  }));
-  const active = staged.filter(({ stage }) => stage !== "done" && stage !== "dismissed");
+  // Issues come from AmICited reports, so a domain without a connection shows only the way in.
+  const linked = shown.filter((domain) => links.get(domain.projectId) === "linked");
+  const staged: ReadonlyArray<StagedIssue> = snapshot.issues
+    .filter((issue) => linked.some((domain) => domain.projectId === issue.projectId))
+    .toSorted(compareIssues)
+    .map((issue) => ({
+      issue,
+      stage: issueStage(issue, issue.threadId ? actions.threads.get(issue.threadId) : undefined),
+    }));
+  const groups = listStages
+    .map((stage) => ({ stage, rows: staged.filter((row) => row.stage === stage) }))
+    .filter((group) => group.rows.length > 0);
   const closed = staged.filter(({ stage }) => stage === "done" || stage === "dismissed");
-  const needsSetup = shown.filter((row) => !auditFor.get(row.projectId)?.enabled);
-  const audited = shown.flatMap((row) => {
+  const needsSetup = shown.filter((domain) => {
+    const link = links.get(domain.projectId);
+    return link === "locked" || (link === "linked" && !auditFor.get(domain.projectId)?.enabled);
+  });
+  const audited = linked.flatMap((row) => {
     const audit = auditFor.get(row.projectId);
     return audit
       ? [{ audit, hostname: row.hostname, running: auditRunning(audit, actions.threads) }]
       : [];
   });
   const showHost = domainFilter === null && domains.rows.length > 1;
+  const hostOf = (issue: Issue) => (showHost ? hostnames.get(issue.projectId) : undefined);
   const anyRunning = audited.some(({ running }) => running);
-  return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Issues</h1>
+  // A wide window always shows one issue in full, so the page never opens onto empty space.
+  const picked =
+    staged.find(({ issue }) => issue.id === selectedId) ?? (wide ? groups[0]?.rows[0] : undefined);
+  const detail = view === "list" && wide ? picked : undefined;
+  const split = detail !== undefined;
+  const row = ({ issue, stage }: StagedIssue, rank?: number) => (
+    <IssueRow
+      key={issue.id}
+      issue={issue}
+      stage={stage}
+      rank={rank}
+      hostname={hostOf(issue)}
+      selected={picked?.issue.id === issue.id}
+      split={split}
+      onSelect={() => setSelectedId(!split && selectedId === issue.id ? null : issue.id)}
+      actions={actions}
+    />
+  );
+  const list = (
+    <div className="flex min-w-0 flex-col gap-4">
+      {groups.map(({ stage, rows }) => (
+        <section key={stage} aria-label={stageLabel[stage]} className="flex flex-col gap-1.5">
+          <h2 className="px-0.5 text-xs font-semibold text-muted-foreground">
+            {stageLabel[stage]} <span className="font-normal">{rows.length}</span>
+          </h2>
+          <ol className="overflow-hidden rounded-lg border bg-card">
+            {rows.map((entry, index) => row(entry, stage === "todo" ? index + 1 : undefined))}
+          </ol>
+        </section>
+      ))}
+      {groups.length === 0 && audited.length > 0 && !anyRunning ? (
         <p className="text-sm text-muted-foreground">
-          What to fix on your websites, most important first. Found by the daily audit across all
-          AmICited reports.
+          No open issues. The next audit checks again.
         </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {domains.rows.length > 1 ? (
-          <div role="group" aria-label="Domain" className="flex flex-wrap gap-1">
-            <Button
-              size="xs"
-              variant={domainFilter === null ? "secondary" : "ghost"}
-              onClick={() => setDomainFilter(null)}
+      ) : null}
+      {closed.length > 0 ? (
+        <div>
+          <Button size="xs" variant="ghost-muted" onClick={() => setClosedOpen(!closedOpen)}>
+            {closedOpen ? <ChevronDown /> : <ChevronRight />}
+            Done {closed.filter(({ stage }) => stage === "done").length} · Dismissed{" "}
+            {closed.filter(({ stage }) => stage === "dismissed").length}
+          </Button>
+          {closedOpen ? (
+            <ul
+              aria-label="Closed issues"
+              className="mt-2 overflow-hidden rounded-lg border bg-card"
             >
-              All domains
-            </Button>
-            {domains.rows.map((row) => (
-              <Button
-                key={row.projectId}
-                size="xs"
-                variant={domainFilter === row.projectId ? "secondary" : "ghost"}
-                onClick={() => setDomainFilter(row.projectId)}
-              >
-                {row.hostname}
-              </Button>
-            ))}
-          </div>
-        ) : null}
-        <span className="flex-1" />
-        <div role="group" aria-label="View" className="flex gap-1">
-          <Button
-            size="xs"
-            variant={view === "list" ? "secondary" : "ghost"}
-            onClick={() => setView("list")}
-          >
-            List
-          </Button>
-          <Button
-            size="xs"
-            variant={view === "board" ? "secondary" : "ghost"}
-            onClick={() => setView("board")}
-          >
-            Board
-          </Button>
+              {closed.map((entry) => row(entry))}
+            </ul>
+          ) : null}
         </div>
+      ) : null}
+    </div>
+  );
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-full flex-col gap-4",
+        view === "board" ? "max-w-screen-2xl" : split ? "max-w-7xl" : "max-w-4xl",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="text-xl font-semibold tracking-tight">Issues</h1>
+        <span className="flex-1" />
+        {domains.rows.length > 1 ? (
+          <Menu>
+            <MenuTrigger render={<Button size="sm" variant="outline" aria-label="Domain" />}>
+              <Globe />
+              {domainFilter === null ? "All domains" : hostnames.get(domainFilter)}
+              <ChevronDown />
+            </MenuTrigger>
+            <MenuPopup align="end">
+              <MenuRadioGroup
+                value={domainFilter ?? ""}
+                onValueChange={(value) => setDomainFilter(value === "" ? null : String(value))}
+              >
+                <MenuRadioItem value="" closeOnClick>
+                  All domains
+                </MenuRadioItem>
+                {domains.rows.map((domain) => (
+                  <MenuRadioItem key={domain.projectId} value={domain.projectId} closeOnClick>
+                    {domain.hostname}
+                  </MenuRadioItem>
+                ))}
+              </MenuRadioGroup>
+            </MenuPopup>
+          </Menu>
+        ) : null}
+        {linked.length > 0 ? (
+          <ToggleGroup
+            aria-label="View"
+            value={[view]}
+            onValueChange={(values) => {
+              if (values[0] === "list" || values[0] === "board") setView(values[0]);
+            }}
+          >
+            <Toggle value="list" aria-label="List" title="List">
+              <List />
+            </Toggle>
+            <Toggle value="board" aria-label="Board" title="Board">
+              <Kanban />
+            </Toggle>
+          </ToggleGroup>
+        ) : null}
       </div>
       {audited.map(({ audit, hostname, running }) => (
-        <AuditStatus
+        <AuditBar
           key={audit.projectId}
           running={running}
           environmentId={environmentId}
           audit={audit}
           hostname={hostname}
+          showHost={shown.length > 1}
         />
       ))}
-      {anyRunning ? (
-        <p role="status" className="rounded-lg border bg-card p-3 text-sm">
-          The audit is checking your reports. Issues appear here as they are found.
-        </p>
-      ) : null}
-      {needsSetup.map((row) => (
+      {needsSetup.map((domain) => (
         <DomainAuditSetup
-          key={row.projectId}
+          key={domain.projectId}
           environmentId={environmentId}
-          domain={row}
-          audit={auditFor.get(row.projectId)}
+          domain={domain}
+          audit={auditFor.get(domain.projectId)}
         />
       ))}
-      {view === "list" ? (
-        <>
-          {active.length > 0 ? (
-            <ol aria-label="Open issues" className="rounded-lg border bg-card">
-              {active.map(({ issue, stage }, index) => (
-                <IssueRow
-                  key={issue.id}
-                  issue={issue}
-                  stage={stage}
-                  index={index + 1}
-                  hostname={showHost ? hostnames.get(issue.projectId) : undefined}
-                  actions={actions}
-                />
-              ))}
-            </ol>
-          ) : audited.length > 0 && !anyRunning ? (
-            <p className="text-sm text-muted-foreground">
-              No open issues. The next audit checks again.
-            </p>
-          ) : null}
-          {closed.length > 0 ? (
-            <div>
-              <Button size="xs" variant="ghost" onClick={() => setClosedOpen(!closedOpen)}>
-                {closedOpen ? <ChevronDown /> : <ChevronRight />}
-                Done ({closed.filter(({ stage }) => stage === "done").length}) · Dismissed (
-                {closed.filter(({ stage }) => stage === "dismissed").length})
-              </Button>
-              {closedOpen ? (
-                <ul aria-label="Closed issues" className="mt-2 rounded-lg border bg-card">
-                  {closed.map(({ issue, stage }) => (
-                    <IssueRow
-                      key={issue.id}
-                      issue={issue}
-                      stage={stage}
-                      hostname={showHost ? hostnames.get(issue.projectId) : undefined}
-                      actions={actions}
-                    />
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : null}
-        </>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+      {linked.length === 0 ? null : view === "board" ? (
+        <div className="grid grid-cols-1 gap-x-4 gap-y-6 md:grid-cols-2 xl:grid-cols-4">
           {boardColumns.map((column) => {
             const cards = staged.filter(({ stage }) => stage === column);
+            const ordered =
+              column === "done"
+                ? cards.toSorted((a, b) =>
+                    (b.issue.resolvedAt ?? "").localeCompare(a.issue.resolvedAt ?? ""),
+                  )
+                : cards;
+            const visible =
+              column === "done" && !doneOpen ? ordered.slice(0, doneLanePreview) : ordered;
             return (
               <section
                 key={column}
                 aria-label={stageLabel[column]}
-                className="flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-2"
+                className="flex min-w-0 flex-col gap-2"
               >
-                <h2 className="px-1 text-xs font-semibold text-muted-foreground">
-                  {stageLabel[column]} · {cards.length}
+                <h2 className="flex items-center gap-1.5 px-0.5 text-sm font-semibold">
+                  <StageIcon stage={column} />
+                  {stageLabel[column]}
+                  <span className="font-normal text-muted-foreground">{cards.length}</span>
                 </h2>
-                <ul className="flex flex-col gap-2">
-                  {cards.map(({ issue, stage }) => (
-                    <BoardCard
-                      key={issue.id}
-                      issue={issue}
-                      stage={stage}
-                      hostname={showHost ? hostnames.get(issue.projectId) : undefined}
-                      actions={actions}
-                    />
-                  ))}
-                </ul>
+                {cards.length === 0 ? (
+                  <p className="rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+                    {emptyLane[column]}
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {visible.map(({ issue, stage }) => (
+                      <BoardCard
+                        key={issue.id}
+                        issue={issue}
+                        stage={stage}
+                        hostname={hostOf(issue)}
+                        actions={actions}
+                      />
+                    ))}
+                  </ul>
+                )}
+                {visible.length < ordered.length ? (
+                  <div>
+                    <Button size="xs" variant="ghost-muted" onClick={() => setDoneOpen(true)}>
+                      Show {ordered.length - visible.length} more
+                    </Button>
+                  </div>
+                ) : null}
               </section>
             );
           })}
         </div>
+      ) : detail ? (
+        <div className="grid grid-cols-[minmax(0,26rem)_minmax(0,1fr)] items-start gap-6">
+          {list}
+          <section
+            aria-label="Issue details"
+            className="sticky top-4 max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-xl border bg-card p-6"
+          >
+            <IssueDetail
+              key={detail.issue.id}
+              issue={detail.issue}
+              stage={detail.stage}
+              hostname={hostOf(detail.issue)}
+              actions={actions}
+            />
+          </section>
+        </div>
+      ) : (
+        list
       )}
     </div>
   );
@@ -670,45 +915,53 @@ function BoardCard({
   stage,
   hostname,
   actions,
-}: {
-  issue: Issue;
-  stage: IssueStage;
+}: StagedIssue & {
   hostname?: string | undefined;
   actions: ReturnType<typeof useIssueActions>;
 }) {
+  const primary = primaryLabel(issue, stage, false);
   return (
-    <li className="flex flex-col gap-2 rounded-md border bg-background p-2.5">
+    <li
+      className={cn(
+        "flex flex-col gap-2.5 rounded-xl border p-3.5",
+        stage === "done" ? "text-muted-foreground" : "bg-card",
+      )}
+    >
       <span className="text-sm font-medium">{issue.title}</span>
-      <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-        {stage === "done" ? (
-          <Badge variant="success">{issue.resolution === "audit" ? "Verified" : "Done"}</Badge>
-        ) : (
-          priorityBadge(issue)
-        )}
-        {[issue.report, hostname].filter(Boolean).join(" · ")}
-      </span>
-      {stage === "todo" || stage === "working" || stage === "review" ? (
-        <div className="flex flex-wrap gap-1.5">
-          <Button
-            size="xs"
-            variant={stage === "todo" ? "default" : "outline"}
-            onClick={() => void actions.start(issue)}
-          >
-            {stage === "todo"
-              ? issue.kind === "connect"
-                ? "Connect"
-                : "Start"
-              : stage === "review"
-                ? "Review"
-                : "Open thread"}
-          </Button>
+      <IssueMeta issue={issue} details={[issue.report, hostname]} />
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-muted-foreground first-letter:uppercase">
+          {issueProgress(issue, stage)}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
           {stage === "review" ? (
-            <Button size="xs" variant="ghost" onClick={() => void actions.setStatus(issue, "done")}>
+            <Button
+              size="xs"
+              variant="ghost-muted"
+              onClick={() => void actions.setStatus(issue, "done")}
+            >
               Mark as done
             </Button>
           ) : null}
+          {primary ? (
+            <Button
+              size="xs"
+              variant={stage === "review" ? "default" : "outline"}
+              onClick={() => void actions.start(issue)}
+            >
+              {primary}
+            </Button>
+          ) : (
+            <Button
+              size="xs"
+              variant="ghost-muted"
+              onClick={() => void actions.setStatus(issue, "open")}
+            >
+              Reopen
+            </Button>
+          )}
         </div>
-      ) : null}
+      </div>
     </li>
   );
 }
@@ -717,8 +970,17 @@ function BoardCard({
 export function IssuesSidebarRow({ active, onOpen }: { active: boolean; onOpen: () => void }) {
   const environmentId = usePrimaryEnvironmentId();
   const snapshot = useIssues(environmentId);
-  const open = snapshot.issues.filter((issue) => issue.status === "open").length;
-  const audited = snapshot.audits.some((audit) => audit.enabled);
+  const domains = useDomains(environmentId);
+  const links = useDomainLinks(
+    environmentId,
+    domains.rows.map((domain) => domain.projectId),
+  );
+  const linked = (projectId: string) => links.get(projectId) === "linked";
+  const open = snapshot.issues.filter(
+    (issue) => issue.status === "open" && linked(issue.projectId),
+  ).length;
+  const audited = snapshot.audits.some((audit) => audit.enabled && linked(audit.projectId));
+  const known = [...links.values()].every((link) => link !== "unknown");
   return (
     <div className="px-2 pb-1">
       <SidebarMenuButton
@@ -733,7 +995,7 @@ export function IssuesSidebarRow({ active, onOpen }: { active: boolean; onOpen: 
         <span className="flex-1">Issues</span>
         {open > 0 ? (
           <Badge variant="default">{open}</Badge>
-        ) : !audited ? (
+        ) : known && !audited ? (
           <span className="text-xs text-muted-foreground">Connect</span>
         ) : null}
       </SidebarMenuButton>
@@ -752,6 +1014,7 @@ export function MarketingNextFix({
   const snapshot = useIssues(environmentId);
   const actions = useIssueActions(environmentId ?? null);
   const navigate = useNavigate();
+  const links = useDomainLinks(environmentId, projectId ? [projectId] : []);
   const [skipped, setSkipped] = useState<string | null>(null);
   const open = snapshot.issues
     .filter(
@@ -764,7 +1027,7 @@ export function MarketingNextFix({
     )
     .toSorted(compareIssues);
   const next = open[0];
-  if (!next) return null;
+  if (!next || links.get(next.projectId) !== "linked") return null;
   return (
     <section
       aria-label="Next fix"
@@ -798,7 +1061,8 @@ export function MarketingIssueStrip({ threadRef }: { threadRef: ScopedThreadRef 
   const actions = useIssueActions(threadRef?.environmentId ?? null);
   const navigate = useNavigate();
   const issue = snapshot.issues.find((row) => row.threadId === threadRef?.threadId);
-  if (!issue || !threadRef) return null;
+  const links = useDomainLinks(threadRef?.environmentId, issue ? [issue.projectId] : []);
+  if (!issue || !threadRef || links.get(issue.projectId) !== "linked") return null;
   const stage = issueStage(issue, actions.threads.get(issue.threadId!));
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs">
