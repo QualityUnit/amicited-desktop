@@ -56,7 +56,7 @@ values come from `@amicited/identity` (`index.ts`, plus `env.ts` and `policy.ts`
 - Service, slices, IPC, caches, port: `apps/server/src/cloud/bootService.ts`, `serviceProtection.ts`, `apps/server/src/cli/update.ts`, `apps/server/src/process/agentScope.ts`, `packages/shared/src/desktopAppControl.ts`, `apps/desktop/src/compileCache.ts` (with `apps/desktop/vite.config.ts` inlining the identity package into the boot bundle), `apps/server/src/cliCompileCache.ts`, `apps/server/src/config.ts` and `apps/desktop/src/app/DesktopApp.ts` (port 3873).
 - Managed policy locations and template identities: `packages/shared/src/managedPolicyFile.ts`, `apps/server/src/policy/policyTemplates.ts`, `apps/server/src/cli/policy.ts`.
 - Messages that name an env var say `AMICITED_*`: `apps/server/src/cli/{config,up,automaticPort}.ts`, `apps/server/src/policy/managedLimits.ts`, `apps/server/src/preview/PreviewBrowserHost.ts`, `packages/shared/src/otelEnvironment.ts`, `packages/source-control-bitbucket/src/server/BitbucketApi.ts`.
-- `knip.jsonc`: the identity package declares `vite-plus` before it has tests of its own. `.gitignore`: worktree dev state in `.amicited`. Manifests listed in `scripts/release-smoke.ts` and the consumers' `package.json` files depend on `@amicited/identity`.
+- `.gitignore`: worktree dev state in `.amicited`. Manifests listed in `scripts/release-smoke.ts` and the consumers' `package.json` files depend on `@amicited/identity`.
 
 ## Tools and transports
 
