@@ -15,20 +15,24 @@ const nightlies = Array.from({ length: 100 }, (_, index) => ({
 describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home", () => {
   it("installs a relative home from a directory ending in a newline", async () => {
     const temporaryRoot = await NodeFSP.realpath(
-      await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-home-")),
+      await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-install-home-")),
     );
     const root = NodePath.join(temporaryRoot, "cwd\n");
     const homeName = "-custom home\\home\n";
     const home = NodePath.join(root, homeName);
     const version = "1.2.3";
     const target = NodePath.join(home, "runtime/versions", version);
-    const launcher = NodePath.join(root, "bin/t3");
+    const launcher = NodePath.join(root, "bin/amicited");
     try {
       await NodeFSP.mkdir(target, { recursive: true });
       await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
-      await NodeFSP.writeFile(NodePath.join(target, "t3"), "#!/bin/sh\necho 't3 v1.2.3'\n", {
-        mode: 0o755,
-      });
+      await NodeFSP.writeFile(
+        NodePath.join(target, "amicited"),
+        "#!/bin/sh\necho 'amicited v1.2.3'\n",
+        {
+          mode: 0o755,
+        },
+      );
       const { status, stdout, stderr } = NodeChildProcess.spawnSync(
         "sh",
         [NodePath.resolve(import.meta.dirname, "install.sh")],
@@ -46,16 +50,65 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
         },
       );
       expect(status, stdout + stderr).toBe(0);
-      expect(stderr).toContain(`Installed T3 Code ${version}`);
-      expect(await NodeFSP.readlink(launcher)).toBe(NodePath.join(target, "t3"));
+      expect(stderr).toContain(`Installed AmICited ${version}`);
+      expect(await NodeFSP.readlink(launcher)).toBe(NodePath.join(target, "amicited"));
       expect(
         NodeChildProcess.execFileSync(launcher, ["--version"], {
           cwd: NodeOS.tmpdir(),
           encoding: "utf8",
         }).trim(),
-      ).toBe("t3 v1.2.3");
+      ).toBe("amicited v1.2.3");
     } finally {
       await NodeFSP.rm(temporaryRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer defaults", () => {
+  it("installs under ~/.amicited and leaves T3 Code's ~/.t3 and t3 launcher alone", async () => {
+    const root = await NodeFSP.realpath(
+      await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-install-defaults-")),
+    );
+    const version = "1.2.3";
+    const target = NodePath.join(root, ".amicited/runtime/versions", version);
+    const binDir = NodePath.join(root, ".local/bin");
+    const t3Runtime = NodePath.join(root, ".t3/runtime/versions", version, "t3");
+    try {
+      await NodeFSP.mkdir(target, { recursive: true });
+      await NodeFSP.writeFile(NodePath.join(target, ".install-complete"), `${version}\n`);
+      await NodeFSP.writeFile(NodePath.join(target, "amicited"), "#!/bin/sh\n", { mode: 0o755 });
+      await NodeFSP.mkdir(NodePath.dirname(t3Runtime), { recursive: true });
+      await NodeFSP.writeFile(t3Runtime, "#!/bin/sh\n", { mode: 0o755 });
+      await NodeFSP.mkdir(binDir, { recursive: true });
+      await NodeFSP.symlink(t3Runtime, NodePath.join(binDir, "t3"));
+      const env: NodeJS.ProcessEnv = { ...process.env, HOME: root };
+      for (const key of Object.keys(env)) {
+        if (key.startsWith("AMICITED_") || key.startsWith("T3CODE_")) delete env[key];
+      }
+      const { status, stdout, stderr } = NodeChildProcess.spawnSync(
+        "sh",
+        [NodePath.resolve(import.meta.dirname, "install.sh")],
+        {
+          cwd: root,
+          env: {
+            ...env,
+            AMICITED_VERSION: version,
+            AMICITED_RELEASE_BASE_URL: "http://127.0.0.1:1",
+          },
+          encoding: "utf8",
+        },
+      );
+      expect(status, stdout + stderr).toBe(0);
+      expect(await NodeFSP.readlink(NodePath.join(binDir, "amicited"))).toBe(
+        NodePath.join(target, "amicited"),
+      );
+      expect(await NodeFSP.readlink(NodePath.join(binDir, "t3"))).toBe(t3Runtime);
+      expect(await NodeFSP.readdir(NodePath.join(root, ".t3/runtime"))).toEqual(["versions"]);
+      expect(
+        await NodeFSP.readFile(NodePath.join(root, ".amicited/runtime/launchers"), "utf8"),
+      ).toBe(`${NodePath.join(binDir, "amicited")}\n`);
+    } finally {
+      await NodeFSP.rm(root, { recursive: true, force: true });
     }
   });
 });
@@ -66,15 +119,15 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chan
     ["stable", "1.2.3"],
     ["preview", "1.2.4-preview.20261019.50"],
   ])("finds the newest %s release behind a full page of nightlies", async (channel, version) => {
-    const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-index-"));
+    const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "amicited-install-index-"));
     const target = NodePath.join(root, "home/runtime/versions", version);
     const server = NodeHttp.createServer((request, response) => {
       const url = new URL(request.url ?? "/", "http://fixture");
       const body =
-        url.pathname === "/pingdotgg/t3code/releases/latest" &&
+        url.pathname === "/QualityUnit/amicited-desktop/releases/latest" &&
         request.headers.accept === "application/json"
           ? { tag_name: "v1.2.3" }
-          : url.pathname === "/repos/pingdotgg/t3code/releases"
+          : url.pathname === "/repos/QualityUnit/amicited-desktop/releases"
             ? { "1": nightlies, "2": [{ tag_name: `v${version}` }, { tag_name: "v1.2.3" }] }[
                 url.searchParams.get("page") ?? ""
               ]
@@ -119,7 +172,7 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chan
         },
       );
       expect(code, output).toBe(0);
-      expect(output).toContain(`Installed T3 Code ${version}`);
+      expect(output).toContain(`Installed AmICited ${version}`);
     } finally {
       server.closeAllConnections();
       await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -142,10 +195,12 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
       );
       expect(availableTools.length).toBeGreaterThan(0);
       for (const checksumTool of availableTools) {
-        const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-install-checksum-"));
+        const root = await NodeFSP.mkdtemp(
+          NodePath.join(NodeOS.tmpdir(), "amicited-install-checksum-"),
+        );
         const home = NodePath.join(root, homeName);
         const version = "1.2.3";
-        const stem = `t3-${version}-linux-${HostProcess.Architecture.defaultValue()}`;
+        const stem = `amicited-${version}-linux-${HostProcess.Architecture.defaultValue()}`;
         const archiveName = `${stem}.tar.gz`;
         const server = NodeHttp.createServer();
         try {
@@ -175,8 +230,8 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
           }
           await NodeFSP.mkdir(NodePath.join(root, stem));
           await NodeFSP.writeFile(
-            NodePath.join(root, stem, "t3"),
-            "#!/bin/sh\necho 't3 v1.2.3'\n",
+            NodePath.join(root, stem, "amicited"),
+            "#!/bin/sh\necho 'amicited v1.2.3'\n",
             { mode: 0o755 },
           );
           const archivePath = NodePath.join(root, archiveName);
@@ -224,14 +279,14 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
               await NodeFSP.readFile(NodePath.join(versions, version, ".install-complete"), "utf8"),
             ).toBe("1.2.3\n");
             expect(
-              NodeChildProcess.execFileSync(NodePath.join(root, "bin/t3"), ["--version"], {
+              NodeChildProcess.execFileSync(NodePath.join(root, "bin/amicited"), ["--version"], {
                 encoding: "utf8",
               }).trim(),
-            ).toBe("t3 v1.2.3");
+            ).toBe("amicited v1.2.3");
           } else {
             expect(code).not.toBe(0);
             expect(output).toContain("checksum mismatch");
-            expect(output).not.toContain("Installed T3 Code");
+            expect(output).not.toContain("Installed AmICited");
             expect(await NodeFSP.readdir(versions)).toEqual([]);
           }
         } finally {

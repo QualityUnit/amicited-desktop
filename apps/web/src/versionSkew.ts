@@ -1,4 +1,5 @@
 import { PRODUCT_NAME } from "@amicited/identity";
+import { NPM_PACKAGE_NAME } from "@amicited/identity/cli";
 import type {
   EnvironmentId,
   ServerConfig,
@@ -102,11 +103,11 @@ export function manualServerUpdateCommand(
 ): string {
   if (installation?.kind === "npm-global") {
     const prefix = `'${installation.prefix.replaceAll("'", "'\\''")}'`;
-    return `npm install --global --prefix ${prefix} t3@${targetVersion}`;
+    return `npm install --global --prefix ${prefix} ${NPM_PACKAGE_NAME}@${targetVersion}`;
   }
   const runner =
     installation?.kind === "pnpm-dlx" ? "pnpm dlx" : installation?.kind === "bunx" ? "bunx" : "npx";
-  return `${runner} t3@${targetVersion}`;
+  return `${runner} ${NPM_PACKAGE_NAME}@${targetVersion}`;
 }
 
 export function buildVersionMismatchDismissalKey(

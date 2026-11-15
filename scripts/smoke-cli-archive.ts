@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { CLI_NAME } from "@amicited/identity";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Duration from "effect/Duration";
@@ -96,7 +97,7 @@ const smokeCliArchive = Effect.fn("smokeCliArchive")(function* (input: {
     });
   }
   const contentDir = path.join(scratch, root);
-  const executable = path.join(contentDir, platform === "win32" ? "t3.exe" : "t3");
+  const executable = path.join(contentDir, platform === "win32" ? `${CLI_NAME}.exe` : CLI_NAME);
   const bundledLibatomic = path.join(contentDir, "lib/libatomic.so.1");
   for (const required of [
     executable,
@@ -121,7 +122,7 @@ const smokeCliArchive = Effect.fn("smokeCliArchive")(function* (input: {
       (yield* fs.realPath(loaded)) !== (yield* fs.realPath(bundledLibatomic))
     ) {
       return yield* new CliArchiveSmokeError({
-        step: "checking that t3 loads the bundled libatomic",
+        step: `checking that ${CLI_NAME} loads the bundled libatomic`,
         detail: ldd,
       });
     }

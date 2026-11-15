@@ -6,7 +6,7 @@ import * as NodePath from "node:path";
 
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { type CliShimTarget, renderCliShim } from "./DesktopCliShim.ts";
+import { type CliShimTarget, MARKER, renderCliShim } from "./DesktopCliShim.ts";
 
 const directories: Array<string> = [];
 afterEach(() => {
@@ -64,6 +64,13 @@ const fakeAppImage = (canMount = true) => {
 };
 
 describe("renderCliShim", () => {
+  it("marks its launchers apart from T3 Code's, so neither app claims the other's", () => {
+    expect(MARKER).toBe(
+      "Written by AmICited Desktop: runs the desktop app's bundled amicited CLI.",
+    );
+    expect("Written by T3 Code: runs the desktop app's bundled t3 CLI.").not.toContain(MARKER);
+  });
+
   it("extracts the AppImage where it cannot be mounted", () => {
     const { shim } = fakeAppImage(false);
     const result = run(shim, ["--version"], { APPIMAGE_EXTRACT_AND_RUN: "1" });

@@ -730,6 +730,27 @@ Each open decision is marked `TODO(amicited-infra)` in code.
   `packages/client-runtime/src` and `packages/contracts/src` use `REMOTE_ACCESS_NAME`.
   Comments, identifiers, file names and test titles keep the upstream name.
 
+## The `amicited` CLI, releases and self-update
+
+The CLI is `amicited`, built and released from `QualityUnit/amicited-desktop`. It never
+downloads, installs or follows instructions from T3 Code's repository, npm package or site.
+Names come from `@amicited/identity` (`index.ts`) and `@amicited/identity/cli` (`cli.ts`).
+
+- `packages/shared/src/cliRelease.ts`: release repository, archive names (`amicited-<version>-<platform>`), the `AMICITED_RELEASE_BASE_URL` override, and the `amicited` key of the npm manifest. A `t3-*` release can never satisfy a lookup.
+- `apps/server/src/cloud/{npmRelease,pinnedRuntime,selfUpdate,servicePreflight}.ts`, `apps/server/src/serviceLauncher.ts`, `apps/server/src/cli/{update,invocation}.ts`: the npm package, executable, launcher and `AMICITED_INSTALL_BIN_DIR` names. Launchers named `t3` are never read, repointed or pruned.
+- `apps/server/src/binCli.ts` and `apps/server/src/cli/**`: the root command name, and help and message copy.
+- `apps/server/package.json`: the `amicited` bin and repository. The workspace name stays `t3`: the Effect language service derives the `t3/...` service keys from it, and renaming it would rewrite about 200 of them.
+- `apps/server/vite.config.ts`, `apps/server/scripts/cli.ts`, `scripts/build-cli-archive.ts`, `scripts/build-npm-launcher.ts`, `scripts/npm-launcher/amicited.mjs` (was `t3.mjs`), `scripts/npm-launcher/bin.mjs`, `scripts/build-desktop-artifact.ts` (WSL runtime): the executable, archive and npm package names.
+- `scripts/install.sh`, `scripts/install.ps1`: our repository, `AMICITED_*` variables, `~/.amicited` and the `amicited` link.
+- `packages/ssh/src/tunnel.ts`: the remote bootstrap fetches and runs `amicited` archives.
+- `apps/desktop/src/app/DesktopCliShim.ts`, `DesktopCliCommand.ts`: the launcher is `amicited` with its own marker, so the app never claims or removes T3 Code's `t3`.
+- `apps/desktop/src/wsl/DesktopWslEnvironment.ts`, `apps/desktop/src/backend/DesktopBackendConfiguration.ts`: the WSL runtime executable name.
+- `apps/desktop/src/app/DesktopStartupRecovery.ts`, `apps/web/src/components/desktopUpdate.logic.ts`, `apps/web/vite.config.ts`: release links fall back to our repository and download page.
+- `apps/server/src/provider/ModelManifest.ts`: only the bundled manifest, unless `AMICITED_MODEL_MANIFEST_URL` names one to poll.
+- `apps/server/src/provider/providerCompatibility.ts`: advisories match `UPSTREAM_T3_CODE_VERSION`, the T3 Code release this build is merged from. Update it with each weekly merge.
+- `apps/server/src/triage/*`, `.github/triage/PLAYBOOK.md`: no remote playbook; source from our repository; reports go to support by email.
+- `knip.jsonc`: the identity package keeps its shared manifest as written.
+
 ## Backported from upstream
 
 These lines are identical to upstream `main`, applied early because CI needed them. The

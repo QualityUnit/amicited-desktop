@@ -1,3 +1,4 @@
+import { UPSTREAM_T3_CODE_VERSION } from "@amicited/identity/cli";
 import { assert, describe, it } from "@effect/vitest";
 import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -179,6 +180,16 @@ describe("provider compatibility", () => {
     for (const version of ["0.0.41", "0.1.0"]) {
       assert.isUndefined(resolveProviderCompatibility([scopedPolicy], driver, "0.9.0", version));
     }
+  });
+
+  it("matches policies against the T3 Code release this build is merged from, not its own version", () => {
+    const upstreamOnly = { ...policy, t3CodeRange: `=${UPSTREAM_T3_CODE_VERSION}` };
+    assert.strictEqual(
+      resolveProviderCompatibility([upstreamOnly], driver, "0.9.0")?.status,
+      "broken",
+    );
+    const elsewhere = { ...policy, t3CodeRange: `>${UPSTREAM_T3_CODE_VERSION}` };
+    assert.isUndefined(resolveProviderCompatibility([elsewhere], driver, "0.9.0"));
   });
 
   it("relaxes remote policy without losing probe errors, and falls back when a policy is omitted", () => {
