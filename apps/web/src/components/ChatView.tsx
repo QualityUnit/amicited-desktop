@@ -1746,8 +1746,9 @@ export default function ChatView(props: ChatViewProps) {
           providerSubagentModels,
           reportedModelSelection,
         );
+  // Marketers see worktree and branch controls only for domains backed by a git site folder.
   const showComposerContextStrip =
-    developerMode &&
+    (developerMode || liveIsGitRepo === true) &&
     !embedded &&
     shouldShowComposerContextStrip({
       isDraftHeroState,
@@ -3763,7 +3764,9 @@ export default function ChatView(props: ChatViewProps) {
                               }
                               threadPullRequests={(activeThreadShell ?? activeThread)?.pullRequests}
                               onComposerOverlayHeightChange={publishComposerOverlayHeightStable}
-                              permissionsShownInStrip={showComposerContextStrip && !isServerThread}
+                              permissionsShownInStrip={
+                                developerMode && showComposerContextStrip && !isServerThread
+                              }
                               promptRef={promptRef}
                               composerImagesRef={composerImagesRef}
                               composerFilesRef={composerFilesRef}
@@ -3862,7 +3865,7 @@ export default function ChatView(props: ChatViewProps) {
                                     : undefined
                                 }
                                 availableEnvironments={logicalProjectEnvironments}
-                                {...(isServerThread
+                                {...(isServerThread || !developerMode
                                   ? {}
                                   : {
                                       trailing: (

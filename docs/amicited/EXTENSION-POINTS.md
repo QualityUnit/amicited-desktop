@@ -16,7 +16,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `apps/server/src/auth/RpcAuthorization.ts`: requires orchestration read for listing and orchestration operate for running tools.
 - `apps/web/package.json`: dependencies on marketing UI and tool types.
 - `apps/web/src/branding.ts`: sources the marketer-facing product name from one package constant.
-- `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls, terminal drawer, and developer panel launchers and mounts marketer composer context in the existing ContextStrip outside Host.
+- `apps/web/src/components/ChatView.tsx`: reads the shared workspace mode to hide branch controls (except for domains with a git site folder), terminal drawer, and developer panel launchers and mounts marketer composer context in the existing ContextStrip outside Host.
 - `apps/web/src/routes/_chat.settings.general.tsx`: provides the reverse switch from developer to marketer mode.
 - `apps/web/src/routeTree.gen.ts`: generated route registration for the marketing mounts.
 - `knip.jsonc`: declares the scripted screenshot entry points.
