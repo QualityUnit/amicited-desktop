@@ -513,7 +513,7 @@ Wave 39 site-file corrections:
 - `apps/web/src/components/chat/TimelinePendingApprovalRow.tsx`: presents relative file names and compact outline approval actions, with raw details under More.
 - `apps/web/src/components/chat/TimelineAssistantRows.tsx`: uses an aligned, underlined Review action.
 
-- `apps/web/src/components/chat/ChatRightPanel.tsx`: accepts optional inline layout controls for the marketer diff close action.
+- `apps/web/src/components/chat/ChatRightPanel.tsx`: accepts optional inline layout controls for the marketer diff close action; `RightPanelTabs.tsx` keeps its inline titlebar-controls reserve when they are passed, so the action sits left of the fixed maximize and panel toggles.
 
 - `apps/web/src/components/DiffWorkerPoolProvider.tsx`: initializes both diff themes so a theme switch cannot render before its theme reaches the workers.
 
