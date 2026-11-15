@@ -589,3 +589,12 @@ shares the same domain editor across setup, New domain and Edit domain.
 - `apps/web/src/hooks/useHandleNewThread.ts`: marketer new chats resolve domain, environment and recommended assistant defaults before carry-over.
 - `apps/web/src/components/chat/ProviderModelPicker.tsx`: optional effort suffix for the marketer assistant setup preview.
 - `apps/web/src/components/settings/ProjectDefaultsSettings.tsx`: marketer domain model wording and recommended automatic defaults.
+
+## Domain favicons
+
+`apps/server/src/amicited/DomainFavicons.ts` downloads each domain's live `/favicon.ico` once and sets it as the project's existing external `faviconPath` override, so every upstream project icon surface (web, desktop and mobile) shows it without client changes. Icons the user picked, and a reset to Automatic, are kept.
+
+- `apps/server/src/server.ts`: provides the domain favicon service with the runtime services, where project updates are available.
+- `apps/server/src/ws.ts`: domain list starts a background favicon sync.
+- `apps/server/src/amicited/Cloud.ts`: project deletion also removes the domain's saved favicon.
+- `apps/server/src/ws.test.ts`: mocks the favicon service in the shared unused RPC services.
