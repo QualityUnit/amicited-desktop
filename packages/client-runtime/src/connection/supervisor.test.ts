@@ -43,6 +43,7 @@ import { presentConnectionState } from "./presentation.ts";
 import * as EnvironmentSupervisor from "./supervisor.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
 import { connectionRouteId, entryWithRoutes, isLearned, mergeLearnedRoutes } from "./routes.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const TARGET = new PrimaryConnectionTarget({
   environmentId: EnvironmentId.make("environment-1"),
@@ -1578,7 +1579,7 @@ describe("EnvironmentSupervisor routes", () => {
         prepare: (_attempt, target) => {
           attempted.push(target._tag);
           return target._tag === "RelayConnectionTarget"
-            ? Effect.fail(blocked("Sign in to T3 Connect."))
+            ? Effect.fail(blocked(`Sign in to ${REMOTE_ACCESS_NAME}.`))
             : Effect.succeed(preparedFor(target));
         },
       });
@@ -1652,7 +1653,7 @@ describe("EnvironmentSupervisor routes", () => {
         checkRoute: () => Effect.succeed("answered"),
         prepare: (_attempt, target) =>
           target._tag === "RelayConnectionTarget"
-            ? Effect.fail(blocked("Sign in to T3 Connect."))
+            ? Effect.fail(blocked(`Sign in to ${REMOTE_ACCESS_NAME}.`))
             : Effect.fail(transient("LAN socket refused.")),
       });
       const supervisor = yield* EnvironmentSupervisor.make(LAN_THEN_RELAY_ENTRY, {

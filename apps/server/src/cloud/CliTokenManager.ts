@@ -4,6 +4,7 @@ import * as NodeHttp from "node:http";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as Clock from "effect/Clock";
 import * as Cause from "effect/Cause";
+import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as Context from "effect/Context";
 import * as Digest from "effect/crypto/Digest";
@@ -36,6 +37,7 @@ import {
   type CloudCliOAuthConfig,
 } from "./publicConfig.ts";
 import { renderLoopbackAuthorizationCompleteHtml } from "./cliAuthHtml.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const CLOUD_CLI_OAUTH_TOKEN_SECRET = "cloud-cli-oauth-token";
 const CLOUD_CLI_OAUTH_CALLBACK_TIMEOUT = Duration.minutes(10);
@@ -51,7 +53,7 @@ const boldTerminalText = (value: string): string => `\u001b[1m${value}\u001b[22m
 
 function formatLoopbackAuthorizationPrompt(authorizationUrl: string): string {
   return [
-    "Open this URL to authorize T3 Connect:",
+    `Open this URL to authorize ${REMOTE_ACCESS_NAME}:`,
     `  ${authorizationUrl}`,
     "",
     `Press ${boldTerminalText("Enter")} to open it in your browser.`,
@@ -198,7 +200,7 @@ export class CloudCliCredentialRemovalError extends Schema.TaggedError<CloudCliC
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return "Could not remove the stored T3 Connect CLI credential.";
+    return `Could not remove the stored ${REMOTE_ACCESS_NAME} CLI credential.`;
   }
 }
 
@@ -216,10 +218,10 @@ export class CloudCliCredentialRefreshError extends Schema.TaggedError<CloudCliC
 
   override get message(): string {
     return this.requiresLogin
-      ? `Could not refresh the T3 Connect CLI credential${
+      ? `Could not refresh the ${REMOTE_ACCESS_NAME} CLI credential${
           this.oauthErrorCode === undefined ? "" : ` (OAuth error: ${this.oauthErrorCode})`
         }. Run \`t3 connect login\` to authorize again.`
-      : "Could not refresh the T3 Connect CLI credential.";
+      : `Could not refresh the ${REMOTE_ACCESS_NAME} CLI credential.`;
   }
 }
 
@@ -230,7 +232,7 @@ export class CloudCliCredentialReadError extends Schema.TaggedError<CloudCliCred
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return "Could not read the stored T3 Connect CLI credential.";
+    return `Could not read the stored ${REMOTE_ACCESS_NAME} CLI credential.`;
   }
 }
 
@@ -239,7 +241,7 @@ export class CloudCliAuthorizationError extends Schema.TaggedError<CloudCliAutho
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return "Could not authorize the T3 Connect CLI.";
+    return `Could not authorize the ${REMOTE_ACCESS_NAME} CLI.`;
   }
 }
 
@@ -248,7 +250,7 @@ export class CloudCliAuthorizationTimeoutError extends Schema.TaggedError<CloudC
   { cause: Schema.Defect() },
 ) {
   override get message(): string {
-    return "Timed out waiting for T3 Connect authorization.";
+    return `Timed out waiting for ${REMOTE_ACCESS_NAME} authorization.`;
   }
 }
 
@@ -257,7 +259,7 @@ export class CloudCliAuthorizationDeniedError extends Schema.TaggedError<CloudCl
   {},
 ) {
   override get message(): string {
-    return "T3 Connect authorization was denied in the browser.";
+    return `${REMOTE_ACCESS_NAME} authorization was denied in the browser.`;
   }
 }
 
@@ -511,7 +513,16 @@ export const make = Effect.gen(function* () {
 
   const login = Effect.fn("cloud.cli_token.login")(function* () {
     const metadata = yield* cloudCliOAuthConfig;
-    const hostedAppUrl = yield* hostedAppUrlConfig;
+    const configuredHostedAppUrl = yield* Config.option(hostedAppUrlConfig);
+    // TODO(amicited-infra): the browser flow signs in on our hosted web app, which does not exist
+    // yet, so without a hosted app URL sign in with a device code. https://github.com/QualityUnit/amicited-desktop/blob/main/docs/amicited/EXTENSION-POINTS.md#amicited-link-and-hosted-links
+    if (Option.isNone(configuredHostedAppUrl)) {
+      yield* Console.log(
+        `No hosted web app is configured, so ${REMOTE_ACCESS_NAME} signs in with a device code instead.`,
+      );
+      return { _tag: "HeadlessRequested" } as const;
+    }
+    const hostedAppUrl = configuredHostedAppUrl.value;
     const { verifier, challenge, state } = yield* makePkceRequest;
     const callback = yield* Deferred.make<string>();
     const layerCallbackRoute = HttpRouter.add(
@@ -522,7 +533,7 @@ export const make = Effect.gen(function* () {
         const url = new URL(request.originalUrl, metadata.redirectUri);
         const code = url.searchParams.get("code");
         if (url.searchParams.get("state") !== state || !code) {
-          return HttpServerResponse.text("Invalid T3 Connect authorization callback.", {
+          return HttpServerResponse.text(`Invalid ${REMOTE_ACCESS_NAME} authorization callback.`, {
             status: 400,
           });
         }

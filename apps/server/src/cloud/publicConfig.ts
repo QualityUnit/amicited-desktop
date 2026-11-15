@@ -1,8 +1,4 @@
-import {
-  connectLoopbackRedirectUri,
-  CONNECT_OAUTH_SCOPES,
-  DEFAULT_HOSTED_APP_URL,
-} from "@t3tools/shared/connectAuth";
+import { connectLoopbackRedirectUri, CONNECT_OAUTH_SCOPES } from "@t3tools/shared/connectAuth";
 import { clerkFrontendApiUrlFromPublishableKey } from "@t3tools/shared/relayAuth";
 import { isRelayTracingEnabled } from "@t3tools/shared/otelEnvironment";
 import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
@@ -109,10 +105,11 @@ export function makeRelayUrlConfig(fallback = buildTimeRelayUrl) {
 
 export const relayUrlConfig = makeRelayUrlConfig();
 
-export const hostedAppUrlConfig = makePublicValueConfig(
-  "T3CODE_HOSTED_APP_URL",
-  DEFAULT_HOSTED_APP_URL,
-).pipe(Config.mapEffect(validateHostedAppUrl));
+// TODO(amicited-infra): no AmICited hosted web app yet, so the origin comes only from the environment.
+// https://github.com/QualityUnit/amicited-desktop/blob/main/docs/amicited/EXTENSION-POINTS.md#amicited-link-and-hosted-links
+export const hostedAppUrlConfig = makePublicValueConfig("T3CODE_HOSTED_APP_URL", "").pipe(
+  Config.mapEffect(validateHostedAppUrl),
+);
 
 function validateHostedAppUrl(value: string) {
   try {

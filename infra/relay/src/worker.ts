@@ -170,8 +170,12 @@ export const layer = Api.make(
         (value) => Redacted.value(value).trim().length > 0,
       ),
     );
-    const t3ChatBaseUrl = yield* Config.String("T3CHAT_URL").pipe(
-      Config.withDefault("https://t3.chat"),
+    // AmICited has no chat partner: account linking stays off unless both values are configured.
+    const t3ChatBaseUrl = Option.getOrUndefined(
+      Option.filter(
+        yield* Config.option(Config.String("T3CHAT_URL")),
+        (value) => value.trim() !== "",
+      ),
     );
 
     const cloudMintPrivateKey = yield* cloudMintKeyPair.privateKey;
@@ -243,7 +247,7 @@ export const layer = Api.make(
         managedEndpointCleanupMode,
         legacyManagedEndpointCleanupMode,
         ...(legacyTunnelGraceMinutes === undefined ? {} : { legacyTunnelGraceMinutes }),
-        ...(t3ChatLinkSecret
+        ...(t3ChatLinkSecret && t3ChatBaseUrl
           ? { t3Chat: { baseUrl: t3ChatBaseUrl, linkSecret: t3ChatLinkSecret } }
           : {}),
       });

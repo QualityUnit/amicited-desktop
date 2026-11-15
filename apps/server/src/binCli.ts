@@ -33,11 +33,11 @@ import { themeCommand } from "./cli/theme.ts";
 import { traceCommand } from "./cli/trace.ts";
 import { triageCommand } from "./cli/triage.ts";
 import { connectCommand, statusCommand, upCommand } from "./cli/up.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const layerCliRuntime = Layer.mergeAll(NodeServices.layer, NodeCrypto.layer, NetService.layer);
 
-const connectPublicConfigMissingMessage =
-  "T3 Connect commands are unavailable: this build is missing T3 Connect public configuration.";
+const connectPublicConfigMissingMessage = `${REMOTE_ACCESS_NAME} commands are unavailable: this build is missing ${REMOTE_ACCESS_NAME} public configuration.`;
 
 class ConnectPublicConfigMissingError extends CliError.UserError {
   override get message() {
@@ -48,7 +48,9 @@ class ConnectPublicConfigMissingError extends CliError.UserError {
 const connectUnavailableCommand = Command.make("connect", {
   command: Argument.String("command").pipe(Argument.variadic),
 }).pipe(
-  Command.withDescription("T3 Connect is unavailable in builds without public configuration."),
+  Command.withDescription(
+    `${REMOTE_ACCESS_NAME} is unavailable in builds without public configuration.`,
+  ),
   Command.unlisted,
   Command.withHandler(() =>
     Effect.fail(

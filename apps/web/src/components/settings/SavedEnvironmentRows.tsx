@@ -40,7 +40,7 @@ import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/men
 import { Switch } from "../ui/switch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { Button, InlineButton } from "../ui/button";
+import { Button } from "../ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "../ui/empty";
 import {
   resolveServerConfigVersionMismatch,
@@ -67,6 +67,7 @@ import {
 } from "../ServerUpdateAction";
 import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
 import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 type SavedBackendListRowProps = {
   environment: EnvironmentPresentation;
@@ -433,12 +434,14 @@ export function SavedBackendListRow({
   );
 }
 
+const ENABLE_LINK_LABEL = `Enable ${REMOTE_ACCESS_NAME}`;
+
 function CloudLinkSwitch({
   checked,
   disabled,
   disabledReason,
   onCheckedChange,
-  ariaLabel = "Enable T3 Connect",
+  ariaLabel = ENABLE_LINK_LABEL,
 }: {
   readonly checked: boolean;
   readonly disabled: boolean;
@@ -483,16 +486,7 @@ function T3ConnectTunnelUsage({ tunnelLimit }: { readonly tunnelLimit: number | 
     !(usage.limit !== null && usage.limit > tunnelLimit);
   const meter =
     usage.used !== null && usage.limit !== null ? (
-      <TunnelUsageMeter
-        used={usage.used}
-        limit={usage.limit}
-        action={
-          // At the cap the alert below carries the same action.
-          usage.upgrade && openAccountPage && !showLimitAlert ? (
-            <InlineButton onClick={() => openAccountPage("t3-chat")}>Get more tunnels</InlineButton>
-          ) : null
-        }
-      />
+      <TunnelUsageMeter used={usage.used} limit={usage.limit} />
     ) : null;
   return (
     <>
@@ -501,8 +495,6 @@ function T3ConnectTunnelUsage({ tunnelLimit }: { readonly tunnelLimit: number | 
           {meter}
           {showLimitAlert ? (
             <TunnelLimitAlert
-              upgrade={usage.upgrade}
-              onLinkT3Chat={openAccountPage ? () => openAccountPage("t3-chat") : null}
               onManageTunnels={openAccountPage ? () => openAccountPage("t3-connect") : null}
             />
           ) : null}
@@ -541,7 +533,7 @@ function ConfiguredCloudLinkRow({
 
   const disabledReason = canManageRelay
     ? null
-    : "Your session does not have permission to manage T3 Connect access.";
+    : `Your session does not have permission to manage ${REMOTE_ACCESS_NAME} access.`;
   const isBusy = isUpdating || isUpdatingPreference;
   const switchDisabled =
     !canManageRelay ||
@@ -594,15 +586,15 @@ function ConfiguredCloudLinkRow({
       toastManager.add({
         type: "success",
         title: enabled
-          ? "T3 Connect linked"
+          ? `${REMOTE_ACCESS_NAME} linked`
           : publishAgentActivity
-            ? "T3 Connect tunnel disabled"
-            : "T3 Connect unlinked",
+            ? `${REMOTE_ACCESS_NAME} tunnel disabled`
+            : `${REMOTE_ACCESS_NAME} unlinked`,
         description: enabled
-          ? "This environment is available through T3 Connect."
+          ? `This environment is available through ${REMOTE_ACCESS_NAME}.`
           : publishAgentActivity
             ? "The managed tunnel was removed. Agent activity publishing stays on."
-            : "This environment is no longer available through T3 Connect.",
+            : `This environment is no longer available through ${REMOTE_ACCESS_NAME}.`,
       });
     }
     setIsUpdating(false);
@@ -636,7 +628,7 @@ function ConfiguredCloudLinkRow({
         type: "success",
         title: enabled ? "Webhooks held while offline" : "Webhooks no longer held",
         description: enabled
-          ? "T3 Connect keeps webhook requests for up to 24 hours while this environment is offline."
+          ? `${REMOTE_ACCESS_NAME} keeps webhook requests for up to 24 hours while this environment is offline.`
           : "Requests to an offline environment now fail. Anything already held is still delivered.",
       });
     }
@@ -652,18 +644,18 @@ function ConfiguredCloudLinkRow({
             connectDenial !== undefined && !managedTunnelActive
               ? connectDenial
               : signedOut
-                ? "Sign in to make this environment available to your other devices through T3 Connect."
+                ? `Sign in to make this environment available to your other devices through ${REMOTE_ACCESS_NAME}.`
                 : linkRevoked
-                  ? "This environment was removed from T3 Connect. Turn it on to link it again."
+                  ? `This environment was removed from ${REMOTE_ACCESS_NAME}. Turn it on to link it again.`
                   : managedTunnelActive
                     ? reachability?.status === "unreachable"
-                      ? "T3 Connect is on, but other devices cannot reach this environment."
+                      ? `${REMOTE_ACCESS_NAME} is on, but other devices cannot reach this environment.`
                       : reachability?.status === "reachable"
-                        ? "This environment is available to your other devices through T3 Connect."
-                        : "T3 Connect is on. Reachability has not been checked yet."
+                        ? `This environment is available to your other devices through ${REMOTE_ACCESS_NAME}.`
+                        : `${REMOTE_ACCESS_NAME} is on. Reachability has not been checked yet.`
                     : managedTunnelOutOfSync
-                      ? "T3 Connect is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn T3 Connect on to repair it."
-                      : "Make this environment available to your other devices through T3 Connect."
+                      ? `${REMOTE_ACCESS_NAME} is out of sync. This environment is linked only to publish agent activity, so other devices cannot connect. Turn ${REMOTE_ACCESS_NAME} on to repair it.`
+                      : `Make this environment available to your other devices through ${REMOTE_ACCESS_NAME}.`
           }
           status={operationError ?? cloudLinkState.error ?? reachabilityStatus}
           managed={managedTunnelActive ? undefined : connectDenial}
@@ -687,7 +679,7 @@ function ConfiguredCloudLinkRow({
       ) : linkRevoked ? (
         <SettingsRow
           title={searchableSetting("t3-connect").title}
-          description="This environment was removed from T3 Connect. Run `t3 connect link` on the host to link it again."
+          description={`This environment was removed from ${REMOTE_ACCESS_NAME}. Run \`t3 connect link\` on the host to link it again.`}
         />
       ) : null}
       {signedOut && isElectron ? null : (
@@ -696,7 +688,7 @@ function ConfiguredCloudLinkRow({
           description={
             signedOut
               ? "Sign in to send activity to mobile notifications and Live Activities."
-              : "Send activity to mobile notifications and Live Activities without T3 Connect."
+              : `Send activity to mobile notifications and Live Activities without ${REMOTE_ACCESS_NAME}.`
           }
           managed={connectDenial}
           control={
@@ -717,7 +709,7 @@ function ConfiguredCloudLinkRow({
       {managedTunnelActive && !signedOut ? (
         <SettingsRow
           title={searchableSetting("hold-webhooks-while-offline").title}
-          description="Keep webhook requests for up to 24 hours while this environment is offline, then deliver them. Off: T3 Connect only forwards requests and stores nothing."
+          description={`Keep webhook requests for up to 24 hours while this environment is offline, then deliver them. Off: ${REMOTE_ACCESS_NAME} only forwards requests and stores nothing.`}
           managed={connectDenial}
           control={
             <CloudLinkSwitch
@@ -747,7 +739,7 @@ export function CloudLinkRow({
   if (!canReadRelay) {
     return (
       <SettingsRow
-        title="T3 Connect"
+        title={REMOTE_ACCESS_NAME}
         description="To edit these settings, pair this connection with both View relay and Manage relay permissions."
       />
     );
@@ -765,7 +757,7 @@ function EmptyRemoteEnvironments({ cloudEnabled = true }: { readonly cloudEnable
         <EmptyTitle>No saved remote environments</EmptyTitle>
         <EmptyDescription>
           {cloudEnabled
-            ? "Click “Add environment” to pair another environment, or connect one from T3 Connect."
+            ? `Click “Add environment” to pair another environment, or connect one from ${REMOTE_ACCESS_NAME}.`
             : "Click “Add environment” to pair another environment."}
         </EmptyDescription>
       </EmptyHeader>

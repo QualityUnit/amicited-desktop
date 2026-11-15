@@ -1,3 +1,4 @@
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 
@@ -206,7 +207,7 @@ export function clampManagedRuntimeMode(
 
 const CAPABILITY_LABELS = {
   remoteClients: "connecting from other devices",
-  connect: "T3 Connect",
+  connect: REMOTE_ACCESS_NAME,
   webhookTasks: "webhook tasks",
   browserCookieImport: "importing browser cookies",
 } as const;

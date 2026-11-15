@@ -15,6 +15,7 @@ import {
   TrimmedNonEmptyString,
 } from "./baseSchemas.ts";
 import { ExecutionEnvironmentDescriptor } from "./environment.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export const RelayAgentAwarenessPlatform = Schema.Literals(["ios", "android"]);
 export type RelayAgentAwarenessPlatform = typeof RelayAgentAwarenessPlatform.Type;
@@ -670,7 +671,7 @@ export class RelayEnvironmentPrincipal extends Context.Service<
 const RelayClientBearerAuthorization = HttpApiSecurity.http({ scheme: "bearer" }).pipe(
   HttpApiSecurity.annotate(
     OpenApi.Description,
-    "Clerk session or OAuth bearer token for the signed-in T3 Connect user.",
+    `Clerk session or OAuth bearer token for the signed-in ${REMOTE_ACCESS_NAME} user.`,
   ),
 );
 
@@ -1139,17 +1140,17 @@ const RelayClientGroup = HttpApiGroup.make("client")
       headers: RelayBearerRequestHeaders,
       success: RelayT3ChatLinkResponse,
       error: RelayAuthAndInternalErrors,
-    }).annotate(OpenApi.Summary, "Get the linked T3 Chat account"),
+    }).annotate(OpenApi.Summary, "Get the linked chat-partner account"),
     HttpApiEndpoint.post("createT3ChatLinkRequest", "/v1/client/t3chat-link-requests", {
       headers: RelayBearerRequestHeaders,
       success: RelayT3ChatLinkRequestResponse,
       error: RelayAuthAndInternalErrors,
-    }).annotate(OpenApi.Summary, "Start linking a T3 Chat account"),
+    }).annotate(OpenApi.Summary, "Start linking a chat-partner account"),
     HttpApiEndpoint.delete("unlinkT3Chat", "/v1/client/t3chat-link", {
       headers: RelayBearerRequestHeaders,
       success: RelayOkResponse,
       error: RelayAuthAndInternalErrors,
-    }).annotate(OpenApi.Summary, "Unlink the T3 Chat account"),
+    }).annotate(OpenApi.Summary, "Unlink the chat-partner account"),
   )
   .annotate(OpenApi.Description, "Cloud-user environment links and registered devices.")
   .middleware(RelayClientAuth);
@@ -1320,10 +1321,10 @@ export const RelayApi = HttpApi.make("RelayApi")
     RelayHooksGroup,
     RelayMobileTelemetryGroup,
   )
-  .annotate(OpenApi.Title, "T3 Code Relay API")
+  .annotate(OpenApi.Title, `${REMOTE_ACCESS_NAME} Relay API`)
   .annotate(OpenApi.Version, "1.0.0")
   .annotate(
     OpenApi.Description,
-    "Control-plane API for linking T3 environments, connecting authorized clients, and publishing agent activity.",
+    "Control-plane API for linking environments, connecting authorized clients, and publishing agent activity.",
   );
 export type RelayApi = typeof RelayApi;

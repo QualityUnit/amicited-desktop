@@ -7,7 +7,9 @@ const CONNECT_LOOPBACK_CALLBACK_PATH = "/callback";
 
 const CONNECT_AUTHORIZE_PATH = "/connect";
 
-export const DEFAULT_HOSTED_APP_URL = "https://app.t3.codes";
+// TODO(amicited-infra): AmICited hosts no web app yet. Set our hosted origin here once one exists.
+// Until then, thread and prompt links stay local or open the desktop app. https://github.com/QualityUnit/amicited-desktop/blob/main/docs/amicited/EXTENSION-POINTS.md#amicited-link-and-hosted-links
+export const DEFAULT_HOSTED_APP_URL: string | null = null;
 
 export const CONNECT_OAUTH_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
 

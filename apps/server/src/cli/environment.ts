@@ -19,6 +19,7 @@ import * as ServerSettings from "../serverSettings.ts";
 import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { authLocationFlags, type CliAuthLocationFlags, resolveCliAuthConfig } from "./config.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 /**
  * Links live in this environment's database and secret store, so these
@@ -86,7 +87,7 @@ const environmentLinkCommand = Command.make("link", {
   ...authLocationFlags,
   url: Argument.String("url").pipe(
     Argument.withDescription(
-      "Where the other environment answers: its T3 Connect, Tailscale, LAN or loopback address.",
+      `Where the other environment answers: its ${REMOTE_ACCESS_NAME}, Tailscale, LAN or loopback address.`,
     ),
   ),
   alternateUrl: Flag.String("url").pipe(

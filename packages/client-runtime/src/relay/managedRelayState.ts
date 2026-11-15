@@ -10,6 +10,7 @@ import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 import { findErrorTraceId } from "../errors/errorTrace.ts";
 import * as ManagedRelay from "./managedRelay.ts";
 import { relayProtectedErrorMessage } from "./errorPresentation.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const DEFAULT_STALE_TIME_MS = 15_000;
 const DEFAULT_IDLE_TTL_MS = 5 * 60_000;
@@ -117,7 +118,7 @@ export function createManagedRelaySession(input: ManagedRelaySessionInput): Mana
         try: () => readCachedClerkToken(nowMillis),
         catch: (cause) =>
           new ManagedRelaySessionError({
-            message: "Could not obtain the T3 Connect session token.",
+            message: `Could not obtain the ${REMOTE_ACCESS_NAME} session token.`,
             cause,
           }),
       });
@@ -174,7 +175,7 @@ function readSessionClerkToken(
       (token): token is string => Boolean(token),
       () =>
         new ManagedRelaySessionError({
-          message: "The T3 Connect session token is unavailable.",
+          message: `The ${REMOTE_ACCESS_NAME} session token is unavailable.`,
         }),
     ),
   );
@@ -188,7 +189,9 @@ function requireSessionClerkToken(
   const session = registry.get(managedRelaySessionAtom);
   if (!session || session.accountId !== accountId) {
     return Effect.fail(
-      new ManagedRelaySessionError({ message: `Sign in to T3 Connect before ${action}.` }),
+      new ManagedRelaySessionError({
+        message: `Sign in to ${REMOTE_ACCESS_NAME} before ${action}.`,
+      }),
     );
   }
   return readSessionClerkToken(session);
@@ -209,27 +212,6 @@ export const deregisterManagedRelayEnvironment = Effect.fn(
   yield* relay.unlinkEnvironment({ clerkToken, environmentId: input.environmentId });
 });
 
-/** Returns the T3 Chat page URL where the signed-in user confirms the link. */
-export const createManagedRelayT3ChatLinkRequest = Effect.fn(
-  "clientRuntime.managedRelaySession.createT3ChatLinkRequest",
-)(function* (registry: AtomRegistry.AtomRegistry, input: { readonly accountId: string }) {
-  const clerkToken = yield* requireSessionClerkToken(registry, input.accountId, "linking T3 Chat");
-  const relay = yield* ManagedRelay.ManagedRelayClient;
-  return (yield* relay.createT3ChatLinkRequest({ clerkToken })).url;
-});
-
-export const unlinkManagedRelayT3Chat = Effect.fn("clientRuntime.managedRelaySession.unlinkT3Chat")(
-  function* (registry: AtomRegistry.AtomRegistry, input: { readonly accountId: string }) {
-    const clerkToken = yield* requireSessionClerkToken(
-      registry,
-      input.accountId,
-      "unlinking T3 Chat",
-    );
-    const relay = yield* ManagedRelay.ManagedRelayClient;
-    yield* relay.unlinkT3Chat({ clerkToken });
-  },
-);
-
 function requireClerkToken(
   get: Atom.AtomContext,
   accountId: string,
@@ -238,7 +220,7 @@ function requireClerkToken(
   if (!session || session.accountId !== accountId) {
     return Effect.fail(
       new ManagedRelaySessionError({
-        message: "Sign in to T3 Connect before loading relay data.",
+        message: `Sign in to ${REMOTE_ACCESS_NAME} before loading relay data.`,
       }),
     );
   }
@@ -256,7 +238,7 @@ function describeManagedRelayFailure(cause: Cause.Cause<unknown>): {
         ? relayProtectedErrorMessage(error.relayError)
         : error instanceof Error
           ? error.message
-          : "Could not load T3 Connect data.",
+          : `Could not load ${REMOTE_ACCESS_NAME} data.`,
     traceId: findErrorTraceId(error),
   };
 }

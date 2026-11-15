@@ -37,6 +37,7 @@ import { Skeleton } from "../ui/skeleton";
 import { toastManager } from "../ui/toast";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { presentSavedCloudEnvironmentConnection } from "./cloudEnvironmentConnectionPresentation";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 const EMPTY_DISCOVERY_REFRESH_INTERVAL_MS = 5_000;
 
@@ -154,11 +155,11 @@ export function CloudEnvironmentConnectRows({
       toastManager.add({
         type: "success",
         title: savedWithoutRelay.has(environment.environmentId)
-          ? "T3 Connect route added"
+          ? `${REMOTE_ACCESS_NAME} route added`
           : "Environment added",
         description: savedWithoutRelay.has(environment.environmentId)
-          ? `${environment.label} falls back to T3 Connect when its other routes are unreachable.`
-          : `Connecting to ${environment.label} through T3 Connect.`,
+          ? `${environment.label} falls back to ${REMOTE_ACCESS_NAME} when its other routes are unreachable.`
+          : `Connecting to ${environment.label} through ${REMOTE_ACCESS_NAME}.`,
       });
       return true;
     }
@@ -167,7 +168,9 @@ export function CloudEnvironmentConnectRows({
     }
     const cause = squashAtomCommandFailure(result);
     const message =
-      cause instanceof Error ? cause.message : "Could not connect the T3 Connect environment.";
+      cause instanceof Error
+        ? cause.message
+        : `Could not connect the ${REMOTE_ACCESS_NAME} environment.`;
     const traceId = findErrorTraceId(cause);
     console.error("[t3-connect] Could not connect environment", { message, traceId, cause });
     toastManager.add({
@@ -289,7 +292,7 @@ export function CloudEnvironmentConnectRows({
       return (
         <div className={ITEM_ROW_CLASSNAME}>
           <p className="text-sm font-medium text-destructive">
-            Could not load T3 Connect environments
+            Could not load {REMOTE_ACCESS_NAME} environments
           </p>
           <p className="mt-1 text-xs text-muted-foreground">{discoveryProblem}</p>
           <Button
@@ -348,23 +351,23 @@ export function CloudEnvironmentConnectRows({
             ? "bg-warning"
             : "bg-muted-foreground/35";
     const notAdded = savedWithoutRelay.has(environment.environmentId)
-      ? "Saved without T3 Connect"
+      ? `Saved without ${REMOTE_ACCESS_NAME}`
       : "Not added";
     const statusText =
       unsupported && !savedEnvironment
-        ? `T3 Connect · ${notAdded} · Client not supported`
+        ? `${REMOTE_ACCESS_NAME} · ${notAdded} · Client not supported`
         : offlineReason !== null
           ? offlineReason
           : savedConnection
             ? savedConnection.statusText
             : availability === "online"
-              ? `T3 Connect · ${notAdded} · Relay online`
+              ? `${REMOTE_ACCESS_NAME} · ${notAdded} · Relay online`
               : availability === "offline"
-                ? `T3 Connect · ${notAdded} · Relay offline`
+                ? `${REMOTE_ACCESS_NAME} · ${notAdded} · Relay offline`
                 : availability === "checking"
-                  ? `T3 Connect · ${notAdded} · Checking relay status…`
+                  ? `${REMOTE_ACCESS_NAME} · ${notAdded} · Checking relay status…`
                   : (Option.getOrNull(error)?.message ??
-                    `T3 Connect · ${notAdded} · Relay status unavailable`);
+                    `${REMOTE_ACCESS_NAME} · ${notAdded} · Relay status unavailable`);
     if (selection) {
       return (
         <label

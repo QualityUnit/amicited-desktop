@@ -62,6 +62,7 @@ import {
 } from "./desktopLocal";
 import * as ConnectionStorage from "./storage";
 import { clientPresentationMetadata } from "./clientMetadata";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 let nextObservedRpcRequestId = 0;
 
@@ -338,7 +339,7 @@ const layerCapabilities = Layer.effectContext(
         if (session === null) {
           return yield* new ConnectionBlockedError({
             reason: "authentication",
-            detail: "Sign in to T3 Connect to connect this environment.",
+            detail: `Sign in to ${REMOTE_ACCESS_NAME} to connect this environment.`,
           });
         }
         const token = yield* session.readClerkToken().pipe(
@@ -353,7 +354,7 @@ const layerCapabilities = Layer.effectContext(
         if (token === null) {
           return yield* new ConnectionBlockedError({
             reason: "authentication",
-            detail: "The T3 Connect session is unavailable.",
+            detail: `The ${REMOTE_ACCESS_NAME} session is unavailable.`,
           });
         }
         return token;

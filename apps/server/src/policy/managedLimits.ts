@@ -25,6 +25,7 @@ import * as Schema from "effect/Schema";
 import * as NetService from "@t3tools/shared/Net";
 
 import { loopbackBindAddress } from "../auth/utils.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 type PolicyDocument = { readonly document: ManagedPolicyDocument | undefined };
 
@@ -83,7 +84,7 @@ const refuse = (policy: PolicyDocument, action: string, detail?: string) =>
     ...(detail === undefined ? {} : { detail }),
   });
 
-export const refuseConnect = (policy: PolicyDocument) => refuse(policy, "T3 Connect");
+export const refuseConnect = (policy: PolicyDocument) => refuse(policy, REMOTE_ACCESS_NAME);
 
 // Node throws ENOTDIR, outside the spawner's error mapping, when PATH ends in a file.
 const isMissingCli = (cause: unknown) =>

@@ -23,7 +23,7 @@ const authorizationUrl = () => {
 };
 const input = {
   authorizationUrl: authorizationUrl(),
-  returnUrl: "https://app.t3.codes/welcome#agents:remote-environment",
+  returnUrl: "http://127.0.0.1:5733/welcome#agents:remote-environment",
   environmentId: EnvironmentId.make("remote-environment"),
   instanceId: ProviderInstanceId.make("work-codex"),
   flowId: "flow-one",
@@ -54,6 +54,13 @@ describe("Codex desktop handoff", () => {
     expect(
       readCodexAuthHandoff(
         codexAuthHandoffUrl({ ...input, returnUrl: "https://attacker.example/welcome" }),
+        false,
+      ),
+    ).toBeUndefined();
+    // No hosted app is configured, so no web origin besides loopback is a return site.
+    expect(
+      readCodexAuthHandoff(
+        codexAuthHandoffUrl({ ...input, returnUrl: "https://app.t3.codes/welcome" }),
         false,
       ),
     ).toBeUndefined();

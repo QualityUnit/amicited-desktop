@@ -13,6 +13,7 @@ import type { EnvironmentPresentation } from "~/state/environments";
 import { usePreparedConnection } from "~/state/session";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export function formatDesktopSshTarget(target: DesktopSshEnvironmentTarget): string {
   const authority = target.username ? `${target.username}@${target.hostname}` : target.hostname;
@@ -37,7 +38,7 @@ export function environmentTransportLabel(
       ? connectionRouteLabel(routes[0]!)
       : `via ${connectionRouteLabel(active)}`;
   }
-  if (environment.relayManaged) return "T3 Connect";
+  if (environment.relayManaged) return REMOTE_ACCESS_NAME;
   if (isDesktopLocalConnectionTarget(entry.target)) return "WSL";
   if (
     entry.target._tag === "SshConnectionTarget" &&

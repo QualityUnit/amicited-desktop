@@ -42,6 +42,7 @@ import {
   DPOP_ACCESS_TOKEN_REFRESH_SKEW_MS,
   type PreparedHttpAuthorization,
 } from "../connection/model.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 export interface AuthorizedRemoteEnvironment {
   readonly environmentId: EnvironmentId;
@@ -232,7 +233,7 @@ export const make = Effect.gen(function* () {
   const sessionPending = () =>
     new ConnectionTransientError({
       reason: "session-pending",
-      detail: "Waiting for the T3 Connect sign-in to load.",
+      detail: `Waiting for the ${REMOTE_ACCESS_NAME} sign-in to load.`,
     });
 
   const assertSession = Effect.fnUntraced(function* (

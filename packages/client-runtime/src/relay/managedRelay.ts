@@ -98,9 +98,9 @@ export const ManagedRelayRequestAction = Schema.Literals([
   "unregister relay mobile device",
   "register relay live activity",
   "read relay agent activity snapshot",
-  "read linked T3 Chat account",
-  "start T3 Chat linking",
-  "unlink T3 Chat account",
+  "read linked chat-partner account",
+  "start chat-partner linking",
+  "unlink chat-partner account",
 ]);
 export type ManagedRelayRequestAction = typeof ManagedRelayRequestAction.Type;
 
@@ -117,9 +117,9 @@ export const ManagedRelayRequestActivity = Schema.Literals([
   "Relay mobile device unregistration",
   "Relay Live Activity registration",
   "Relay agent activity snapshot",
-  "Relay T3 Chat link lookup",
-  "Relay T3 Chat link request",
-  "Relay T3 Chat unlinking",
+  "Relay chat-partner link lookup",
+  "Relay chat-partner link request",
+  "Relay chat-partner unlinking",
 ]);
 export type ManagedRelayRequestActivity = typeof ManagedRelayRequestActivity.Type;
 
@@ -814,8 +814,8 @@ export const make = Effect.fn("ManagedRelayClient.make")(function* (
         return yield* client.client
           .getT3ChatLink({ headers: bearerHeaders(input.clerkToken) })
           .pipe(
-            Effect.mapError(relayRequestError("read linked T3 Chat account")),
-            timeoutRelayRequest("Relay T3 Chat link lookup"),
+            Effect.mapError(relayRequestError("read linked chat-partner account")),
+            timeoutRelayRequest("Relay chat-partner link lookup"),
           );
       },
       Effect.withSpan("clientRuntime.managedRelay.getT3ChatLink"),
@@ -826,8 +826,8 @@ export const make = Effect.fn("ManagedRelayClient.make")(function* (
         return yield* client.client
           .createT3ChatLinkRequest({ headers: bearerHeaders(input.clerkToken) })
           .pipe(
-            Effect.mapError(relayRequestError("start T3 Chat linking")),
-            timeoutRelayRequest("Relay T3 Chat link request"),
+            Effect.mapError(relayRequestError("start chat-partner linking")),
+            timeoutRelayRequest("Relay chat-partner link request"),
           );
       },
       Effect.withSpan("clientRuntime.managedRelay.createT3ChatLinkRequest"),
@@ -838,8 +838,8 @@ export const make = Effect.fn("ManagedRelayClient.make")(function* (
         return yield* client.client
           .unlinkT3Chat({ headers: bearerHeaders(input.clerkToken) })
           .pipe(
-            Effect.mapError(relayRequestError("unlink T3 Chat account")),
-            timeoutRelayRequest("Relay T3 Chat unlinking"),
+            Effect.mapError(relayRequestError("unlink chat-partner account")),
+            timeoutRelayRequest("Relay chat-partner unlinking"),
           );
       },
       Effect.withSpan("clientRuntime.managedRelay.unlinkT3Chat"),

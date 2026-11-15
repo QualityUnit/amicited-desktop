@@ -218,6 +218,7 @@ import {
   readTailscaleStatus,
 } from "@t3tools/tailscale";
 import * as ServerActivation from "./serverActivation.ts";
+import { REMOTE_ACCESS_NAME } from "@amicited/identity";
 
 // Escaped MCP handoff provenance can exceed find-my-way's 100-character segment default.
 const HTTP_ROUTER_CONFIG = {
@@ -1018,14 +1019,19 @@ const layerMakeServer = Layer.unwrap(
             const recoverManagedTunnel = (config: RelayManagedEndpointRuntimeConfig) =>
               runManagedTunnelRecovery(config).pipe(
                 Effect.tap((recovered) =>
-                  recovered ? Effect.logInfo("T3 Connect managed tunnel recovered") : Effect.void,
+                  recovered
+                    ? Effect.logInfo(`${REMOTE_ACCESS_NAME} managed tunnel recovered`)
+                    : Effect.void,
                 ),
                 Effect.catchCause((cause) =>
                   Cause.hasInterrupts(cause)
                     ? Effect.interrupt
-                    : Effect.logWarning("Failed to recover the T3 Connect managed tunnel", {
-                        cause,
-                      }),
+                    : Effect.logWarning(
+                        `Failed to recover the ${REMOTE_ACCESS_NAME} managed tunnel`,
+                        {
+                          cause,
+                        },
+                      ),
                 ),
               );
             yield* endpointRuntime.recoveryRequests.pipe(
@@ -1035,9 +1041,9 @@ const layerMakeServer = Layer.unwrap(
             const wantsCliLink = hasCloudPublicConfig
               ? yield* CloudCliState.readCliDesiredCloudLink.pipe(
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to read the desired T3 Connect link", { cause }).pipe(
-                      Effect.as(false),
-                    ),
+                    Effect.logWarning(`Failed to read the desired ${REMOTE_ACCESS_NAME} link`, {
+                      cause,
+                    }).pipe(Effect.as(false)),
                   ),
                 )
               : false;
@@ -1045,9 +1051,12 @@ const layerMakeServer = Layer.unwrap(
             const desiredCliLinkMode = wantsCliLink
               ? yield* CloudCliState.readCliDesiredLinkMode.pipe(
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to read the desired T3 Connect link mode", {
-                      cause,
-                    }).pipe(Effect.as("managed" as const)),
+                    Effect.logWarning(
+                      `Failed to read the desired ${REMOTE_ACCESS_NAME} link mode`,
+                      {
+                        cause,
+                      },
+                    ).pipe(Effect.as("managed" as const)),
                   ),
                 )
               : null;
@@ -1057,9 +1066,12 @@ const layerMakeServer = Layer.unwrap(
                 ? false
                 : yield* cloudLink.startManagedTunnelIfOriginConfirmed(localOrigin).pipe(
                     Effect.catch((cause) =>
-                      Effect.logWarning("Failed to start the confirmed T3 Connect tunnel", {
-                        cause,
-                      }).pipe(Effect.as(false)),
+                      Effect.logWarning(
+                        `Failed to start the confirmed ${REMOTE_ACCESS_NAME} tunnel`,
+                        {
+                          cause,
+                        },
+                      ).pipe(Effect.as(false)),
                     ),
                   );
             const startStoredManagedTunnel = cloudLink
@@ -1070,12 +1082,14 @@ const layerMakeServer = Layer.unwrap(
                 Effect.tap((started) =>
                   started
                     ? Effect.logWarning(
-                        "T3 Connect started the stored tunnel without relay confirmation",
+                        `${REMOTE_ACCESS_NAME} started the stored tunnel without relay confirmation`,
                       )
                     : Effect.void,
                 ),
                 Effect.catch((cause) =>
-                  Effect.logWarning("Failed to start the stored T3 Connect tunnel", { cause }),
+                  Effect.logWarning(`Failed to start the stored ${REMOTE_ACCESS_NAME} tunnel`, {
+                    cause,
+                  }),
                 ),
                 Effect.asVoid,
               );
@@ -1090,15 +1104,18 @@ const layerMakeServer = Layer.unwrap(
             ).pipe(
               Effect.tap((result) =>
                 result.status === "ready"
-                  ? Effect.logInfo("T3 Connect managed tunnel recovery registered")
+                  ? Effect.logInfo(`${REMOTE_ACCESS_NAME} managed tunnel recovery registered`)
                   : Effect.void,
               ),
               Effect.catchCause((cause) =>
                 Cause.hasInterrupts(cause)
                   ? Effect.interrupt
-                  : Effect.logWarning("Failed to register T3 Connect managed tunnel recovery", {
-                      cause,
-                    }).pipe(Effect.as({ status: "unavailable" as const })),
+                  : Effect.logWarning(
+                      `Failed to register ${REMOTE_ACCESS_NAME} managed tunnel recovery`,
+                      {
+                        cause,
+                      },
+                    ).pipe(Effect.as({ status: "unavailable" as const })),
               ),
             );
             // Jitter registrations so update waves do not hit the relay simultaneously.
@@ -1127,19 +1144,22 @@ const layerMakeServer = Layer.unwrap(
                   (reconcile) =>
                     retryDesiredLinkReconcile(reconcile, CloudLink.shouldRetryCloudLink, (cause) =>
                       Effect.logWarning(
-                        "T3 Connect relay is still unavailable; retrying the desired link in the background",
+                        `${REMOTE_ACCESS_NAME} relay is still unavailable; retrying the desired link in the background`,
                         { cause },
                       ),
                     ),
                   Effect.tap((mode) =>
                     mode === null
                       ? Effect.void
-                      : Effect.logInfo("T3 Connect desired link reconciled on startup"),
+                      : Effect.logInfo(`${REMOTE_ACCESS_NAME} desired link reconciled on startup`),
                   ),
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to reconcile T3 Connect desired link on startup", {
-                      cause,
-                    }).pipe(Effect.as(null)),
+                    Effect.logWarning(
+                      `Failed to reconcile ${REMOTE_ACCESS_NAME} desired link on startup`,
+                      {
+                        cause,
+                      },
+                    ).pipe(Effect.as(null)),
                   ),
                 );
               if (reconciledMode === "managed") {

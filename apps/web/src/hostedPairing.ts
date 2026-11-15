@@ -10,7 +10,8 @@ export interface HostedPairingRequest {
 
 export type HostedAppChannel = "latest" | "nightly";
 
-export function configuredHostedAppUrl(): string {
+/** This build's hosted web app, or null when it has none and links stay local. */
+export function configuredHostedAppUrl(): string | null {
   return import.meta.env.VITE_HOSTED_APP_URL?.trim() || DEFAULT_HOSTED_APP_URL;
 }
 
@@ -44,7 +45,8 @@ export function isHostedStaticApp(url?: URL): boolean {
     return false;
   }
 
-  const hostedOrigin = originFromUrl(configuredHostedAppUrl());
+  const hostedAppUrl = configuredHostedAppUrl();
+  const hostedOrigin = hostedAppUrl === null ? null : originFromUrl(hostedAppUrl);
   return hostedOrigin !== null && (url ?? new URL(window.location.href)).origin === hostedOrigin;
 }
 
@@ -72,8 +74,10 @@ export function buildHostedPairingUrl(input: {
   readonly host: string;
   readonly token: string;
   readonly label?: string | null;
-}): string {
-  const url = new URL("/pair", configuredHostedAppUrl());
+}): string | null {
+  const hostedAppUrl = configuredHostedAppUrl();
+  if (hostedAppUrl === null) return null;
+  const url = new URL("/pair", hostedAppUrl);
   url.searchParams.set("host", input.host);
 
   const label = input.label?.trim();
@@ -87,7 +91,8 @@ export function buildHostedPairingUrl(input: {
 export function buildHostedChannelSelectionUrl(input: {
   readonly channel: HostedAppChannel;
 }): string {
-  const url = new URL("/__t3code/channel", configuredHostedAppUrl());
+  // Only the hosted app offers channels, so without a configured origin it is this page's.
+  const url = new URL("/__amicited/channel", configuredHostedAppUrl() ?? window.location.origin);
   url.searchParams.set("channel", input.channel);
   return url.toString();
 }

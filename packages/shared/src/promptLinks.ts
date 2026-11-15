@@ -170,16 +170,18 @@ export function buildNewThreadLink(input: {
   readonly repository?: PromptLinkRepository | null;
   readonly provider?: string | null;
   readonly model?: string | null;
-  readonly origin?: string;
+  readonly origin?: string | null;
 }): string {
-  const url = new URL("/new", input.origin ?? DEFAULT_HOSTED_APP_URL);
+  const origin = input.origin || DEFAULT_HOSTED_APP_URL;
+  const url = new URL("/new", origin ?? "https://app.invalid");
   url.searchParams.set("prompt", input.prompt);
   if (input.repository) {
     url.searchParams.set("repo", `${input.repository.owner}/${input.repository.name}`);
   }
   if (input.provider) url.searchParams.set("provider", input.provider);
   if (input.provider && input.model) url.searchParams.set("model", input.model);
-  return url.toString();
+  // Without a hosted app, the link opens the desktop app directly.
+  return origin ? url.toString() : promptLinkDeepLink(`${url.pathname}${url.search}`);
 }
 
 const APP_SCHEME = new RegExp(`^${PROTOCOL_SCHEME}(?:-[a-z]+)?:$`);
@@ -187,7 +189,7 @@ const THREAD_PATH = /^\/([^/]+)\/([^/]+)\/?$/;
 
 export function promptLinkAppPath(
   value: string,
-  hostedAppUrl: string = DEFAULT_HOSTED_APP_URL,
+  hostedAppUrl: string | null = DEFAULT_HOSTED_APP_URL,
 ): string | null {
   if (!URL.canParse(value)) return null;
   const url = new URL(value);
@@ -198,7 +200,8 @@ export function promptLinkAppPath(
     const thread = url.host === "threads" ? THREAD_PATH.exec(url.pathname) : null;
     return thread ? `/${thread[1]}/${thread[2]}${url.search}` : null;
   }
-  if (!URL.canParse(hostedAppUrl) || url.origin !== new URL(hostedAppUrl).origin) return null;
+  if (!hostedAppUrl || !URL.canParse(hostedAppUrl) || url.origin !== new URL(hostedAppUrl).origin)
+    return null;
   if (url.pathname === "/new") return `/new${url.search}`;
   // The web app's own thread route is a link only with a prompt, so reloading a tab never asks.
   const thread = url.pathname.startsWith("/threads/")
