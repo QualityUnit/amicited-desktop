@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 
-import { isSameSchedule, nextScheduledRunAt } from "./Schedule.ts";
+import { isMissedFixedTimeRun, isSameSchedule, nextScheduledRunAt } from "./Schedule.ts";
 
 describe("scheduled task schedule calculation", () => {
   it("skips to the next matching fixed-time weekday", () => {
@@ -80,6 +80,15 @@ describe("scheduled task schedule calculation", () => {
         { type: "interval", everyMs: 60_000 },
         { type: "fixed_time", timeOfDay: "09:00" },
       ),
+    ).toBe(false);
+  });
+
+  it("runs a missed fixed time late only when the schedule catches up", () => {
+    const dueAt = DateTime.makeUnsafe("2026-11-15T06:00:00Z");
+    const now = DateTime.makeUnsafe("2026-11-15T09:30:00Z");
+    expect(isMissedFixedTimeRun({ type: "fixed_time", timeOfDay: "06:00" }, dueAt, now)).toBe(true);
+    expect(
+      isMissedFixedTimeRun({ type: "fixed_time", timeOfDay: "06:00", catchUp: true }, dueAt, now),
     ).toBe(false);
   });
 });

@@ -26,6 +26,9 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   "amicited.cloud.disconnect": AuthSettingsWriteScope,
   "amicited.cloud.answerApproval": AuthSettingsWriteScope,
   "amicited.tools.run": AuthOrchestrationOperateScope,
+  "amicited.issues.update": AuthOrchestrationOperateScope,
+  "amicited.issues.configureAudit": AuthSettingsWriteScope,
+  "amicited.issues.runAudit": AuthOrchestrationOperateScope,
   [WS_METHODS.previewClose]: AuthPreviewOperateScope,
   // Stopping a server signals its processes, as closing a terminal does.
   [WS_METHODS.previewStopLocalServer]: AuthTerminalOperateScope,

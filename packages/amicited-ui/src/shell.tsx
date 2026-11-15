@@ -1,4 +1,3 @@
-import { resultTitle } from "./experience.js";
 import { useContext, type ReactNode, type ComponentProps } from "react";
 import { MarketingUiContext } from "./primitives.js";
 export function MarketingShell({
@@ -29,7 +28,7 @@ export function MarketingShell({
     <div data-amicited-shell="" data-amicited-tokens="" className="am-chat-shell">
       <main className="am-chat-main">
         {headerTitle ||
-        ["/tools", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
+        ["/issues", "/settings", "/marketing-settings", "/usage"].some((prefix) =>
           path.startsWith(prefix),
         ) ? (
           <>
@@ -37,30 +36,20 @@ export function MarketingShell({
               {Breadcrumb ? (
                 <Breadcrumb>
                   {headerTitle ??
-                    (path.startsWith("/tools")
-                      ? path === "/tools"
-                        ? "Tools"
-                        : path.endsWith("/result")
-                          ? "Result"
-                          : resultTitle({ tool: decodeURIComponent(path.split("/").at(-1) ?? "") })
+                    (path.startsWith("/issues")
+                      ? "Issues"
                       : path === "/marketing-settings"
                         ? "AmICited"
                         : "Settings")}
                 </Breadcrumb>
               ) : (
                 <span>
-                  {path.startsWith("/tools")
-                    ? "Tools" +
-                      (path === "/tools"
-                        ? ""
-                        : " / " +
-                          (path.endsWith("/result")
-                            ? "Result"
-                            : resultTitle({
-                                tool: decodeURIComponent(path.split("/").at(-1) ?? ""),
-                              })))
-                    : "Your workspace / " +
-                      (path === "/marketing-settings" ? "AmICited" : "Settings")}
+                  {"Your workspace / " +
+                    (path.startsWith("/issues")
+                      ? "Issues"
+                      : path === "/marketing-settings"
+                        ? "AmICited"
+                        : "Settings")}
                 </span>
               )}
             </MarketingHeader>

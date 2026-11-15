@@ -1,3 +1,4 @@
+import { issueRpcs } from "@amicited/cloud-client/issues";
 import { cloudRpcs } from "@amicited/cloud-client/rpc";
 import { marketingRpcs } from "@amicited/tools-core/rpc";
 import {
@@ -1999,6 +2000,7 @@ export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthori
 export const WsRpcGroup = RpcGroup.make(
   // AmICited cloud extension.
   ...cloudRpcs,
+  ...issueRpcs,
   ...marketingRpcs,
   WsGuestShareCreateRpc,
   WsServerProbeRpc,

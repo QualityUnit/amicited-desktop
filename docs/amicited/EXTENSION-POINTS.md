@@ -33,7 +33,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `apps/web/src/components/onboarding/WelcomeWizard.tsx`: usage-data notice names the product and points to the switch.
 - `apps/web/src/legalLinks.ts`: privacy policy is FlowHunt's.
 
-New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,tools.*}.tsx`)
+New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.
 Home Ask and New task seed the selected assistant and send through the upstream
 composer once it mounts. Fix this with AI opens the same composer for review.
@@ -191,8 +191,26 @@ was invoked.
 
 The marketer settings navigation links AmICited to `/marketing-settings`; General
 shows a connection status line and a link to the AmICited page. Home shows the cloud summary when connected
-and a quiet connection link after a persisted first win otherwise. Tools retain
-all free cards and append optional cloud explainers.
+and a quiet connection link after a persisted first win otherwise.
+
+## Issues and the daily audit
+
+Issues replace the Tools page. Each connected domain gets one upstream scheduled
+task, the daily audit, that walks every AmICited report and keeps that domain's
+issues current through three MCP tools. An issue links to at most one thread;
+In progress and Ready for review are read from that thread, so only open, done
+and dismissed are stored. AmICited tables run their own migration list
+(`amicited_migrations`) inside the existing database, because upstream refuses
+a recorded migration id whose name differs from its own.
+
+- `packages/contracts/src/scheduledTask.ts`, `apps/server/src/scheduledTasks/Schedule.ts`: optional `catchUp` on fixed-time schedules runs a time missed while the machine was off or asleep once, instead of skipping it.
+- `packages/contracts/src/{rpc,clientRpcPermissions}.ts`, `apps/server/src/auth/RpcAuthorization.ts`, `apps/server/src/observability/RpcInstrumentation.ts`, `packages/client-runtime/src/rpc/client.ts`: register `amicited.issues.*`.
+- `apps/server/src/ws.ts`: thin issue handlers; connecting or disconnecting a domain turns its daily audit on or off.
+- `apps/server/src/server.ts`: provides the issues service beside the domain favicons.
+- `apps/server/src/mcp/McpHttpServer.ts`: registers `issues_list`, `issue_upsert` and `issue_set_status`; `agentContextBudget.json` records them.
+- `apps/web/src/components/chat/ChatComposer.tsx`: mounts the Next fix card under a new chat and the issue strip in an issue's thread.
+- `apps/web/src/components/CommandPalette.tsx`: Open issues replaces Open Tools.
+- `packages/contracts/src/ipc.ts`, `apps/desktop/src/{preload.ts,ipc/channels.ts,ipc/DesktopIpcHandlers.ts}`: optional open-at-login bridge so a missed audit runs at startup (XDG autostart on Linux).
 
 ## Launch branding
 

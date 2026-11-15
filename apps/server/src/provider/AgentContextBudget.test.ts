@@ -2,6 +2,7 @@ import { TerminalManager } from "../terminal/Manager.ts";
 import { ProviderInstanceRegistry } from "./ProviderInstanceRegistry.ts";
 import { CloudClient } from "@amicited/cloud-client";
 import { AmicitedCloud } from "../amicited/Cloud.ts";
+import { AmicitedIssues } from "../amicited/Issues.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
@@ -53,6 +54,7 @@ import budget from "./agentContextBudget.json" with { type: "json" };
 // Registration only stores tool definitions, so the handlers' services are never called.
 const toolHandlerServices = Layer.mergeAll(
   Layer.mock(TerminalManager)({}),
+  Layer.mock(AmicitedIssues)({}),
   Layer.mock(AssetSigner)({}),
   Layer.mock(DeviceService)({}),
   Layer.mock(DocumentText)({}),

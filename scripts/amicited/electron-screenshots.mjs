@@ -420,10 +420,9 @@ try {
     await page.getByTestId("composer-editor").press("Enter");
     await page.getByText("Thanks, keep this for the next campaign.", { exact: true }).waitFor();
   }
-  await page.getByRole("link", { name: "Tools", exact: true }).click();
-  await page.getByRole("button", { name: "Content tools", exact: true }).click();
-  if (!page.url().includes("category=content")) throw new Error("Electron lost category route");
-  await capture("tools-content");
+  await page.getByRole("link", { name: "Issues" }).click();
+  await page.getByRole("heading", { name: "Issues", exact: true }).waitFor();
+  await capture("issues");
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("switch", { name: "Developer features" }).waitFor();
   await capture("settings");
@@ -469,11 +468,6 @@ try {
   await page.getByText("AmICited connected", { exact: true }).waitFor();
   await capture("cloud-site-health");
 
-  await page.getByRole("link", { name: "Tools", exact: true }).click();
-  await page.getByRole("button", { name: "Content tools", exact: true }).click();
-  await page.locator(".am-tool-list > a").first().click();
-  await page.getByRole("button", { name: /Run/ }).first().waitFor();
-  await capture("tool-form");
   if (process.env.AMICITED_CAPTURE_HOME && process.env.AMICITED_REUSE_REAL === "1") {
     if (process.env.AMICITED_SKIP_REPORT_PROBE !== "1") {
       const { DatabaseSync } = await import("node:sqlite");

@@ -3,6 +3,7 @@ import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc"
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as AmicitedDomainFavicons from "./amicited/DomainFavicons.ts";
+import * as AmicitedIssues from "./amicited/Issues.ts";
 import * as MarketingTools from "@amicited/tools/service";
 import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -2012,6 +2013,20 @@ export const layerWsRpc = (
 
       const cloud = yield* AmicitedCloud.AmicitedCloud;
       const domainFavicons = yield* AmicitedDomainFavicons.DomainFavicons;
+      const issues = yield* AmicitedIssues.AmicitedIssues;
+      // The daily audit follows the domain's connection, so connecting is the only setup.
+      const syncAudit =
+        (projectId: string) =>
+        <A extends { readonly state: string }, E, R>(effect: Effect.Effect<A, E, R>) =>
+          effect.pipe(
+            Effect.tap((connection) =>
+              connection.state === "connected" || connection.state === "disconnected"
+                ? issues
+                    .setConnected(projectId, connection.state === "connected")
+                    .pipe(Effect.ignoreCause({ log: true }))
+                : Effect.void,
+            ),
+          );
       const marketingTools = yield* MarketingTools.MarketingTools.pipe(
         Effect.provide(MarketingToolsLive.layer),
       );
@@ -2078,7 +2093,7 @@ export const layerWsRpc = (
             },
             catch: () =>
               new DomainFailure({ message: "Could not use that account. Please connect again." }),
-          }),
+          }).pipe(syncAudit(projectId)),
         "amicited.domains.connection": ({ projectId, action, apiKey }) =>
           Effect.tryPromise({
             try: async () => {
@@ -2104,7 +2119,9 @@ export const layerWsRpc = (
               new DomainFailure({
                 message: "Could not update the AmICited connection for this domain.",
               }),
-          }),
+          }).pipe((effect) =>
+            action === "status" && !apiKey ? effect : syncAudit(projectId)(effect),
+          ),
         // AmICited cloud: credentials stay inside the server.
         "amicited.cloud.answerApproval": ({ requestId, decision }) =>
           Effect.tryPromise({
@@ -2135,6 +2152,11 @@ export const layerWsRpc = (
         "amicited.cloud.connectApiKey": ({ apiKey }) =>
           Effect.promise(() => cloud.connectApiKey(apiKey)),
         "amicited.cloud.disconnect": () => Effect.promise(() => cloud.disconnect()),
+        "amicited.issues.subscribe": () => issues.subscribe(),
+        "amicited.issues.update": ({ id, status, threadId }) =>
+          issues.update({ id, status, threadId }),
+        "amicited.issues.configureAudit": (input) => issues.configureAudit(input),
+        "amicited.issues.runAudit": ({ projectId }) => issues.runAudit(projectId),
         "amicited.tools.list": () =>
           marketingTools.list.pipe(Effect.map((cards) => cards.map((card) => ({ ...card })))),
         "amicited.tools.run": ({ name, input }) =>

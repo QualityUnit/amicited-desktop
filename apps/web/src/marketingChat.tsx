@@ -38,9 +38,10 @@ import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic
 import { hasReadyMarketingAssistant } from "./marketingContext";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketer styles are owned by @amicited/ui-marketing. */
 import { useState, useEffect, useEffectEvent } from "react";
-import { useNavigate, useLocation } from "@tanstack/react-router";
+import { isUsefulResult, type ToolResult } from "@amicited/tools-core";
 import {
   CompactMarketingResult,
+  MarketingResult,
   cloudToolResult,
   cloudRunId,
   CloudToolResultCard,
@@ -194,8 +195,6 @@ export function MarketingTranscriptCard({
   const { startTask } = useMarketingTask();
   const fetched = detail.data?.item;
   const result = marketingToolResult(fetched?.type === "dynamic_tool" ? fetched.output : output);
-  const navigate = useNavigate();
-  const path = useLocation({ select: (location) => location.pathname });
   const visible = useThreadVisibleTurnItems(
     projectedItem && environmentId
       ? { environmentId, threadId: projectedItem.sourceThreadId }
@@ -313,7 +312,8 @@ export function MarketingTranscriptCard({
       />
     );
   return (
-    <CompactMarketingResult
+    <ChatMarketingResult
+      result={result}
       ask={() =>
         void startTask(resultQuestion(result), false, result).catch(() =>
           toastManager.add({
@@ -322,12 +322,31 @@ export function MarketingTranscriptCard({
           }),
         )
       }
+    />
+  );
+}
+
+function ChatMarketingResult({ result, ask }: { result: ToolResult; ask: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const firstWin = () => {
+    if (!isUsefulResult(result)) return;
+    try {
+      localStorage.setItem("amicited.first-win", "true");
+    } catch {
+      /* Offers fall back to the server's first-win check when storage is blocked. */
+    }
+  };
+  if (expanded) return <MarketingResult result={result} />;
+  return (
+    <CompactMarketingResult
+      ask={() => {
+        firstWin();
+        ask();
+      }}
       result={result}
       open={() => {
-        sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
-        sessionStorage.setItem("amicited.return-chat", path);
-        sessionStorage.setItem("amicited.result-origin." + result.id, path);
-        void navigate({ to: "/tools/$toolName", params: { toolName: result.tool } });
+        firstWin();
+        setExpanded(true);
       }}
     />
   );

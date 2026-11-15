@@ -43,6 +43,9 @@ const ScheduledTaskFixedTimeSchedule = Schema.Struct({
       description: "Default: every day.",
     }),
   ),
+  catchUp: Schema.optional(Schema.Boolean).annotate({
+    description: "Run a missed time once when next possible, as after the computer was off.",
+  }),
 });
 
 const ISO_WITH_OFFSET =

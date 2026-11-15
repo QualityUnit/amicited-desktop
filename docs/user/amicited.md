@@ -40,3 +40,22 @@ gives CMS instructions rather than claiming to edit the website.
 To change a domain's folder, choose Create a new domain from this folder in its
 menu. Existing chats keep their original folder and history. Edit domain updates
 the website, brand and CMS; Settings → Domains shows which folder is connected.
+
+## Issues
+
+Issues lists what to fix on your websites, most important first. Open it from
+the top of the sidebar or with Open issues in the command palette.
+
+Connecting AmICited for a domain turns on its daily audit: every day at 06:00 an
+agent reads all of that domain's AmICited reports and adds an issue for each
+problem it finds. A report you have not connected yet becomes a Connect issue
+at the top of the list. The first audit starts as soon as you connect. If the
+computer was off or asleep at the audit time, it runs once when the app is open
+again; on the desktop app, Settings in the audit line can open AmICited when the
+computer starts. Change the time or add instructions there too.
+
+Start opens a thread on the issue's domain where an agent does the fix. The
+issue shows In progress while the agent works and Ready for review when it is
+done. Mark it as done, or let the next audit confirm the fix. Dismiss hides an
+issue the audit should not raise again; Restore brings it back. A new chat shows
+the next issue to fix under the message box.
