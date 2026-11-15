@@ -46,6 +46,7 @@ export const RPC_REQUIRED_SCOPES = {
   "amicited.cloud.status": AuthOrchestrationReadScope,
   "amicited.cloud.summary": AuthOrchestrationReadScope,
   "amicited.tools.list": AuthOrchestrationReadScope,
+  "amicited.issues.subscribe": AuthOrchestrationReadScope,
   ...CLIENT_GUARDED_RPC_SCOPES,
   [ORCHESTRATION_V2_WS_METHODS.dispatchCommand]: AuthOrchestrationOperateScope,
   [ORCHESTRATION_V2_WS_METHODS.getWorkflowScript]: AuthOrchestrationReadScope,

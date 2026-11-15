@@ -77,6 +77,6 @@ export function isMissedFixedTimeRun(
   dueAt: DateTime.DateTime,
   now: DateTime.DateTime,
 ): boolean {
-  if (schedule.type !== "fixed_time") return false;
+  if (schedule.type !== "fixed_time" || schedule.catchUp === true) return false;
   return DateTime.toEpochMillis(now) - DateTime.toEpochMillis(dueAt) > MISSED_FIXED_TIME_GRACE_MS;
 }

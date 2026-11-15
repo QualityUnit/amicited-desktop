@@ -30,7 +30,7 @@ import {
   WorkspaceBreadcrumbText,
   WorkspaceBreadcrumbSeparator,
 } from "./components/WorkspaceBreadcrumb";
-import { Wrench, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { WorkLogButton, WorkLogDetails } from "./components/chat/WorkLog";
 import { Hammer } from "lucide-react";
 import { SidebarChromeHeader } from "./components/sidebar/SidebarChrome";
@@ -49,9 +49,9 @@ import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { toastManager } from "./components/ui/toast";
 import { useThreadActions } from "./hooks/useThreadActions";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { marketingReturnThread, saveMarketingReport } from "./marketingContext";
+import { saveMarketingReport } from "./marketingContext";
 import { useThreadRouteRef } from "./hooks/useThreadRouteTarget";
-import { useThreadShell, useThreadShells } from "./state/entities";
+import { useThreadShell } from "./state/entities";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
@@ -60,7 +60,6 @@ import { Textarea } from "./components/ui/textarea";
 import { MarketingUiContext, MarketingButton } from "@amicited/ui-marketing";
 import type { ComponentProps } from "react";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
-import { isUsefulResult } from "@amicited/tools-core";
 import { usePrimarySettings } from "./hooks/useSettings";
 import { serverEnvironment } from "./state/server";
 import { effectiveMarketingAssistant, recommendedMarketingAssistant } from "./marketingAssistant";
@@ -74,20 +73,14 @@ import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
 import { CloudPage } from "./rpc/amicitedCloud";
 
-import { useComposerDraftStore } from "./composerDraftStore";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
-import { useAtomValue } from "@effect/atom-react";
 import {
-  ToolsGrid,
-  ToolForm,
   MarketingSettings as MarketingSettingsView,
   MarketingShell,
   useWorkspaceMode,
 } from "@amicited/ui-marketing";
-import type { ToolCard, ToolResult } from "@amicited/tools-core";
-import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -98,7 +91,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
 import {
   useConnectedEnvironmentIds,
@@ -108,6 +100,7 @@ import {
 } from "./state/environments";
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
+import { IssuesPage, IssuesSidebarRow } from "./marketingIssues";
 
 const KitButton = ({
   variant = "outline",
@@ -267,14 +260,6 @@ const marketingUi = {
   Tooltip: KitTooltip,
 };
 
-const listCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.tools.list",
-  label: "marketing:list",
-});
-const runCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.tools.run",
-  label: "marketing:run",
-});
 export function MarketingBoundary({ children }: { children: ReactNode }) {
   // AmICited extension: one role boundary owns navigation and settings visibility.
   const mode = useWorkspaceMode();
@@ -302,12 +287,18 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   </span>
                 }
               />
+              <IssuesSidebarRow
+                active={path.startsWith("/issues")}
+                onOpen={() => {
+                  setArchived(false);
+                  void navigate({ to: "/issues" });
+                }}
+              />
               <MarketingHistory archived={archived} setArchived={setArchived} />
               <SidebarFooter>
                 <div className="flex gap-2">
                   {[
                     ["Settings", "/settings/general", Settings],
-                    ["Tools", "/tools", Wrench],
                     ["AmICited", "/marketing-settings", PlugZap],
                   ].map(([label, href, Icon]) => (
                     <SidebarMenuButton
@@ -344,6 +335,8 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
           >
             {archived ? (
               <MarketingArchive />
+            ) : path === "/issues" ? (
+              <IssuesPage />
             ) : path === "/marketing-settings" ? (
               <CloudPage />
             ) : path === "/settings/general" ? (
@@ -428,97 +421,6 @@ export function MarketingHome() {
   return error ? <p role="alert">{error}</p> : <p role="status">Opening your chat…</p>;
 }
 
-export function MarketingTools({ name }: { name?: string }) {
-  const selectedPack = useLocation({
-    select: (location) => new URLSearchParams(location.searchStr).get("category") || "seo",
-  });
-  const navigate = useNavigate();
-  const threads = useThreadShells();
-  const actions = useMarketingTask();
-  const environmentId = usePrimaryEnvironmentId();
-  const list = useAtomCommand(listCommand);
-  const run = useAtomCommand(runCommand);
-  const loadTools = useEffectEvent(list);
-  const canRun = useAtomValue(runCommand.permissionAtom(environmentId));
-  const [tools, setTools] = useState<readonly ToolCard[]>([]);
-  const [error, setError] = useState("");
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- loads the registry from the connected environment
-  useEffect(() => {
-    if (!environmentId) return;
-    let active = true;
-    void loadTools({ environmentId, input: undefined }).then((result) => {
-      if (!active) return;
-      if (result._tag === "Success") setTools(result.value as unknown as ToolCard[]);
-      else setError("Could not load tools. Reconnect your machine and try again.");
-    });
-    return () => {
-      active = false;
-    };
-  }, [environmentId]);
-  if (error) return <p role="alert">{error}</p>;
-  if (!tools.length) return <p>Loading local tools…</p>;
-  if (!name)
-    return (
-      <>
-        <ToolsGrid
-          tools={tools}
-          selectedPack={selectedPack}
-          navigate={(to) => void navigate({ to })}
-        />
-      </>
-    );
-  const tool = tools.find((tool) => tool.name === name);
-  if (!tool)
-    return (
-      <>
-        <h1>This tool is not available yet</h1>
-        <p>Explore the tools available on this device.</p>
-        <ToolsGrid
-          tools={tools}
-          selectedPack={selectedPack}
-          navigate={(to) => void navigate({ to })}
-        />
-      </>
-    );
-  return (
-    <>
-      <ToolForm
-        fix={async (prompt, report) => {
-          const resultPath = sessionStorage.getItem("amicited.result-origin." + report.id);
-          const origin = marketingReturnThread(resultPath, threads);
-          if (resultPath && origin) {
-            const environment = origin.environmentId;
-            const thread = origin.id;
-            {
-              useComposerDraftStore.getState().setPrompt(
-                {
-                  environmentId: EnvironmentId.make(environment),
-                  threadId: ThreadId.make(thread),
-                },
-                prompt,
-              );
-              saveMarketingReport({ environmentId: environment, threadId: thread }, report);
-              await navigate({ to: resultPath });
-              return;
-            }
-          }
-          await actions.startTask(prompt, false, report);
-        }}
-        fullResult={Boolean(sessionStorage.getItem("amicited.last-result"))}
-        onResult={rememberResult}
-        key={name}
-        tool={tool}
-        disabled={!canRun}
-        run={async (input) => {
-          if (!environmentId) throw new Error("No machine");
-          const result = await run({ environmentId, input: { name, input } });
-          if (result._tag !== "Success") throw new Error("Tool failed");
-          return result.value as unknown as ToolResult;
-        }}
-      />
-    </>
-  );
-}
 const renderModeSwitch = (checked: boolean, onChange: (checked: boolean) => void) => (
   <Switch aria-label="Developer features" checked={checked} onCheckedChange={onChange} />
 );
@@ -548,16 +450,6 @@ export function MarketingFirstRun() {
       <MarketingHome />
     </>
   );
-}
-function rememberResult(result: ToolResult) {
-  if (!isUsefulResult(result)) return;
-  try {
-    sessionStorage.setItem("amicited.last-result", JSON.stringify(result));
-    window.dispatchEvent(new Event("amicited-result"));
-  } catch {
-    /* Results remain visible when storage is blocked. */
-  }
-  localStorage.setItem("amicited.first-win", "true");
 }
 export function useMarketingTask() {
   const environmentId = usePrimaryEnvironmentId();

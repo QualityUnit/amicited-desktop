@@ -1,5 +1,6 @@
 import * as AmicitedCloud from "./amicited/Cloud.ts";
 import * as AmicitedDomainFavicons from "./amicited/DomainFavicons.ts";
+import * as AmicitedIssues from "./amicited/Issues.ts";
 import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
 import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
 import * as Random from "effect/Random";
@@ -1167,6 +1168,7 @@ const layerMakeServer = Layer.unwrap(
         { concurrency: "unbounded" },
       ).pipe(Effect.asVoid),
     }).pipe(
+      Layer.provideMerge(AmicitedIssues.layer),
       Layer.provideMerge(AmicitedDomainFavicons.layer),
       Layer.provideMerge(layerRuntimeDependencies),
       Layer.provide(layerLauncher),

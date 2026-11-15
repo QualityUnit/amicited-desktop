@@ -8,11 +8,13 @@ import * as Config from "effect/Config";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import * as ServerConfig from "../config.ts";
 import * as ExternalLauncher from "../process/externalLauncher.ts";
 import { domainFaviconDirectory } from "./DomainFavicons.ts";
+import { AmicitedIssues } from "./Issues.ts";
 
 const decodeSetup = Schema.decodeUnknownSync(
   Schema.Struct({ finished: Schema.Boolean, lastDomain: Schema.optionalKey(Schema.String) }),
@@ -137,6 +139,10 @@ export const projectLifecycleLayer = Layer.effect(
         projectId: import("@t3tools/contracts").ProjectId,
       ) {
         if (cloud.domains) yield* Effect.promise(() => cloud.domains!.forget(projectId));
+        // Resolved per call: the issues layer needs ProjectService, which reads this lifecycle.
+        const issues = yield* Effect.serviceOption(AmicitedIssues);
+        if (Option.isSome(issues))
+          yield* issues.value.forgetProject(projectId).pipe(Effect.ignoreCause({ log: true }));
         yield* fs
           .remove(domainFaviconDirectory(path, stateDir, projectId), { recursive: true })
           .pipe(Effect.ignore);

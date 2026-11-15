@@ -1226,14 +1226,14 @@ try {
       await page.locator("[data-chat-provider-model-picker]").last().waitFor();
       await capture("02b-empty-connected");
       for (const [path, name] of [
-        ["/tools", "06-tools"],
+        ["/issues", "06-issues"],
         ["/marketing-settings", "07-amicited"],
         ["/settings/general", "08-settings"],
       ]) {
         await page.goto(url + path);
         await page.locator("[data-app-sidebar]").waitFor();
-        if (path === "/tools")
-          await page.getByText("Loading local tools…").waitFor({ state: "hidden" });
+        if (path === "/issues")
+          await page.getByRole("heading", { name: "Issues", exact: true }).waitFor();
         if (path === "/marketing-settings") {
           const disconnect = page.getByRole("button", { name: "Disconnect", exact: true });
           if (await disconnect.count()) await disconnect.click();
@@ -1269,37 +1269,7 @@ try {
             await capture("07-cloud-" + state);
           }
         }
-        if (path === "/tools") {
-          await page.locator(".am-tool-list > a").first().hover();
-          await capture("06b-tools-hover");
-        }
       }
-      await page.getByRole("link", { name: "Tools", exact: true }).click();
-      await page.getByRole("button", { name: "Content tools", exact: true }).click();
-      await page.locator('a[href="/tools/content.readability"]').click();
-      await page
-        .getByRole("textbox", { name: "text", exact: true })
-        .fill("Our campaign helps small teams write clearly. Keep the message useful and concise.");
-      await page.getByRole("button", { name: "Run check", exact: true }).click();
-      await page.getByRole("button", { name: "Ask AI about this", exact: true }).waitFor();
-      await capture("08b-readability-result");
-      await page.getByRole("button", { name: "Ask AI about this", exact: true }).click();
-      await page.getByTestId("composer-editor").waitFor();
-      await capture("08c-readability-context");
-      await NodeFSP.writeFile(
-        NodePath.join(out, "readability-report-context.json"),
-        await page.evaluate(() =>
-          JSON.stringify(
-            Object.fromEntries(
-              Object.entries(sessionStorage).filter(([key]) =>
-                key.startsWith("amicited.report-context."),
-              ),
-            ),
-            null,
-            2,
-          ),
-        ),
-      );
       await page.goto(marketingChatUrl);
       await page.waitForFunction(() => Boolean((window as unknown as { t3dev?: unknown }).t3dev));
       await waitForOperate();

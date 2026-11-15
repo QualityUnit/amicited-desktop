@@ -5,6 +5,7 @@ import { marketingStarters } from "@amicited/ui-marketing";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { MarketingComposerContext } from "../../marketingChat";
+import { MarketingIssueStrip, MarketingNextFix } from "../../marketingIssues";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
 import { insertAttachmentReferencesForDraft } from "./composerAttachmentReferences";
@@ -3659,6 +3660,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     });
                 }}
               />
+              {routeKind === "draft" ? (
+                <MarketingNextFix environmentId={environmentId} projectId={activeProjectId} />
+              ) : (
+                <MarketingIssueStrip threadRef={routeThreadRef} />
+              )}
               {routeKind === "draft" ? (
                 <div className="am-starters">
                   {marketingStarters.map((prompt) => (

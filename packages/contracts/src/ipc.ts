@@ -1048,6 +1048,9 @@ export interface DesktopBridge {
    * regardless of OS settings.
    */
   getSystemLocale: () => string | null;
+  /** AmICited: null where the app cannot open itself at login, such as unpackaged builds. */
+  getOpenAtLogin?: () => boolean | null;
+  setOpenAtLogin?: (enabled: boolean) => Promise<boolean | null>;
   getLocalEnvironmentBootstraps: () => readonly DesktopEnvironmentBootstrap[];
   getLocalEnvironmentEnabled: () => boolean;
   setLocalEnvironmentEnabled: (enabled: boolean) => Promise<void>;

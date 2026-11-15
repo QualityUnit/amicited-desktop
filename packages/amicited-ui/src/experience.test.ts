@@ -1,5 +1,4 @@
 import { resultQuestion } from "./experience.js";
-import { activeToolPack } from "./packs.js";
 import { describe, expect, it } from "vite-plus/test";
 import {
   normalizeWebsite,
@@ -99,19 +98,6 @@ describe("marketer website and results", () => {
     for (const status of [undefined, "queued"])
       expect(marketingTaskStatus(status, false)).toBe("Ready");
   });
-});
-
-it.each([
-  ["/tools", "", "seo"],
-  ["/tools", "#content", "content"],
-  ["/tools", "serp", "serp"],
-  ["/tools/ai.visibility.check", "", "ai-visibility"],
-  ["/tools/seo.meta.check", "", "seo"],
-  ["/tools/content.write", "", "content"],
-  ["/tools/serp.autocomplete", "", "serp"],
-  ["/home", "content", undefined],
-])("resolves tool pack for %s %s", (path, hash, expected) => {
-  expect(activeToolPack(path, hash)).toBe(expected);
 });
 
 it("asks a short editable question without pasting the report or severity codes", () => {
