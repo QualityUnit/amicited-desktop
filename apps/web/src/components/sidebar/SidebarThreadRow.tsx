@@ -1370,7 +1370,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                   {marketer ? (
                     <span
                       className={cn(
-                        "pointer-events-none absolute inset-y-0 right-0 z-10 flex items-stretch opacity-0 group-any-hover/sidebar-row:pointer-events-auto group-any-hover/sidebar-row:static group-any-hover/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:static group-focus-within/sidebar-row:opacity-100",
+                        "pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center opacity-0 group-any-hover/sidebar-row:pointer-events-auto group-any-hover/sidebar-row:static group-any-hover/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:static group-focus-within/sidebar-row:opacity-100",
                         (props.isActive || snoozeMenuOpen) &&
                           "pointer-events-auto static opacity-100",
                       )}
