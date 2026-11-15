@@ -44,6 +44,11 @@
       // knip run beside it in check:changed must not report.
       "ignore": ["npm-launcher/**", ".knip-test-*/**"],
     },
+    "packages/amicited-identity": {
+      // Every rebrand branch creates this package with identical files; its tests live with
+      // the apps that import it, so vite-plus is declared but not yet used here.
+      "ignoreDependencies": ["vite-plus"],
+    },
     "apps/server": {
       // Vite+ pack entries and the launcher used by installed background services.
       "entry": [

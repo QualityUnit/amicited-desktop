@@ -1,4 +1,6 @@
+import { applyAmicitedEnv } from "@amicited/identity/env";
 import * as MacPermissions from "./permissions/MacPermissions.ts";
+applyAmicitedEnv();
 for (const stream of [process.stdout, process.stderr]) {
   stream.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code !== "EPIPE") throw err;

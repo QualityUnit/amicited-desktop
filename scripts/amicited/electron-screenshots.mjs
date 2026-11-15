@@ -22,15 +22,15 @@ const webPort = await port(),
   debugPort = await port();
 const env = {
   ...process.env,
-  T3CODE_HOME: process.env.AMICITED_CAPTURE_HOME ?? NodePath.join(home, "state"),
-  T3CODE_PORT_OFFSET: "217",
-  T3CODE_PORT: String(serverPort),
+  AMICITED_HOME: process.env.AMICITED_CAPTURE_HOME ?? NodePath.join(home, "state"),
+  AMICITED_PORT_OFFSET: "217",
+  AMICITED_PORT: String(serverPort),
   PORT: String(webPort),
   VITE_DEV_SERVER_URL: `http://localhost:${webPort}`,
-  T3CODE_DEV_SEED: "0",
-  T3CODE_DEV_REPLAY_CAPTURE: "1",
-  T3CODE_NO_BROWSER: "1",
-  T3CODE_SINGLE_ORIGIN_DEV: "1",
+  AMICITED_DEV_SEED: "0",
+  AMICITED_DEV_REPLAY_CAPTURE: "1",
+  AMICITED_NO_BROWSER: "1",
+  AMICITED_SINGLE_ORIGIN_DEV: "1",
 };
 if (process.env.AMICITED_CAPTURE_OAUTH === "1") {
   env.AMICITED_OAUTH_CAPTURE_URL = NodePath.join(home, "oauth-url");
@@ -471,9 +471,12 @@ try {
   if (process.env.AMICITED_CAPTURE_HOME && process.env.AMICITED_REUSE_REAL === "1") {
     if (process.env.AMICITED_SKIP_REPORT_PROBE !== "1") {
       const { DatabaseSync } = await import("node:sqlite");
-      const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
-        readOnly: true,
-      });
+      const database = new DatabaseSync(
+        NodePath.join(env.AMICITED_HOME, "userdata/statev2.sqlite"),
+        {
+          readOnly: true,
+        },
+      );
       const row = database
         .prepare(
           "SELECT thread_id, title FROM orchestration_v2_projection_threads WHERE thread_id = (SELECT thread_id FROM orchestration_v2_projection_runs WHERE provider_instance_id = 'claudeAgent' ORDER BY requested_at DESC LIMIT 1)",
@@ -497,7 +500,7 @@ try {
   }
   if (process.env.AMICITED_SKIP_REPORT_PROBE !== "1") {
     const { DatabaseSync } = await import("node:sqlite");
-    const database = new DatabaseSync(NodePath.join(env.T3CODE_HOME, "userdata/statev2.sqlite"), {
+    const database = new DatabaseSync(NodePath.join(env.AMICITED_HOME, "userdata/statev2.sqlite"), {
       readOnly: true,
     });
     const outgoing = database

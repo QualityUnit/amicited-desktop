@@ -1,3 +1,11 @@
+import { PRODUCT_NAME } from "@amicited/identity";
+import {
+  POLICY_ADMX_CATEGORY,
+  POLICY_ADMX_CATEGORY_NAME,
+  POLICY_ADMX_NAMESPACE,
+  POLICY_ADMX_PREFIX,
+  POLICY_PREFERENCES_DOMAIN,
+} from "@amicited/identity/policy";
 import type { ManagedPolicyDocument } from "@t3tools/contracts";
 import {
   WINDOWS_POLICY_KEY,
@@ -184,6 +192,8 @@ const escapeXml = (text: string) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const SUPPORTED_ID = `SUPPORTED_${POLICY_ADMX_CATEGORY}`;
+
 // ADMX keys are relative to the hive the policy class picks.
 const ADMX_KEY = WINDOWS_POLICY_KEY.replace(/^HKLM\\/, "");
 const elementId = (element: Element) =>
@@ -218,7 +228,7 @@ const admxElement = (element: Element) => {
 export function windowsAdmx(): string {
   const body = policies().map((policy) => {
     const head = `<policy name="${policy.id}" class="Machine" displayName="$(string.${policy.id})" explainText="$(string.${policy.id}_Help)" key="${ADMX_KEY}"`;
-    const common = `<parentCategory ref="T3Code" />\n      <supportedOn ref="SUPPORTED_T3Code" />`;
+    const common = `<parentCategory ref="${POLICY_ADMX_CATEGORY}" />\n      <supportedOn ref="${SUPPORTED_ID}" />`;
     if (policy.toggle !== undefined) {
       return `    ${head} valueName="${policy.toggle}">
       ${common}
@@ -237,16 +247,16 @@ export function windowsAdmx(): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
   <policyNamespaces>
-    <target prefix="t3code" namespace="T3Tools.Policies.T3Code" />
+    <target prefix="${POLICY_ADMX_PREFIX}" namespace="${POLICY_ADMX_NAMESPACE}" />
   </policyNamespaces>
   <resources minRequiredRevision="1.0" />
   <supportedOn>
     <definitions>
-      <definition name="SUPPORTED_T3Code" displayName="$(string.SUPPORTED_T3Code)" />
+      <definition name="${SUPPORTED_ID}" displayName="$(string.${SUPPORTED_ID})" />
     </definitions>
   </supportedOn>
   <categories>
-    <category name="T3Code" displayName="$(string.T3Code)" />
+    <category name="${POLICY_ADMX_CATEGORY}" displayName="$(string.${POLICY_ADMX_CATEGORY})" />
   </categories>
   <policies>
 ${body.join("\n")}
@@ -270,8 +280,8 @@ const presentationElement = (element: Element) => {
 /** The en-US strings and dialog layouts for `windowsAdmx`. */
 export function windowsAdml(): string {
   const strings: Array<readonly [string, string]> = [
-    ["T3Code", "T3 Code"],
-    ["SUPPORTED_T3Code", "T3 Code with managed policy support"],
+    [POLICY_ADMX_CATEGORY, POLICY_ADMX_CATEGORY_NAME],
+    [SUPPORTED_ID, `${PRODUCT_NAME} with managed policy support`],
   ];
   const presentations: Array<string> = [];
   for (const policy of policies()) {
@@ -291,8 +301,8 @@ export function windowsAdml(): string {
   }
   return `<?xml version="1.0" encoding="utf-8"?>
 <policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
-  <displayName>T3 Code</displayName>
-  <description>Policies for T3 Code</description>
+  <displayName>${escapeXml(PRODUCT_NAME)}</displayName>
+  <description>Policies for ${escapeXml(PRODUCT_NAME)}</description>
   <resources>
     <stringTable>
 ${strings.map(([id, text]) => `      <string id="${id}">${escapeXml(text)}</string>`).join("\n")}
@@ -337,7 +347,7 @@ const nullPath = (
   return undefined;
 };
 
-/** A device configuration profile that installs `document` for `com.t3tools.t3code`. */
+/** A device configuration profile that installs `document` for `POLICY_PREFERENCES_DOMAIN`. */
 export function macosProfile(
   document: ManagedPolicyDocument,
   uuids: { readonly profile: string; readonly payload: string },
@@ -357,17 +367,17 @@ export function macosProfile(
   const profile = {
     PayloadContent: [
       {
-        PayloadDisplayName: "T3 Code policy",
-        PayloadIdentifier: `com.t3tools.t3code.policy.${uuids.payload}`,
-        PayloadType: "com.t3tools.t3code",
+        PayloadDisplayName: `${PRODUCT_NAME} policy`,
+        PayloadIdentifier: `${POLICY_PREFERENCES_DOMAIN}.policy.${uuids.payload}`,
+        PayloadType: POLICY_PREFERENCES_DOMAIN,
         PayloadUUID: uuids.payload,
         PayloadVersion: 1,
         ...document,
       },
     ],
-    PayloadDescription: "Configures T3 Code for every user on this Mac.",
-    PayloadDisplayName: `T3 Code policy for ${document.organization}`,
-    PayloadIdentifier: `com.t3tools.t3code.policy`,
+    PayloadDescription: `Configures ${PRODUCT_NAME} for every user on this Mac.`,
+    PayloadDisplayName: `${PRODUCT_NAME} policy for ${document.organization}`,
+    PayloadIdentifier: `${POLICY_PREFERENCES_DOMAIN}.policy`,
     PayloadOrganization: document.organization,
     PayloadScope: "System",
     PayloadType: "Configuration",

@@ -6,13 +6,11 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 
 import * as DesktopPreReadyFileSystem from "./DesktopPreReadyFileSystem.ts";
-import * as DesktopUserData from "./DesktopUserData.ts";
 
-const resolveWindowsUserData = (appDataDirectory: string) =>
-  DesktopUserData.resolveUserDataPath({
-    appDataDirectory,
-    isDevelopment: false,
-    platform: "win32",
+const existsBeforeReady = (resourcePath: string) =>
+  Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    return yield* fileSystem.exists(resourcePath);
   }).pipe(Effect.provide(DesktopPreReadyFileSystem.layer));
 
 it.layer(NodeServices.layer)("DesktopPreReadyFileSystem", (it) => {
@@ -25,7 +23,7 @@ it.layer(NodeServices.layer)("DesktopPreReadyFileSystem", (it) => {
         yield* fileSystem.chmod(root, 0o000);
         yield* Effect.addFinalizer(() => fileSystem.chmod(root, 0o700).pipe(Effect.orDie));
 
-        const exit = yield* Effect.exit(resolveWindowsUserData(root));
+        const exit = yield* Effect.exit(existsBeforeReady(`${root}/profile/Local State`));
 
         assert.isTrue(Exit.isFailure(exit));
       }),

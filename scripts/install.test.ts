@@ -37,10 +37,10 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer home
           env: {
             ...process.env,
             HOME: root,
-            T3CODE_HOME: homeName,
-            T3CODE_VERSION: version,
-            T3CODE_INSTALL_BIN_DIR: NodePath.dirname(launcher),
-            T3CODE_RELEASE_BASE_URL: "http://127.0.0.1:1",
+            AMICITED_HOME: homeName,
+            AMICITED_VERSION: version,
+            AMICITED_INSTALL_BIN_DIR: NodePath.dirname(launcher),
+            AMICITED_RELEASE_BASE_URL: "http://127.0.0.1:1",
           },
           encoding: "utf8",
         },
@@ -102,12 +102,12 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chan
           const child = NodeChildProcess.spawn("sh", [installer], {
             env: {
               ...process.env,
-              T3CODE_VERSION: "",
-              T3CODE_CHANNEL: channel,
-              T3CODE_HOME: NodePath.join(root, "home"),
-              T3CODE_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
+              AMICITED_VERSION: "",
+              AMICITED_CHANNEL: channel,
+              AMICITED_HOME: NodePath.join(root, "home"),
+              AMICITED_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
               // A wrong version must fail here instead of downloading a real release.
-              T3CODE_RELEASE_BASE_URL: origin,
+              AMICITED_RELEASE_BASE_URL: origin,
             },
             stdio: ["ignore", "pipe", "pipe"],
           });
@@ -202,10 +202,10 @@ describe.skipIf(HostProcess.Platform.defaultValue() !== "linux")("installer chec
                   env: {
                     ...process.env,
                     PATH: tools,
-                    T3CODE_VERSION: version,
-                    T3CODE_HOME: home,
-                    T3CODE_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
-                    T3CODE_RELEASE_BASE_URL: `http://127.0.0.1:${address.port}`,
+                    AMICITED_VERSION: version,
+                    AMICITED_HOME: home,
+                    AMICITED_INSTALL_BIN_DIR: NodePath.join(root, "bin"),
+                    AMICITED_RELEASE_BASE_URL: `http://127.0.0.1:${address.port}`,
                   },
                   stdio: ["ignore", "pipe", "pipe"],
                 },

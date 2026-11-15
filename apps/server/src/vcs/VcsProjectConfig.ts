@@ -1,3 +1,4 @@
+import { DATA_DIR_NAME } from "@amicited/identity";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -72,7 +73,7 @@ export const make = Effect.gen(function* () {
   const findConfigPath = Effect.fn("VcsProjectConfig.findConfigPath")(function* (cwd: string) {
     let current = cwd;
     while (true) {
-      const candidate = path.join(current, ".t3code", "vcs.json");
+      const candidate = path.join(current, DATA_DIR_NAME, "vcs.json");
       const exists = yield* fileSystem.exists(candidate).pipe(
         Effect.mapError(
           (cause) =>

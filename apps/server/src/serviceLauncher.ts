@@ -1,6 +1,8 @@
 // @effect-diagnostics nodeBuiltinImport:off
 // @effect-diagnostics globalTimers:off
 // The launcher must survive unloadable server versions; use Node built-ins without Effect.
+import { HOME_ENV_VAR } from "@amicited/identity";
+import { toUpstreamEnvName } from "@amicited/identity/env";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFS from "node:fs";
@@ -102,7 +104,9 @@ export async function readServiceEnvironment(
     if (cause instanceof Error && "code" in cause && cause.code === "ENOENT") return environment;
     throw cause;
   }
-  for (const [name, value] of Object.entries(NodeUtil.parseEnv(contents))) {
+  for (const [written, value] of Object.entries(NodeUtil.parseEnv(contents))) {
+    // Users write AMICITED_* names; the server reads them under upstream's T3CODE_* names.
+    const name = toUpstreamEnvName(written);
     if (
       /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) &&
       !MANAGED_SERVICE_ENV_NAMES.has(name.toUpperCase())
@@ -832,7 +836,7 @@ export class Launcher {
 export async function main(): Promise<void> {
   const baseDir = process.env.T3CODE_HOME?.trim();
   if (baseDir === undefined || baseDir === "") {
-    throw new Error("T3CODE_HOME is required by the T3 Code service launcher.");
+    throw new Error(`${HOME_ENV_VAR} is required by the T3 Code service launcher.`);
   }
   const environment = await readServiceEnvironment(baseDir);
   const statePath = NodePath.join(baseDir, "runtime", SERVICE_STATE_FILE);

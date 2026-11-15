@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { DATA_DIR_NAME } from "@amicited/identity";
+import { applyAmicitedEnv } from "@amicited/identity/env";
 import * as NodeOS from "node:os";
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
@@ -23,6 +25,8 @@ import { ChildProcess } from "effect/process";
 import { type DevShareError, shareDevServer, unshareDevServer } from "./lib/dev-share.ts";
 import { loadRepoEnv } from "./lib/public-config.ts";
 
+// Before the repo .env: a T3 Code user's shell variables must not configure AmICited dev servers.
+if (import.meta.main) applyAmicitedEnv();
 Object.assign(process.env, loadRepoEnv());
 
 const BASE_SERVER_PORT = 13773;
@@ -60,7 +64,7 @@ export function isProxiableBindHost(host: string): boolean {
 }
 
 export const DEFAULT_T3_HOME = Effect.map(Effect.service(Path.Path), (path) =>
-  path.join(NodeOS.homedir(), ".t3"),
+  path.join(NodeOS.homedir(), DATA_DIR_NAME),
 );
 
 const MODE_ARGS = {
@@ -633,7 +637,12 @@ const prepareFirstStart = Effect.fn("dev-runner.prepareFirstStart")(function* (i
         );
       }
     }
-    const source = path.join(yield* HostProcess.HomeDirectory, ".t3", "userdata", "statev2.sqlite");
+    const source = path.join(
+      yield* HostProcess.HomeDirectory,
+      DATA_DIR_NAME,
+      "userdata",
+      "statev2.sqlite",
+    );
     // A V1 state.sqlite counts as data too: the server imports it only while
     // statev2.sqlite is missing, so seeding would hide it.
     if (
@@ -649,7 +658,7 @@ const prepareFirstStart = Effect.fn("dev-runner.prepareFirstStart")(function* (i
           );
         } else {
           yield* Effect.logInfo(
-            `[dev-runner] seeding ${input.worktreeHome} from ${source} (read-only). --no-seed or T3CODE_DEV_SEED=0 skips this.`,
+            `[dev-runner] seeding ${input.worktreeHome} from ${source} (read-only). --no-seed or AMICITED_DEV_SEED=0 skips this.`,
           );
           yield* runRepoScript(
             "apps/server/scripts/migrate-dev-db.ts",
@@ -729,8 +738,8 @@ export const runDevRunnerWithInput = Effect.fn("dev-runner.runDevRunnerWithInput
 
   const hostEnvironment = yield* HostProcess.Environment;
   // A dev server started inside a worktree defaults to that worktree's own
-  // (gitignored) `.t3` — see @t3tools/shared/devHome for why this must
-  // outrank an ambient T3CODE_HOME. `--home-dir` still wins.
+  // (gitignored) `.amicited` — see @t3tools/shared/devHome for why this must
+  // outrank an ambient AMICITED_HOME. `--home-dir` still wins.
   const worktreeHome = yield* resolveWorktreeT3Home(yield* HostProcess.WorkingDirectory);
   // Trim before choosing: `--home-dir ""` is not a selection, and treating it
   // as one would skip the worktree default and land on the shared home —
@@ -917,7 +926,7 @@ const devRunnerCli = Command.make("dev-runner", {
   ),
   t3Home: Flag.String("home-dir").pipe(
     Flag.withDescription(
-      "Explicit T3 Code data directory; runtime state is stored under userdata (equivalent to T3CODE_HOME). Inside a git worktree this defaults to that worktree's own .t3 so dev state stays off the shared home.",
+      "Explicit AmICited data directory; runtime state is stored under userdata (equivalent to AMICITED_HOME). Inside a git worktree this defaults to that worktree's own .amicited so dev state stays off the shared home.",
     ),
     Flag.optional,
     Flag.map(Option.getOrUndefined),
@@ -966,7 +975,7 @@ const devRunnerCli = Command.make("dev-runner", {
   ),
   seed: Flag.Boolean("seed").pipe(
     Flag.withDescription(
-      "Seed an empty worktree database from ~/.t3 on first start (read-only, via migrate-dev-db) if the source is at most 500 MiB. On by default; --no-seed or T3CODE_DEV_SEED=0 skips it.",
+      "Seed an empty worktree database from ~/.amicited on first start (read-only, via migrate-dev-db) if the source is at most 500 MiB. On by default; --no-seed or AMICITED_DEV_SEED=0 skips it.",
     ),
     Flag.withFallbackConfig(optionalBooleanConfig("T3CODE_DEV_SEED")),
   ),

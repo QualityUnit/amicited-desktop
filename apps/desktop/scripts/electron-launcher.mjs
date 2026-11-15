@@ -108,6 +108,8 @@ function shellSingleQuote(value) {
 
 export function makeDevelopmentEnvironmentScript(environment) {
   const envEntries = [
+    // Keeps the T3CODE_* values below: @amicited/identity/env drops them when this marker is missing.
+    ["AMICITED_ENV_MAPPED", environment.AMICITED_ENV_MAPPED],
     ["VITE_DEV_SERVER_URL", environment.VITE_DEV_SERVER_URL],
     ["T3CODE_PORT", environment.T3CODE_PORT],
     ["T3CODE_HOME", environment.T3CODE_HOME],

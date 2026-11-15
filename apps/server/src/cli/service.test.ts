@@ -20,7 +20,7 @@ const status = {
   supported: true,
   installed: true,
   current: true,
-  unitPath: "/home/me/.config/systemd/user/t3code.service",
+  unitPath: "/home/me/.config/systemd/user/amicited.service",
   logPath: "/home/me/.t3/userdata/logs/boot-service.log",
 } as const;
 
@@ -90,11 +90,18 @@ it.layer(Layer.mergeAll(NodeServices.layer, NetService.layer))("service commands
   );
 
   it.effect.each([
-    { label: "a new service", installed: false, env: "", expected: "T3CODE_LAN=false\n" },
+    { label: "a new service", installed: false, env: "", expected: "AMICITED_LAN=false\n" },
     // Services installed before T3CODE_LAN existed keep listening on the local network.
     { label: "an older service", installed: true, env: "", expected: "" },
     {
       label: "a set host",
+      installed: false,
+      env: "AMICITED_HOST=::\n",
+      expected: "AMICITED_HOST=::\n",
+    },
+    // service.env lives in AmICited's own home, so an upstream spelling there still counts.
+    {
+      label: "an upstream-spelled host",
       installed: false,
       env: "T3CODE_HOST=::\n",
       expected: "T3CODE_HOST=::\n",

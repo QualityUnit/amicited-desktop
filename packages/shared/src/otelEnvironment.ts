@@ -264,7 +264,7 @@ const sdkFlags = {
     ["true"],
     ["false"],
     (value) =>
-      `OTEL_SDK_DISABLED=${value} was read as false; the OpenTelemetry specification recognizes only the string true, so use OTEL_SDK_DISABLED=true or T3CODE_OTEL_SDK_DISABLED to say it any other way`,
+      `OTEL_SDK_DISABLED=${value} was read as false; the OpenTelemetry specification recognizes only the string true, so use OTEL_SDK_DISABLED=true or AMICITED_OTEL_SDK_DISABLED to say it any other way`,
   ),
 };
 
@@ -303,7 +303,7 @@ export const load: Effect.Effect<OtelEnvironment> = Config.all({
       warnings.push(
         t3.value
           ? "T3CODE_OTEL_SDK_DISABLED is set, so no telemetry is exported, whatever configured it"
-          : "OTEL_SDK_DISABLED is set, so no telemetry is exported, whatever configured it; set T3CODE_OTEL_SDK_DISABLED=false to export anyway",
+          : "OTEL_SDK_DISABLED is set, so no telemetry is exported, whatever configured it; set AMICITED_OTEL_SDK_DISABLED=false to export anyway",
       );
     }
     return {

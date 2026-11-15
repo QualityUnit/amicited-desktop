@@ -1,3 +1,4 @@
+import { POLICY_TEMPLATE_BASENAME } from "@amicited/identity/policy";
 import * as Console from "effect/Console";
 import type { ManagedPolicyDocument } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
@@ -149,9 +150,15 @@ const templatesCommand = Command.make("templates", {
         return yield* new CliError.UserError({ cause: document, userMessage: profile.reason });
       }
       const files = [
-        [path.join(directory, "windows", "t3code.admx"), windowsAdmx()],
-        [path.join(directory, "windows", "en-US", "t3code.adml"), windowsAdml()],
-        [path.join(directory, "macos", "t3code.mobileconfig"), profile.profile],
+        [path.join(directory, "windows", `${POLICY_TEMPLATE_BASENAME}.admx`), windowsAdmx()],
+        [
+          path.join(directory, "windows", "en-US", `${POLICY_TEMPLATE_BASENAME}.adml`),
+          windowsAdml(),
+        ],
+        [
+          path.join(directory, "macos", `${POLICY_TEMPLATE_BASENAME}.mobileconfig`),
+          profile.profile,
+        ],
       ] as const;
       for (const [file, contents] of files) {
         yield* fs.makeDirectory(path.dirname(file), { recursive: true });
