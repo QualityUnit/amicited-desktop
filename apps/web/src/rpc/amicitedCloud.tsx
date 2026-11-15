@@ -31,7 +31,8 @@ import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { createLocalApi } from "../localApi";
-import { MarketingButton } from "@amicited/ui-marketing";
+import { AmICitedLogo, MarketingButton } from "@amicited/ui-marketing";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 const CloudButton = ({ variant = "outline", ...props }: ComponentProps<typeof MarketingButton>) =>
@@ -347,8 +348,13 @@ export function CloudConnectedChip({
 }) {
   const { connection } = useCloud(destination);
   return connection?.state === "connected" ? (
-    <span>
-      · <span>AmICited connected</span>
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={<span className="am-context-cloud" role="img" aria-label="AmICited connected" />}
+      >
+        <AmICitedLogo size={14} />
+      </TooltipTrigger>
+      <TooltipPopup>AmICited connected</TooltipPopup>
+    </Tooltip>
   ) : null;
 }

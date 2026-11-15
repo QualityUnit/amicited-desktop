@@ -36,24 +36,29 @@ export function BrandFavicon({ website, name }: { website?: string | undefined; 
   );
 }
 export function AmICitedMark() {
-  const mask = useId();
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 32 32">
-        <defs>
-          <mask id={mask}>
-            <rect width="32" height="32" fill="white" />
-            <path
-              d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
-              stroke="black"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </mask>
-        </defs>
-        <rect width="32" height="32" rx="9" fill="currentColor" mask={`url(#${mask})`} />
-      </svg>
+      <AmICitedLogo size={18} />
       <strong>AmICited</strong>
     </span>
+  );
+}
+export function AmICitedLogo({ size }: { size: number }) {
+  const mask = useId();
+  return (
+    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 32 32">
+      <defs>
+        <mask id={mask}>
+          <rect width="32" height="32" fill="white" />
+          <path
+            d="M9 23v-4m5 4v-8m5 8V11m5 12V7"
+            stroke="black"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+        </mask>
+      </defs>
+      <rect width="32" height="32" rx="9" fill="currentColor" mask={`url(#${mask})`} />
+    </svg>
   );
 }

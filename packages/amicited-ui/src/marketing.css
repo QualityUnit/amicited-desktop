@@ -618,6 +618,21 @@
 .am-context-domain svg {
   flex-shrink: 0;
 }
+.am-context-domain > .am-favicon {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+}
+.am-context-domain > .am-favicon :is(img, svg) {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.am-context-cloud {
+  display: inline-flex;
+  color: var(--muted-foreground);
+}
 .am-composer-context .am-cloud-actions {
   display: flex;
   flex-wrap: nowrap;

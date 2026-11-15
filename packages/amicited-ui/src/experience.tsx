@@ -6,6 +6,7 @@ import { isUsefulResult, type ToolResult } from "@amicited/tools-core";
 
 export {
   AmICitedMark,
+  AmICitedLogo,
   readBrand,
   saveBrand,
   normalizeWebsite,

@@ -44,6 +44,7 @@ import {
   resultTitle,
   resultQuestion,
   useWorkspaceMode,
+  BrandFavicon,
 } from "@amicited/ui-marketing";
 import { MarketingSubscriptions, useMarketingTask } from "./marketing";
 import { CloudConnectedChip } from "./rpc/amicitedCloud";
@@ -91,7 +92,7 @@ export function MarketingComposerContext({
         {domain ? (
           <Tooltip>
             <TooltipTrigger render={<span className="am-context-domain" />}>
-              <Globe size={14} />
+              <BrandFavicon website={`https://${domain.hostname}`} name={domain.brand} />
               <span>{domain.hostname}</span>
             </TooltipTrigger>
             <TooltipPopup>{domain.hostname}</TooltipPopup>
