@@ -37,8 +37,15 @@ export function isRuntimeExternalCliDependency(id: string): boolean {
   );
 }
 
+// AmICited: bundled code (the MCP SDK) imports zod as ESM, which a single executable
+// cannot load from disk, so zod is bundled too. It stays staged for @cursor/sdk.
+const BUNDLED_RUNTIME_DEPENDENCIES = ["zod"] as const;
+
 /** Use neverBundle: false from alwaysBundle means no opinion and leaves transitive packages bundled. */
 export function isExternalCliDependency(id: string): boolean {
+  if (BUNDLED_RUNTIME_DEPENDENCIES.some((name) => id === name || id.startsWith(`${name}/`))) {
+    return false;
+  }
   return isRuntimeExternalCliDependency(id);
 }
 

@@ -17,6 +17,14 @@ import {
 export { shouldBundleCliDependency };
 
 const repoEnv = loadRepoEnv();
+// AmICited: vega-canvas optionally imports node-canvas, which we don't ship, and an executable
+// rejects the unresolved import. An empty module gives the same null canvas as a missing one.
+const NO_NODE_CANVAS = "\0amicited-no-node-canvas";
+const noNodeCanvas = {
+  name: "amicited:no-node-canvas",
+  resolveId: (id: string) => (id === "canvas" ? NO_NODE_CANVAS : null),
+  load: (id: string) => (id === NO_NODE_CANVAS ? "export {};" : null),
+};
 const cliBuildChannel = /^[^-+]+-(?:nightly|preview)\./.test(packageJson.version)
   ? "nightly"
   : "latest";
@@ -91,6 +99,7 @@ export default mergeConfig(
       // TEMPORARY one-time Node fix. Remove when fixed: https://github.com/nodejs/node/issues/67048
       // SEA can only resolve built-ins; keep dynamic imports inside its one module.
       ...(packExecutable ? { outputOptions: { codeSplitting: false } } : {}),
+      ...(packExecutable ? { plugins: [noNodeCanvas] } : {}),
       ...(packMode === "1"
         ? {
             exe: {

@@ -1464,6 +1464,22 @@ it.layer(NodeServices.layer)("build-desktop-artifact", (it) => {
     });
   });
 
+  it("signs macOS builds without associated domains when Clerk is not configured", () => {
+    const configuration = resolveMacPasskeySigningConfiguration({
+      T3CODE_APPLE_TEAM_ID: "ABC1234567",
+      T3CODE_MACOS_PROVISIONING_PROFILE: "/tmp/t3code.provisionprofile",
+    });
+    const entitlements = renderMacPasskeyEntitlements(configuration, {
+      touchIdKeychainAccessGroup: "ABC1234567.com.amicited.desktop.webauthn",
+      browserPasskeys: false,
+    });
+
+    assert.deepStrictEqual(configuration.rpDomains, []);
+    assert.include(entitlements, "<string>ABC1234567.com.amicited.desktop</string>");
+    assert.include(entitlements, "<string>ABC1234567.com.amicited.desktop.webauthn</string>");
+    assert.notInclude(entitlements, "com.apple.developer.associated-domains");
+  });
+
   it("normalizes explicit macOS passkey RP domains and renders required entitlements", () => {
     const configuration = resolveMacPasskeySigningConfiguration({
       T3CODE_APPLE_TEAM_ID: "ABC1234567",

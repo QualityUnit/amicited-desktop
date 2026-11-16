@@ -4,7 +4,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as ServerConfig from "../config.ts";
 import { domainFaviconDirectory, faviconExtension } from "./DomainFavicons.ts";
-import { Agent, fetch as restFetch } from "undici";
+import * as NodeModule from "node:module";
+import type * as Undici from "undici";
 import * as Clock from "effect/Clock";
 import * as Schema from "effect/Schema";
 import * as Config from "effect/Config";
@@ -16,6 +17,11 @@ import { normalizeDomain } from "@amicited/cloud-client/domainModel";
 import { AmicitedCloud } from "./Cloud.ts";
 
 const isReportFailure = Schema.is(ReportFailure);
+
+// undici is external to the CLI bundle; a single executable can load it from disk only with require.
+const requireUndici = NodeModule.createRequire(import.meta.url);
+const undici = () => requireUndici("undici") as typeof Undici;
+const restFetch: typeof Undici.fetch = (input, init) => undici().fetch(input, init);
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -354,7 +360,7 @@ export const layer = Layer.effect(
             const url = new URL(logo);
             const addresses = await publicAddresses(url.hostname.replace(/^\[|\]$/g, ""));
             if (!addresses) return undefined;
-            const dispatcher = new Agent({
+            const dispatcher = new (undici().Agent)({
               connect: {
                 lookup: (_host, options, callback) =>
                   options.all

@@ -1,3 +1,5 @@
+import * as NodeModule from "node:module";
+import type * as Keyring from "@napi-rs/keyring";
 import * as Reports from "./Reports.ts";
 import { ProjectLifecycle } from "../project/ProjectService.ts";
 import * as Schema from "effect/Schema";
@@ -17,6 +19,9 @@ import * as ExternalLauncher from "../process/externalLauncher.ts";
 import { domainFaviconDirectory } from "./DomainFavicons.ts";
 import { AmicitedIssues } from "./Issues.ts";
 
+// The keyring addon is external to the CLI bundle; a single executable can load it only with require.
+const requireKeyring = NodeModule.createRequire(import.meta.url);
+
 const decodeSetup = Schema.decodeUnknownSync(
   Schema.Struct({ finished: Schema.Boolean, lastDomain: Schema.optionalKey(Schema.String) }),
 );
@@ -34,7 +39,7 @@ export const layer = Layer.effect(
     const account = config.stateDir;
     const context = yield* Effect.context<never>();
     const entry = async (reference = account) => {
-      const { AsyncEntry } = await import("@napi-rs/keyring");
+      const { AsyncEntry } = requireKeyring("@napi-rs/keyring") as typeof Keyring;
       return new AsyncEntry("AmICited Desktop Cloud", reference);
     };
     const missing = (error: unknown) =>

@@ -44,6 +44,12 @@ describe("shouldBundleCliDependency", () => {
     }
   });
 
+  it("bundles zod, which bundled MCP SDK code imports as ESM", () => {
+    for (const id of ["zod", "zod/v3", "zod/v4", "zod/v4-mini"]) {
+      assert.strictEqual(shouldBundleCliDependency(id), true, id);
+    }
+  });
+
   it("treats prefix-matched siblings as external", () => {
     assert.strictEqual(shouldBundleCliDependency("node-gyp-build-optional-packages"), false);
   });
