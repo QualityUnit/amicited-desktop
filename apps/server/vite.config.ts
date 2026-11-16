@@ -1,5 +1,5 @@
 import "vite-plus/test/config";
-import { defineConfig, mergeConfig } from "vite-plus";
+import { defineConfig, mergeConfig, type Plugin } from "vite-plus";
 
 import baseConfig from "../../vite.config.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
@@ -17,6 +17,19 @@ import {
 export { shouldBundleCliDependency };
 
 const repoEnv = loadRepoEnv();
+// AmICited: vega-canvas's Node build top-level-awaits an optional node-canvas we don't ship.
+// That makes every Vega importer an async module init, and their import cycle deadlocks the
+// bundled server before it logs anything. The browser build is identical in Node without canvas.
+const vegaCanvasBrowserBuild: Plugin = {
+  name: "amicited:vega-canvas-browser-build",
+  async resolveId(id, importer, options) {
+    if (id !== "vega-canvas") return null;
+    const resolved = await this.resolve(id, importer, { ...options, skipSelf: true });
+    return resolved
+      ? { ...resolved, id: resolved.id.replace(/vega-canvas\.node\.js$/, "vega-canvas.browser.js") }
+      : null;
+  },
+};
 const cliBuildChannel = /^[^-+]+-(?:nightly|preview)\./.test(packageJson.version)
   ? "nightly"
   : "latest";
@@ -91,6 +104,7 @@ export default mergeConfig(
       // TEMPORARY one-time Node fix. Remove when fixed: https://github.com/nodejs/node/issues/67048
       // SEA can only resolve built-ins; keep dynamic imports inside its one module.
       ...(packExecutable ? { outputOptions: { codeSplitting: false } } : {}),
+      plugins: [vegaCanvasBrowserBuild],
       ...(packMode === "1"
         ? {
             exe: {

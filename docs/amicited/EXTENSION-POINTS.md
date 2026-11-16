@@ -765,6 +765,8 @@ Names come from `@amicited/identity` (`index.ts`) and `@amicited/identity/cli` (
 - `apps/server/src/provider/providerCompatibility.ts`: advisories match `UPSTREAM_T3_CODE_VERSION`, the T3 Code release this build is merged from. Update it with each weekly merge.
 - `apps/server/src/triage/*`, `.github/triage/PLAYBOOK.md`: no remote playbook; source from our repository; reports go to support by email.
 - `knip.jsonc`: the identity package keeps its shared manifest as written.
+- `scripts/lib/cli-external-packages.ts`: `zod` stays staged for `@cursor/sdk` but is bundled, because the bundled MCP SDK imports it as ESM. `apps/server/vite.config.ts`: server bundles use `vega-canvas`'s browser build. Its Node build top-level-awaits an optional `canvas`, which turns Vega's importers into async module inits whose import cycle deadlocks the bundled server at startup. AmICited server code loads `undici` and `@napi-rs/keyring` through `createRequire`, as upstream does.
+- `scripts/build-desktop-artifact.ts`: a signed macOS build without Clerk configuration signs without the associated-domains entitlement instead of failing.
 
 ## Agent and provider identity
 

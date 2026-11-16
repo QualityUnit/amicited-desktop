@@ -1,3 +1,4 @@
+import { GITHUB_APP } from "@amicited/identity/agent-identity";
 import { ProjectId, SourceControlProviderKind } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -373,11 +374,12 @@ describe("appSignInTargetForRemote", () => {
       "https://github.com/octocat/Hello-World.git",
       "git@github.com:octocat/Hello-World.git",
     ]) {
-      expect(appSignInTargetForRemote(remote)?.input).toEqual({
-        provider: "github",
-        host: "github.com",
-        repository: "octocat/Hello-World",
-      });
+      // AmICited: app sign-in stays off until our GitHub App is registered.
+      expect(appSignInTargetForRemote(remote)?.input).toEqual(
+        GITHUB_APP === null
+          ? undefined
+          : { provider: "github", host: "github.com", repository: "octocat/Hello-World" },
+      );
     }
   });
 

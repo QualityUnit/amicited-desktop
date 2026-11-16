@@ -169,6 +169,15 @@ function ContextPermissions() {
 }
 
 it("opens permissions directly from the context strip and applies a supported mode", async () => {
+  // Browser test files run in parallel on one origin, so another file's developer-mode write
+  // lands mid-test; read this frame's workspace mode as marketer regardless.
+  const getItem = Storage.prototype.getItem;
+  using _mode = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (
+    this: Storage,
+    key: string,
+  ) {
+    return key === "amicited.workspace-mode" ? "marketer" : getItem.call(this, key);
+  });
   await using screen = await render(<ContextPermissions />, { router: false }); // no routes involved
   await userEvent.click(screen.getByRole("button", { name: "Permissions: Full access" }));
   await expect

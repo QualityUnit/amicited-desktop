@@ -1184,15 +1184,6 @@ export class MissingMacPasskeyProvisioningProfileError extends Schema.TaggedErro
   }
 }
 
-export class MissingMacPasskeyDomainConfigurationError extends Schema.TaggedError<MissingMacPasskeyDomainConfigurationError>()(
-  "MissingMacPasskeyDomainConfigurationError",
-  {},
-) {
-  override get message(): string {
-    return "T3CODE_CLERK_PUBLISHABLE_KEY or T3CODE_CLERK_PASSKEY_RP_DOMAINS is required for signed macOS passkey builds.";
-  }
-}
-
 export class InvalidMacPasskeyPublishableKeyError extends Schema.TaggedError<InvalidMacPasskeyPublishableKeyError>()(
   "InvalidMacPasskeyPublishableKeyError",
   {
@@ -1217,7 +1208,6 @@ export const MacPasskeySigningConfigurationError = Schema.Union([
   InvalidMacPasskeyRpDomainError,
   InvalidAppleTeamIdError,
   MissingMacPasskeyProvisioningProfileError,
-  MissingMacPasskeyDomainConfigurationError,
   InvalidMacPasskeyPublishableKeyError,
   MissingMacPasskeyRpDomainError,
 ]);
@@ -1284,8 +1274,9 @@ export function resolveMacPasskeySigningConfiguration(
     rpDomains = configuredRpDomains.split(",").map(normalizePasskeyRpDomain);
   } else {
     const publishableKey = env.T3CODE_CLERK_PUBLISHABLE_KEY?.trim();
+    // AmICited: without Clerk (Link is off) there is no passkey RP, so sign without webcredentials.
     if (!publishableKey) {
-      throw new MissingMacPasskeyDomainConfigurationError();
+      return { appId: DESKTOP_APP_ID, teamId, rpDomains: [], provisioningProfilePath };
     }
     let hostname: string;
     try {
@@ -1383,6 +1374,15 @@ export function renderMacPasskeyEntitlements(
     <true/>`
     : "";
 
+  const associatedDomainsEntitlement =
+    configuration.rpDomains.length > 0
+      ? `
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+${associatedDomains}
+    </array>`
+      : "";
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -1390,11 +1390,7 @@ export function renderMacPasskeyEntitlements(
     <key>com.apple.application-identifier</key>
     <string>${escapeXml(`${configuration.teamId}.${configuration.appId}`)}</string>
     <key>com.apple.developer.team-identifier</key>
-    <string>${escapeXml(configuration.teamId)}</string>
-    <key>com.apple.developer.associated-domains</key>
-    <array>
-${associatedDomains}
-    </array>${keychainAccessGroups}${browserPasskeys}
+    <string>${escapeXml(configuration.teamId)}</string>${associatedDomainsEntitlement}${keychainAccessGroups}${browserPasskeys}
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
