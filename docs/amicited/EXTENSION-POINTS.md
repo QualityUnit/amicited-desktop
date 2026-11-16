@@ -670,11 +670,12 @@ run use GitHub-hosted labels:
 
 - `.github/workflows/ci.yml`: `runs-on` is `ubuntu-24.04` or `macos-26`; job timeouts are raised for the 4 vCPU hosted runners.
 - `.github/workflows/windows-tests.yml`: `runs-on` is `windows-2025`.
+- `.github/workflows/release.yml`: `runs-on` and the desktop `runner` inputs are `ubuntu-24.04`, `ubuntu-24.04-arm` or `macos-26`; preflight, test and bundle timeouts are raised. `release-desktop.yml`: the packaging timeout is raised.
 
 Workflows we do not run are also disabled in repository settings. That state is not
 in the repository: `gh workflow list --all` shows it, and a workflow that arrives
 with a merge starts enabled. After each merge, disable or convert anything new, and
-check the two files above kept their labels.
+check the files above kept their labels.
 
 The workflows that publish, deploy, or use an outside account no longer target T3's
 accounts, and each job is gated in the file as well. A job runs only in
@@ -685,6 +686,7 @@ variable to `true`, so enabling a workflow in settings does not start it:
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AMICITED_RELEASES_ENABLED`        | `release.yml` (with `release-desktop.yml`), `publish-aur.yml`                                                                                        |
 | `AMICITED_AUR_ENABLED`             | `publish-aur.yml` and the `publish_aur` release job, on top of the releases variable                                                                 |
+| `AMICITED_NPM_ENABLED`             | the `publish_cli` release job (and so the Discord announcement), on top of the releases variable                                                     |
 | `AMICITED_DESKTOP_PREVIEW_ENABLED` | `desktop-macos-preview.yml`, `desktop-macos-preview-publish.yml`                                                                                     |
 | `AMICITED_WEB_PREVIEW_ENABLED`     | `web-preview.yml`                                                                                                                                    |
 | `AMICITED_RELAY_ENABLED`           | `deploy-relay.yml`, `relay-preview.yml`, `relay-preview-cleanup.yml`                                                                                 |
@@ -694,8 +696,9 @@ Inside a release, the hosted web jobs also skip until `AMICITED_WEB_ROUTER_URL`,
 `AMICITED_WEB_LATEST_DOMAIN` and `AMICITED_WEB_NIGHTLY_DOMAIN` are set, and the
 marketing jobs until `VERCEL_MARKETING_PROJECT` is set. None has a default. The
 `relay_public_config` job builds with AmICited Link disabled while the relay and
-Clerk variables are unset. These workflows still use `blacksmith-*` runner labels;
-convert them before enabling one. `pr-vouch.yml` stays disabled.
+Clerk variables are unset. Apart from `release.yml` and `release-desktop.yml`, these
+workflows still use `blacksmith-*` runner labels; convert them before enabling one.
+`pr-vouch.yml` stays disabled.
 
 ## Rebranded marketing site and docs
 
