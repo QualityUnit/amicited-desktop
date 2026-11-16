@@ -47,6 +47,8 @@ New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketi
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.
 Home Ask and New task seed the selected assistant and send through the upstream
 composer once it mounts. Fix this with AI opens the same composer for review.
+The marketer sidebar footer mounts upstream's desktop update pill and architecture
+warning, because marketer mode hides the upstream footer that carries them.
 
 ## Data, env and service isolation from T3 Code
 
@@ -758,7 +760,7 @@ Names come from `@amicited/identity` (`index.ts`) and `@amicited/identity/cli` (
 - `packages/ssh/src/tunnel.ts`: the remote bootstrap fetches and runs `amicited` archives.
 - `apps/desktop/src/app/DesktopCliShim.ts`, `DesktopCliCommand.ts`: the launcher is `amicited` with its own marker, so the app never claims or removes T3 Code's `t3`.
 - `apps/desktop/src/wsl/DesktopWslEnvironment.ts`, `apps/desktop/src/backend/DesktopBackendConfiguration.ts`: the WSL runtime executable name.
-- `apps/desktop/src/app/DesktopStartupRecovery.ts`, `apps/web/src/components/desktopUpdate.logic.ts`, `apps/web/vite.config.ts`: release links fall back to our repository and download page.
+- `apps/desktop/src/app/DesktopStartupRecovery.ts`, `apps/web/src/components/desktopUpdate.logic.ts`, `apps/web/vite.config.ts`: release links fall back to our repository and download page; the restart prompt and Apple Silicon warning name the product.
 - `apps/server/src/provider/ModelManifest.ts`: only the bundled manifest, unless `AMICITED_MODEL_MANIFEST_URL` names one to poll.
 - `apps/server/src/provider/providerCompatibility.ts`: advisories match `UPSTREAM_T3_CODE_VERSION`, the T3 Code release this build is merged from. Update it with each weekly merge.
 - `apps/server/src/triage/*`, `.github/triage/PLAYBOOK.md`: no remote playbook; source from our repository; reports go to support by email.
