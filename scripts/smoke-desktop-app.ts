@@ -56,6 +56,14 @@ try {
   step = "waiting for the first window";
   const page = await app.firstWindow({ timeout: STEP_TIMEOUT_MS });
   try {
+    // AmICited opens in marketer mode, which shows onboarding and no thread sidebar; the
+    // developer workspace is the upstream shell this check knows (@amicited/ui-marketing/mode).
+    step = "switching to the developer workspace";
+    await page.waitForURL(/^amicited:\/\/app\//u, { timeout: STEP_TIMEOUT_MS });
+    await page.evaluate(() => {
+      localStorage.setItem("amicited.workspace-mode", "developer");
+      window.dispatchEvent(new Event("amicited-mode"));
+    });
     step = `finding "${THREAD_TITLE}" in the sidebar`;
     const thread = page.locator("li[data-thread-item]", { hasText: THREAD_TITLE });
     await thread.waitFor({ timeout: STEP_TIMEOUT_MS });

@@ -35,10 +35,15 @@ vi.mock(import("./state/environments"), async (original) => ({
 vi.mock(import("./state/use-orchestration-command"), () => ({
   useOrchestrationCommand: (() => state.send) as never,
 }));
-vi.mock(import("./marketing"), async (original) => ({
-  ...(await original()),
-  MarketingSubscriptions: () => <p>Subscription authentication boundary</p>,
-}));
+// Spreading the real module deadlocks the file before any test runs (its import graph loops back).
+vi.mock(
+  import("./marketing"),
+  () =>
+    ({
+      MarketingSubscriptions: () => <p>Subscription authentication boundary</p>,
+      useMarketingTask: () => ({ startTask: async () => {} }),
+    }) as never,
+);
 import { MarketingSignInRecovery } from "./marketingChat";
 it("recovers the persisted failed message after authentication and removes stale recovery", async () => {
   const ref = scopeThreadRef(EnvironmentId.make("local"), ThreadId.make("chat"));
