@@ -64,6 +64,7 @@ export const DomainRecord = Schema.Struct({
 });
 const SetupState = Schema.Struct({
   finished: Schema.Boolean,
+  trackingOffered: Schema.optionalKey(Schema.Boolean),
   lastDomain: Schema.optionalKey(Schema.String),
 });
 export const AccountWorkspace = Schema.Struct({

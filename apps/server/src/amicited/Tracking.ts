@@ -1,3 +1,4 @@
+import * as Fiber from "effect/Fiber";
 import * as Random from "effect/Random";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
@@ -35,7 +36,8 @@ const decodeConfig = Schema.decodeEffect(Schema.fromJsonString(TrackingConfig));
 const decodeRun = Schema.decodeEffect(Schema.fromJsonString(TrackingRun));
 const encodeConfig = Schema.encodeEffect(Schema.fromJsonString(TrackingConfig));
 const encodeRun = Schema.encodeEffect(Schema.fromJsonString(TrackingRun));
-const adapters = { chatgpt, perplexity, gemini, claude, google };
+import google_overviews from "./trackingAdapters/googleOverviews.ts";
+const adapters = { chatgpt, perplexity, gemini, claude, google, google_overviews };
 export class Tracking extends Context.Service<
   Tracking,
   {
@@ -49,6 +51,7 @@ export class Tracking extends Context.Service<
       projectId: string,
       category: string,
     ) => Effect.Effect<readonly string[], TrackingFailure>;
+    stopNow: (projectId: string) => Effect.Effect<string, TrackingFailure>;
     runNow: (projectId: string) => Effect.Effect<string, TrackingFailure>;
     tick: Effect.Effect<void, TrackingFailure>;
   }
@@ -129,9 +132,12 @@ export const layer = Layer.effect(
       const s = yield* snapshot();
       connections.engine.setDailyUsage(s.usage);
       for (const c of s.configs)
-        for (const e of Object.keys(adapters) as (keyof typeof adapters)[]) {
+        for (const e of ["chatgpt", "perplexity", "gemini", "claude", "google"] as const) {
           const count = s.usage.domains.find((d) => d.projectId === c.projectId)?.count ?? 0;
-          if (count && c.engines.includes(e))
+          if (
+            count &&
+            (c.engines.includes(e) || (e === "google" && c.engines.includes("google_overviews")))
+          )
             connections.engine.registerUsage(e, {
               id: `tracking:${c.projectId}`,
               label: `Prompt tracking · ${s.usage.domains.find((d) => d.projectId === c.projectId)!.hostname} · ${count} prompts a day`,
@@ -198,6 +204,7 @@ export const layer = Layer.effect(
     });
     const lock = yield* Semaphore.make(1);
     const active = new Map<string, string>();
+    const runningFibers = new Map<string, Fiber.Fiber<void, TrackingFailure>>();
     const startLock = yield* Semaphore.make(1);
     const execute = Effect.fn("Tracking.execute")(function* (c: TrackingConfig, r: TrackingRun) {
       const meta = yield* metadata();
@@ -217,7 +224,11 @@ export const layer = Layer.effect(
           )
             continue;
           const result = yield* connections
-            .run((e) => e.withSiteSession(engine, (page) => adapters[engine](page, p.text)))
+            .run((e) =>
+              e.withSiteSession(engine === "google_overviews" ? "google" : engine, (page) =>
+                adapters[engine](page, p.text),
+              ),
+            )
             .pipe(Effect.orElseSucceed(() => null));
           const answer = {
             promptId: p.id,
@@ -292,20 +303,39 @@ export const layer = Layer.effect(
       };
       active.set(projectId, r.id);
       yield* persistRun(r).pipe(Effect.onError(() => Effect.sync(() => active.delete(projectId))));
-      yield* lock
+      const fiber = yield* lock
         .withPermits(1)(execute(c, r))
         .pipe(
           Effect.onError(() =>
-            persistRun({ ...r, status: "interrupted" }).pipe(Effect.ignoreCause()),
+            Effect.gen(function* () {
+              const latest = (yield* runs()).find((run) => run.id === r.id) ?? r;
+              yield* persistRun({ ...latest, status: "interrupted" });
+            }).pipe(Effect.ignoreCause()),
           ),
-          Effect.ensuring(Effect.sync(() => active.delete(projectId))),
+          Effect.ensuring(
+            Effect.sync(() => {
+              active.delete(projectId);
+              runningFibers.delete(projectId);
+            }),
+          ),
           Effect.forkIn(scope),
         );
+      runningFibers.set(projectId, fiber);
       return r.id;
     }, Effect.mapError(failure));
     const runNow = Effect.fn("Tracking.runNow")((projectId: string) =>
       startLock.withPermits(1)(startRun(projectId)),
     );
+    const stopNow = Effect.fn("Tracking.stopNow")(function* (projectId: string) {
+      const fiber = runningFibers.get(projectId);
+      if (fiber) yield* Fiber.interrupt(fiber);
+      const latest = (yield* runs()).find(
+        (r) => r.projectId === projectId && r.status !== "missed",
+      );
+      if (!latest) return yield* new TrackingFailure({ message: "No check to stop." });
+      if (latest.status !== "complete") yield* persistRun({ ...latest, status: "stopped" });
+      return latest.id;
+    }, Effect.mapError(failure));
     const tick = Effect.gen(function* () {
       const s = yield* snapshot();
       yield* syncUsage();
@@ -338,7 +368,9 @@ export const layer = Layer.effect(
               connections.engine
                 .snapshot()
                 .connections.some(
-                  (connection) => connection.id === a.engine && connection.status === "connected",
+                  (connection) =>
+                    connection.id === (a.engine === "google_overviews" ? "google" : a.engine) &&
+                    connection.status === "connected",
                 ),
           );
         const interrupted =
@@ -353,6 +385,7 @@ export const layer = Layer.effect(
       snapshot,
       save,
       runNow,
+      stopNow,
       tick,
       suggest: Effect.fn("Tracking.suggest")(function* (id: string, category: string) {
         const d = (yield* metadata()).domains.find((d) => d.projectId === id);

@@ -1,4 +1,7 @@
-import { OlderWebsites, WorkspaceSwitcher } from "./rpc/amicitedAccount";
+import { useNavigate } from "@tanstack/react-router";
+import { ConnectAiAppsGrid, useConnections } from "./rpc/amicitedConnections";
+import { SetupTrackingPrompts, useFirstCheckChat } from "./rpc/amicitedTracking";
+import { OlderWebsites, WorkspaceSwitcher, useAmicitedAccount } from "./rpc/amicitedAccount";
 import { effectiveMarketingAssistant } from "./marketingAssistant";
 import { AmICitedMark } from "@amicited/ui-marketing";
 import { usePrimarySettings } from "./hooks/useSettings";
@@ -8,10 +11,12 @@ import { useThreadShell } from "./state/entities";
 import { useComposerDraftStore } from "./composerDraftStore";
 import { useEffect, useEffectEvent, useState } from "react";
 import type { ModelSelection } from "@t3tools/contracts";
-import { ProjectId } from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
-import { shouldShowSetup } from "@amicited/cloud-client/setup";
+import {
+  shouldShowSetup,
+  setupAfterWebsite,
+  cloudSetupWebsites,
+} from "@amicited/cloud-client/setup";
 import { connectionAtomRuntime } from "./connection/runtime";
 import { useAtomCommand } from "./state/use-atom-command";
 import {
@@ -20,8 +25,7 @@ import {
   useEnvironmentProviders,
 } from "./state/environments";
 import { getOnboardingProviderState } from "./onboarding/providerReadiness.logic";
-import { useNewThreadHandler } from "./hooks/useHandleNewThread";
-import { useDomains, NewDomainDialog, DomainConnection } from "./marketingDomains";
+import { useDomains, NewDomainDialog } from "./marketingDomains";
 import { MarketingSubscriptions } from "./marketing";
 import {
   Dialog,
@@ -32,6 +36,10 @@ import {
   DialogPanel,
 } from "./components/ui/dialog";
 import { Button } from "./components/ui/button";
+const listCloud = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.domains.listCloud",
+  label: "setup:cloud-websites",
+});
 export const readSetup = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.setup.read",
   label: "setup:read",
@@ -71,6 +79,24 @@ export function AssistantSetupDialog({
 }
 export function MarketingSetupHost({ children }: { children?: import("react").ReactNode }) {
   const domains = useDomains();
+  const { current } = useAmicitedAccount();
+  const connections = useConnections();
+  const readCloud = useAtomCommand(listCloud);
+  const loadCloudWebsites = useEffectEvent(readCloud);
+  const [cloudRows, setCloudRows] = useState<ReturnType<typeof cloudSetupWebsites>>([]);
+  const [cloudWebsite, setCloudWebsite] = useState("");
+  const currentWorkspaceId = current?.id;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read the workspace's cloud websites when the account changes.
+  useEffect(() => {
+    if (!currentWorkspaceId || !domains.environmentId) return;
+    let active = true;
+    void loadCloudWebsites({ environmentId: domains.environmentId, input: undefined }).then((r) => {
+      if (active && r._tag === "Success") setCloudRows(cloudSetupWebsites(r.value));
+    });
+    return () => {
+      active = false;
+    };
+  }, [currentWorkspaceId, domains.environmentId]);
   const environmentId = usePrimaryEnvironmentId();
   const providers = useEnvironmentProviders();
   const settings = usePrimarySettings();
@@ -98,9 +124,13 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
       );
   const load = useAtomCommand(readSetup);
   const save = useAtomCommand(writeSetup);
-  const newThread = useNewThreadHandler();
-  const [step, setStep] = useState<"welcome" | "assistant" | "website" | "cloud" | null>(null);
+  const createThread = useFirstCheckChat();
+  const navigate = useNavigate();
+  const [step, setStep] = useState<"assistant" | "website" | "cloud" | "apps" | "prompts" | null>(
+    null,
+  );
   const [finished, setFinished] = useState<boolean | null>(null);
+  const [trackingOffer, setTrackingOffer] = useState(false);
   const route = useThreadRouteTarget();
   const thread = useThreadShell(route?.kind === "server" ? route.threadRef : null);
   const draft = useComposerDraftStore((s) =>
@@ -110,6 +140,7 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
   const [assistant, setAssistant] = useState(false);
   const [error, setError] = useState("");
 
+  const currentWorkspaceAccess = current?.access;
   const loadSetup = useEffectEvent(load);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- First-run completion is read from the environment-owned AmICited store.
   useEffect(() => {
@@ -117,20 +148,35 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     let active = true;
     void loadSetup({ environmentId, input: undefined }).then((result) => {
       if (active && result._tag === "Success") {
-        setFinished(result.value.finished);
+        setFinished(result.value.finished && result.value.trackingOffered === true);
+        if (result.value.finished && !result.value.trackingOffered) setTrackingOffer(true);
         if (result.value.lastDomain) lastDomains.set(environmentId, result.value.lastDomain);
-        if (shouldShowSetup(true, domains.rows.length, result.value.finished))
-          setStep((current) => current ?? "welcome");
+        if (
+          shouldShowSetup(
+            true,
+            domains.rows.length,
+            result.value.finished && result.value.trackingOffered === true,
+          )
+        )
+          setStep(
+            (current) =>
+              current ??
+              (domains.rows.length
+                ? currentWorkspaceAccess === "full"
+                  ? "cloud"
+                  : "apps"
+                : "website"),
+          );
       }
     });
     return () => {
       active = false;
     };
-  }, [environmentId, phase, domains.loaded, domains.rows.length]);
+  }, [environmentId, phase, domains.loaded, domains.rows.length, currentWorkspaceAccess]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Composer and Settings invoke the shared assistant/setup dialogs through shell events.
   useEffect(() => {
     const setup = () => setAssistant(true);
-    const again = () => setStep("welcome");
+    const again = () => setStep("website");
     window.addEventListener("amicited-assistant-setup", setup);
     window.addEventListener("amicited-run-setup", again);
     return () => {
@@ -149,15 +195,28 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     )
       return;
     lastDomains.set(environmentId, activeProject);
-    void saveSetup({ environmentId, input: { finished, lastDomain: activeProject } });
+    void saveSetup({
+      environmentId,
+      input: { finished, trackingOffered: finished, lastDomain: activeProject },
+    });
   }, [environmentId, finished, activeProject, domains.rows]);
   const [setupDomainId, setSetupDomainId] = useState<string | null>(null);
   const domain = domains.rows.find((row) => row.projectId === setupDomainId) ?? domains.rows.at(-1);
-  const finish = async () => {
-    if (!environmentId) return;
+  const finish = async (config?: import("@amicited/cloud-client/tracking").TrackingConfig) => {
+    if (!environmentId || !domain || !current || current.sessionEnded) return;
+    const threadModel = setupModel ?? settings.textGenerationModelSelection;
+    const threadId = await createThread(domain.projectId, threadModel, config);
+    if (!threadId) {
+      setError("Could not open your first check chat. Please try again.");
+      return;
+    }
     const result = await save({
       environmentId,
-      input: { finished: true, ...(domain ? { lastDomain: domain.projectId } : {}) },
+      input: {
+        finished: true,
+        trackingOffered: true,
+        ...(domain ? { lastDomain: domain.projectId } : {}),
+      },
     });
     if (result._tag !== "Success") {
       setError("Could not save setup. Please try again.");
@@ -165,7 +224,7 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     }
     setFinished(true);
     setStep(null);
-    if (domain) await newThread(scopeProjectRef(environmentId, ProjectId.make(domain.projectId)));
+    await navigate({ to: "/$environmentId/$threadId", params: { environmentId, threadId } });
   };
   if (finished === null && domains.rows.length === 0)
     return <main data-am="am-setup-loading">Loading your workspace…</main>;
@@ -177,13 +236,24 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
       </>
     );
   const titles = {
-    welcome: "Welcome to AmICited",
     assistant: "Choose your AI assistant",
     website: "Add your website",
-    cloud: "Connect AmICited (free)",
+    cloud: `${domain?.hostname ?? "Your website"} is already tracked`,
+    apps: "Connect your AI apps",
+    prompts: "Choose prompts to track",
   };
   const back = () =>
-    setStep(step === "assistant" ? "welcome" : step === "website" ? "assistant" : "website");
+    setStep(step === "prompts" ? "apps" : step === "apps" ? "assistant" : "website");
+  const engines = connections.snapshot.connections.flatMap((c) =>
+    c.status !== "connected" ||
+    !["chatgpt", "perplexity", "gemini", "claude", "google"].includes(c.id)
+      ? []
+      : c.id === "google"
+        ? (["google", "google_overviews"] as const)
+        : c.id === "chatgpt" || c.id === "perplexity" || c.id === "gemini" || c.id === "claude"
+          ? [c.id]
+          : [],
+  );
   return (
     <main data-am="am-setup" data-onboarding-surface="" aria-label="AmICited setup">
       <div data-am="am-setup-column">
@@ -192,10 +262,11 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
           <WorkspaceSwitcher compact />
         </div>
         <nav aria-label="Setup progress" data-am="am-setup-progress">
-          {(["assistant", "website", "cloud"] as const).map((item, i) => (
+          {(["website", "assistant", "apps", "prompts"] as const).map((item, i) => (
             <span key={item} aria-current={step === item ? "step" : undefined}>
-              {["welcome", "assistant", "website", "cloud"].indexOf(step) > i + 1 ? "✓ " : ""}
-              {["Assistant", "Website", "AmICited"][i]}
+              {["website", "assistant", "apps", "prompts"].indexOf(step) > i ? "✓ " : ""}
+              {i === 0 ? "✓ Account · " : ""}
+              {["Website", "Assistant", "AI apps", "Prompts"][i]}
             </span>
           ))}
         </nav>
@@ -203,18 +274,18 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
           <header>
             <h1>{titles[step]}</h1>
             <p className="text-sm text-muted-foreground">
-              {step === "welcome"
-                ? "Your AI workspace for marketing. From a question to a useful next step."
-                : step === "website"
-                  ? "Keep your chats, brand and site files together in a domain."
-                  : step === "cloud"
-                    ? "Your account is connected. Local tools work offline with your saved sign-in."
-                    : "Uses your existing Claude or ChatGPT subscription. No API key; your login stays on this computer."}
+              {step === "website"
+                ? "Keep your chats, brand and site files together in a domain."
+                : step === "cloud"
+                  ? "Your plan tracks prompts every day in the cloud. There are no AI apps to sign in to on this computer."
+                  : step === "prompts"
+                    ? "Start with 10 suggested questions, edit them or add your own."
+                    : "Uses the accounts you already have."}
             </p>
           </header>
         )}
         <div data-am="am-setup-body">
-          <OlderWebsites />
+          {step === "website" && <OlderWebsites />}
           {step === "assistant" && (
             <MarketingSubscriptions
               usageLink={false}
@@ -225,72 +296,117 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
           )}
           {step === "website" && (
             <NewDomainDialog
+              key={cloudWebsite}
+              initialWebsite={cloudWebsite}
               open
               inline
               onOpenChange={() => {}}
               onCreated={(projectId) => {
                 setSetupDomainId(projectId);
-                setStep("cloud");
+                setStep(setupAfterWebsite(current?.access));
               }}
             />
           )}
+          {step === "website" && cloudRows.length > 0 && (
+            <section>
+              <h2>Websites in {current?.name}</h2>
+              {cloudRows.map((row) => (
+                <Button
+                  key={row.hostname}
+                  variant="outline"
+                  onClick={() => {
+                    const existing = domains.rows.find((d) => d.hostname === row.hostname);
+                    if (existing) {
+                      setSetupDomainId(existing.projectId);
+                      setCloudWebsite(row.hostname);
+                      setStep(setupAfterWebsite(current?.access));
+                    } else setCloudWebsite(row.hostname);
+                  }}
+                >
+                  {row.hostname}
+                </Button>
+              ))}
+            </section>
+          )}
+          {step === "website" && domains.rows.length > 0 && (
+            <section>
+              <h2>Pick a website</h2>
+              {domains.rows.map((row) => (
+                <Button
+                  key={row.projectId}
+                  variant="outline"
+                  onClick={() => {
+                    setSetupDomainId(row.projectId);
+                    setStep(setupAfterWebsite(current?.access));
+                  }}
+                >
+                  {row.hostname}
+                </Button>
+              ))}
+              <p>Or add a new website above.</p>
+            </section>
+          )}
           {step === "cloud" && (
-            <div data-am="am-setup-cloud">
-              <ul>
-                <li>Check how AI assistants mention your brand</li>
-                <li>Find website and content opportunities</li>
-                <li>Keep your marketing checks together</li>
-              </ul>
-              <p>
-                Free tools use workspace credits; welcome credits cover your first checks. Optional
-                7-day trial (card required), then Pro €120/month.
-              </p>
-              {domain && environmentId ? (
-                <DomainConnection domain={domain} destination={environmentId} onboarding />
-              ) : (
-                <p>Add a website to connect AmICited. You can do this later in Settings.</p>
-              )}
-            </div>
+            <p>
+              <a href="https://app.flowhunt.io/amicited" target="_blank" rel="noreferrer">
+                Manage prompts in AmICited
+              </a>
+            </p>
+          )}
+          {step === "apps" && <ConnectAiAppsGrid />}
+          {step === "prompts" && domain && environmentId && (
+            <SetupTrackingPrompts
+              key={domain.projectId}
+              domain={domain}
+              destination={environmentId}
+              engines={engines}
+              initialPrompts={
+                cloudRows.find((row) => row.hostname === domain.hostname)?.prompts ?? []
+              }
+              onComplete={finish}
+            />
           )}
           {error && <p role="alert">{error}</p>}
         </div>
         <footer data-am="am-setup-footer">
-          <Button variant="ghost" disabled={step === "welcome"} onClick={back}>
+          <Button variant="ghost" disabled={step === "website"} onClick={back}>
             Back
           </Button>
           <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              onClick={() =>
-                step === "assistant"
-                  ? setStep("website")
-                  : step === "website"
-                    ? setStep("cloud")
-                    : void finish()
-              }
-            >
-              {step === "assistant" ? "Set up later" : "Skip"}
-            </Button>
+            {step === "apps" && trackingOffer && (
+              <Button variant="ghost" onClick={() => void finish()}>
+                Set up tracking later
+              </Button>
+            )}
+            {step === "assistant" && (
+              <Button
+                variant="ghost"
+                onClick={() => (current?.access === "full" ? void finish() : setStep("apps"))}
+              >
+                Set up later
+              </Button>
+            )}
             {step === "website" ? (
               <Button type="submit" form="amicited-onboarding-domain">
                 Continue
               </Button>
-            ) : (
+            ) : step === "prompts" ? null : (
               <Button
-                disabled={step === "assistant" && (!ready || !setupModel)}
+                disabled={
+                  (step === "assistant" && (!ready || !setupModel)) ||
+                  (step === "apps" && engines.length === 0)
+                }
                 onClick={() =>
-                  step === "welcome"
+                  step === "cloud"
                     ? setStep("assistant")
                     : step === "assistant"
-                      ? setStep("website")
-                      : void finish()
+                      ? current?.access === "full"
+                        ? void finish()
+                        : setStep("apps")
+                      : setStep("prompts")
                 }
               >
-                {step === "welcome"
-                  ? "Get started"
-                  : step === "cloud"
-                    ? "Start chatting"
-                    : "Continue"}
+                Continue
               </Button>
             )}
           </div>

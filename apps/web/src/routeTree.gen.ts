@@ -21,6 +21,7 @@ import { Route as ChatUsageRouteImport } from './routes/_chat.usage'
 import { Route as ChatTasksRouteImport } from './routes/_chat.tasks'
 import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatPullRequestsRouteImport } from './routes/_chat.pull-requests'
+import { Route as ChatPromptsRouteImport } from './routes/_chat.prompts'
 import { Route as ChatNewRouteImport } from './routes/_chat.new'
 import { Route as ChatMarketingSettingsRouteImport } from './routes/_chat.marketing-settings'
 import { Route as ChatIssuesRouteImport } from './routes/_chat.issues'
@@ -114,6 +115,11 @@ const ChatSettingsRoute = ChatSettingsRouteImport.update({
 const ChatPullRequestsRoute = ChatPullRequestsRouteImport.update({
   id: '/pull-requests',
   path: '/pull-requests',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatPromptsRoute = ChatPromptsRouteImport.update({
+  id: '/prompts',
+  path: '/prompts',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatNewRoute = ChatNewRouteImport.update({
@@ -309,6 +315,7 @@ export interface FileRoutesByFullPath {
   '/issues': typeof ChatIssuesRoute
   '/marketing-settings': typeof ChatMarketingSettingsRoute
   '/new': typeof ChatNewRoute
+  '/prompts': typeof ChatPromptsRoute
   '/pull-requests': typeof ChatPullRequestsRoute
   '/settings': typeof ChatSettingsRouteWithChildren
   '/tasks': typeof ChatTasksRoute
@@ -356,6 +363,7 @@ export interface FileRoutesByTo {
   '/issues': typeof ChatIssuesRoute
   '/marketing-settings': typeof ChatMarketingSettingsRoute
   '/new': typeof ChatNewRoute
+  '/prompts': typeof ChatPromptsRoute
   '/pull-requests': typeof ChatPullRequestsRoute
   '/settings': typeof ChatSettingsRouteWithChildren
   '/tasks': typeof ChatTasksRoute
@@ -406,6 +414,7 @@ export interface FileRoutesById {
   '/_chat/issues': typeof ChatIssuesRoute
   '/_chat/marketing-settings': typeof ChatMarketingSettingsRoute
   '/_chat/new': typeof ChatNewRoute
+  '/_chat/prompts': typeof ChatPromptsRoute
   '/_chat/pull-requests': typeof ChatPullRequestsRoute
   '/_chat/settings': typeof ChatSettingsRouteWithChildren
   '/_chat/tasks': typeof ChatTasksRoute
@@ -457,6 +466,7 @@ export interface FileRouteTypes {
     | '/issues'
     | '/marketing-settings'
     | '/new'
+    | '/prompts'
     | '/pull-requests'
     | '/settings'
     | '/tasks'
@@ -504,6 +514,7 @@ export interface FileRouteTypes {
     | '/issues'
     | '/marketing-settings'
     | '/new'
+    | '/prompts'
     | '/pull-requests'
     | '/settings'
     | '/tasks'
@@ -553,6 +564,7 @@ export interface FileRouteTypes {
     | '/_chat/issues'
     | '/_chat/marketing-settings'
     | '/_chat/new'
+    | '/_chat/prompts'
     | '/_chat/pull-requests'
     | '/_chat/settings'
     | '/_chat/tasks'
@@ -687,6 +699,13 @@ declare module '@tanstack/react-router' {
       path: '/pull-requests'
       fullPath: '/pull-requests'
       preLoaderRoute: typeof ChatPullRequestsRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/prompts': {
+      id: '/_chat/prompts'
+      path: '/prompts'
+      fullPath: '/prompts'
+      preLoaderRoute: typeof ChatPromptsRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/new': {
@@ -1004,6 +1023,7 @@ interface ChatRouteChildren {
   ChatIssuesRoute: typeof ChatIssuesRoute
   ChatMarketingSettingsRoute: typeof ChatMarketingSettingsRoute
   ChatNewRoute: typeof ChatNewRoute
+  ChatPromptsRoute: typeof ChatPromptsRoute
   ChatPullRequestsRoute: typeof ChatPullRequestsRoute
   ChatSettingsRoute: typeof ChatSettingsRouteWithChildren
   ChatTasksRoute: typeof ChatTasksRoute
@@ -1020,6 +1040,7 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatIssuesRoute: ChatIssuesRoute,
   ChatMarketingSettingsRoute: ChatMarketingSettingsRoute,
   ChatNewRoute: ChatNewRoute,
+  ChatPromptsRoute: ChatPromptsRoute,
   ChatPullRequestsRoute: ChatPullRequestsRoute,
   ChatSettingsRoute: ChatSettingsRouteWithChildren,
   ChatTasksRoute: ChatTasksRoute,

@@ -124,7 +124,14 @@ it.effect(
     return Effect.gen(function* () {
       const t = yield* Tracking.Tracking;
       const country = (yield* t.snapshot()).country;
-      assert.deepEqual(yield* t.save(config("one", 12, country)), { status: "saved" });
+      assert.deepEqual(
+        yield* t.save({ ...config("one", 12, country), threadId: "first-check-chat" }),
+        { status: "saved" },
+      );
+      assert.equal(
+        (yield* t.snapshot()).configs.find((c) => c.projectId === "one")?.threadId,
+        "first-check-chat",
+      );
       assert.deepEqual(yield* t.save(config("two", 8, country)), { status: "saved" });
       const limited = yield* t.save(config("two", 9, country));
       assert.equal(limited.status, "limit_reached");
@@ -181,7 +188,10 @@ it.effect("records sign-in failures without aborting the run and creates connect
   return Effect.gen(function* () {
     const t = yield* Tracking.Tracking;
     const country = (yield* t.snapshot()).country;
-    yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
+    yield* t.save({
+      ...config("one", 1, country),
+      engines: ["chatgpt", "google", "google_overviews"],
+    });
     const id = yield* t.runNow("one");
     const done = yield* t.subscribe().pipe(
       Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
@@ -189,11 +199,15 @@ it.effect("records sign-in failures without aborting the run and creates connect
       Stream.runDrain,
       Effect.forkChild,
     );
-    yield* TestClock.adjust("5 seconds");
+    yield* TestClock.adjust("15 seconds");
     yield* Fiber.join(done);
-    assert.equal(f.findings.length, 1);
+    assert.equal(f.findings.length, 3);
     const r = (yield* t.snapshot()).runs.find((r) => r.id === id)!;
-    assert.equal(r.answers[0]?.status, "needs_sign_in");
+    assert.deepEqual(
+      r.answers.map((a) => a.engine),
+      ["chatgpt", "google", "google_overviews"],
+    );
+    assert.isTrue(r.answers.every((a) => a.status === "needs_sign_in"));
     assert.notEqual(
       f.engine.snapshot().connections.find((c) => c.id === "chatgpt")?.status,
       "connected",
@@ -231,4 +245,19 @@ it("extracts mentions, ranked competitors and citations from a recorded answer",
     scheduleDays(DateTime.toDate(DateTime.makeUnsafe("2026-11-17T00:00:00")), "09:00", "2026-11-17")
       .due,
   );
+});
+
+it.effect("stops a check without the scheduler restarting it, and permits a manual restart", () => {
+  const f = fixture();
+  return Effect.gen(function* () {
+    const tracking = yield* Tracking.Tracking;
+    const country = (yield* tracking.snapshot()).country;
+    yield* tracking.save({ ...config("one", 1, country), engines: ["google", "google_overviews"] });
+    const id = yield* tracking.runNow("one");
+    yield* tracking.stopNow("one");
+    assert.equal((yield* tracking.snapshot()).runs.find((r) => r.id === id)?.status, "stopped");
+    yield* tracking.tick;
+    assert.equal((yield* tracking.snapshot()).runs.find((r) => r.id === id)?.status, "stopped");
+    assert.equal(yield* tracking.runNow("one"), id);
+  }).pipe(Effect.provide(f.layer));
 });

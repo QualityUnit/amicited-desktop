@@ -2066,7 +2066,8 @@ export const layerWsRpc = (
           tracking.save(config, replacePromptId),
         "amicited.tracking.suggest": ({ projectId, category }) =>
           tracking.suggest(projectId, category),
-        "amicited.tracking.run": ({ projectId }) => tracking.runNow(projectId),
+        "amicited.tracking.run": ({ projectId, stop }) =>
+          stop ? tracking.stopNow(projectId) : tracking.runNow(projectId),
         "amicited.connections.status": () => connections.snapshot,
         "amicited.connections.subscribe": () => connections.changes,
         "amicited.connections.check": ({ connectionId }) =>

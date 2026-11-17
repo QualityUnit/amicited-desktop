@@ -1612,6 +1612,8 @@ function OpenCommandPaletteDialog(props: {
       ["Open issues", "/issues"],
       ["Open reports", "/reports"],
       ["Open connections", "/marketing-settings"],
+      ["Open prompts and results", "/prompts"],
+      ["Switch workspace", "/marketing-settings"],
     ] as const) {
       actionItems.push({
         kind: "action",

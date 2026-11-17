@@ -1,4 +1,4 @@
-import { CloudClient, type SecretStorage } from "./index.ts";
+import { CloudClient, toolData, type SecretStorage } from "./index.ts";
 import type { DomainConnections } from "./domains.ts";
 import type * as Schema from "effect/Schema";
 import type { AccountStatus, AccountWorkspace } from "./rpc.ts";
@@ -263,7 +263,35 @@ export class AccountConnections {
     await this.load();
     const id = this.currentId();
     if (!id) throw new Error("Sign in to continue.");
-    return this.client(id).call("list_domains", {});
+    const client = this.client(id);
+    const result = await client.call("list_domains", {});
+    if (result.isError) return result;
+    const data = toolData(result);
+    const record = (value: unknown): Record<string, unknown> =>
+      value !== null && typeof value === "object" && !Array.isArray(value)
+        ? (value as Record<string, unknown>)
+        : {};
+    const rows = Array.isArray(data) ? data : record(data).domains;
+    if (!Array.isArray(rows)) return result;
+    const domains = [];
+    for (const value of rows) {
+      const row = record(value);
+      const domainId = row.id ?? row.domain_id;
+      let prompts = row.prompts;
+      if (typeof domainId === "string" && !Array.isArray(prompts)) {
+        try {
+          const response = await client.call("list_prompts", { domain_id: domainId });
+          if (!response.isError) {
+            const found = toolData(response);
+            prompts = Array.isArray(found) ? found : record(found).prompts;
+          }
+        } catch {
+          /* Offline and free-tier refusals fall back to local suggestions. */
+        }
+      }
+      domains.push({ ...row, ...(Array.isArray(prompts) ? { prompts } : {}) });
+    }
+    return { ...result, structuredContent: { domains } };
   }
   allClients() {
     return [...this.clients.values()];

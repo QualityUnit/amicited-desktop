@@ -1,3 +1,4 @@
+import { toolData } from "./index.ts";
 import { InvalidGrantError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import {
   AccountConnections,
@@ -798,6 +799,9 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
   };
   try {
     await signIn("one");
+    expect(toolData(await account.listCloudDomains())).toMatchObject({
+      domains: [{ name: "example.com", prompts: [{ content: "Brand recommendations" }] }],
+    });
     expect(await domains.scoped()).toEqual([]);
     expect((await domains.older()).map((r) => r.projectId)).toEqual(["older"]);
     fake.refuse("requires a Pro plan or above");
@@ -852,6 +856,9 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
     expect(await domains.scoped()).toEqual([]);
     expect(await domains.metadata()).toHaveLength(2);
     await signIn("one");
+    expect(toolData(await account.listCloudDomains())).toMatchObject({
+      domains: [{ name: "example.com", prompts: [{ content: "Brand recommendations" }] }],
+    });
     expect(await domains.scoped()).toHaveLength(2);
     expect(JSON.stringify(await account.status())).not.toContain("signature");
   } finally {

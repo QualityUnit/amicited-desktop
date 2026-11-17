@@ -1,4 +1,12 @@
-vi.mock("./rpc/amicitedTracking", () => ({ TrackingVisibility: () => null }));
+vi.mock("./rpc/amicitedTracking", () => ({
+  TrackingVisibility: () => null,
+  SetupTrackingPrompts: () => null,
+  useFirstCheckChat: () => async () => null,
+}));
+vi.mock("./rpc/amicitedConnections", () => ({
+  ConnectAiAppsGrid: () => <section aria-label="AI apps">Connect your AI apps</section>,
+  useConnections: () => ({ snapshot: { connections: [] } }),
+}));
 import { CloudFooter } from "./rpc/amicitedCloud";
 import "./index.css";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -61,6 +69,7 @@ vi.mock("./localApi", async (original) => ({
 vi.mock("./rpc/amicitedAccount", () => ({
   WorkspaceSwitcher: () => null,
   OlderWebsites: () => null,
+  useAmicitedAccount: () => ({ current: { id: "test", access: "free" } }),
 }));
 vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => <section aria-label="Assistant setup">Assistant</section>,
@@ -588,7 +597,7 @@ it("ignores a folder inspection that completes after a newer choice", async () =
   }
 });
 
-it("shows welcome after a fresh environment connects without domains, setup or a scratch project", async () => {
+it("requires a website before assistant setup and an AI app before prompts", async () => {
   const { cache, publish } = await import("./marketingDomainStore");
   const { MarketingSetupHost } = await import("./marketingSetup");
   cache.clear();
@@ -602,14 +611,10 @@ it("shows welcome after a fresh environment connects without domains, setup or a
     state.connected = true;
     await screen.rerender(<MarketingSetupHost />);
     await expect
-      .element(screen.getByRole("heading", { name: "Welcome to AmICited" }))
+      .element(screen.getByRole("heading", { name: "Add your website", exact: true }))
       .toBeVisible();
     expect(state.requests.some((r) => r.label === "setup:read")).toBe(true);
-    await screen.getByRole("button", { name: "Get started", exact: true }).click();
-    publish("local", []);
-    await screen.rerender(<MarketingSetupHost />);
-    await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
-    await screen.getByRole("button", { name: "Set up later", exact: true }).click();
+    expect(screen.getByRole("button", { name: "Skip", exact: true }).query()).toBeNull();
     state.emptyDomains = false;
     publish("local", [
       {
@@ -619,9 +624,14 @@ it("shows welcome after a fresh environment connects without domains, setup or a
         connectionRef: "first-domain",
       },
     ]);
-    await screen.getByRole("button", { name: "Skip", exact: true }).click();
-    await screen.getByRole("button", { name: "Start chatting", exact: true }).click();
-    await vi.waitFor(() => expect(state.threadSelections).toEqual([undefined]));
+    await screen.getByRole("button", { name: "flowhunt.io", exact: true }).click();
+    await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
+    await screen.getByRole("button", { name: "Set up later", exact: true }).click();
+    await expect.element(screen.getByRole("region", { name: "AI apps" })).toBeVisible();
+    await expect
+      .element(screen.getByRole("button", { name: "Continue", exact: true }))
+      .toBeDisabled();
+    expect(state.threadSelections).toEqual([]);
   } finally {
     state.emptyDomains = false;
     state.connected = true;

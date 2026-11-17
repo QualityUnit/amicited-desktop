@@ -131,8 +131,10 @@ export function NewDomainDialog({
   editing,
   onCreated,
   inline = false,
+  initialWebsite = "",
 }: {
   inline?: boolean;
+  initialWebsite?: string;
   onCreated?: (projectId: string) => void;
   editing?: Domain;
   destination?: EnvironmentId | null | undefined;
@@ -166,7 +168,7 @@ export function NewDomainDialog({
   const [fileChoice, setFileChoice] = useState("skip");
   const [gitUrl, setGitUrl] = useState("");
   const [cloneId, setCloneId] = useState<ProjectId | null>(null);
-  const [website, setWebsite] = useState(editing?.hostname ?? "");
+  const [website, setWebsite] = useState(editing?.hostname ?? initialWebsite);
   const [brandEdited, setBrandEdited] = useState(Boolean(editing));
   const [brand, setBrand] = useState(editing?.brand ?? "");
   const [error, setError] = useState("");

@@ -1,6 +1,10 @@
-import { newMessageId } from "../lib/utils";
+import { threadEnvironment } from "../state/threads";
+import { useOrchestrationCommand } from "../state/use-orchestration-command";
+import { useThreadShell } from "../state/entities";
+import { useDomains } from "../marketingDomains";
+import { newMessageId, newThreadId } from "../lib/utils";
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited owns these marketing styles. */
-import { useState } from "react";
+import { useState, useEffect, useEffectEvent } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import * as Atom from "effect/reactivity/Atom";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
@@ -89,13 +93,19 @@ export function TrackingVisibility({
   );
   const answers = run?.answers.filter((a) => a.status === "answered") ?? [];
   const named = answers.filter((a) => a.mentioned).length;
-  const [open, setOpen] = useState(false);
+
   const { account } = useAmicitedAccount();
   const paid = account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full";
   const percent = answers.length ? `${Math.round((named / answers.length) * 100)}%` : "–";
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() =>
+          window.location.assign(`/prompts?site=${encodeURIComponent(domain.projectId)}`)
+        }
+      >
         {compact
           ? percent
           : paid
@@ -115,14 +125,6 @@ export function TrackingVisibility({
         >
           Ask about this
         </Button>
-      )}
-      {open && (
-        <section role="dialog" aria-label="AI visibility" className="am-card">
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Close
-          </Button>
-          <TrackingPrompts domain={domain} destination={destination} />
-        </section>
       )}
     </>
   );
@@ -413,4 +415,330 @@ export function TrackingPrompts({
       )}
     </div>
   );
+}
+
+export function SetupTrackingPrompts({
+  domain,
+  destination,
+  engines,
+  initialPrompts,
+  onComplete,
+}: {
+  domain: Domain;
+  destination: EnvironmentId;
+  engines: readonly import("@amicited/cloud-client/tracking").TrackingEngine[];
+  initialPrompts: readonly string[];
+  onComplete(config: TrackingConfig): Promise<void>;
+}) {
+  const state = useTracking(destination);
+  const saved = state.snapshot.configs.find((c) => c.projectId === domain.projectId);
+  const [prompts, setPrompts] = useState<TrackingConfig["prompts"]>(
+    () =>
+      saved?.prompts ??
+      initialPrompts.map((text) => ({
+        id: newMessageId(),
+        text,
+        enabled: true,
+        created: new Date().toISOString(),
+      })),
+  );
+  const [time, setTime] = useState(saved?.time ?? "09:00");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const suggest = useEffectEvent(state.suggest);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Suggestions come from the environment service once on entering setup.
+  useEffect(() => {
+    if (saved || initialPrompts.length) return;
+    let active = true;
+    void suggest({
+      environmentId: destination,
+      input: { projectId: domain.projectId, category: "" },
+    }).then((r) => {
+      if (active && r._tag === "Success")
+        setPrompts(
+          r.value.map((text) => ({
+            id: newMessageId(),
+            text,
+            enabled: true,
+            created: new Date().toISOString(),
+          })),
+        );
+    });
+    return () => {
+      active = false;
+    };
+  }, [destination, domain.projectId, saved, initialPrompts.length]);
+  const usedElsewhere =
+    state.snapshot.usage.used - (saved?.prompts.filter((p) => p.enabled).length ?? 0);
+  const finish = async (run: boolean) => {
+    setBusy(true);
+    setError("");
+    try {
+      const config = {
+        projectId: domain.projectId,
+        country: state.snapshot.country,
+        time,
+        engines,
+        prompts,
+      };
+      const result = await state.save({ environmentId: destination, input: { config } });
+      if (result._tag !== "Success") {
+        setError("Could not save prompts. Please try again.");
+        setBusy(false);
+        return;
+      }
+      if (result.value.status === "limit_reached") {
+        setError(
+          "Make room for these prompts. One limit of 20 applies across all workspaces on this computer.",
+        );
+        setBusy(false);
+        return;
+      }
+      if (run && result.value.status === "saved") {
+        const started = await state.run({
+          environmentId: destination,
+          input: { projectId: domain.projectId },
+        });
+        if (started._tag !== "Success") {
+          setError("Could not start the check. Your prompts are saved; try again.");
+          setBusy(false);
+          return;
+        }
+      }
+      await onComplete(config);
+    } catch {
+      setError("Could not finish setup. Your saved prompts are safe; please try again.");
+    }
+    setBusy(false);
+  };
+  return (
+    <section>
+      <p>
+        Start with these suggested questions about {domain.hostname}. Edit them or add your own.
+      </p>
+      <p>
+        {usedElsewhere + prompts.filter((p) => p.enabled).length} of 20 free prompts a day · One
+        limit for this computer, across workspaces
+      </p>
+      <meter max={20} value={usedElsewhere + prompts.filter((p) => p.enabled).length} />
+      <p>
+        Asked from{" "}
+        {new Intl.DisplayNames([navigator.language], { type: "region" }).of(state.snapshot.country)}{" "}
+        (this computer)
+      </p>
+      <p>
+        Other countries <LockPill />
+      </p>
+      <label>
+        Checked daily at{" "}
+        <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+      </label>
+      {prompts.map((p) => (
+        <div key={p.id} className="flex gap-2">
+          <Input
+            aria-label="Prompt"
+            value={p.text}
+            onChange={(e) =>
+              setPrompts((rows) =>
+                rows.map((row) => (row.id === p.id ? { ...row, text: e.target.value } : row)),
+              )
+            }
+          />
+          <Button
+            variant="ghost"
+            onClick={() => setPrompts((rows) => rows.filter((row) => row.id !== p.id))}
+          >
+            Remove
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="ghost"
+        onClick={() =>
+          setPrompts((rows) => [
+            ...rows,
+            { id: newMessageId(), text: "", enabled: true, created: new Date().toISOString() },
+          ])
+        }
+      >
+        Add a prompt
+      </Button>
+      <p>
+        Other countries and more than 20 prompts a day run in the cloud. <LockPill />
+      </p>
+      {error && <p role="alert">{error}</p>}
+      <Button
+        variant="ghost"
+        disabled={busy || !state.canSave || !prompts.length || prompts.some((p) => !p.text.trim())}
+        onClick={() => void finish(false)}
+      >
+        Wait until {time}
+      </Button>
+      <Button
+        disabled={
+          busy ||
+          !state.canRun ||
+          !state.canSave ||
+          !engines.length ||
+          !prompts.length ||
+          prompts.some((p) => !p.text.trim())
+        }
+        onClick={() => void finish(true)}
+      >
+        Run first check
+      </Button>
+    </section>
+  );
+}
+
+function TrackingChatCard({ domain, destination }: { domain: Domain; destination: EnvironmentId }) {
+  const state = useTracking(destination);
+  const newThread = useNewThreadHandler();
+  const run = state.snapshot.runs.find(
+    (r) => r.projectId === domain.projectId && r.status !== "missed",
+  );
+  if (!run) return null;
+  const answers = run.answers.filter((a) => a.status === "answered");
+  const named = answers.filter((a) => a.mentioned).length;
+  const competitors = [...new Set(answers.flatMap((a) => a.competitorsMentioned))];
+  const citations = answers.flatMap((a) => a.citations);
+  const sources = [...new Set(citations)]
+    .sort(
+      (a, b) =>
+        citations.filter((url) => url === b).length - citations.filter((url) => url === a).length,
+    )
+    .slice(0, 5);
+  return (
+    <section className="am-card" aria-label="First AI visibility check" aria-live="polite">
+      <h2>First AI visibility check</h2>
+      <p>
+        Tasks {run.answers.length}/{run.total} ·{" "}
+        {run.status === "complete"
+          ? "First check finished"
+          : run.status === "running"
+            ? "Checking your prompts"
+            : "Check interrupted · partial results saved"}
+      </p>
+      {run.status === "running" && (
+        <p>
+          I'm asking your prompts in the AI apps you connected, one question at a time. You can
+          start another chat meanwhile; your results stay here.
+        </p>
+      )}
+      {run.status === "running" && (
+        <Button
+          variant="ghost"
+          disabled={!state.canRun}
+          onClick={() =>
+            void state.run({
+              environmentId: destination,
+              input: { projectId: domain.projectId, stop: true },
+            })
+          }
+        >
+          Stop check
+        </Button>
+      )}
+      {[...new Set(run.answers.map((a) => a.engine))].map((engine) => (
+        <p key={engine}>
+          {engine} · {run.answers.filter((a) => a.engine === engine).length} checked
+        </p>
+      ))}
+      {run.status === "complete" && (
+        <>
+          <p>
+            AI named {domain.brand} in {named} of {answers.length} answers (
+            {answers.length ? Math.round((named / answers.length) * 100) : 0}% visibility).
+          </p>
+          <p>Competitors recommended instead: {competitors.join(", ") || "None identified"}</p>
+          <p>Top cited sources</p>
+          {sources.map((url) => (
+            <p key={url}>
+              <a href={url} target="_blank" rel="noreferrer">
+                {url}
+              </a>
+            </p>
+          ))}
+          <p>
+            Three things I can do on {domain.hostname}. I'll show you a draft before anything goes
+            live.
+          </p>
+          {[
+            `Draft a comparison page for ${domain.brand} and ${competitors.slice(0, 2).join(" and ") || "the alternatives buyers ask about"}`,
+            "Add clear product and pricing facts to the homepage",
+            `Outline a guide answering: ${answers.find((a) => !a.mentioned)?.prompt ?? answers[0]?.prompt ?? "buyers' common questions"}`,
+          ].map((fix) => (
+            <Button
+              key={fix}
+              variant="outline"
+              onClick={() =>
+                void newThread(scopeProjectRef(destination, ProjectId.make(domain.projectId)), {
+                  prompt: `${fix}. Show a draft for approval before publishing. Use these AI visibility results as evidence:\n${JSON.stringify(run)}`,
+                  sendImmediately: true,
+                })
+              }
+            >
+              {fix}
+            </Button>
+          ))}
+        </>
+      )}
+      <a href={`/prompts?site=${encodeURIComponent(domain.projectId)}`}>All answers and prompts</a>
+      {run.answers.some((a) => a.status === "needs_sign_in") && (
+        <a href="/marketing-settings">Sign in again in Connections</a>
+      )}
+    </section>
+  );
+}
+
+export function TrackingThreadCard({
+  threadRef,
+}: {
+  threadRef: import("@t3tools/contracts").ScopedThreadRef | null;
+}) {
+  const thread = useThreadShell(threadRef);
+  const tracking = useTracking(threadRef?.environmentId);
+  const domains = useDomains(threadRef?.environmentId);
+  const domain = domains.rows.find((row) => row.projectId === thread?.projectId);
+  return threadRef &&
+    domain &&
+    tracking.snapshot.configs.some(
+      (config) => config.projectId === domain.projectId && config.threadId === threadRef.threadId,
+    ) ? (
+    <TrackingChatCard domain={domain} destination={threadRef.environmentId} />
+  ) : null;
+}
+
+export function useFirstCheckChat() {
+  const environmentId = usePrimaryEnvironmentId();
+  const create = useOrchestrationCommand(threadEnvironment.create);
+  const save = useAtomCommand(saveCommand);
+  return async (
+    projectId: string,
+    modelSelection: import("@t3tools/contracts").ModelSelection,
+    config?: TrackingConfig,
+  ) => {
+    if (!environmentId) return null;
+    const threadId = newThreadId();
+    const result = await create({
+      environmentId,
+      input: {
+        threadId,
+        projectId: ProjectId.make(projectId),
+        title: "First AI visibility check",
+        modelSelection,
+        runtimeMode: "approval-required",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdAt: new Date().toISOString(),
+      },
+    });
+    if (result._tag !== "Success") return null;
+    if (config) {
+      const bound = await save({ environmentId, input: { config: { ...config, threadId } } });
+      if (bound._tag !== "Success" || bound.value.status !== "saved") return null;
+    }
+    return threadId;
+  };
 }

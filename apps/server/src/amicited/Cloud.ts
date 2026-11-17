@@ -25,7 +25,11 @@ import { AmicitedIssues } from "./Issues.ts";
 const requireKeyring = NodeModule.createRequire(import.meta.url);
 
 const decodeSetup = Schema.decodeUnknownSync(
-  Schema.Struct({ finished: Schema.Boolean, lastDomain: Schema.optionalKey(Schema.String) }),
+  Schema.Struct({
+    finished: Schema.Boolean,
+    trackingOffered: Schema.optionalKey(Schema.Boolean),
+    lastDomain: Schema.optionalKey(Schema.String),
+  }),
 );
 const decodeAccount = Schema.decodeUnknownSync(
   Schema.Struct({

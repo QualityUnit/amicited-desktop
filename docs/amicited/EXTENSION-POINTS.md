@@ -876,3 +876,9 @@ on the changed line only.
 
 - Existing marketing RPC authorization, instrumentation, subscription and permission extension points carry `amicited.tracking.*`.
 - `server.ts` shares the tracking service; the existing domain header and composer marketing mounts display its results.
+
+## Onboarding first check
+
+- `components/chat/MessagesTimeline.tsx` mounts the persisted tracking activity card in marketer chats; provider turns remain on the normal thread path.
+- `routeTree.gen.ts` registers the AmICited prompts and results route.
+- Existing marketing setup, domain, report, command palette and account RPC extension points assemble the account-first onboarding journey and its tracking offer marker.

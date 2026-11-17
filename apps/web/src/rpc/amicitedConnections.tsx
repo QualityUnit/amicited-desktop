@@ -16,7 +16,7 @@ import {
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
-import { useAmicitedAccount } from "./amicitedAccount";
+import { useAmicitedAccount, AccountSettings } from "./amicitedAccount";
 import { ServerBrowserSurface } from "../browser/ServerBrowserSurface";
 import { Button } from "../components/ui/button";
 import { toastManager } from "../components/ui/toast";
@@ -50,7 +50,7 @@ const check = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.connections.check",
   label: "connections:check",
 });
-function useConnections(destination?: import("@t3tools/contracts").EnvironmentId) {
+export function useConnections(destination?: import("@t3tools/contracts").EnvironmentId) {
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const environmentId = destination ?? primaryEnvironmentId;
   const result = useAtomValue(
@@ -109,6 +109,7 @@ export function ConnectionsHub({ onboarding = false }: { onboarding?: boolean })
   const detail = connectionCatalogue.find((c) => c.id === selected);
   return (
     <div className="am-page">
+      {!onboarding && <a href="/prompts">Prompts and results</a>}
       <h1>
         {onboarding ? "Connect your AI apps" : `${current?.name ?? "Workspace"} / Connections`}
       </h1>
@@ -239,9 +240,14 @@ export function ConnectionsHub({ onboarding = false }: { onboarding?: boolean })
             <p>
               {current?.email} · {current?.name} · {current?.plan}
             </p>
-            <a href="/settings/account">Account</a>
+            <a href="/marketing-settings#account">Account</a>
           </section>
         </>
+      )}
+      {!onboarding && (
+        <div id="account">
+          <AccountSettings />
+        </div>
       )}
       <ConnectionSignIn state={state} />
     </div>

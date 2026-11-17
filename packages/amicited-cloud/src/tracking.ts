@@ -7,6 +7,7 @@ export const TrackingEngine = Schema.Literals([
   "gemini",
   "claude",
   "google",
+  "google_overviews",
 ]);
 export type TrackingEngine = typeof TrackingEngine.Type;
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
@@ -19,6 +20,7 @@ export const TrackedPrompt = Schema.Struct({
   created: Schema.String,
 });
 export const TrackingConfig = Schema.Struct({
+  threadId: Schema.optionalKey(Schema.String),
   projectId: Schema.String,
   country: Schema.String,
   time: Schema.String.check(Schema.isPattern(/^([01]\d|2[0-3]):[0-5]\d$/)),
@@ -42,7 +44,7 @@ export const TrackingRun = Schema.Struct({
   id: Schema.String,
   projectId: Schema.String,
   day: Schema.String,
-  status: Schema.Literals(["running", "complete", "missed", "interrupted"]),
+  status: Schema.Literals(["running", "complete", "missed", "interrupted", "stopped"]),
   total: Schema.Number,
   answers: Schema.Array(TrackingAnswer),
 });
@@ -90,7 +92,7 @@ export const trackingRpcs = [
     error: TrackingFailure,
   }),
   Rpc.make("amicited.tracking.run", {
-    payload: { projectId: Schema.String },
+    payload: { projectId: Schema.String, stop: Schema.optionalKey(Schema.Boolean) },
     success: Schema.String,
     error: TrackingFailure,
   }),
