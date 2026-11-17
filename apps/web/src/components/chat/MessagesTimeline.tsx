@@ -1,5 +1,5 @@
-import { TrackingThreadCard } from "../../rpc/amicitedTracking";
-import { ConnectionChatCards } from "../../rpc/amicitedConnections";
+import { TrackingThreadCard, useThreadTrackingRun } from "../../amicited/amicitedTracking";
+import { ConnectionChatCards } from "../../amicited/amicitedConnections";
 import { CloudUnclaimedApprovals } from "../../rpc/amicitedCloud";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { threadEnvironment } from "../../state/threads";
@@ -710,7 +710,9 @@ const ConversationTimeline = memo(function ConversationTimeline({
       : -1;
   const restoringAlwaysRender =
     restoringThreadPosition && restoreRowIndex >= 0 ? { indices: [restoreRowIndex] } : undefined;
+  const trackingRun = useThreadTrackingRun(citationThreadRef);
   const showsEmptyState =
+    !trackingRun &&
     rows.length === 0 &&
     unmatchedPendingApprovals.length === 0 &&
     !isWorking &&
@@ -1252,7 +1254,13 @@ const ConversationTimeline = memo(function ConversationTimeline({
       {footer}
       <CloudUnclaimedApprovals threadRef={citationThreadRef} />
       <ConnectionChatCards threadRef={citationThreadRef} />
-      {marketer && <TrackingThreadCard threadRef={citationThreadRef} />}
+      {marketer && (
+        <div className="messages-timeline-row-frame">
+          <div className="chat-content-lane">
+            <TrackingThreadCard threadRef={citationThreadRef} run={trackingRun} />
+          </div>
+        </div>
+      )}
       {unmatchedPendingApprovals.length > 0 ? (
         <TimelineRowCtx value={sharedState}>
           <div className="messages-timeline-row-frame">

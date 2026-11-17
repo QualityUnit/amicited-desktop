@@ -142,6 +142,13 @@ function useIssueActions(environmentId: EnvironmentId | null) {
   };
   const start = async (issue: Issue) => {
     if (!environmentId) return;
+    if (issue.fingerprint.startsWith("tracking:connection:")) {
+      await navigate({
+        to: "/marketing-settings",
+        search: { connect: issue.fingerprint.slice("tracking:connection:".length) },
+      });
+      return;
+    }
     if (issue.threadId && threads.has(issue.threadId)) {
       await navigate(openThreadRoute(environmentId, issue.threadId));
       return;

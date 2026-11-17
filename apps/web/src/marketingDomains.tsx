@@ -1,4 +1,4 @@
-import { TrackingVisibility } from "./rpc/amicitedTracking";
+import { TrackingVisibility } from "./amicited/amicitedTracking";
 import { findReportKeySource } from "./marketingReports.logic";
 import { CmsGrid } from "@amicited/ui-marketing";
 import { desktopLocalBackendId } from "./connection/desktopLocal";
@@ -132,9 +132,11 @@ export function NewDomainDialog({
   onCreated,
   inline = false,
   initialWebsite = "",
+  cloudDomain,
 }: {
   inline?: boolean;
   initialWebsite?: string;
+  cloudDomain?: { domainId?: string; brand?: string } | undefined;
   onCreated?: (projectId: string) => void;
   editing?: Domain;
   destination?: EnvironmentId | null | undefined;
@@ -170,7 +172,7 @@ export function NewDomainDialog({
   const [cloneId, setCloneId] = useState<ProjectId | null>(null);
   const [website, setWebsite] = useState(editing?.hostname ?? initialWebsite);
   const [brandEdited, setBrandEdited] = useState(Boolean(editing));
-  const [brand, setBrand] = useState(editing?.brand ?? "");
+  const [brand, setBrand] = useState(editing?.brand ?? cloudDomain?.brand ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pendingProject = useRef<{
@@ -339,6 +341,7 @@ export function NewDomainDialog({
               projectId,
               website: domain.hostname,
               brand: domain.brand,
+              ...(cloudDomain?.domainId ? { domainId: cloudDomain.domainId } : {}),
               cms: detected?._tag === "Success" && detected.value.framework ? "git" : cms,
               siteFiles: siteFiles || null,
               framework: detected?._tag === "Success" ? detected.value.framework : framework,

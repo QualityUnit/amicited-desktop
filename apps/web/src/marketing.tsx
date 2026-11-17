@@ -1,9 +1,10 @@
+import { CloudPage } from "./rpc/amicitedCloud";
 import {
   WorkspaceAttention,
   WorkspaceSwitcher,
   AccountSettings,
   useAmicitedAccount,
-} from "./rpc/amicitedAccount";
+} from "./amicited/amicitedAccount";
 import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
 import { useEnvironmentIdentificationMode, useEnvironmentSettings } from "./hooks/useSettings";
 import { lastDomains, readDefaultDomain } from "./marketingDomainStore";
@@ -84,8 +85,7 @@ import type { TraitsSelectionInput } from "./components/chat/TraitsPicker";
 import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
-import { ConnectionsHub } from "./rpc/amicitedConnections";
-import { CloudPage } from "./rpc/amicitedCloud";
+import { ConnectionsHub } from "./amicited/amicitedConnections";
 
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
@@ -374,10 +374,6 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             ) : path === "/marketing-settings" ? (
               <>
                 <ConnectionsHub />
-                <details>
-                  <summary>Manage cloud and website connections</summary>
-                  <CloudPage />
-                </details>
               </>
             ) : path === "/settings/general" ? (
               <MarketingSettings />
@@ -478,7 +474,10 @@ export function MarketingSettings() {
           Run setup again
         </Button>
       </div>
-      <AccountSettings />
+      <div className="am-page">
+        <AccountSettings />
+      </div>
+      <CloudPage />
       <MarketingSettingsView modeControl={renderModeSwitch} domains={<DomainsSettings />} />
     </>
   );

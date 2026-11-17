@@ -1,4 +1,4 @@
-import { AmicitedAccountGate } from "../../rpc/amicitedAccount";
+import { AmicitedAccountGate } from "../../amicited/amicitedAccount";
 import { PRODUCT_NAME } from "@amicited/identity";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { useAtomValue } from "@effect/atom-react";

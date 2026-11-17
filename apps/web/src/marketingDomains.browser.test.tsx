@@ -1,9 +1,12 @@
-vi.mock("./rpc/amicitedTracking", () => ({
+vi.mock("./amicited/SetupTrackingPrompts", () => ({ SetupTrackingPrompts: () => null }));
+vi.mock("./amicited/amicitedTracking", () => ({
   TrackingVisibility: () => null,
-  SetupTrackingPrompts: () => null,
-  useFirstCheckChat: () => async () => null,
+  useFirstCheckChat: () => async () => {
+    state.firstCheckCalls.push("create");
+    return null;
+  },
 }));
-vi.mock("./rpc/amicitedConnections", () => ({
+vi.mock("./amicited/amicitedConnections", () => ({
   ConnectAiAppsGrid: () => <section aria-label="AI apps">Connect your AI apps</section>,
   useConnections: () => ({ snapshot: { connections: [] } }),
 }));
@@ -18,6 +21,8 @@ const state = vi.hoisted(() => ({
   projectRoots: [] as string[],
   threadSelections: [] as unknown[],
   connected: true,
+  access: "free" as "free" | "full",
+  firstCheckCalls: [] as string[],
   folderPath: "/fixture/site",
   inspectPath: null as
     | null
@@ -66,10 +71,10 @@ vi.mock("./localApi", async (original) => ({
     dialogs: { pickFolder: async () => state.folderPath },
   }),
 }));
-vi.mock("./rpc/amicitedAccount", () => ({
+vi.mock("./amicited/amicitedAccount", () => ({
   WorkspaceSwitcher: () => null,
   OlderWebsites: () => null,
-  useAmicitedAccount: () => ({ current: { id: "test", access: "free" } }),
+  useAmicitedAccount: () => ({ current: { id: "test", access: state.access } }),
 }));
 vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => <section aria-label="Assistant setup">Assistant</section>,
@@ -609,7 +614,11 @@ it("requires a website before assistant setup and an AI app before prompts", asy
   try {
     await using screen = await render(<MarketingSetupHost />);
     state.connected = true;
-    await screen.rerender(<MarketingSetupHost />);
+    await screen.rerender(
+      <MarketingSetupHost>
+        <span />
+      </MarketingSetupHost>,
+    );
     await expect
       .element(screen.getByRole("heading", { name: "Add your website", exact: true }))
       .toBeVisible();
@@ -668,3 +677,25 @@ it.each([false, true])(
     if (inline) expect(created).toHaveBeenCalledWith("a");
   },
 );
+
+it("finishes paid setup without creating a first-check thread", async () => {
+  const { cache } = await import("./marketingDomainStore");
+  const { MarketingSetupHost } = await import("./marketingSetup");
+  cache.clear();
+  state.access = "full";
+  state.emptyDomains = false;
+  state.firstCheckCalls.length = 0;
+  try {
+    await using screen = await render(<MarketingSetupHost />);
+    await expect.element(screen.getByRole("heading", { name: /is already tracked/ })).toBeVisible();
+    await screen.getByRole("button", { name: "Continue", exact: true }).click();
+    await screen.getByRole("button", { name: "Set up later", exact: true }).click();
+    await expect
+      .element(screen.getByRole("region", { name: "Assistant setup" }))
+      .not.toBeInTheDocument();
+    expect(state.firstCheckCalls).toEqual([]);
+  } finally {
+    state.access = "free";
+    cache.clear();
+  }
+});

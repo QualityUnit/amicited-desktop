@@ -19,5 +19,7 @@ function SettingsGeneralRoute() {
 }
 
 export const Route = createFileRoute("/_chat/settings/general")({
+  validateSearch: (search: Record<string, unknown>): { section?: "workspaces" } =>
+    search.section === "workspaces" ? { section: "workspaces" } : {},
   component: SettingsGeneralRoute,
 });

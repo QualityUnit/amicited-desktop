@@ -1613,7 +1613,7 @@ function OpenCommandPaletteDialog(props: {
       ["Open reports", "/reports"],
       ["Open connections", "/marketing-settings"],
       ["Open prompts and results", "/prompts"],
-      ["Switch workspace", "/marketing-settings"],
+      ["Switch workspace", "/settings/general"],
     ] as const) {
       actionItems.push({
         kind: "action",
@@ -1622,7 +1622,11 @@ function OpenCommandPaletteDialog(props: {
         searchTerms: [title],
         icon: <SettingsIcon className={ITEM_ICON_CLASS} />,
         run: async () => {
-          await navigate({ to: path });
+          await navigate(
+            path === "/settings/general"
+              ? { to: path, search: { section: "workspaces" } }
+              : { to: path },
+          );
         },
       });
     }

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useDomains } from "../marketingDomains";
-import { TrackingPrompts } from "../rpc/amicitedTracking";
+import { TrackingPrompts } from "../amicited/amicitedTracking";
 import { Link } from "@tanstack/react-router";
 export const Route = createFileRoute("/_chat/prompts")({
   validateSearch: (search: Record<string, unknown>) => ({

@@ -1,4 +1,4 @@
-import { TrackingVisibility } from "./rpc/amicitedTracking";
+import { TrackingVisibility } from "./amicited/amicitedTracking";
 import { useEnvironmentSettings } from "./hooks/useSettings";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {

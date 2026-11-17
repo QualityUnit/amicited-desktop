@@ -1,4 +1,4 @@
-import { AmicitedAccountGate } from "../rpc/amicitedAccount";
+import { AmicitedAccountGate } from "../amicited/amicitedAccount";
 import { MarketingNavigationBridge } from "../marketingNavigation";
 import { useWorkspaceMode, readWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingBoundary, MarketingFirstRun } from "../marketing";

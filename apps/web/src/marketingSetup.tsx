@@ -1,7 +1,10 @@
+/* oxlint-disable shadcn/no-unknown-classes -- AmICited marketing styles own these classes. */
+import { projectEnvironment } from "./state/projects";
 import { useNavigate } from "@tanstack/react-router";
-import { ConnectAiAppsGrid, useConnections } from "./rpc/amicitedConnections";
-import { SetupTrackingPrompts, useFirstCheckChat } from "./rpc/amicitedTracking";
-import { OlderWebsites, WorkspaceSwitcher, useAmicitedAccount } from "./rpc/amicitedAccount";
+import { ConnectAiAppsGrid, useConnections } from "./amicited/amicitedConnections";
+import { useFirstCheckChat } from "./amicited/amicitedTracking";
+import { SetupTrackingPrompts } from "./amicited/SetupTrackingPrompts";
+import { OlderWebsites, WorkspaceSwitcher, useAmicitedAccount } from "./amicited/amicitedAccount";
 import { effectiveMarketingAssistant } from "./marketingAssistant";
 import { AmICitedMark } from "@amicited/ui-marketing";
 import { usePrimarySettings } from "./hooks/useSettings";
@@ -36,6 +39,14 @@ import {
   DialogPanel,
 } from "./components/ui/dialog";
 import { Button } from "./components/ui/button";
+const importDomain = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.domains.save",
+  label: "setup:import-domain",
+});
+const cloudSummary = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.domains.cloudSummary",
+  label: "setup:cloud-summary",
+});
 const listCloud = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.domains.listCloud",
   label: "setup:cloud-websites",
@@ -78,13 +89,28 @@ export function AssistantSetupDialog({
   );
 }
 export function MarketingSetupHost({ children }: { children?: import("react").ReactNode }) {
+  const { current } = useAmicitedAccount();
+  return <WorkspaceSetup key={current?.id ?? "no-workspace"}>{children}</WorkspaceSetup>;
+}
+function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) {
   const domains = useDomains();
   const { current } = useAmicitedAccount();
   const connections = useConnections();
   const readCloud = useAtomCommand(listCloud);
+  const createProject = useAtomCommand(projectEnvironment.createNew);
+  const registerDomain = useAtomCommand(importDomain);
+  const [importing, setImporting] = useState(false);
   const loadCloudWebsites = useEffectEvent(readCloud);
   const [cloudRows, setCloudRows] = useState<ReturnType<typeof cloudSetupWebsites>>([]);
   const [cloudWebsite, setCloudWebsite] = useState("");
+  const [addingWebsite, setAddingWebsite] = useState(false);
+  const [olderCount, setOlderCount] = useState(0);
+  const [excludedEngines, setExcludedEngines] = useState<string[]>([]);
+  const summaryRead = useAtomCommand(cloudSummary);
+  const [summary, setSummary] = useState<{
+    promptCount: number | null;
+    countries: readonly string[] | null;
+  } | null>(null);
   const currentWorkspaceId = current?.id;
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Read the workspace's cloud websites when the account changes.
   useEffect(() => {
@@ -205,8 +231,8 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
   const finish = async (config?: import("@amicited/cloud-client/tracking").TrackingConfig) => {
     if (!environmentId || !domain || !current || current.sessionEnded) return;
     const threadModel = setupModel ?? settings.textGenerationModelSelection;
-    const threadId = await createThread(domain.projectId, threadModel, config);
-    if (!threadId) {
+    const threadId = config ? await createThread(domain.projectId, threadModel, config) : null;
+    if (config && !threadId) {
       setError("Could not open your first check chat. Please try again.");
       return;
     }
@@ -224,8 +250,23 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     }
     setFinished(true);
     setStep(null);
-    await navigate({ to: "/$environmentId/$threadId", params: { environmentId, threadId } });
+    if (threadId)
+      await navigate({ to: "/$environmentId/$threadId", params: { environmentId, threadId } });
+    else await navigate({ to: "/home" });
   };
+  const loadSummary = useEffectEvent(summaryRead);
+  const summaryProjectId = domain?.projectId;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Paid setup reads the selected domain's cloud measurements.
+  useEffect(() => {
+    if (step !== "cloud" || !environmentId || !summaryProjectId) return;
+    let active = true;
+    void loadSummary({ environmentId, input: { projectId: summaryProjectId } }).then((r) => {
+      if (active && r._tag === "Success") setSummary(r.value);
+    });
+    return () => {
+      active = false;
+    };
+  }, [step, environmentId, summaryProjectId]);
   if (finished === null && domains.rows.length === 0)
     return <main data-am="am-setup-loading">Loading your workspace…</main>;
   if (!step)
@@ -237,22 +278,29 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
     );
   const titles = {
     assistant: "Choose your AI assistant",
-    website: "Add your website",
+    website: olderCount
+      ? `We found ${olderCount} websites on this computer`
+      : cloudRows.length && !addingWebsite
+        ? "Pick a website"
+        : "Add your website",
     cloud: `${domain?.hostname ?? "Your website"} is already tracked`,
     apps: "Connect your AI apps",
     prompts: "Choose prompts to track",
   };
   const back = () =>
     setStep(step === "prompts" ? "apps" : step === "apps" ? "assistant" : "website");
-  const engines = connections.snapshot.connections.flatMap((c) =>
+  const connectedEngines = connections.snapshot.connections.flatMap((c) =>
     c.status !== "connected" ||
     !["chatgpt", "perplexity", "gemini", "claude", "google"].includes(c.id)
       ? []
       : c.id === "google"
-        ? (["google", "google_overviews"] as const)
+        ? (["gemini", "google", "google_overviews"] as const)
         : c.id === "chatgpt" || c.id === "perplexity" || c.id === "gemini" || c.id === "claude"
           ? [c.id]
           : [],
+  );
+  const engines = [...new Set(connectedEngines)].filter(
+    (engine) => !excludedEngines.includes(engine),
   );
   return (
     <main data-am="am-setup" data-onboarding-surface="" aria-label="AmICited setup">
@@ -262,10 +310,10 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
           <WorkspaceSwitcher compact />
         </div>
         <nav aria-label="Setup progress" data-am="am-setup-progress">
+          <span>✓ Account</span>
           {(["website", "assistant", "apps", "prompts"] as const).map((item, i) => (
             <span key={item} aria-current={step === item ? "step" : undefined}>
               {["website", "assistant", "apps", "prompts"].indexOf(step) > i ? "✓ " : ""}
-              {i === 0 ? "✓ Account · " : ""}
               {["Website", "Assistant", "AI apps", "Prompts"][i]}
             </span>
           ))}
@@ -273,19 +321,29 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
         {step !== "assistant" && (
           <header>
             <h1>{titles[step]}</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground" hidden={step === "prompts"}>
               {step === "website"
-                ? "Keep your chats, brand and site files together in a domain."
+                ? olderCount
+                  ? "You set these up before accounts existed. Add them to AmICited to keep using them."
+                  : "Keep your chats, brand and site files together in a domain."
                 : step === "cloud"
                   ? "Your plan tracks prompts every day in the cloud. There are no AI apps to sign in to on this computer."
                   : step === "prompts"
                     ? "Start with 10 suggested questions, edit them or add your own."
-                    : "Uses the accounts you already have."}
+                    : "AmICited asks them your prompts in your own browser, signed in as you. Sign in once to each."}
             </p>
           </header>
         )}
         <div data-am="am-setup-body">
-          {step === "website" && <OlderWebsites />}
+          {step === "website" && (
+            <OlderWebsites
+              onCount={setOlderCount}
+              onComplete={(projectId) => {
+                setSetupDomainId(projectId);
+                setStep(setupAfterWebsite(current?.access));
+              }}
+            />
+          )}
           {step === "assistant" && (
             <MarketingSubscriptions
               usageLink={false}
@@ -294,10 +352,17 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
               onReadyChange={setSelectedReady}
             />
           )}
-          {step === "website" && (
+          {step === "assistant" && (
+            <p className="am-muted">
+              Your assistant writes your first tracking prompts from your website, then explains the
+              results and helps make the fixes.
+            </p>
+          )}
+          {step === "website" && !olderCount && (!cloudRows.length || addingWebsite) && (
             <NewDomainDialog
               key={cloudWebsite}
               initialWebsite={cloudWebsite}
+              cloudDomain={cloudRows.find((row) => row.hostname === cloudWebsite)}
               open
               inline
               onOpenChange={() => {}}
@@ -307,12 +372,16 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
               }}
             />
           )}
-          {step === "website" && cloudRows.length > 0 && (
-            <section>
-              <h2>Websites in {current?.name}</h2>
+          {step === "website" && !olderCount && cloudRows.length > 0 && !addingWebsite && (
+            <section className="am-picker">
+              <p>
+                These websites are already in {current?.name}. Pick one to work on here, or add
+                another.
+              </p>
               {cloudRows.map((row) => (
                 <Button
                   key={row.hostname}
+                  disabled={importing}
                   variant="outline"
                   onClick={() => {
                     const existing = domains.rows.find((d) => d.hostname === row.hostname);
@@ -320,15 +389,70 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
                       setSetupDomainId(existing.projectId);
                       setCloudWebsite(row.hostname);
                       setStep(setupAfterWebsite(current?.access));
-                    } else setCloudWebsite(row.hostname);
+                    } else if (domains.environmentId && !importing) {
+                      const destination = domains.environmentId;
+                      setImporting(true);
+                      void (async () => {
+                        try {
+                          const created = await createProject({
+                            environmentId: destination,
+                            input: { name: row.hostname },
+                          });
+                          if (created._tag !== "Success") {
+                            setError("Could not open this website. Try again.");
+                            return;
+                          }
+                          const saved = await registerDomain({
+                            environmentId: destination,
+                            input: {
+                              projectId: created.value.projectId,
+                              website: row.hostname,
+                              brand: row.brand ?? row.hostname,
+                              cms: "unknown",
+                              siteFiles: null,
+                              framework: null,
+                              ...(row.domainId ? { domainId: row.domainId } : {}),
+                            },
+                          });
+                          if (saved._tag !== "Success") {
+                            setError("Could not import this website. Try again.");
+                            return;
+                          }
+                          await domains.refresh();
+                          setSetupDomainId(created.value.projectId);
+                          setStep(setupAfterWebsite(current?.access));
+                        } catch {
+                          setError("Could not import this website. Try again.");
+                        }
+                      })().finally(() => setImporting(false));
+                    }
                   }}
                 >
-                  {row.hostname}
+                  <span className="am-brand-avatar">
+                    {(row.brand ?? row.hostname)[0]?.toUpperCase()}
+                  </span>
+                  <span>
+                    <strong>{row.brand ?? row.hostname}</strong>
+                    <small>
+                      {row.hostname} ·{" "}
+                      {row.prompts.length ? `${row.prompts.length} prompts` : "In AmICited"}
+                    </small>
+                  </span>
+                  <span>{current?.plan}</span>
                 </Button>
               ))}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setCloudWebsite("");
+                  setAddingWebsite(true);
+                }}
+              >
+                ＋ Add a new website
+              </Button>
             </section>
           )}
-          {step === "website" && domains.rows.length > 0 && (
+          {step === "website" && !olderCount && !cloudRows.length && domains.rows.length > 0 && (
             <section>
               <h2>Pick a website</h2>
               {domains.rows.map((row) => (
@@ -347,13 +471,39 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
             </section>
           )}
           {step === "cloud" && (
-            <p>
-              <a href="https://app.flowhunt.io/amicited" target="_blank" rel="noreferrer">
-                Manage prompts in AmICited
-              </a>
-            </p>
+            <section data-am="am-setup-cloud">
+              <ul>
+                {summary?.promptCount != null && (
+                  <li>{summary.promptCount} prompts, checked every day in the cloud</li>
+                )}
+                {summary?.countries?.length ? (
+                  <li>
+                    {summary.countries.length} countries: {summary.countries.join(", ")}
+                  </li>
+                ) : null}
+                <li>
+                  Your {current?.plan} plan does the tracking. There is nothing to set up on this
+                  computer and no AI apps to sign in to.
+                </li>
+              </ul>
+              <p>Your assistant starts from today’s results.</p>
+              <p>
+                <a href="https://app.flowhunt.io/amicited" target="_blank" rel="noreferrer">
+                  Manage prompts in AmICited
+                </a>
+              </p>
+            </section>
           )}
-          {step === "apps" && <ConnectAiAppsGrid />}
+          {step === "apps" && (
+            <ConnectAiAppsGrid
+              excluded={excludedEngines}
+              onToggle={(engine) =>
+                setExcludedEngines((rows) =>
+                  rows.includes(engine) ? rows.filter((row) => row !== engine) : [...rows, engine],
+                )
+              }
+            />
+          )}
           {step === "prompts" && domain && environmentId && (
             <SetupTrackingPrompts
               key={domain.projectId}
@@ -363,54 +513,62 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
               initialPrompts={
                 cloudRows.find((row) => row.hostname === domain.hostname)?.prompts ?? []
               }
+              onBack={back}
               onComplete={finish}
             />
           )}
           {error && <p role="alert">{error}</p>}
         </div>
-        <footer data-am="am-setup-footer">
-          <Button variant="ghost" disabled={step === "website"} onClick={back}>
-            Back
-          </Button>
-          <div className="flex gap-2">
-            {step === "apps" && trackingOffer && (
-              <Button variant="ghost" onClick={() => void finish()}>
-                Set up tracking later
-              </Button>
-            )}
-            {step === "assistant" && (
-              <Button
-                variant="ghost"
-                onClick={() => (current?.access === "full" ? void finish() : setStep("apps"))}
-              >
-                Set up later
-              </Button>
-            )}
-            {step === "website" ? (
-              <Button type="submit" form="amicited-onboarding-domain">
-                Continue
-              </Button>
-            ) : step === "prompts" ? null : (
-              <Button
-                disabled={
-                  (step === "assistant" && (!ready || !setupModel)) ||
-                  (step === "apps" && engines.length === 0)
-                }
-                onClick={() =>
-                  step === "cloud"
-                    ? setStep("assistant")
-                    : step === "assistant"
-                      ? current?.access === "full"
-                        ? void finish()
-                        : setStep("apps")
-                      : setStep("prompts")
-                }
-              >
-                Continue
-              </Button>
-            )}
-          </div>
-        </footer>
+        {step !== "prompts" && (
+          <footer data-am="am-setup-footer">
+            <Button variant="ghost" disabled={step === "website"} onClick={back}>
+              Back
+            </Button>
+            <div className="flex items-center gap-2">
+              {step === "apps" && (
+                <span className="text-sm text-muted-foreground">
+                  {engines.length} of 6 connected
+                </span>
+              )}
+              {step === "apps" && trackingOffer && (
+                <Button variant="ghost" onClick={() => void finish()}>
+                  Set up tracking later
+                </Button>
+              )}
+              {step === "assistant" && (
+                <Button
+                  variant="ghost"
+                  onClick={() => (current?.access === "full" ? void finish() : setStep("apps"))}
+                >
+                  Set up later
+                </Button>
+              )}
+              {step === "website" && (olderCount > 0 || !cloudRows.length || addingWebsite) ? (
+                <Button type="submit" form="amicited-onboarding-domain">
+                  {olderCount ? "Add websites and continue" : "Continue"}
+                </Button>
+              ) : step === "website" ? null : (
+                <Button
+                  disabled={
+                    (step === "assistant" && (!ready || !setupModel)) ||
+                    (step === "apps" && engines.length === 0)
+                  }
+                  onClick={() =>
+                    step === "cloud"
+                      ? setStep("assistant")
+                      : step === "assistant"
+                        ? current?.access === "full"
+                          ? void finish()
+                          : setStep("apps")
+                        : setStep("prompts")
+                  }
+                >
+                  Continue
+                </Button>
+              )}
+            </div>
+          </footer>
+        )}
       </div>
     </main>
   );
