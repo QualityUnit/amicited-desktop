@@ -1,3 +1,5 @@
+import { BrowserConnections } from "@amicited/cloud-client/connections";
+import { Connections } from "./amicited/Connections.ts";
 import { Reports } from "./amicited/Reports.ts";
 import { ReportsEditing } from "./amicited/ReportsEditing.ts";
 import { CloudClient } from "@amicited/cloud-client";
@@ -666,6 +668,14 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(ReportsEditing)({}),
   Layer.mock(DocumentText.DocumentText)({}),
   Layer.mock(DomainFavicons)({}),
+  Layer.mock(Connections)({
+    engine: new BrowserConnections<import("playwright-core").Page>({
+      open: async () => {
+        throw new Error("unused");
+      },
+      clearCookies: async () => {},
+    }),
+  }),
   Layer.mock(AmicitedIssues)({}),
   Layer.mock(ServerSecretStore.ServerSecretStore)({}),
   Layer.mock(WorkspacePaths.WorkspacePaths)({}),

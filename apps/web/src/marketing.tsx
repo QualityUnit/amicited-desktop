@@ -84,6 +84,7 @@ import type { TraitsSelectionInput } from "./components/chat/TraitsPicker";
 import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
+import { ConnectionsHub } from "./rpc/amicitedConnections";
 import { CloudPage } from "./rpc/amicitedCloud";
 
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
@@ -322,7 +323,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   {[
                     ["Settings", "/settings/general", Settings],
                     ["Reports", "/reports", FileText],
-                    ["AmICited", "/marketing-settings", PlugZap],
+                    ["Connections", "/marketing-settings", PlugZap],
                   ].map(([label, href, Icon]) => (
                     <SidebarMenuItem key={String(label)} className="shrink-0">
                       <SidebarMenuButton
@@ -349,7 +350,13 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             externalSidebar
             desktop={isElectron}
             headerTitle={
-              archived ? "Archived chats" : path.startsWith("/reports") ? "Reports" : undefined
+              archived
+                ? "Archived chats"
+                : path === "/marketing-settings"
+                  ? "Connections"
+                  : path.startsWith("/reports")
+                    ? "Reports"
+                    : undefined
             }
             mode={mode}
             taskView={taskTarget !== null}
@@ -365,7 +372,13 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             ) : path === "/issues" ? (
               <IssuesPage />
             ) : path === "/marketing-settings" ? (
-              <CloudPage />
+              <>
+                <ConnectionsHub />
+                <details>
+                  <summary>Manage cloud and website connections</summary>
+                  <CloudPage />
+                </details>
+              </>
             ) : path === "/settings/general" ? (
               <MarketingSettings />
             ) : path.startsWith("/settings") ? (

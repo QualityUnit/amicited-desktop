@@ -85,7 +85,9 @@ export const AccountStatus = Schema.Struct({
   signingIn: Schema.Boolean,
   error: Schema.optionalKey(Schema.String),
 });
+import { connectionRpcs } from "./connectionsRpc.ts";
 export const cloudRpcs = [
+  ...connectionRpcs,
   Rpc.make("amicited.account.status", { success: AccountStatus, error: DomainFailure }),
   Rpc.make("amicited.account.subscribe", { success: AccountStatus, stream: true }),
   ...(["addWorkspace", "cancelSignIn", "reopenSignIn", "signOut"] as const).map((method) =>

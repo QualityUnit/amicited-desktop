@@ -1,3 +1,4 @@
+import { ConnectionChatCards } from "../../rpc/amicitedConnections";
 import { CloudUnclaimedApprovals } from "../../rpc/amicitedCloud";
 import { useWorkspaceMode } from "@amicited/ui-marketing";
 import { threadEnvironment } from "../../state/threads";
@@ -1249,6 +1250,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
     >
       {footer}
       <CloudUnclaimedApprovals threadRef={citationThreadRef} />
+      <ConnectionChatCards threadRef={citationThreadRef} />
       {unmatchedPendingApprovals.length > 0 ? (
         <TimelineRowCtx value={sharedState}>
           <div className="messages-timeline-row-frame">

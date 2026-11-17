@@ -1611,7 +1611,7 @@ function OpenCommandPaletteDialog(props: {
     for (const [title, path] of [
       ["Open issues", "/issues"],
       ["Open reports", "/reports"],
-      ["Open AmICited", "/marketing-settings"],
+      ["Open connections", "/marketing-settings"],
     ] as const) {
       actionItems.push({
         kind: "action",

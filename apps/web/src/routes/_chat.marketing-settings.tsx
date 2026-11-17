@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MarketingSettings } from "../marketing";
+import { ConnectionsHub } from "../rpc/amicitedConnections";
 export const Route = createFileRoute("/_chat/marketing-settings")({
-  component: () => <MarketingSettings />,
+  component: () => <ConnectionsHub />,
 });

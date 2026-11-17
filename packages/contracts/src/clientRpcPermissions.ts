@@ -27,6 +27,11 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
 
   "amicited.account.addWorkspace": AuthSettingsWriteScope,
   "amicited.account.cancelSignIn": AuthSettingsWriteScope,
+  "amicited.connections.check": AuthSettingsWriteScope,
+  "amicited.connections.connect": AuthSettingsWriteScope,
+  "amicited.connections.cancel": AuthSettingsWriteScope,
+  "amicited.connections.finish": AuthSettingsWriteScope,
+  "amicited.connections.disconnect": AuthSettingsWriteScope,
   "amicited.account.reopenSignIn": AuthSettingsWriteScope,
   "amicited.account.switchWorkspace": AuthSettingsWriteScope,
   "amicited.account.removeWorkspace": AuthSettingsWriteScope,

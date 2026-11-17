@@ -138,6 +138,11 @@ describe("command permissions", () => {
 
   it.effect.each([
     WS_METHODS.serverRunStorageCleanup,
+    "amicited.connections.connect",
+    "amicited.connections.cancel",
+    "amicited.connections.finish",
+    "amicited.connections.disconnect",
+    "amicited.connections.check",
     "amicited.account.addWorkspace",
     "amicited.account.cancelSignIn",
     "amicited.account.reopenSignIn",

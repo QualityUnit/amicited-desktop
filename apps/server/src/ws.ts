@@ -1,3 +1,4 @@
+import * as AmicitedConnections from "./amicited/Connections.ts";
 import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
 import { templates as reportTemplates } from "@amicited/reports/templates";
@@ -2016,6 +2017,7 @@ export const layerWsRpc = (
 
       const reports = yield* AmicitedReports.Reports;
       const reportsEditing = yield* ReportsEditing.ReportsEditing;
+      const connections = yield* AmicitedConnections.Connections;
       const cloud = yield* AmicitedCloud.AmicitedCloud;
       const domainFavicons = yield* AmicitedDomainFavicons.DomainFavicons;
       const issues = yield* AmicitedIssues.AmicitedIssues;
@@ -2057,6 +2059,18 @@ export const layerWsRpc = (
         "amicited.reports.templates": () => Effect.succeed(reportTemplates),
         "amicited.reports.subscribe": () => reports.changes,
 
+        "amicited.connections.status": () => connections.snapshot,
+        "amicited.connections.subscribe": () => connections.changes,
+        "amicited.connections.check": ({ connectionId }) =>
+          connections.run((e) => e.check(connectionId)),
+        "amicited.connections.disconnect": ({ connectionId }) =>
+          connections.run((e) => e.disconnect(connectionId)),
+        "amicited.connections.cancel": ({ connectionId }) =>
+          connections.run((e) => e.cancel(connectionId)),
+        "amicited.connections.finish": ({ connectionId }) =>
+          connections.run((e) => e.finish(connectionId)),
+        "amicited.connections.connect": ({ connectionId, threadId }) =>
+          connections.run((e) => e.connect(connectionId, threadId)),
         "amicited.account.status": () =>
           Effect.tryPromise({
             try: () => cloud.account!.status(),

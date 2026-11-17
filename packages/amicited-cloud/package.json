@@ -14,7 +14,9 @@
     "./account": "./src/account.ts",
     "./domains": "./src/domains.ts",
     "./toolResult": "./src/toolResult.ts",
-    "./capture": "./src/capture.ts"
+    "./capture": "./src/capture.ts",
+    "./connections": "./src/connections.ts",
+    "./connectionsRpc": "./src/connectionsRpc.ts"
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",

@@ -864,3 +864,10 @@ on the changed line only.
 - `apps/web/src/components/Sidebar.tsx`: accepts an optional allowed-project set and a slot before Settled, so marketer workspaces constrain thread visibility without changing developer mode.
 - `packages/client-runtime/src/rpc/client.ts`: registers the account subscription alongside existing marketing subscriptions.
 - Existing cloud RPC, authorization and command-permission extension points also carry the account methods and older-website adoption.
+
+## Browser connections
+
+- Existing cloud RPC contracts, authorization, instrumentation and subscription registration carry `amicited.connections.*`; `amicited/Connections.ts` adapts the isolated cloud-client engine to server services.
+- `preview/ServerBrowser.ts`: exposes the shared `connections` profile and a visible managed tab for sign-in. The stream test fixture supplies these two methods.
+- `server.ts`: shares that connections service between runtime RPC and MCP. `amicited/CloudToolkit.ts` adds the connection status/request tool; its fixtures and advertised-tool budget account for it.
+- `marketing.tsx`, the marketing settings route and `CommandPalette.tsx`: open Connections. `chat/MessagesTimeline.tsx`: mounts pending connection cards through the AmICited RPC adapter.

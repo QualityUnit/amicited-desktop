@@ -1,3 +1,5 @@
+import { Connections } from "./Connections.ts";
+import { BrowserConnections } from "@amicited/cloud-client/connections";
 import { CloudClient } from "@amicited/cloud-client";
 import { expect, it } from "@effect/vitest";
 import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
@@ -33,6 +35,17 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
       return { content: [{ type: "text", text: "workspace data" }] };
     };
     const dependencies = Layer.mergeAll(
+      Layer.succeed(Connections, {
+        engine: new BrowserConnections<import("playwright-core").Page>({
+          open: async () => {
+            throw new Error("unused");
+          },
+          clearCookies: async () => {},
+        }),
+        snapshot: Effect.succeed({ connections: [], requests: [], usage: null }),
+        changes: Stream.empty,
+        run: () => Effect.die("unused"),
+      }),
       Layer.succeed(AmicitedCloud, cloud),
       liveThreadsLayer,
       Layer.succeed(McpInvocationContext.McpInvocationContext, {
@@ -50,6 +63,14 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
     );
     yield* Effect.gen(function* () {
       const toolkit = yield* CloudToolkit;
+      const connection = yield* toolkit
+        .handle("amicited_connection", { action: "status", connectionId: "google" })
+        .pipe(Stream.unwrap, Stream.runCollect);
+      expect(connection.at(-1)?.result).toMatchObject({ id: "google", status: "not_set_up" });
+      const request = yield* toolkit
+        .handle("amicited_connection", { action: "request", connectionId: "google" })
+        .pipe(Stream.unwrap, Stream.runCollect);
+      expect(request.at(-1)?.result).toMatchObject({ code: "capability_denied" });
       const read = yield* toolkit
         .handle("amicited_cloud_discover", { tool: "list_toolsets", arguments: {} })
         .pipe(Stream.unwrap, Stream.runCollect);
@@ -102,6 +123,17 @@ it.effect("encodes cloud data, refusals and unreadable results at the MCP bounda
       openExternal: async () => {},
     });
     const dependencies = Layer.mergeAll(
+      Layer.succeed(Connections, {
+        engine: new BrowserConnections<import("playwright-core").Page>({
+          open: async () => {
+            throw new Error("sign-in must be user initiated");
+          },
+          clearCookies: async () => {},
+        }),
+        snapshot: Effect.succeed({ connections: [], requests: [], usage: null }),
+        changes: Stream.empty,
+        run: () => Effect.die("unused"),
+      }),
       Layer.succeed(AmicitedCloud, cloud),
       liveThreadsLayer,
       Layer.succeed(McpInvocationContext.McpInvocationContext, {
@@ -120,6 +152,21 @@ it.effect("encodes cloud data, refusals and unreadable results at the MCP bounda
     const toolkit = yield* CloudToolkit.pipe(
       Effect.provide(McpToolAccess.HandlersLayer.layer(layer).pipe(Layer.provide(dependencies))),
     );
+    const request = yield* toolkit
+      .handle("amicited_connection", { action: "request", connectionId: "linkedin" })
+      .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
+    expect(request.at(-1)?.result).toMatchObject({
+      connection: { id: "linkedin", status: "not_set_up" },
+      requested: true,
+    });
+    const connections = yield* Connections.pipe(Effect.provide(dependencies));
+    expect(connections.engine.snapshot().requests).toEqual([
+      {
+        threadId: "cloud-test",
+        connectionId: "linkedin",
+        message: "Connect LinkedIn to post this",
+      },
+    ]);
     const circular: Record<string, unknown> = {};
     circular.self = circular;
     const data = {
@@ -203,6 +250,14 @@ it.effect("keeps a real approval pending until the user declines and encodes the
       }
     });
     const dependencies = Layer.mergeAll(
+      Layer.mock(Connections)({
+        engine: new BrowserConnections<import("playwright-core").Page>({
+          open: async () => {
+            throw new Error("unused");
+          },
+          clearCookies: async () => {},
+        }),
+      }),
       Layer.succeed(AmicitedCloud, cloud),
       Layer.mock(ThreadManagement.ThreadManagementService)({
         getThreadShell: (id) =>

@@ -1,3 +1,5 @@
+import { BrowserConnections } from "@amicited/cloud-client/connections";
+import { Connections } from "../amicited/Connections.ts";
 import { Reports } from "../amicited/Reports.ts";
 import { ReportsApi } from "../amicited/ReportsApi.ts";
 import { ReportsEditing } from "../amicited/ReportsEditing.ts";
@@ -58,6 +60,14 @@ import budget from "./agentContextBudget.json" with { type: "json" };
 // Registration only stores tool definitions, so the handlers' services are never called.
 const toolHandlerServices = Layer.mergeAll(
   Layer.mock(TerminalManager)({}),
+  Layer.mock(Connections)({
+    engine: new BrowserConnections<import("playwright-core").Page>({
+      open: async () => {
+        throw new Error("unused");
+      },
+      clearCookies: async () => {},
+    }),
+  }),
   Layer.mock(AmicitedIssues)({}),
   Layer.mock(AssetSigner)({}),
   Layer.mock(DeviceService)({}),
