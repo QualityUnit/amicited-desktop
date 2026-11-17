@@ -1,12 +1,11 @@
 import type { ConnectionId, ConnectionsSnapshot } from "./connectionsRpc.ts";
 import chatgpt from "./connectionAdapters/chatgpt.ts";
 import perplexity from "./connectionAdapters/perplexity.ts";
-import gemini from "./connectionAdapters/gemini.ts";
 import claude from "./connectionAdapters/claude.ts";
 import google from "./connectionAdapters/google.ts";
 import linkedin from "./connectionAdapters/linkedin.ts";
 
-export const siteAdapters = { chatgpt, perplexity, gemini, claude, google, linkedin };
+export const siteAdapters = { chatgpt, perplexity, claude, google, linkedin };
 export const connectionCatalogue = [
   ...Object.values(siteAdapters).map((a) => ({
     id: a.id,
@@ -73,6 +72,10 @@ export interface ConnectionBrowser<P extends SitePage> {
   clearCookies(domains: readonly string[]): Promise<void>;
 }
 export class BrowserConnections<P extends SitePage = SitePage> {
+  private cancelledClosures = new Set<Promise<unknown>>();
+  async drainCancellation() {
+    await Promise.all(this.cancelledClosures);
+  }
   private rows = new Map<ConnectionId, Row>();
   private queues = new Map<ConnectionId, Promise<unknown>>();
   private pending = new Map<ConnectionId, { page: P; close(): Promise<unknown> }>();
@@ -87,7 +90,7 @@ export class BrowserConnections<P extends SitePage = SitePage> {
   restore(saved: readonly Row[]) {
     for (const row of saved) {
       const { tabId: _tab, threadId: _thread, ...rest } = row;
-      this.rows.set(row.id, { ...rest, signingIn: false });
+      if (row.id !== "gemini") this.rows.set(row.id, { ...rest, signingIn: false });
     }
   }
   subscribe(f: () => void) {
@@ -234,13 +237,22 @@ export class BrowserConnections<P extends SitePage = SitePage> {
   withSiteSession<T>(
     id: ConnectionId,
     action: (page: P) => Promise<T>,
+    signal?: AbortSignal,
   ): Promise<{ status: "ok"; value: T } | { status: "needs_sign_in"; reason: ProbeResult }> {
     return this.serial(id, async () => {
       if (id === "linkedin") throw new Error("LinkedIn automation is coming soon.");
+      signal?.throwIfAborted();
       const key = this.adapter(id);
       if (this.pending.has(id)) return { status: "needs_sign_in", reason: "logged_out" };
       const tab = await this.browser.open(key);
+      const abort = () => {
+        const closing = tab.close().catch(() => {});
+        this.cancelledClosures.add(closing);
+        void closing.finally(() => this.cancelledClosures.delete(closing));
+      };
+      signal?.addEventListener("abort", abort, { once: true });
       try {
+        signal?.throwIfAborted();
         await tab.page.goto(siteAdapters[key].url, {
           waitUntil: "domcontentloaded",
           timeout: 15000,
@@ -263,6 +275,7 @@ export class BrowserConnections<P extends SitePage = SitePage> {
         this.update(id, { lastUsed: new Date().toISOString() });
         return { status: "ok", value };
       } finally {
+        signal?.removeEventListener("abort", abort);
         await tab.close();
       }
     });

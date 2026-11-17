@@ -66,6 +66,17 @@ it.effect(
 
       const other = yield* issues.upsert("other-domain", problem);
       assert.notStrictEqual(other.id, first.id);
+      const connection = {
+        ...problem,
+        fingerprint: "tracking:connection:google",
+        kind: "connect" as const,
+      };
+      const google = yield* issues.upsert("domain", connection);
+      assert.strictEqual((yield* issues.upsert("other-domain", connection)).id, google.id);
+      yield* issues.update({ id: google.id, status: "done", resolution: "audit" });
+      assert.strictEqual((yield* issues.upsert("other-domain", connection)).status, "open");
+      yield* issues.update({ id: google.id, status: "dismissed" });
+      assert.strictEqual((yield* issues.upsert("domain", connection)).status, "dismissed");
     }).pipe(Effect.provide(layer)),
 );
 

@@ -17,7 +17,9 @@ export function setupAfterWebsite(access: string | undefined) {
   return access === "full" ? "cloud" : "assistant";
 }
 
-export function cloudSetupWebsites(result: unknown): { hostname: string; prompts: string[] }[] {
+export function cloudSetupWebsites(
+  result: unknown,
+): { hostname: string; prompts: string[]; domainId?: string; brand?: string }[] {
   const record = (value: unknown): Record<string, unknown> =>
     value !== null && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
@@ -25,7 +27,7 @@ export function cloudSetupWebsites(result: unknown): { hostname: string; prompts
   const root = record(result);
   if (root.isError) return [];
   let data: unknown = root.structuredContent ?? result;
-  if (Array.isArray(root.content))
+  if (root.structuredContent === undefined && Array.isArray(root.content))
     for (const part of root.content) {
       const text = record(part).text;
       if (typeof text === "string")
@@ -54,6 +56,17 @@ export function cloudSetupWebsites(result: unknown): { hostname: string; prompts
           return typeof text === "string" ? [text] : [];
         })
       : [];
-    return [{ hostname, prompts }];
+    return [
+      {
+        hostname,
+        prompts,
+        ...(typeof (row.domain_id ?? row.id) === "string"
+          ? { domainId: String(row.domain_id ?? row.id) }
+          : {}),
+        ...(typeof (row.brand_name ?? row.brand) === "string"
+          ? { brand: String(row.brand_name ?? row.brand) }
+          : {}),
+      },
+    ];
   });
 }

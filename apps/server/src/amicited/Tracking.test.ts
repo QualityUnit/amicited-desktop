@@ -17,14 +17,24 @@ import {
   scheduleDays,
   trackingFindings,
 } from "@amicited/cloud-client/tracking";
+import type { Issue } from "@amicited/cloud-client/issues";
+import { evidencePage } from "./EvidenceFixtures.ts";
 import type { Page } from "playwright-core";
 import * as Sqlite from "../persistence/Sqlite.ts";
 import { AmicitedCloud } from "./Cloud.ts";
+import { runConnection } from "./ConnectionSessionAdapter.ts";
 import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
 import * as Tracking from "./Tracking.ts";
-const fixture = () => {
-  const secrets = { read: async () => undefined, write: async () => {}, clear: async () => {} };
+const fixture = (recorded = false, blockAnswer = false) => {
+  const entered = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<void>();
+  const secrets = {
+    read: async () => JSON.stringify({ apiKey: "saved-test-key" }),
+    write: async () => {},
+    clear: async () => {},
+  };
   const cloud = new CloudClient({ secrets, openExternal: async () => {} });
   cloud.domains = new DomainConnections({
     read: async () =>
@@ -58,7 +68,8 @@ const fixture = () => {
     }),
     write: async () => {},
     secrets: () => secrets,
-    client: () => cloud,
+    client: () =>
+      ({ status: async () => ({ state: "error", kind: "network" }) }) as unknown as CloudClient,
     openExternal: async () => {},
     userinfo: async () => ({ email: "test@example.com", name: "Test" }),
     domains: () => cloud.domains,
@@ -74,22 +85,53 @@ const fixture = () => {
     }),
   } as unknown as Page;
   const engine = new BrowserConnections<Page>({
-    open: async () => ({ page, close: async () => {} }),
+    open: async () => {
+      const selected = recorded
+        ? evidencePage(
+            0,
+            blockAnswer
+              ? async () => {
+                  entered.resolve();
+                  await release.promise;
+                }
+              : undefined,
+          )
+        : page;
+      return {
+        page: selected,
+        close: async () => {
+          await selected.close();
+          if (blockAnswer) release.reject(new Error("Page closed"));
+          closed.resolve();
+        },
+      };
+    },
     clearCookies: async () => {},
   });
-  const findings: unknown[] = [];
+  const findings: Issue[] = [];
   const deps = Layer.mergeAll(
     Sqlite.layerMemory,
     NodeCrypto.layer,
     Layer.succeed(AmicitedCloud, cloud),
-    Layer.mock(Connections)({ engine, run: (action) => Effect.promise(() => action(engine)) }),
+    Layer.mock(Connections)({
+      engine,
+      run: (action) => runConnection(engine, action),
+    }),
     Layer.mock(AmicitedIssues)({
+      list: () => Effect.succeed([]),
+      snapshot: () => Effect.succeed({ issues: findings, audits: [] }),
+      update: (input) =>
+        Effect.sync(() => {
+          const i = findings.findIndex((i) => i.id === input.id);
+          const updated = { ...findings[i]!, status: input.status ?? findings[i]!.status };
+          findings[i] = updated;
+          return updated;
+        }),
       upsert: (_id, input) =>
         Effect.sync(() => {
-          findings.push(input);
-          return {
+          const result: Issue = {
             ...input,
-            id: "issue",
+            id: `issue:${input.fingerprint}`,
             projectId: "one",
             status: "open",
             resolution: null,
@@ -100,10 +142,22 @@ const fixture = () => {
             updatedAt: "",
             effort: input.effort ?? null,
           };
+          findings.push(result);
+          return result;
         }),
     }),
   );
-  return { findings, engine, layer: Tracking.layer.pipe(Layer.provideMerge(deps)) };
+  return {
+    entered: entered.promise,
+    closed: closed.promise,
+    setRecorded: (value: boolean) => {
+      recorded = value;
+    },
+    cloud,
+    findings,
+    engine,
+    layer: Tracking.layer.pipe(Layer.provideMerge(deps)),
+  };
 };
 const config = (projectId: string, count: number, country: string): TrackingConfig => ({
   projectId,
@@ -201,17 +255,28 @@ it.effect("records sign-in failures without aborting the run and creates connect
     );
     yield* TestClock.adjust("15 seconds");
     yield* Fiber.join(done);
-    assert.equal(f.findings.length, 3);
+    assert.equal(f.findings.length, 2);
     const r = (yield* t.snapshot()).runs.find((r) => r.id === id)!;
     assert.deepEqual(
       r.answers.map((a) => a.engine),
-      ["chatgpt", "google", "google_overviews"],
+      ["chatgpt", "google"],
     );
     assert.isTrue(r.answers.every((a) => a.status === "needs_sign_in"));
     assert.notEqual(
       f.engine.snapshot().connections.find((c) => c.id === "chatgpt")?.status,
       "connected",
     );
+    f.setRecorded(true);
+    yield* t.runNow("one");
+    const recovered = yield* t.subscribe().pipe(
+      Stream.filter((s) => s.runs.some((r) => r.id === id && r.outcome === "ok")),
+      Stream.take(1),
+      Stream.runDrain,
+      Effect.forkChild,
+    );
+    yield* TestClock.adjust("30 seconds");
+    yield* Fiber.join(recovered);
+    assert.isTrue(f.findings.filter((i) => i.kind === "connect").every((i) => i.status === "done"));
   }).pipe(Effect.provide(f.layer));
 });
 it("extracts mentions, ranked competitors and citations from a recorded answer", () => {
@@ -259,5 +324,99 @@ it.effect("stops a check without the scheduler restarting it, and permits a manu
     yield* tracking.tick;
     assert.equal((yield* tracking.snapshot()).runs.find((r) => r.id === id)?.status, "stopped");
     assert.equal(yield* tracking.runNow("one"), id);
+  }).pipe(Effect.provide(f.layer));
+});
+
+it.effect(
+  "collects recorded answers, preserves consumption after replacement, and binds a thread to its original run",
+  () => {
+    const f = fixture(true);
+    return Effect.gen(function* () {
+      const t = yield* Tracking.Tracking;
+      const country = (yield* t.snapshot()).country;
+      yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
+      const id = yield* t.runNow("one", "first-check");
+      const done = yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+        Effect.forkChild,
+      );
+      yield* TestClock.adjust("10 seconds");
+      yield* Fiber.join(done);
+      assert.equal((yield* t.detail(id))?.outcome, "ok");
+      assert.isTrue((yield* t.detail(id))!.answers[0]!.excerpt.length > 0);
+      assert.equal((yield* t.snapshot()).runs[0]!.answers[0]!.excerpt, "");
+      assert.equal((yield* t.snapshot()).usage.consumed, 1);
+      yield* t.save({
+        ...config("one", 1, country),
+        prompts: [
+          { id: "replacement", text: "Different question", enabled: true, created: "today" },
+        ],
+        engines: ["chatgpt"],
+      });
+      const next = yield* t.runNow("one");
+      assert.notEqual(next, id);
+      yield* t.stopNow("one");
+      assert.equal((yield* t.detail("first-check"))?.id, id);
+      assert.isAtLeast((yield* t.snapshot()).usage.consumed!, 1);
+      const sql = yield* SqlClient.SqlClient;
+      yield* sql`INSERT OR IGNORE INTO amicited_tracking_ledger SELECT ${(yield* t.detail(id))!.day}, 'consumed ' || value FROM json_each('[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]')`;
+      yield* t.save({
+        ...config("two", 1, country),
+        prompts: [{ id: "new", text: "Unasked question", enabled: true, created: "today" }],
+        engines: ["chatgpt"],
+      });
+      const limited = yield* t.runNow("two");
+      const exhausted = yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.id === limited && r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+        Effect.forkChild,
+      );
+      yield* TestClock.adjust("10 seconds");
+      yield* Fiber.join(exhausted);
+      assert.equal(
+        (yield* t.detail(limited))?.answers.filter((a) => a.status === "answered").length,
+        0,
+      );
+      assert.equal((yield* t.detail(limited))?.outcome, "failed");
+      const restored = yield* Effect.gen(function* () {
+        return yield* (yield* Tracking.Tracking).snapshot();
+      }).pipe(Effect.provide(Layer.fresh(Tracking.layer)));
+      assert.isAtLeast(restored.usage.consumed!, 20);
+    }).pipe(Effect.provide(f.layer));
+  },
+);
+it.effect("excludes removed and ended workspaces from capacity and execution", () => {
+  const f = fixture();
+  return Effect.gen(function* () {
+    const t = yield* Tracking.Tracking;
+    const country = (yield* t.snapshot()).country;
+    yield* t.save(config("one", 20, country));
+    f.cloud.account = {
+      status: async () => ({ workspaces: [{ id: "one", sessionEnded: true, access: "free" }] }),
+    } as unknown as AccountConnections;
+    assert.equal((yield* t.snapshot()).usage.used, 0);
+    assert.isTrue((yield* Effect.exit(t.runNow("one")))._tag === "Failure");
+    f.cloud.account = { status: async () => ({ workspaces: [] }) } as unknown as AccountConnections;
+    assert.equal((yield* t.snapshot()).usage.used, 0);
+    yield* t.tick;
+    assert.equal((yield* t.snapshot()).runs.length, 0);
+  }).pipe(Effect.provide(f.layer));
+});
+
+it.effect("Stop cancels answer collection and closes its page before returning", () => {
+  const f = fixture(true, true);
+  return Effect.gen(function* () {
+    const t = yield* Tracking.Tracking;
+    const country = (yield* t.snapshot()).country;
+    yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
+    const id = yield* t.runNow("one");
+    yield* Effect.promise(() => f.entered);
+    yield* t.stopNow("one");
+    yield* Effect.promise(() => f.closed);
+    assert.equal((yield* t.detail(id))?.status, "stopped");
+    assert.equal((yield* t.detail(id))?.answers.length, 0);
   }).pipe(Effect.provide(f.layer));
 });

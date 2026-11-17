@@ -138,7 +138,7 @@ export class DomainConnections {
     projectId: string,
     website: string,
     brand?: string,
-    metadata: Pick<Domain, "cms" | "siteFiles" | "framework"> = {},
+    metadata: Pick<Domain, "cms" | "siteFiles" | "framework" | "domainId"> = {},
   ) {
     return this.serial(async () => {
       const rows = (this.rows ??= (await this.options.read()).map((row) => ({

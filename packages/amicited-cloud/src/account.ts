@@ -33,6 +33,26 @@ export function workspaceLabel(email: string) {
     : `${domain} workspace`;
 }
 
+function workspaceName(
+  workspace: Workspace,
+  workspaces: readonly Workspace[],
+  domains: readonly import("./domains.ts").Domain[],
+) {
+  const base = (w: Workspace) =>
+    w.name !== workspaceLabel(w.email)
+      ? w.name
+      : domains.find((d) => d.workspaceId === w.id)?.brand;
+  const label = base(workspace);
+  const duplicate = label && workspaces.some((w) => w.id !== workspace.id && base(w) === label);
+  if (label && !duplicate) return label;
+  const suffix = workspaces.some(
+    (w) => w.id !== workspace.id && w.id.slice(-6) === workspace.id.slice(-6),
+  )
+    ? workspace.id
+    : workspace.id.slice(-6);
+  return `${label || workspaceLabel(workspace.email)} · ${suffix}`;
+}
+
 export class AccountConnections {
   private saved: SavedAccount = { workspaces: [] };
   private loaded?: Promise<void>;
@@ -128,11 +148,27 @@ export class AccountConnections {
   async status(): Promise<Status> {
     await this.load();
     const rows = (await this.options.domains()?.metadata()) ?? [];
-    const current = this.saved.workspaces.find((w) => w.id === this.currentId());
+    const checked = await Promise.all(
+      this.saved.workspaces.map(async (w) => {
+        const raw = await this.options.secrets(w.id).read();
+        if (!raw) return { ...w, sessionEnded: true };
+        const connection = await this.client(w.id).status();
+        return connection.state === "disconnected" ? { ...w, sessionEnded: true } : w;
+      }),
+    );
+    await this.queue;
+    const usable = checked.flatMap((workspace) => {
+      const saved = this.saved.workspaces.find((w) => w.id === workspace.id);
+      return saved
+        ? [{ ...workspace, sessionEnded: workspace.sessionEnded || saved.sessionEnded }]
+        : [];
+    });
+    const current = usable.find((w) => w.id === this.currentId());
     return {
       state: !current ? "signed_out" : current.sessionEnded ? "session_ended" : "signed_in",
-      workspaces: this.saved.workspaces.map((w) => ({
+      workspaces: usable.map((w) => ({
         ...w,
+        name: workspaceName(w, usable, rows),
         websites: rows.filter((d) => d.workspaceId === w.id).map((d) => d.hostname),
         projectIds: rows.filter((d) => d.workspaceId === w.id).map((d) => d.projectId),
       })),
@@ -291,7 +327,44 @@ export class AccountConnections {
       }
       domains.push({ ...row, ...(Array.isArray(prompts) ? { prompts } : {}) });
     }
+    const first = record(domains[0]);
+    const name = record(data).workspace_name ?? first.brand_name ?? first.brand;
+    if (typeof name === "string" && name.trim())
+      await this.serial(async () => {
+        await this.save({
+          ...this.saved,
+          workspaces: this.saved.workspaces.map((w) => (w.id === id ? { ...w, name } : w)),
+        });
+      });
     return { ...result, structuredContent: { domains } };
+  }
+  async cloudSummary(projectId: string) {
+    const domain = (await this.options.domains()?.metadata())?.find(
+      (d) => d.projectId === projectId,
+    );
+    if (!domain?.domainId || domain.workspaceId !== this.currentId()) return null;
+    try {
+      const result = await this.listCloudDomains();
+      if (result.isError) return null;
+      const data = toolData(result) as { domains?: Record<string, unknown>[] };
+      const row = data.domains?.find((r) => (r.domain_id ?? r.id) === domain.domainId);
+      if (!row) return null;
+      const countries = Array.isArray(row.countries)
+        ? row.countries.filter((c): c is string => typeof c === "string")
+        : null;
+      return {
+        domainId: domain.domainId,
+        promptCount: Array.isArray(row.prompts)
+          ? row.prompts.length
+          : typeof row.prompt_count === "number"
+            ? row.prompt_count
+            : null,
+        countries,
+        visibility: typeof row.visibility === "number" ? row.visibility : null,
+      };
+    } catch {
+      return null;
+    }
   }
   allClients() {
     return [...this.clients.values()];

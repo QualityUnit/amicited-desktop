@@ -9,9 +9,18 @@ export const TrackingEngine = Schema.Literals([
   "google",
   "google_overviews",
 ]);
+const engineLabels = {
+  chatgpt: "ChatGPT",
+  perplexity: "Perplexity",
+  gemini: "Gemini",
+  claude: "Claude",
+  google: "Google AI Mode",
+  google_overviews: "Google AI Overviews",
+};
 export type TrackingEngine = typeof TrackingEngine.Type;
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
   message: Schema.String,
+  fallback: Schema.optionalKey(Schema.Array(Schema.String)),
 }) {}
 export const TrackedPrompt = Schema.Struct({
   id: Schema.String,
@@ -42,6 +51,11 @@ export const TrackingAnswer = Schema.Struct({
 export type TrackingAnswer = typeof TrackingAnswer.Type;
 export const TrackingRun = Schema.Struct({
   id: Schema.String,
+  configKey: Schema.optionalKey(Schema.String),
+  threadId: Schema.optionalKey(Schema.String),
+  outcome: Schema.optionalKey(Schema.Literals(["ok", "partial", "failed"])),
+  answered: Schema.optionalKey(Schema.Number),
+  visibility: Schema.optionalKey(Schema.NullOr(Schema.Number)),
   projectId: Schema.String,
   day: Schema.String,
   status: Schema.Literals(["running", "complete", "missed", "interrupted", "stopped"]),
@@ -50,6 +64,7 @@ export const TrackingRun = Schema.Struct({
 });
 export type TrackingRun = typeof TrackingRun.Type;
 export const TrackingUsage = Schema.Struct({
+  consumed: Schema.optionalKey(Schema.Number),
   used: Schema.Number,
   limit: Schema.Number,
   domains: Schema.Array(
@@ -81,6 +96,14 @@ export const trackingRpcs = [
     error: TrackingFailure,
     stream: true,
   }),
+  Rpc.make("amicited.tracking.detail", {
+    payload: {
+      runId: Schema.optionalKey(Schema.String),
+      threadId: Schema.optionalKey(Schema.String),
+    },
+    success: Schema.NullOr(TrackingRun),
+    error: TrackingFailure,
+  }),
   Rpc.make("amicited.tracking.save", {
     payload: { config: TrackingConfig, replacePromptId: Schema.optionalKey(Schema.String) },
     success: SaveTrackingResult,
@@ -92,7 +115,11 @@ export const trackingRpcs = [
     error: TrackingFailure,
   }),
   Rpc.make("amicited.tracking.run", {
-    payload: { projectId: Schema.String, stop: Schema.optionalKey(Schema.Boolean) },
+    payload: {
+      projectId: Schema.String,
+      threadId: Schema.optionalKey(Schema.String),
+      stop: Schema.optionalKey(Schema.Boolean),
+    },
     success: Schema.String,
     error: TrackingFailure,
   }),
@@ -117,6 +144,8 @@ export function detectCountry(
   timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 ) {
   const zones: Record<string, string> = {
+    "Europe/Vienna": "AT",
+    "Europe/Paris": "FR",
     "Europe/Bratislava": "SK",
     "Europe/Prague": "CZ",
     "Europe/Berlin": "DE",
@@ -124,7 +153,8 @@ export function detectCountry(
     "America/New_York": "US",
     "America/Los_Angeles": "US",
   };
-  return zones[timezone] ?? new Intl.Locale(locale).region ?? "ZZ";
+  void locale;
+  return zones[timezone] ?? "ZZ";
 }
 export function scheduleDays(
   now: Date,
@@ -197,6 +227,7 @@ export function trackingFindings(
   answers: readonly TrackingAnswer[],
   previous: readonly TrackingAnswer[],
 ) {
+  const seenConnections = new Set<string>();
   return answers.flatMap<{
     fingerprint: string;
     report: string;
@@ -212,16 +243,28 @@ export function trackingFindings(
       report: "AI visibility",
       effort: "small" as const,
     };
-    if (a.status === "needs_sign_in")
+    if (a.status === "needs_sign_in") {
+      const connection = ["gemini", "google_overviews"].includes(a.engine) ? "google" : a.engine;
+      if (seenConnections.has(connection)) return [];
+      seenConnections.add(connection);
+      const labels: Record<string, string> = {
+        google: "Google",
+        chatgpt: "ChatGPT",
+        claude: "Claude",
+        perplexity: "Perplexity",
+      };
+      const label = labels[connection] ?? connection;
       return [
         {
           ...base,
           kind: "connect" as const,
           priority: "high" as const,
-          title: `${a.engine} needs your sign-in`,
+          fingerprint: `tracking:connection:${connection}`,
+          title: `${label} needs your sign-in`,
           body: "Sign in again in Connections, then run the missing questions.",
         },
       ];
+    }
     if (a.status !== "answered" || a.mentioned) return [];
     if (!old?.mentioned && !a.competitorsMentioned.length) return [];
     return [
@@ -230,8 +273,8 @@ export function trackingFindings(
         kind: "fix" as const,
         priority: old?.mentioned ? ("high" as const) : ("medium" as const),
         title: old?.mentioned
-          ? `Visibility dropped on ${a.engine}`
-          : `${a.engine} recommends ${a.competitorsMentioned[0]} instead`,
+          ? `Visibility dropped on ${engineLabels[a.engine]}`
+          : `${engineLabels[a.engine]} recommends ${a.competitorsMentioned[0]} instead`,
         body: `${a.excerpt}\n\nReview the answer and draft a page addressing this question before publishing.`,
       },
     ];

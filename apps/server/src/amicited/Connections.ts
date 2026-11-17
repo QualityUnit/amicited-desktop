@@ -1,3 +1,5 @@
+import { runConnection } from "./ConnectionSessionAdapter.ts";
+import { evidenceEnabled, evidencePage } from "./EvidenceFixtures.ts";
 import type { Page } from "playwright-core";
 import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
@@ -19,7 +21,11 @@ export class Connections extends Context.Service<
     snapshot: Effect.Effect<ReturnType<BrowserConnections["snapshot"]>>;
     changes: Stream.Stream<ReturnType<BrowserConnections["snapshot"]>>;
     run: <T>(
-      action: (engine: BrowserConnections<Page>) => Promise<T>,
+      action: (
+        engine: BrowserConnections<Page>,
+        signal: AbortSignal,
+        runEffect: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
+      ) => Promise<T>,
     ) => Effect.Effect<T, ConnectionFailure>;
   }
 >()("t3/amicited/Connections") {}
@@ -29,8 +35,13 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const browser = yield* ServerBrowser;
     const run = Effect.runPromiseWith(yield* Effect.context<never>());
+    let fixtureIndex = 0;
     const engine = new BrowserConnections<Page>({
       open: async (id, threadId) => {
+        if (evidenceEnabled()) {
+          const page = evidencePage(fixtureIndex++);
+          return { page, close: () => page.close() };
+        }
         if (threadId) {
           const tab = await run(browser.connectionTab(threadId, siteAdapters[id].url));
           return { page: tab.page, tabId: tab.tabId, close: () => run(tab.close) };
@@ -40,6 +51,7 @@ export const layer = Layer.effect(
         return { page, close: () => page.close() };
       },
       clearCookies: async (domains) => {
+        if (evidenceEnabled()) return;
         const context = await run(browser.connectionContext);
         for (const domain of domains)
           await context.clearCookies({
@@ -56,7 +68,7 @@ export const layer = Layer.effect(
           ? fs.readFileString(file).pipe(Effect.flatMap((raw) => decodeSnapshot(raw)))
           : Effect.succeed(null),
       ),
-      Effect.orDie,
+      Effect.orElseSucceed(() => null),
     );
     if (saved) engine.restore(saved.connections);
     let writes = Promise.resolve();
@@ -87,16 +99,7 @@ export const layer = Layer.effect(
     return {
       engine,
       snapshot,
-      run: Effect.fn("Connections.run")(
-        <T>(action: (engine: BrowserConnections<Page>) => Promise<T>) =>
-          Effect.tryPromise({
-            try: () => action(engine),
-            catch: (cause) =>
-              new ConnectionFailure({
-                message: cause instanceof Error ? cause.message : "Could not use this connection.",
-              }),
-          }),
-      ),
+      run: Effect.fn("Connections.session")((action) => runConnection(engine, action)),
       changes: Stream.callback<ReturnType<BrowserConnections["snapshot"]>>((queue) =>
         Effect.acquireRelease(
           Effect.sync(() => {

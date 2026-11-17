@@ -313,7 +313,7 @@ const make = Effect.gen(function* () {
   ) {
     const now = yield* nowIso;
     const [existing] = yield* issueRows(
-      sql<IssueRow>`SELECT * FROM amicited_issues WHERE project_id = ${projectId} AND fingerprint = ${input.fingerprint}`,
+      sql<IssueRow>`SELECT * FROM amicited_issues WHERE fingerprint = ${input.fingerprint} AND (project_id = ${projectId} OR ${input.fingerprint.startsWith("tracking:connection:")}) LIMIT 1`,
     );
     const effort = input.effort ?? null;
     let id: string;

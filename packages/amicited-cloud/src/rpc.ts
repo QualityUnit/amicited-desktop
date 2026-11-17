@@ -107,6 +107,18 @@ export const cloudRpcs = [
     success: DomainRecord,
     error: DomainFailure,
   }),
+  Rpc.make("amicited.domains.cloudSummary", {
+    payload: { projectId: Schema.String },
+    success: Schema.NullOr(
+      Schema.Struct({
+        domainId: Schema.String,
+        promptCount: Schema.NullOr(Schema.Number),
+        countries: Schema.NullOr(Schema.Array(Schema.String)),
+        visibility: Schema.NullOr(Schema.Number),
+      }),
+    ),
+    error: DomainFailure,
+  }),
   Rpc.make("amicited.domains.listCloud", { success: Schema.Unknown, error: DomainFailure }),
   Rpc.make("amicited.setup.read", { success: SetupState, error: DomainFailure }),
   Rpc.make("amicited.setup.write", {
@@ -124,6 +136,7 @@ export const cloudRpcs = [
     payload: {
       projectId: Schema.String,
       website: Schema.String,
+      domainId: Schema.optionalKey(Schema.String),
       ...SiteMetadata,
       brand: Schema.optionalKey(Schema.String),
     },

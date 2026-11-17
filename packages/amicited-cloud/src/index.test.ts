@@ -718,7 +718,7 @@ it("parses workspace claims and labels without treating offline errors as ended 
   expect(workspaceLabel("jana@northwind.io")).toBe("northwind.io workspace");
   expect(workspaceLabel("jana@gmail.com")).toBe("Personal workspace");
   for (const message of ["401 Unauthorized", "invalid_grant"])
-    expect(sessionRejected(new Error(message))).toBe(true);
+    expect(sessionRejected(new Error(message))).toBe(false);
   for (const message of [
     "fetch failed",
     "offline",
@@ -811,6 +811,14 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
     });
     expect((await domains.metadata())[0]?.domainId).toBeUndefined();
     expect(fake.calls).toContain("create_domain");
+    const created = fake.calls.filter((c) => c === "create_domain").length;
+    const linked = await domains.register("picked", "picked.example", "Picked Brand", {
+      domainId: "existing-remote",
+    });
+    expect(linked.domainId).toBe("existing-remote");
+    expect(linked.brand).toBe("Picked Brand");
+    expect(fake.calls.filter((c) => c === "create_domain")).toHaveLength(created);
+    await domains.forget("picked");
     expect(secrets.get("older")).toBe(legacy);
     fake.refuse("");
     await domains.register("new", "new.example");
@@ -832,25 +840,16 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
     fake.refuse("fetch failed: offline");
     await account.client("one").call("list_domains", {});
     expect((await account.status()).state).toBe("signed_in");
-    const ended = new Promise<void>((resolve) => {
-      const unsubscribe = account.subscribe(() => {
-        void account.status().then((s) => {
-          if (s.state === "session_ended") {
-            unsubscribe();
-            resolve();
-          }
-        });
-      });
-    });
-    fake.refuse("401 Unauthorized");
+    fake.refuse("fetch of customer URL returned 401");
     await account.client("one").call("list_domains", {});
-    await ended;
-    expect(saved.workspaces.find((w) => w.id === "one")?.sessionEnded).toBe(true);
+    expect((await account.status()).state).toBe("signed_in");
     await account.switchWorkspace("two");
     expect((await account.status()).state).toBe("signed_in");
     fake.refuse("");
     await signIn("one");
     expect((await account.status()).workspaces).toHaveLength(2);
+    await account.removeWorkspace("two");
+    expect((await account.status()).workspaces.map((w) => w.id)).toEqual(["one"]);
     await account.signOut();
     expect((await account.status()).state).toBe("signed_out");
     expect(await domains.scoped()).toEqual([]);

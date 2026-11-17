@@ -5,5 +5,6 @@ export default (page: Page, prompt: string) =>
     url: "https://www.google.com/search",
     input: 'textarea[name="q"], input[name="q"]',
     answer: '[data-attrid="AIOverview"], [data-attrid="wa:/description"]',
+    answerTimeout: 8000,
     busy: '[aria-label="Stop"]',
   });

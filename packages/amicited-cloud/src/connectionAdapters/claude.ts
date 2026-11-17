@@ -3,6 +3,6 @@ export default {
   label: "Claude",
   url: "https://claude.ai/new",
   loggedIn: 'button[data-testid="user-menu-button"]',
-  loggedOut: 'button:has-text("Log in")',
+  loggedOut: 'a[href*="/login"], form[action*="login"]',
   cookies: ["claude.ai"],
 } as const;

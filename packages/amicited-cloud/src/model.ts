@@ -33,5 +33,5 @@ export function sessionRejected(error: unknown) {
     if ("status" in error && error.status === 401) return true;
     if ("code" in error && error.code === 401) return true;
   }
-  return /\b401\b|invalid_grant/.test(String(error));
+  return false;
 }

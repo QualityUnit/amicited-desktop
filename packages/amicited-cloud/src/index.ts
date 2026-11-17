@@ -541,7 +541,6 @@ export class CloudClient {
   private async invoke(client: Client, name: string, args: Record<string, unknown>) {
     const result = await client.callTool({ name, arguments: args });
     if (result.isError) {
-      if (sessionRejected(JSON.stringify(result.content))) this.options.onSessionRejected?.();
       return toolFailure(
         (Array.isArray(result.content) ? result.content : [])
           .flatMap((part: unknown) =>

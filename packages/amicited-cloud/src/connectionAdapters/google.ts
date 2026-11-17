@@ -1,8 +1,8 @@
 export default {
   id: "google",
-  label: "Google AI Overviews and AI Mode",
+  label: "Google (Gemini, AI Overviews and AI Mode)",
   url: "https://www.google.com/",
-  loggedIn: 'a[aria-label*="Google Account"]',
-  loggedOut: 'a:has-text("Sign in")',
+  loggedIn: 'a[href*="accounts.google.com/SignOutOptions"], a[href*="myaccount.google.com"]',
+  loggedOut: 'a[href*="accounts.google.com/ServiceLogin"]',
   cookies: ["google.com"],
 } as const;

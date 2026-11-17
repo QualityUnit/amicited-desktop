@@ -2061,13 +2061,15 @@ export const layerWsRpc = (
         "amicited.reports.templates": () => Effect.succeed(reportTemplates),
         "amicited.reports.subscribe": () => reports.changes,
 
+        "amicited.tracking.detail": ({ runId, threadId }) =>
+          tracking.detail(runId ?? threadId ?? ""),
         "amicited.tracking.subscribe": () => tracking.subscribe(),
         "amicited.tracking.save": ({ config, replacePromptId }) =>
           tracking.save(config, replacePromptId),
         "amicited.tracking.suggest": ({ projectId, category }) =>
           tracking.suggest(projectId, category),
-        "amicited.tracking.run": ({ projectId, stop }) =>
-          stop ? tracking.stopNow(projectId) : tracking.runNow(projectId),
+        "amicited.tracking.run": ({ projectId, stop, threadId }) =>
+          stop ? tracking.stopNow(projectId) : tracking.runNow(projectId, threadId),
         "amicited.connections.status": () => connections.snapshot,
         "amicited.connections.subscribe": () => connections.changes,
         "amicited.connections.check": ({ connectionId }) =>
@@ -2139,6 +2141,11 @@ export const layerWsRpc = (
           Effect.tryPromise({
             try: () => cloud.domains!.adopt(projectId),
             catch: () => new DomainFailure({ message: "Could not add this website to AmICited." }),
+          }),
+        "amicited.domains.cloudSummary": ({ projectId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account?.cloudSummary(projectId) ?? Promise.resolve(null),
+            catch: () => new DomainFailure({ message: "Could not read cloud summary." }),
           }),
         "amicited.domains.listCloud": () =>
           Effect.tryPromise({

@@ -99,17 +99,23 @@ export const layer = Layer.effect(
       openExternal,
     });
     const run = Effect.runPromiseWith(context);
-    const setupPath = `${config.stateDir}/amicited-setup.json`;
+    const setupPath = () =>
+      `${config.stateDir}/amicited-setup-${encodeURIComponent(cloud.account?.currentId() ?? "signed-out")}.json`;
     let setupWrites = Promise.resolve();
     cloud.setup = {
       read: async () => {
-        if (!(await run(fs.exists(setupPath)))) return { finished: false };
-        return decodeSetup(JSON.parse(await run(fs.readFileString(setupPath))));
+        if (!(await run(fs.exists(setupPath())))) return { finished: false };
+        try {
+          return decodeSetup(JSON.parse(await run(fs.readFileString(setupPath()))));
+        } catch {
+          return { finished: false };
+        }
       },
       write: (state) => {
+        const path = setupPath();
         const next = setupWrites.then(async () => {
-          await run(fs.writeFileString(`${setupPath}.tmp`, JSON.stringify(state)));
-          await run(fs.rename(`${setupPath}.tmp`, setupPath));
+          await run(fs.writeFileString(`${path}.tmp`, JSON.stringify(state)));
+          await run(fs.rename(`${path}.tmp`, path));
         });
         setupWrites = next.catch(() => {});
         return next;
@@ -117,10 +123,13 @@ export const layer = Layer.effect(
     };
     const accountPath = `${config.stateDir}/amicited-account.json`;
     cloud.account = new AccountConnections({
-      read: async () =>
-        (await run(fs.exists(accountPath)))
-          ? decodeAccount(JSON.parse(await run(fs.readFileString(accountPath))))
-          : { workspaces: [] },
+      read: async () => {
+        try {
+          return decodeAccount(JSON.parse(await run(fs.readFileString(accountPath))));
+        } catch {
+          return { workspaces: [] };
+        }
+      },
       write: async (value) => {
         await run(fs.writeFileString(`${accountPath}.tmp`, JSON.stringify(value)));
         await run(fs.rename(`${accountPath}.tmp`, accountPath));

@@ -49,3 +49,27 @@ it("reads cloud website choices and existing prompts, tolerating a free-tier ref
   );
   expect(cloudSetupWebsites({ content: [{ text: "Offline" }] })).toEqual([]);
 });
+it("preserves enriched structured prompts and remote identity over stale JSON text", () => {
+  expect(
+    cloudSetupWebsites({
+      structuredContent: {
+        domains: [
+          {
+            domain_id: "remote",
+            domain_name: "northwind.io",
+            brand: "Northwind",
+            prompts: ["Buyer question"],
+          },
+        ],
+      },
+      content: [{ type: "text", text: '{"domains":[]}' }],
+    }),
+  ).toEqual([
+    {
+      hostname: "northwind.io",
+      domainId: "remote",
+      brand: "Northwind",
+      prompts: ["Buyer question"],
+    },
+  ]);
+});

@@ -148,3 +148,38 @@ it("restores metadata without reviving an abandoned sign-in tab", async () => {
     "threadId",
   );
 });
+it("closes the active page when collection is cancelled", async () => {
+  const entered = Promise.withResolvers<void>();
+  const blocked = Promise.withResolvers<void>();
+  let closed = 0;
+  const engine = new BrowserConnections({
+    open: async (id) => ({
+      page: {
+        goto: async () => {},
+        close: async () => {},
+        locator: (selector: string) => ({
+          first: () => ({ isVisible: async () => selector === siteAdapters[id].loggedIn }),
+        }),
+      },
+      close: async () => {
+        closed++;
+        blocked.reject(new Error("Page closed"));
+      },
+    }),
+    clearCookies: async () => {},
+  });
+  const controller = new AbortController();
+  const result = engine.withSiteSession(
+    "chatgpt",
+    async () => {
+      entered.resolve();
+      await blocked.promise;
+    },
+    controller.signal,
+  );
+  const rejected = expect(result).rejects.toThrow("Page closed");
+  await entered.promise;
+  controller.abort();
+  await rejected;
+  expect(closed).toBeGreaterThan(0);
+});
