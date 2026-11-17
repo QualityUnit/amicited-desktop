@@ -1,3 +1,4 @@
+import { trackingRpcs } from "@amicited/cloud-client/tracking";
 import { issueRpcs } from "@amicited/cloud-client/issues";
 import { reportRpcs } from "@amicited/reports/rpc";
 import { cloudRpcs } from "@amicited/cloud-client/rpc";
@@ -2002,6 +2003,7 @@ export const WsRpcGroup = RpcGroup.make(
   // AmICited cloud extension.
   ...cloudRpcs,
   ...issueRpcs,
+  ...trackingRpcs,
   ...reportRpcs,
   ...marketingRpcs,
   WsGuestShareCreateRpc,

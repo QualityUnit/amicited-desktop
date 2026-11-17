@@ -1,3 +1,4 @@
+vi.mock("./rpc/amicitedTracking", () => ({ TrackingVisibility: () => null }));
 import { CloudFooter } from "./rpc/amicitedCloud";
 import "./index.css";
 import { page, userEvent } from "vite-plus/test/browser";

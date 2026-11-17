@@ -1513,6 +1513,9 @@ importers:
 
   packages/amicited-cloud:
     dependencies:
+      '@amicited/tools':
+        specifier: workspace:*
+        version: link:../amicited-tools
       '@amicited/tools-core':
         specifier: workspace:*
         version: link:../amicited-tools-core

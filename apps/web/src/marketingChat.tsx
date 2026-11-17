@@ -1,3 +1,4 @@
+import { TrackingVisibility } from "./rpc/amicitedTracking";
 import { useEnvironmentSettings } from "./hooks/useSettings";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {
@@ -187,6 +188,9 @@ export function MarketingComposerContext({
         )}
         {headerTarget ? null : cloud}
       </div>
+      {domain && environmentId && (
+        <TrackingVisibility domain={domain} destination={environmentId} />
+      )}
       <AssistantSetupDialog
         destination={environmentId}
         open={setupOpen}

@@ -1,3 +1,4 @@
+import * as AmicitedTracking from "./amicited/Tracking.ts";
 import * as HtmlRender from "./htmlRender/HtmlRender.ts";
 import * as AmicitedConnections from "./amicited/Connections.ts";
 import * as AmicitedReports from "./amicited/Reports.ts";
@@ -1205,6 +1206,8 @@ const layerMakeServer = Layer.unwrap(
         { concurrency: "unbounded" },
       ).pipe(Effect.asVoid),
     }).pipe(
+      Layer.provideMerge(AmicitedTracking.layerWorker),
+      Layer.provideMerge(AmicitedTracking.layer),
       Layer.provideMerge(AmicitedIssues.layer),
       Layer.provideMerge(layerConnectionsBrowser),
       Layer.provideMerge(AmicitedDomainFavicons.layer),

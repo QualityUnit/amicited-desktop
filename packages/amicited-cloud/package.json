@@ -16,13 +16,15 @@
     "./toolResult": "./src/toolResult.ts",
     "./capture": "./src/capture.ts",
     "./connections": "./src/connections.ts",
-    "./connectionsRpc": "./src/connectionsRpc.ts"
+    "./connectionsRpc": "./src/connectionsRpc.ts",
+    "./tracking": "./src/tracking.ts"
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@amicited/tools": "workspace:*",
     "@amicited/tools-core": "workspace:*",
     "@modelcontextprotocol/sdk": "1.29.0",
     "effect": "catalog:"

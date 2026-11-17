@@ -1,3 +1,4 @@
+import * as AmicitedTracking from "./amicited/Tracking.ts";
 import * as AmicitedConnections from "./amicited/Connections.ts";
 import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
@@ -2018,6 +2019,7 @@ export const layerWsRpc = (
       const reports = yield* AmicitedReports.Reports;
       const reportsEditing = yield* ReportsEditing.ReportsEditing;
       const connections = yield* AmicitedConnections.Connections;
+      const tracking = yield* AmicitedTracking.Tracking;
       const cloud = yield* AmicitedCloud.AmicitedCloud;
       const domainFavicons = yield* AmicitedDomainFavicons.DomainFavicons;
       const issues = yield* AmicitedIssues.AmicitedIssues;
@@ -2059,6 +2061,12 @@ export const layerWsRpc = (
         "amicited.reports.templates": () => Effect.succeed(reportTemplates),
         "amicited.reports.subscribe": () => reports.changes,
 
+        "amicited.tracking.subscribe": () => tracking.subscribe(),
+        "amicited.tracking.save": ({ config, replacePromptId }) =>
+          tracking.save(config, replacePromptId),
+        "amicited.tracking.suggest": ({ projectId, category }) =>
+          tracking.suggest(projectId, category),
+        "amicited.tracking.run": ({ projectId }) => tracking.runNow(projectId),
         "amicited.connections.status": () => connections.snapshot,
         "amicited.connections.subscribe": () => connections.changes,
         "amicited.connections.check": ({ connectionId }) =>

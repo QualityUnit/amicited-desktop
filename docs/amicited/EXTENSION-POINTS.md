@@ -871,3 +871,8 @@ on the changed line only.
 - `preview/ServerBrowser.ts`: exposes the shared `connections` profile and a visible managed tab for sign-in. The stream test fixture supplies these two methods.
 - `server.ts`: shares that connections service between runtime RPC and MCP. `amicited/CloudToolkit.ts` adds the connection status/request tool; its fixtures and advertised-tool budget account for it.
 - `marketing.tsx`, the marketing settings route and `CommandPalette.tsx`: open Connections. `chat/MessagesTimeline.tsx`: mounts pending connection cards through the AmICited RPC adapter.
+
+## Local visibility tracking
+
+- Existing marketing RPC authorization, instrumentation, subscription and permission extension points carry `amicited.tracking.*`.
+- `server.ts` shares the tracking service; the existing domain header and composer marketing mounts display its results.

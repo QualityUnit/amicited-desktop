@@ -1,3 +1,4 @@
+import { TrackingVisibility } from "./rpc/amicitedTracking";
 import { findReportKeySource } from "./marketingReports.logic";
 import { CmsGrid } from "@amicited/ui-marketing";
 import { desktopLocalBackendId } from "./connection/desktopLocal";
@@ -1330,7 +1331,12 @@ export function DomainFolderHeader({
       group={{ ...props.group, displayName: domain.hostname }}
       newThreadLabel="New chat"
       keepChevron
-      actions={<DomainProjectActions domain={domain} destination={destination} />}
+      actions={
+        <>
+          <TrackingVisibility domain={domain} destination={destination} compact />
+          <DomainProjectActions domain={domain} destination={destination} />
+        </>
+      }
     />
   );
 }

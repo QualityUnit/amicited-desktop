@@ -1,3 +1,4 @@
+import { Tracking } from "./amicited/Tracking.ts";
 import { BrowserConnections } from "@amicited/cloud-client/connections";
 import { Connections } from "./amicited/Connections.ts";
 import { Reports } from "./amicited/Reports.ts";
@@ -677,6 +678,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
     }),
   }),
   Layer.mock(AmicitedIssues)({}),
+  Layer.mock(Tracking)({}),
   Layer.mock(ServerSecretStore.ServerSecretStore)({}),
   Layer.mock(WorkspacePaths.WorkspacePaths)({}),
   Layer.mock(TraceDiagnostics.TraceDiagnostics)({}),

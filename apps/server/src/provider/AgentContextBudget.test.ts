@@ -1,3 +1,4 @@
+import { Tracking } from "../amicited/Tracking.ts";
 import { BrowserConnections } from "@amicited/cloud-client/connections";
 import { Connections } from "../amicited/Connections.ts";
 import { Reports } from "../amicited/Reports.ts";
@@ -69,6 +70,7 @@ const toolHandlerServices = Layer.mergeAll(
     }),
   }),
   Layer.mock(AmicitedIssues)({}),
+  Layer.mock(Tracking)({}),
   Layer.mock(AssetSigner)({}),
   Layer.mock(DeviceService)({}),
   Layer.mock(DocumentText)({}),
