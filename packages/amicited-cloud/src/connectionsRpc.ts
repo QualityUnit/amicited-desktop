@@ -25,9 +25,16 @@ export const ConnectionStatus = Schema.Literals([
 export const Connection = Schema.Struct({
   id: ConnectionId,
   status: ConnectionStatus,
+  reconnectedAt: Schema.optionalKey(Schema.String),
   lastChecked: Schema.NullOr(Schema.String),
   lastUsed: Schema.NullOr(Schema.String),
-  usedBy: Schema.Array(Schema.Struct({ id: Schema.String, label: Schema.String })),
+  usedBy: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      label: Schema.String,
+      projectId: Schema.optionalKey(Schema.String),
+    }),
+  ),
   signingIn: Schema.Boolean,
   tabId: Schema.optionalKey(Schema.String),
   threadId: Schema.optionalKey(Schema.String),

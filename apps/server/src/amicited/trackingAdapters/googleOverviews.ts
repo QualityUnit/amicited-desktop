@@ -6,5 +6,6 @@ export default (page: Page, prompt: string) =>
     input: 'textarea[name="q"], input[name="q"]',
     answer: '[data-attrid="AIOverview"], [data-attrid="wa:/description"]',
     answerTimeout: 8000,
+    optionalAnswer: true,
     busy: '[aria-label="Stop"]',
   });

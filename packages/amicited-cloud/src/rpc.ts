@@ -107,6 +107,15 @@ export const cloudRpcs = [
     success: DomainRecord,
     error: DomainFailure,
   }),
+  Rpc.make("amicited.domains.cloudEvidence", {
+    payload: {
+      projectId: Schema.String,
+      tool: Schema.String,
+      arguments: Schema.Record(Schema.String, Schema.Unknown),
+    },
+    success: Schema.Unknown,
+    error: DomainFailure,
+  }),
   Rpc.make("amicited.domains.cloudSummary", {
     payload: { projectId: Schema.String },
     success: Schema.NullOr(

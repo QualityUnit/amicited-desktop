@@ -14,7 +14,13 @@ export type IssueStatus = typeof IssueStatus.Type;
 export const IssueResolution = Schema.Literals(["user", "agent", "audit"]);
 export type IssueResolution = typeof IssueResolution.Type;
 
+export const IssueEvidence = Schema.Struct({
+  affectedPromptCount: Schema.Number,
+  questions: Schema.Array(Schema.String),
+  destination: Schema.String,
+});
 export const Issue = Schema.Struct({
+  evidence: Schema.optionalKey(IssueEvidence),
   id: Schema.String,
   projectId: Schema.String,
   fingerprint: Schema.String,

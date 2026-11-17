@@ -1,5 +1,6 @@
 import {
   Issue,
+  IssueEvidence,
   type IssueAudit,
   IssueFailure,
   type IssueEffort,
@@ -34,6 +35,7 @@ import * as ServerSettings from "../serverSettings.ts";
 import { AmicitedCloud } from "./Cloud.ts";
 
 export interface IssueUpsert {
+  readonly evidence?: typeof IssueEvidence.Type;
   readonly fingerprint: string;
   readonly kind: IssueKind;
   readonly title: string;
@@ -122,9 +124,11 @@ const migrations: ReadonlyArray<
         `,
       ]),
   ],
+  [2, "Issue evidence", (sql) => sql`ALTER TABLE amicited_issues ADD COLUMN evidence TEXT`],
 ];
 
 interface IssueRow {
+  readonly evidence: string | null;
   readonly issue_id: string;
   readonly project_id: string;
   readonly fingerprint: string;
@@ -149,9 +153,13 @@ interface AuditRow {
   readonly instructions: string;
 }
 
+const decodeEvidence = Schema.decodeEffect(Schema.fromJsonString(IssueEvidence));
+const encodeEvidence = Schema.encodeEffect(Schema.fromJsonString(IssueEvidence));
 const decodeIssue = Schema.decodeUnknownEffect(Issue);
-const toIssue = (row: IssueRow) =>
-  decodeIssue({
+const toIssue = Effect.fn("AmicitedIssues.toIssue")(function* (row: IssueRow) {
+  const evidence = row.evidence ? yield* decodeEvidence(row.evidence) : undefined;
+  return yield* decodeIssue({
+    ...(evidence ? { evidence } : {}),
     id: row.issue_id,
     projectId: row.project_id,
     fingerprint: row.fingerprint,
@@ -169,6 +177,7 @@ const toIssue = (row: IssueRow) =>
     resolvedAt: row.resolved_at,
     updatedAt: row.updated_at,
   });
+});
 
 const fail = (message: string) => () => new IssueFailure({ message });
 
@@ -342,6 +351,14 @@ const make = Effect.gen(function* () {
             resolved_at = ${reopen ? null : existing.resolvedAt}
         WHERE issue_id = ${id}
       `.pipe(Effect.mapError(fail("Could not save the issue.")));
+    }
+    if (input.evidence) {
+      const evidence = yield* encodeEvidence(input.evidence).pipe(
+        Effect.mapError(fail("Could not encode issue evidence.")),
+      );
+      yield* sql`UPDATE amicited_issues SET evidence=${evidence} WHERE issue_id=${id}`.pipe(
+        Effect.mapError(fail("Could not save issue evidence.")),
+      );
     }
     yield* notify;
     return yield* findIssue(id);

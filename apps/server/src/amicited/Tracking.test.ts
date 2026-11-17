@@ -1,4 +1,16 @@
+import googleOverviews from "./trackingAdapters/googleOverviews.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import { createModelSelection } from "@t3tools/shared/model";
+import { vi, expect } from "vite-plus/test";
+import * as Settings from "../serverSettings.ts";
+import * as Registry from "../provider/ProviderInstanceRegistry.ts";
+import { ProviderInstanceId, type ServerSettings } from "@t3tools/contracts";
+import * as Schema from "effect/Schema";
+import {
+  TrackingRun,
+  engineConnection,
+  type TrackingEngine,
+} from "@amicited/cloud-client/tracking";
 import * as DateTime from "effect/DateTime";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -26,7 +38,8 @@ import { runConnection } from "./ConnectionSessionAdapter.ts";
 import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
 import * as Tracking from "./Tracking.ts";
-const fixture = (recorded = false, blockAnswer = false) => {
+const encodeTestRun = Schema.encodeEffect(Schema.fromJsonString(TrackingRun));
+const fixture = (recorded = false, blockAnswer = false, generation = false) => {
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const closed = Promise.withResolvers<void>();
@@ -110,6 +123,28 @@ const fixture = (recorded = false, blockAnswer = false) => {
   });
   const findings: Issue[] = [];
   const deps = Layer.mergeAll(
+    Layer.mock(Settings.ServerSettingsService)({
+      getSettings: Effect.succeed({
+        defaultModelSelection: createModelSelection(ProviderInstanceId.make("assistant"), "test"),
+      } as ServerSettings),
+    }),
+    Layer.mock(Registry.ProviderInstanceRegistry)({
+      getInstance: () =>
+        Effect.succeed(
+          generation
+            ? ({
+                textGeneration: {
+                  generateMarketingText: ({ prompt }: { prompt: string }) =>
+                    Effect.succeed({
+                      text: prompt.includes("three concrete")
+                        ? '["Fix A","Fix B","Fix C"]'
+                        : '["Buyer question one", "Buyer question two"]',
+                    }),
+                },
+              } as unknown as import("@t3tools/provider-core/server/driver").ProviderInstance)
+            : undefined,
+        ),
+    }),
     Sqlite.layerMemory,
     NodeCrypto.layer,
     Layer.succeed(AmicitedCloud, cloud),
@@ -331,6 +366,24 @@ it.effect(
   "collects recorded answers, preserves consumption after replacement, and binds a thread to its original run",
   () => {
     const f = fixture(true);
+    f.findings.push({
+      id: "legacy",
+      projectId: "one",
+      fingerprint: "tracking:chatgpt:one:0",
+      kind: "fix",
+      title: "Old per-question finding",
+      body: "Question",
+      report: "AI visibility",
+      priority: "medium",
+      effort: "small",
+      status: "open",
+      resolution: null,
+      threadId: null,
+      firstSeenAt: "",
+      lastSeenAt: "",
+      resolvedAt: null,
+      updatedAt: "",
+    });
     return Effect.gen(function* () {
       const t = yield* Tracking.Tracking;
       const country = (yield* t.snapshot()).country;
@@ -345,6 +398,7 @@ it.effect(
       yield* TestClock.adjust("10 seconds");
       yield* Fiber.join(done);
       assert.equal((yield* t.detail(id))?.outcome, "ok");
+      assert.equal(f.findings.find((i) => i.id === "legacy")?.status, "done");
       assert.isTrue((yield* t.detail(id))!.answers[0]!.excerpt.length > 0);
       assert.equal((yield* t.snapshot()).runs[0]!.answers[0]!.excerpt, "");
       assert.equal((yield* t.snapshot()).usage.consumed, 1);
@@ -381,6 +435,7 @@ it.effect(
         0,
       );
       assert.equal((yield* t.detail(limited))?.outcome, "failed");
+      assert.equal((yield* t.detail(limited))?.answers[0]?.status, "budget_exhausted");
       const restored = yield* Effect.gen(function* () {
         return yield* (yield* Tracking.Tracking).snapshot();
       }).pipe(Effect.provide(Layer.fresh(Tracking.layer)));
@@ -420,3 +475,229 @@ it.effect("Stop cancels answer collection and closes its page before returning",
     assert.equal((yield* t.detail(id))?.answers.length, 0);
   }).pipe(Effect.provide(f.layer));
 });
+
+it.effect("groups engine findings and maps every Google engine to its connection", () => {
+  return Effect.sync(() => {
+    assert.deepEqual(
+      ["gemini", "google", "google_overviews"].map((e) => engineConnection(e as TrackingEngine)),
+      ["google", "google", "google"],
+    );
+    const answer = {
+      ...parseAnswer("1. Acme", [], "Northwind", "northwind.io"),
+      engine: "chatgpt" as const,
+      promptId: "one",
+      prompt: "Question one",
+      status: "answered" as const,
+    };
+    const grouped = trackingFindings(
+      [answer, { ...answer, promptId: "two", prompt: "Question two" }],
+      [],
+    );
+    assert.equal(grouped.length, 1);
+    assert.include(grouped[0]!.body, "2 affected prompts");
+    assert.include(grouped[0]!.body, "Question two");
+  });
+});
+
+it.effect("reserves on the current local day across midnight and persists dismissals", () => {
+  const f = fixture(true);
+  const before = DateTime.toDate(DateTime.makeUnsafe("2026-11-17T23:59:59Z"));
+  before.setMinutes(before.getMinutes() + before.getTimezoneOffset());
+  return Effect.gen(function* () {
+    const t = yield* Tracking.Tracking;
+    yield* TestClock.setTime(before.getTime());
+    const country = (yield* t.snapshot()).country;
+    yield* t.save({ ...config("one", 2, country), engines: ["chatgpt"] });
+    const id = yield* t.runNow("one");
+    yield* t.subscribe().pipe(
+      Stream.filter((s) => s.runs.some((r) => r.id === id && r.answers.length === 1)),
+      Stream.take(1),
+      Stream.runDrain,
+    );
+    yield* TestClock.adjust("10 seconds");
+    yield* t.subscribe().pipe(
+      Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+      Stream.take(1),
+      Stream.runDrain,
+    );
+    const sql = yield* SqlClient.SqlClient;
+    const rows = yield* sql<{
+      day: string;
+      count: number;
+    }>`SELECT day, COUNT(*) AS count FROM amicited_tracking_ledger GROUP BY day ORDER BY day`;
+    assert.deepEqual(
+      rows.map((r) => r.count),
+      [1, 1],
+    );
+    assert.equal((yield* t.snapshot()).usage.askedToday, 1);
+    yield* t.dismiss("workspace:two", "later");
+    yield* t.dismiss("connection:linkedin:thread", "dismiss");
+    yield* TestClock.adjust("1 day");
+    assert.deepEqual((yield* t.snapshot()).dismissals, ["connection:linkedin:thread"]);
+    yield* t.dismiss("connection:linkedin:thread", "restore");
+    assert.deepEqual((yield* t.snapshot()).dismissals, []);
+  }).pipe(Effect.provide(f.layer));
+});
+
+it.effect(
+  "resumes a persisted incomplete run after restart and manually recovers a partial run",
+  () => {
+    const f = fixture();
+    return Effect.gen(function* () {
+      const t = yield* Tracking.Tracking;
+      const country = (yield* t.snapshot()).country;
+      const c = { ...config("one", 2, country), engines: ["gemini" as const] };
+      yield* t.save(c);
+      const id = yield* t.runNow("one");
+      yield* TestClock.adjust("10 seconds");
+      yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+      );
+      assert.equal((yield* t.detail(id))?.outcome, "failed");
+      const sql = yield* SqlClient.SqlClient;
+      const partial = (yield* t.detail(id))!;
+      const preserved = {
+        ...partial.answers[0]!,
+        status: "answered" as const,
+        excerpt: "Original saved answer",
+      };
+      const partialValue = yield* encodeTestRun({
+        ...partial,
+        outcome: "partial",
+        answers: [preserved],
+      });
+      yield* sql`UPDATE amicited_tracking_runs SET value=${partialValue} WHERE id=${id}`;
+      f.setRecorded(true);
+      assert.equal(yield* t.checkMissing(id), id);
+      yield* TestClock.adjust("10 seconds");
+      yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+      );
+      assert.equal((yield* t.detail(id))?.outcome, "ok");
+      assert.equal(
+        (yield* t.detail(id))?.answers.find((a) => a.promptId === preserved.promptId)?.excerpt,
+        "Original saved answer",
+      );
+      const old = { ...(yield* t.detail(id))!, answers: [] };
+      const value = yield* encodeTestRun({ ...old, status: "interrupted" });
+      yield* sql`UPDATE amicited_tracking_runs SET value=${value}, status='interrupted' WHERE id=${id}`;
+      f.setRecorded(true);
+      yield* Effect.gen(function* () {
+        const restored = yield* Tracking.Tracking;
+        yield* restored.tick;
+        yield* TestClock.adjust("10 seconds");
+        yield* restored.subscribe().pipe(
+          Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+          Stream.take(1),
+          Stream.runDrain,
+        );
+        assert.equal((yield* restored.detail(id))?.outcome, "ok");
+        assert.deepEqual((yield* restored.detail(id))?.engines, ["gemini"]);
+        assert.equal(yield* restored.checkMissing(id), id);
+        assert.equal((yield* restored.detail(id))?.fixesSource, "template");
+      }).pipe(Effect.provide(Layer.fresh(Tracking.layer)));
+    }).pipe(Effect.provide(f.layer));
+  },
+);
+
+it.effect("generates website suggestions and persists assistant-written fixes", () => {
+  const f = fixture(true, false, true);
+  return Effect.gen(function* () {
+    using _fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("<html>Analytics for small teams</html>"));
+    const t = yield* Tracking.Tracking;
+    assert.deepEqual(yield* t.suggest("one", "analytics"), [
+      "Buyer question one",
+      "Buyer question two",
+    ]);
+    const country = (yield* t.snapshot()).country;
+    yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
+    const id = yield* t.runNow("one");
+    yield* TestClock.adjust("10 seconds");
+    yield* t.subscribe().pipe(
+      Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+      Stream.take(1),
+      Stream.runDrain,
+    );
+    assert.deepEqual((yield* t.detail(id))?.fixes, ["Fix A", "Fix B", "Fix C"]);
+    assert.equal((yield* t.detail(id))?.fixesSource, "assistant");
+  }).pipe(Effect.provide(f.layer));
+});
+
+it("records missing AI Overviews as answered without swallowing navigation failures", async () => {
+  const timeout = new Error("No overview");
+  timeout.name = "TimeoutError";
+  const page = evidencePage(0);
+  const locator = page.locator.bind(page);
+  page.locator = ((selector: string) => {
+    const result = locator(selector);
+    if (selector.includes("AIOverview"))
+      result.last = () =>
+        ({
+          ...result,
+          waitFor: async () => {
+            throw timeout;
+          },
+        }) as typeof result;
+    return result;
+  }) as typeof page.locator;
+  const result = await googleOverviews(page, "What is best?");
+  assert.equal(result.text, "No AI Overview shown");
+  assert.isFalse(parseAnswer(result.text, [], "Northwind", "northwind.io").mentioned);
+  page.goto = async () => {
+    throw new Error("Navigation failed");
+  };
+  await expect(googleOverviews(page, "What is best?")).rejects.toThrow("Navigation failed");
+});
+
+it.effect(
+  "retries Google questions once per reconnect even if probes keep claiming connected",
+  () => {
+    const f = fixture();
+    return Effect.gen(function* () {
+      const t = yield* Tracking.Tracking;
+      const country = (yield* t.snapshot()).country;
+      yield* t.save({ ...config("one", 1, country), engines: ["gemini"] });
+      const id = yield* t.runNow("one");
+      yield* TestClock.adjust("10 seconds");
+      yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+      );
+      const connected = (stamp: string) =>
+        f.engine.restore([
+          {
+            id: "google",
+            status: "connected",
+            lastChecked: stamp,
+            reconnectedAt: stamp,
+            lastUsed: null,
+            usedBy: [],
+            signingIn: false,
+          },
+        ]);
+      connected("reconnect-one");
+      yield* t.tick;
+      assert.equal((yield* t.detail(id))?.status, "running");
+      yield* TestClock.adjust("10 seconds");
+      yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+      );
+      connected("reconnect-one");
+      yield* t.tick;
+      assert.equal((yield* t.detail(id))?.status, "complete");
+      connected("reconnect-two");
+      yield* t.tick;
+      assert.equal((yield* t.detail(id))?.status, "running");
+      yield* t.stopNow("one");
+    }).pipe(Effect.provide(f.layer));
+  },
+);

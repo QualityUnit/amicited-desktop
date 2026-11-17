@@ -71,7 +71,16 @@ it.effect(
         fingerprint: "tracking:connection:google",
         kind: "connect" as const,
       };
-      const google = yield* issues.upsert("domain", connection);
+      const evidence = {
+        affectedPromptCount: 2,
+        questions: ["Question one", "Question two"],
+        destination: "/prompts?site=domain&run=check",
+      };
+      const google = yield* issues.upsert("domain", { ...connection, evidence });
+      assert.deepEqual(
+        (yield* issues.list("domain", "all")).find((i) => i.id === google.id)?.evidence,
+        evidence,
+      );
       assert.strictEqual((yield* issues.upsert("other-domain", connection)).id, google.id);
       yield* issues.update({ id: google.id, status: "done", resolution: "audit" });
       assert.strictEqual((yield* issues.upsert("other-domain", connection)).status, "open");

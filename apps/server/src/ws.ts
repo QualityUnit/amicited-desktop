@@ -2068,6 +2068,8 @@ export const layerWsRpc = (
           tracking.save(config, replacePromptId),
         "amicited.tracking.suggest": ({ projectId, category }) =>
           tracking.suggest(projectId, category),
+        "amicited.tracking.dismiss": ({ key, mode }) => tracking.dismiss(key, mode),
+        "amicited.tracking.checkMissing": ({ runId }) => tracking.checkMissing(runId),
         "amicited.tracking.run": ({ projectId, stop, threadId }) =>
           stop ? tracking.stopNow(projectId) : tracking.runNow(projectId, threadId),
         "amicited.connections.status": () => connections.snapshot,
@@ -2141,6 +2143,15 @@ export const layerWsRpc = (
           Effect.tryPromise({
             try: () => cloud.domains!.adopt(projectId),
             catch: () => new DomainFailure({ message: "Could not add this website to AmICited." }),
+          }),
+        "amicited.domains.cloudEvidence": ({ projectId, tool, arguments: args }) =>
+          Effect.tryPromise({
+            try: () => cloud.account?.cloudEvidence(projectId, tool, args) ?? Promise.resolve(null),
+            catch: () =>
+              new DomainFailure({
+                message:
+                  "Could not read cloud evidence. Check your workspace connection and the tool schema.",
+              }),
           }),
         "amicited.domains.cloudSummary": ({ projectId }) =>
           Effect.tryPromise({

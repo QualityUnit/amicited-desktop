@@ -123,7 +123,14 @@ export class BrowserConnections<P extends SitePage = SitePage> {
     return this.snapshot().connections.find((r) => r.id === id)!;
   }
   private update(id: ConnectionId, patch: Partial<Row>) {
-    this.rows.set(id, { ...this.row(id), ...patch });
+    const row = this.row(id);
+    this.rows.set(id, {
+      ...row,
+      ...patch,
+      ...(patch.status === "connected" && row.status !== "connected"
+        ? { reconnectedAt: new Date().toISOString() }
+        : {}),
+    });
     this.changed();
   }
   private serial<T>(id: ConnectionId, f: () => Promise<T>) {
@@ -194,7 +201,7 @@ export class BrowserConnections<P extends SitePage = SitePage> {
       if (result === "logged_in") {
         await tab.close();
         this.pending.delete(id);
-        this.update(id, { signingIn: false });
+        this.update(id, { signingIn: false, reconnectedAt: new Date().toISOString() });
         for (const [key, r] of this.requests) if (r.connectionId === id) this.requests.delete(key);
         this.changed();
       }
@@ -217,7 +224,7 @@ export class BrowserConnections<P extends SitePage = SitePage> {
       return this.snapshot();
     });
   }
-  registerUsage(id: ConnectionId, dependency: { id: string; label: string }) {
+  registerUsage(id: ConnectionId, dependency: { id: string; label: string; projectId?: string }) {
     this.update(id, {
       usedBy: [...this.row(id).usedBy.filter((x) => x.id !== dependency.id), dependency],
     });

@@ -74,12 +74,18 @@ describe("command permissions", () => {
         const refresh = createCommandPermissions(runtime, WS_METHODS.serverRefreshProviders);
         const marketing = createCommandPermissions(runtime, "amicited.tools.run");
         const tracking = createCommandPermissions(runtime, "amicited.tracking.run");
+        const recovery = createCommandPermissions(runtime, "amicited.tracking.checkMissing");
+        const dismissal = createCommandPermissions(runtime, "amicited.tracking.dismiss");
         registry.set(sessions(env), AsyncResult.success(grant(false)));
         expect(registry.get(marketing.permissionAtom(env))).toBe(false);
         expect(registry.get(tracking.permissionAtom(env))).toBe(false);
+        expect(registry.get(recovery.permissionAtom(env))).toBe(false);
+        expect(registry.get(dismissal.permissionAtom(env))).toBe(false);
         registry.set(sessions(env), AsyncResult.success(grant(true)));
         expect(registry.get(marketing.permissionAtom(env))).toBe(true);
         expect(registry.get(tracking.permissionAtom(env))).toBe(true);
+        expect(registry.get(recovery.permissionAtom(env))).toBe(true);
+        expect(registry.get(dismissal.permissionAtom(env))).toBe(true);
         yield* marketing.authorize(registry, env);
         registry.set(sessions(env), AsyncResult.success(grant(true)));
         expect(registry.get(refresh.permissionAtom(env))).toBe(false);

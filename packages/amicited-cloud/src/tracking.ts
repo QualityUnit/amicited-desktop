@@ -1,3 +1,4 @@
+import { timezoneCountries } from "./timezoneCountries.ts";
 import { answerSchema } from "@amicited/tools/visibility-schema";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
@@ -18,6 +19,9 @@ const engineLabels = {
   google_overviews: "Google AI Overviews",
 };
 export type TrackingEngine = typeof TrackingEngine.Type;
+export function engineConnection(engine: TrackingEngine) {
+  return engine === "gemini" || engine === "google_overviews" ? "google" : engine;
+}
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
   message: Schema.String,
   fallback: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -41,7 +45,7 @@ export const TrackingAnswer = Schema.Struct({
   ...answerSchema.fields,
   promptId: Schema.String,
   engine: TrackingEngine,
-  status: Schema.Literals(["answered", "needs_sign_in", "failed"]),
+  status: Schema.Literals(["answered", "needs_sign_in", "failed", "budget_exhausted"]),
   excerpt: Schema.String,
   mentioned: Schema.Boolean,
   position: Schema.NullOr(Schema.Number),
@@ -51,6 +55,11 @@ export const TrackingAnswer = Schema.Struct({
 export type TrackingAnswer = typeof TrackingAnswer.Type;
 export const TrackingRun = Schema.Struct({
   id: Schema.String,
+  engines: Schema.optionalKey(Schema.Array(TrackingEngine)),
+  fixes: Schema.optionalKey(Schema.Array(Schema.String)),
+  fixesSource: Schema.optionalKey(Schema.Literals(["assistant", "template"])),
+  fixesLabel: Schema.optionalKey(Schema.String),
+  reconnectAttempts: Schema.optionalKey(Schema.Array(Schema.String)),
   configKey: Schema.optionalKey(Schema.String),
   threadId: Schema.optionalKey(Schema.String),
   outcome: Schema.optionalKey(Schema.Literals(["ok", "partial", "failed"])),
@@ -64,6 +73,8 @@ export const TrackingRun = Schema.Struct({
 });
 export type TrackingRun = typeof TrackingRun.Type;
 export const TrackingUsage = Schema.Struct({
+  configured: Schema.optionalKey(Schema.Number),
+  askedToday: Schema.optionalKey(Schema.Number),
   consumed: Schema.optionalKey(Schema.Number),
   used: Schema.Number,
   limit: Schema.Number,
@@ -78,6 +89,7 @@ export const TrackingUsage = Schema.Struct({
 });
 export type TrackingUsage = typeof TrackingUsage.Type;
 export const TrackingSnapshot = Schema.Struct({
+  dismissals: Schema.optionalKey(Schema.Array(Schema.String)),
   country: Schema.String,
   configs: Schema.Array(TrackingConfig),
   runs: Schema.Array(TrackingRun),
@@ -114,6 +126,16 @@ export const trackingRpcs = [
     success: Schema.Array(Schema.String),
     error: TrackingFailure,
   }),
+  Rpc.make("amicited.tracking.dismiss", {
+    payload: { key: Schema.String, mode: Schema.Literals(["later", "dismiss", "restore"]) },
+    success: Schema.Void,
+    error: TrackingFailure,
+  }),
+  Rpc.make("amicited.tracking.checkMissing", {
+    payload: { runId: Schema.String },
+    success: Schema.String,
+    error: TrackingFailure,
+  }),
   Rpc.make("amicited.tracking.run", {
     payload: {
       projectId: Schema.String,
@@ -143,18 +165,8 @@ export function detectCountry(
   locale = Intl.DateTimeFormat().resolvedOptions().locale,
   timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 ) {
-  const zones: Record<string, string> = {
-    "Europe/Vienna": "AT",
-    "Europe/Paris": "FR",
-    "Europe/Bratislava": "SK",
-    "Europe/Prague": "CZ",
-    "Europe/Berlin": "DE",
-    "Europe/London": "GB",
-    "America/New_York": "US",
-    "America/Los_Angeles": "US",
-  };
   void locale;
-  return zones[timezone] ?? "ZZ";
+  return timezoneCountries[timezone] ?? "ZZ";
 }
 export function scheduleDays(
   now: Date,
@@ -227,8 +239,8 @@ export function trackingFindings(
   answers: readonly TrackingAnswer[],
   previous: readonly TrackingAnswer[],
 ) {
-  const seenConnections = new Set<string>();
-  return answers.flatMap<{
+  const findings = answers.flatMap<{
+    questions: string[];
     fingerprint: string;
     report: string;
     effort: "small";
@@ -239,14 +251,13 @@ export function trackingFindings(
   }>((a) => {
     const old = previous.find((p) => p.promptId === a.promptId && p.engine === a.engine);
     const base = {
-      fingerprint: `tracking:${a.engine}:${a.promptId}`,
+      questions: [a.prompt],
+      fingerprint: `tracking:${a.engine}:${old?.mentioned ? "dropped" : "competitor"}`,
       report: "AI visibility",
       effort: "small" as const,
     };
     if (a.status === "needs_sign_in") {
-      const connection = ["gemini", "google_overviews"].includes(a.engine) ? "google" : a.engine;
-      if (seenConnections.has(connection)) return [];
-      seenConnections.add(connection);
+      const connection = engineConnection(a.engine);
       const labels: Record<string, string> = {
         google: "Google",
         chatgpt: "ChatGPT",
@@ -261,7 +272,7 @@ export function trackingFindings(
           priority: "high" as const,
           fingerprint: `tracking:connection:${connection}`,
           title: `${label} needs your sign-in`,
-          body: "Sign in again in Connections, then run the missing questions.",
+          body: a.prompt,
         },
       ];
     }
@@ -275,8 +286,23 @@ export function trackingFindings(
         title: old?.mentioned
           ? `Visibility dropped on ${engineLabels[a.engine]}`
           : `${engineLabels[a.engine]} recommends ${a.competitorsMentioned[0]} instead`,
-        body: `${a.excerpt}\n\nReview the answer and draft a page addressing this question before publishing.`,
+        body: a.prompt,
       },
     ];
+  });
+  const groups = new Map<string, (typeof findings)[number]>();
+  for (const finding of findings) {
+    const group = groups.get(finding.fingerprint);
+    if (group) group.questions.push(...finding.questions);
+    else groups.set(finding.fingerprint, { ...finding });
+  }
+  return [...groups.values()].map((f) => {
+    const questions = [...new Set(f.questions)];
+    return {
+      ...f,
+      questions,
+      affectedPromptCount: questions.length,
+      body: `${questions.length} affected prompts:\n${questions.join("\n")}`,
+    };
   });
 }

@@ -1,3 +1,4 @@
+import { formatPlanLabel } from "./formatting.ts";
 import { CloudClient, toolData, type SecretStorage } from "./index.ts";
 import type { DomainConnections } from "./domains.ts";
 import type * as Schema from "effect/Schema";
@@ -33,24 +34,19 @@ export function workspaceLabel(email: string) {
     : `${domain} workspace`;
 }
 
-function workspaceName(
+export function workspaceName(
   workspace: Workspace,
   workspaces: readonly Workspace[],
   domains: readonly import("./domains.ts").Domain[],
 ) {
   const base = (w: Workspace) =>
-    w.name !== workspaceLabel(w.email)
+    (w.name !== workspaceLabel(w.email)
       ? w.name
-      : domains.find((d) => d.workspaceId === w.id)?.brand;
+      : domains.find((d) => d.workspaceId === w.id)?.brand) || workspaceLabel(w.email);
   const label = base(workspace);
-  const duplicate = label && workspaces.some((w) => w.id !== workspace.id && base(w) === label);
-  if (label && !duplicate) return label;
-  const suffix = workspaces.some(
-    (w) => w.id !== workspace.id && w.id.slice(-6) === workspace.id.slice(-6),
-  )
-    ? workspace.id
-    : workspace.id.slice(-6);
-  return `${label || workspaceLabel(workspace.email)} · ${suffix}`;
+  const matches = workspaces.filter((w) => base(w) === label);
+  const ordinal = matches.findIndex((w) => w.id === workspace.id) + 1;
+  return ordinal > 1 ? `${label} (${ordinal})` : label;
 }
 
 export class AccountConnections {
@@ -169,6 +165,7 @@ export class AccountConnections {
       workspaces: usable.map((w) => ({
         ...w,
         name: workspaceName(w, usable, rows),
+        plan: formatPlanLabel(w.access, w.plan),
         websites: rows.filter((d) => d.workspaceId === w.id).map((d) => d.hostname),
         projectIds: rows.filter((d) => d.workspaceId === w.id).map((d) => d.projectId),
       })),
@@ -220,13 +217,7 @@ export class AccountConnections {
           name: workspaceLabel(user.email),
           email: user.email,
           userName: user.name,
-          plan:
-            connection.plan ??
-            (connection.access === "full"
-              ? "Paid"
-              : connection.access === "free"
-                ? "Free"
-                : "Plan not confirmed"),
+          plan: formatPlanLabel(connection.access, connection.plan),
           access: connection.access ?? "unknown",
           sessionEnded: false,
           attentionCount: 0,
@@ -337,6 +328,20 @@ export class AccountConnections {
         });
       });
     return { ...result, structuredContent: { domains } };
+  }
+  async cloudEvidence(projectId: string, tool: string, args: Record<string, unknown>) {
+    const domain = (await this.options.domains()?.metadata())?.find(
+      (d) => d.projectId === projectId,
+    );
+    const status = await this.status();
+    const workspace = status.workspaces.find((w) => w.id === domain?.workspaceId);
+    if (!domain?.domainId || !workspace || workspace.access !== "full" || workspace.sessionEnded)
+      throw new Error("Cloud evidence requires a connected paid domain.");
+    const client = this.client(workspace.id);
+    const policy = await client.toolPolicy(tool);
+    if (policy.needsApproval || policy.destructive)
+      throw new Error("Choose a read-only cloud evidence tool.");
+    return client.call(tool, { ...args, domain_id: domain.domainId });
   }
   async cloudSummary(projectId: string) {
     const domain = (await this.options.domains()?.metadata())?.find(
