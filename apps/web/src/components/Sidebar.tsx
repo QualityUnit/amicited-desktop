@@ -908,10 +908,14 @@ export default function Sidebar({
   resolveThreadLocation,
   onNewDomain,
   archiveAction,
+  allowedProjectKeys,
+  beforeSettled,
 }: {
   routeReveal: SidebarRouteReveal;
   onNewDomain?: () => void;
   archiveAction?: ReactNode;
+  allowedProjectKeys?: ReadonlySet<string>;
+  beforeSettled?: ReactNode;
   resolveThreadLocation?: (thread: EnvironmentThreadShell) => string | null | undefined;
   renderProjectFolder?: (
     props: React.ComponentProps<typeof SidebarProjectFolderHeader>,
@@ -1201,9 +1205,18 @@ export default function Sidebar({
     matches: (item, query) =>
       projectScopeFilter.contains(item, query, (candidate) => candidate.label),
   });
-  const scopedProjectGroups = revealWidensScope ? [] : chosenProjectGroups;
+  const scopedProjectGroups = allowedProjectKeys
+    ? scopeGroups.filter((group) =>
+        group.memberProjectRefs.some((ref) =>
+          allowedProjectKeys.has(`${ref.environmentId}:${ref.projectId}`),
+        ),
+      )
+    : revealWidensScope
+      ? []
+      : chosenProjectGroups;
   const scopedProjectRefs = scopedProjectGroups.flatMap((project) => project.memberProjectRefs);
-  const scopedProjectKeys = revealWidensScope ? null : chosenScopeProjectKeys;
+  const scopedProjectKeys =
+    allowedProjectKeys ?? (revealWidensScope ? null : chosenScopeProjectKeys);
   const threadSearch = useThreadSearch(
     connectedEnvironmentIds,
     threadSearchQuery,
@@ -1366,8 +1379,9 @@ export default function Sidebar({
     threads,
     delegatedUnderParent,
     routeRowThreadKey,
-    folderGroups:
-      marketer || boringSidebarEnabled
+    folderGroups: allowedProjectKeys
+      ? scopedProjectGroups
+      : marketer || boringSidebarEnabled
         ? scopedProjectGroups.length === 0
           ? // An archived project keeps a folder for its active threads, below the rest.
             [...scopeGroups, ...projectGroups.filter((project) => project.archived)]
@@ -3628,6 +3642,8 @@ export default function Sidebar({
                             );
                             break;
                           case "settled-header":
+                            if (beforeSettled)
+                              items.push(<li key="workspace-attention">{beforeSettled}</li>);
                             items.push(
                               <SidebarSectionHeader
                                 key="settled-shelf-header"

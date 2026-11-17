@@ -856,6 +856,10 @@ export function DomainConnection({
   const connected = connection?.state === "connected";
   const command = useAtomCommand(connectionCommand);
   const [chooseAccount, setChooseAccount] = useState(false);
+  if (domain.workspaceId)
+    return (
+      <span>{domain.domainId ? "In AmICited" : "Not yet in AmICited"} · Workspace connection</span>
+    );
   const connectionPanel = connection && (
     <fieldset disabled={!canConnect}>
       <AmicitedConnectPanel
@@ -1190,11 +1194,13 @@ export function DomainMigration() {
       });
     }
   });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Migrate the browser's legacy website after the environment becomes available.
-  useEffect(() => {
-    if (environmentId) void migrate();
-  }, [environmentId]);
-  return null;
+  if (!readBrand()) return null;
+  return (
+    <section>
+      <p>We found a website from an older version on this computer.</p>
+      <Button onClick={() => void migrate()}>Add to AmICited</Button>
+    </section>
+  );
 }
 
 function DomainProjectActions({

@@ -21,9 +21,30 @@ it.effect("loads and updates site metadata without an independent supervision re
             hostname: "example.com",
             brand: "",
             connectionRef: "site",
+            workspaceId: "workspace",
+            domainId: "cloud-site",
             siteFiles: "/fixture/site",
           },
         ]),
+      ],
+      [
+        `${config.stateDir}/amicited-account.json`,
+        JSON.stringify({
+          currentWorkspaceId: "workspace",
+          workspaces: [
+            {
+              id: "workspace",
+              name: "Example",
+              email: "a@example.com",
+              userName: "A",
+              plan: "Free",
+              access: "free",
+              sessionEnded: false,
+              attentionCount: 0,
+              websites: [],
+            },
+          ],
+        }),
       ],
     ]);
     const fs = FileSystem.makeNoop({

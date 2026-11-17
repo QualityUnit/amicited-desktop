@@ -1,3 +1,5 @@
+import { AccountConnections, readAccountUserinfo } from "@amicited/cloud-client/account";
+import { AccountWorkspace } from "@amicited/cloud-client/rpc";
 import * as NodeModule from "node:module";
 import type * as Keyring from "@napi-rs/keyring";
 import * as Reports from "./Reports.ts";
@@ -24,6 +26,12 @@ const requireKeyring = NodeModule.createRequire(import.meta.url);
 
 const decodeSetup = Schema.decodeUnknownSync(
   Schema.Struct({ finished: Schema.Boolean, lastDomain: Schema.optionalKey(Schema.String) }),
+);
+const decodeAccount = Schema.decodeUnknownSync(
+  Schema.Struct({
+    workspaces: Schema.Array(AccountWorkspace),
+    currentWorkspaceId: Schema.optionalKey(Schema.String),
+  }),
 );
 const decodeDomains = Schema.decodeUnknownSync(Schema.Array(DomainRecord));
 
@@ -103,6 +111,37 @@ export const layer = Layer.effect(
         return next;
       },
     };
+    const accountPath = `${config.stateDir}/amicited-account.json`;
+    cloud.account = new AccountConnections({
+      read: async () =>
+        (await run(fs.exists(accountPath)))
+          ? decodeAccount(JSON.parse(await run(fs.readFileString(accountPath))))
+          : { workspaces: [] },
+      write: async (value) => {
+        await run(fs.writeFileString(`${accountPath}.tmp`, JSON.stringify(value)));
+        await run(fs.rename(`${accountPath}.tmp`, accountPath));
+      },
+      secrets: (id) => secretsFor(`${account}:workspace:${id}`),
+      client: (secrets, open, rejected) => {
+        const client = new CloudClient({
+          secrets,
+          openExternal: open,
+          onSessionRejected: rejected,
+          onChange: () => cloud.account?.changed(),
+          ...(fixtureEndpoint ? { endpoint: fixtureEndpoint } : {}),
+        });
+        client.subscribeApprovals(() => cloud.notifyApprovals());
+        return client;
+      },
+      openExternal,
+      domains: () => cloud.domains,
+      userinfo: (token) =>
+        readAccountUserinfo(
+          token,
+          fixtureEndpoint ? new URL("/v2/auth/oauth/userinfo", fixtureEndpoint).href : undefined,
+        ),
+    });
+    yield* Effect.promise(() => cloud.account!.status());
     const metadataPath = `${config.stateDir}/amicited-domains.json`;
     cloud.domains = new DomainConnections({
       read: async () => {
@@ -126,7 +165,11 @@ export const layer = Layer.effect(
           ...(fixtureEndpoint ? { endpoint: fixtureEndpoint } : {}),
           openExternal,
         }),
-      changed: () => cloud.notifyApprovals(),
+      changed: () => {
+        cloud.notifyApprovals();
+        cloud.account?.changed();
+      },
+      account: cloud.account,
     });
     yield* Effect.addFinalizer(() => Effect.promise(() => cloud.close()));
     return cloud;

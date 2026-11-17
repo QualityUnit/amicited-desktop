@@ -26,3 +26,12 @@ export type Connection =
 export function domainNames(domains: readonly { id: string; name: string }[] | undefined) {
   return domains?.map((domain) => domain.name) ?? [];
 }
+
+export function sessionRejected(error: unknown) {
+  if (error && typeof error === "object") {
+    if ("errorCode" in error && error.errorCode === "invalid_grant") return true;
+    if ("status" in error && error.status === 401) return true;
+    if ("code" in error && error.code === 401) return true;
+  }
+  return /\b401\b|invalid_grant/.test(String(error));
+}

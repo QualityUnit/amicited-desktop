@@ -60,12 +60,51 @@ export const DomainRecord = Schema.Struct({
   connectionRef: Schema.String,
   ...SiteMetadata,
   domainId: Schema.optionalKey(Schema.String),
+  workspaceId: Schema.optionalKey(Schema.String),
 });
 const SetupState = Schema.Struct({
   finished: Schema.Boolean,
   lastDomain: Schema.optionalKey(Schema.String),
 });
+export const AccountWorkspace = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+  userName: Schema.String,
+  plan: Schema.String,
+  access: Schema.Literals(["free", "full", "unknown"]),
+  sessionEnded: Schema.Boolean,
+  attentionCount: Schema.Number,
+  websites: Schema.Array(Schema.String),
+  projectIds: Schema.optionalKey(Schema.Array(Schema.String)),
+});
+export const AccountStatus = Schema.Struct({
+  state: Schema.Literals(["signed_out", "signed_in", "session_ended"]),
+  workspaces: Schema.Array(AccountWorkspace),
+  currentWorkspaceId: Schema.optionalKey(Schema.String),
+  signingIn: Schema.Boolean,
+  error: Schema.optionalKey(Schema.String),
+});
 export const cloudRpcs = [
+  Rpc.make("amicited.account.status", { success: AccountStatus, error: DomainFailure }),
+  Rpc.make("amicited.account.subscribe", { success: AccountStatus, stream: true }),
+  ...(["addWorkspace", "cancelSignIn", "reopenSignIn", "signOut"] as const).map((method) =>
+    Rpc.make(`amicited.account.${method}`, { success: AccountStatus, error: DomainFailure }),
+  ),
+  ...(["switchWorkspace", "removeWorkspace"] as const).map((method) =>
+    Rpc.make(`amicited.account.${method}`, {
+      payload: { workspaceId: Schema.String },
+      success: AccountStatus,
+      error: DomainFailure,
+    }),
+  ),
+  Rpc.make("amicited.domains.older", { success: Schema.Array(DomainRecord), error: DomainFailure }),
+  Rpc.make("amicited.domains.adopt", {
+    payload: { projectId: Schema.String },
+    success: DomainRecord,
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.listCloud", { success: Schema.Unknown, error: DomainFailure }),
   Rpc.make("amicited.setup.read", { success: SetupState, error: DomainFailure }),
   Rpc.make("amicited.setup.write", {
     payload: SetupState,

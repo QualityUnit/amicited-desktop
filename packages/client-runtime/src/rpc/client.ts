@@ -49,6 +49,7 @@ export type EnvironmentRpcTag = keyof WsRpcProtocolClient & string;
 type RpcMethod<TTag extends EnvironmentRpcTag> = WsRpcProtocolClient[TTag];
 
 export type EnvironmentSubscriptionRpcTag =
+  | "amicited.account.subscribe"
   | "amicited.cloud.subscribeApprovals"
   | "amicited.issues.subscribe"
   | "amicited.reports.subscribe"

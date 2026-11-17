@@ -25,6 +25,13 @@ export const CLIENT_GUARDED_RPC_SCOPES = {
   "amicited.reports.deleteSnapshot": AuthOrchestrationOperateScope,
   "amicited.reports.edit": AuthOrchestrationOperateScope,
 
+  "amicited.account.addWorkspace": AuthSettingsWriteScope,
+  "amicited.account.cancelSignIn": AuthSettingsWriteScope,
+  "amicited.account.reopenSignIn": AuthSettingsWriteScope,
+  "amicited.account.switchWorkspace": AuthSettingsWriteScope,
+  "amicited.account.removeWorkspace": AuthSettingsWriteScope,
+  "amicited.account.signOut": AuthSettingsWriteScope,
+  "amicited.domains.adopt": AuthSettingsWriteScope,
   "amicited.setup.write": AuthSettingsWriteScope,
   "amicited.domains.reuse": AuthSettingsWriteScope,
   "amicited.domains.inspect": AuthSettingsWriteScope,

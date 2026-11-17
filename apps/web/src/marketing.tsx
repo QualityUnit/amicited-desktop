@@ -1,3 +1,9 @@
+import {
+  WorkspaceAttention,
+  WorkspaceSwitcher,
+  AccountSettings,
+  useAmicitedAccount,
+} from "./rpc/amicitedAccount";
 import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
 import { useEnvironmentIdentificationMode, useEnvironmentSettings } from "./hooks/useSettings";
 import { lastDomains, readDefaultDomain } from "./marketingDomainStore";
@@ -215,6 +221,7 @@ function KitWorkDisclosure({
   );
 }
 function KitBreadcrumb({ children }: { children: ReactNode }) {
+  const { current } = useAmicitedAccount();
   const ref = useThreadRouteRef();
   const thread = useThreadShell(ref);
   const { rows } = useDomains(ref?.environmentId);
@@ -222,7 +229,9 @@ function KitBreadcrumb({ children }: { children: ReactNode }) {
   return (
     <WorkspaceBreadcrumb ariaLabel="Workspace">
       <WorkspaceBreadcrumbItem>
-        <WorkspaceBreadcrumbText>{domain?.hostname ?? "Your workspace"}</WorkspaceBreadcrumbText>
+        <WorkspaceBreadcrumbText>
+          {domain?.hostname ?? current?.name ?? "Your workspace"}
+        </WorkspaceBreadcrumbText>
       </WorkspaceBreadcrumbItem>
       <WorkspaceBreadcrumbSeparator />
       <WorkspaceBreadcrumbItem current>
@@ -298,6 +307,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   }
                 />
               </div>
+              <WorkspaceSwitcher />
               <IssuesSidebarRow
                 active={path.startsWith("/issues")}
                 onOpen={() => {
@@ -455,6 +465,7 @@ export function MarketingSettings() {
           Run setup again
         </Button>
       </div>
+      <AccountSettings />
       <MarketingSettingsView modeControl={renderModeSwitch} domains={<DomainsSettings />} />
     </>
   );
@@ -707,6 +718,10 @@ function MarketingHistory({
       <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
       <ThreadSidebar
         routeReveal={routeReveal}
+        allowedProjectKeys={
+          new Set(domains.rows.map((row) => `${domains.environmentId}:${row.projectId}`))
+        }
+        beforeSettled={<WorkspaceAttention />}
         onNewDomain={() => setNewDomainOpen(true)}
         resolveThreadLocation={(thread) => {
           const folder = domains.rows.find((row) => row.projectId === thread.projectId)?.siteFiles;

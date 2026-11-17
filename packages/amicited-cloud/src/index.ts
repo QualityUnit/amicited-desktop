@@ -10,7 +10,14 @@ import type {
   OAuthClientInformationMixed,
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 
-import { MCP_URL, SCOPES, SUBSCRIPTION_URL, type Connection, type ErrorKind } from "./model.ts";
+import {
+  MCP_URL,
+  SCOPES,
+  SUBSCRIPTION_URL,
+  sessionRejected,
+  type Connection,
+  type ErrorKind,
+} from "./model.ts";
 export * from "./model.ts";
 export interface SecretStorage {
   read(): Promise<string | undefined>;
@@ -121,6 +128,7 @@ export function toolFailure(message: string) {
 }
 export class CloudClient {
   domains?: DomainConnections;
+  account?: import("./account.ts").AccountConnections;
   setup?: {
     read(): Promise<import("./setup.ts").SetupState>;
     write(state: import("./setup.ts").SetupState): Promise<void>;
@@ -373,6 +381,7 @@ export class CloudClient {
     return { accepted: decision !== "decline" };
   }
   async close() {
+    await this.account?.close();
     await Promise.all(this.domains?.allClients().map((client) => client.close()) ?? []);
     ++this.generation;
     this.cancelApprovals();
@@ -382,7 +391,17 @@ export class CloudClient {
     this.cancelOAuth?.();
     await this.closeSession();
   }
-  private current: Connection = { state: "disconnected" };
+  private currentValue: Connection = { state: "disconnected" };
+  connectionSnapshot() {
+    return this.currentValue;
+  }
+  private get current() {
+    return this.currentValue;
+  }
+  private set current(value: Connection) {
+    this.currentValue = value;
+    this.options.onChange?.();
+  }
   private generation = 0;
   private checkedAt = 0;
   private session: { key: string; client: Client } | undefined;
@@ -399,6 +418,8 @@ export class CloudClient {
     secrets: SecretStorage;
     openExternal(url: string): Promise<void>;
     endpoint?: string;
+    onSessionRejected?: () => void;
+    onChange?: () => void;
   };
   constructor(options: CloudClient["options"]) {
     this.options = options;
@@ -510,6 +531,7 @@ export class CloudClient {
       this.session = { key: JSON.stringify(credential), client };
       return result;
     } catch (error) {
+      if (sessionRejected(error)) this.options.onSessionRejected?.();
       await client.close();
       throw error;
     } finally {
@@ -518,7 +540,8 @@ export class CloudClient {
   }
   private async invoke(client: Client, name: string, args: Record<string, unknown>) {
     const result = await client.callTool({ name, arguments: args });
-    if (result.isError)
+    if (result.isError) {
+      if (sessionRejected(JSON.stringify(result.content))) this.options.onSessionRejected?.();
       return toolFailure(
         (Array.isArray(result.content) ? result.content : [])
           .flatMap((part: unknown) =>
@@ -526,6 +549,7 @@ export class CloudClient {
           )
           .join("\n"),
       );
+    }
     return result;
   }
   private async validate(
@@ -580,6 +604,7 @@ export class CloudClient {
         const credential = await this.credential();
         this.current = credential ? await this.validate(credential) : { state: "disconnected" };
       } catch (error) {
+        if (sessionRejected(error)) this.options.onSessionRejected?.();
         this.current = errorState(error);
       }
       return this.current;
@@ -601,6 +626,7 @@ export class CloudClient {
         await this.options.secrets.write(JSON.stringify(credential));
         this.current = connected;
       } catch (error) {
+        if (sessionRejected(error)) this.options.onSessionRejected?.();
         this.current = errorState(error);
       }
       return this.current;
@@ -658,7 +684,7 @@ export class CloudClient {
       rejectCode(new Error("Authentication cancelled"));
       server.close();
     };
-    const timer = setTimeout(cancel, 15 * 60_000);
+    const timer = setTimeout(cancel, 10 * 60_000);
     this.cancelOAuth = cancel;
     const fetchFn: typeof fetch = (url, init) =>
       fetch(url, {
@@ -706,6 +732,7 @@ export class CloudClient {
       });
     } catch (error) {
       if (generation === this.generation) {
+        if (sessionRejected(error)) this.options.onSessionRejected?.();
         this.current = errorState(error);
         if (error instanceof OAuthCallbackError && previousConnection.state === "connected") {
           try {
@@ -745,6 +772,7 @@ export class CloudClient {
         this.checkedAt = 0;
         await this.options.secrets.clear();
       } catch (error) {
+        if (sessionRejected(error)) this.options.onSessionRejected?.();
         this.current = errorState(error);
       }
       return this.current;
@@ -775,6 +803,7 @@ export class CloudClient {
           this.current = { ...this.current, access: "full" };
         return result;
       } catch (error) {
+        if (sessionRejected(error)) this.options.onSessionRejected?.();
         const failure = errorState(error);
         this.current = failure;
         // oxlint-disable-next-line preserve-caught-error -- Remote errors can contain credentials; expose only safe copy.

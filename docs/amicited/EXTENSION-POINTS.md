@@ -84,12 +84,10 @@ diagnostics for those APIs. The server service itself follows Effect conventions
 
 ## Product decisions overriding the snapshot
 
-Local use has no AmICited account requirement or sign-in screen. Paid integration
-is offered after a first win in a later wave, using
-`https://api.flowhunt.io/mcp/amicited` (streamable HTTP, OAuth 2.1 or workspace
-Bearer key). Connecting MCP is free, with 12 free tools and discovery for every account.
-An optional 7-day trial or Pro at EUR 120 unlocks the full set. Signup:
-https://app.flowhunt.io/sign-in?app=amicited&plan=pro&interval=month .
+An AmICited account is required to use the app. Each OAuth connection selects one
+workspace; saved sessions remain usable offline. Websites belong to that workspace,
+and older local websites require explicit adoption. This supersedes the optional
+connection policy in the specification snapshot.
 
 ## Wave 1B marketer experience
 
@@ -858,3 +856,11 @@ on the changed line only.
 - `packages/shared/src/themePalettes.ts`: the `t3-chat` theme is labelled "Orchid" (id unchanged).
 - `apps/web/src/components/settings/SnapShotSettings.tsx`, `SnapShotSetupDialog.tsx`, `settingsSearch.ts`: the settings page and nav say "Screen capture", matching the desktop messages and the GNOME extension name.
 - `apps/server/src/policy/policyTemplates.ts` (allowed-clients help), `packages/client-runtime/src/relay/errorPresentation.ts`, `apps/server/src/preview/PreviewBrowserHost.ts` (AppArmor profile comment): the last "T3 Code" mentions left after the Link and CLI rebrands.
+
+## Required account and workspaces
+
+- `apps/web/src/routes/__root.tsx`: applies the account gate to the standalone welcome branches that bypass FirstRunGate.
+- `apps/web/src/components/onboarding/FirstRunGate.tsx`: wraps the existing first-run decision in the marketing account gate; environment authentication and pairing remain outside it.
+- `apps/web/src/components/Sidebar.tsx`: accepts an optional allowed-project set and a slot before Settled, so marketer workspaces constrain thread visibility without changing developer mode.
+- `packages/client-runtime/src/rpc/client.ts`: registers the account subscription alongside existing marketing subscriptions.
+- Existing cloud RPC, authorization and command-permission extension points also carry the account methods and older-website adoption.

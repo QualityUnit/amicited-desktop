@@ -2057,6 +2057,74 @@ export const layerWsRpc = (
         "amicited.reports.templates": () => Effect.succeed(reportTemplates),
         "amicited.reports.subscribe": () => reports.changes,
 
+        "amicited.account.status": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.status(),
+            catch: () => new DomainFailure({ message: "Could not read account." }),
+          }),
+        "amicited.account.addWorkspace": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.addWorkspace(),
+            catch: () => new DomainFailure({ message: "Could not start sign-in." }),
+          }),
+        "amicited.account.cancelSignIn": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.cancelSignIn(),
+            catch: () => new DomainFailure({ message: "Could not cancel sign-in." }),
+          }),
+        "amicited.account.reopenSignIn": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.reopenSignIn(),
+            catch: () => new DomainFailure({ message: "Could not open sign-in." }),
+          }),
+        "amicited.account.switchWorkspace": ({ workspaceId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.switchWorkspace(workspaceId),
+            catch: () => new DomainFailure({ message: "Could not switch workspace." }),
+          }),
+        "amicited.account.removeWorkspace": ({ workspaceId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.removeWorkspace(workspaceId),
+            catch: () => new DomainFailure({ message: "Could not remove workspace." }),
+          }),
+        "amicited.account.signOut": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.signOut(),
+            catch: () => new DomainFailure({ message: "Could not sign out." }),
+          }),
+        "amicited.account.subscribe": () =>
+          Stream.callback<Awaited<ReturnType<NonNullable<typeof cloud.account>["status"]>>>(
+            (queue) =>
+              Effect.acquireRelease(
+                Effect.sync(() => {
+                  const send = () => {
+                    void cloud.account!.status().then((status) => Queue.offerUnsafe(queue, status));
+                  };
+                  const unsubscribe = cloud.account!.subscribe(send);
+                  send();
+                  return unsubscribe;
+                }),
+                (unsubscribe) => Effect.sync(unsubscribe),
+              ),
+          ),
+        "amicited.domains.older": () =>
+          Effect.tryPromise({
+            try: () => cloud.domains!.older(),
+            catch: () => new DomainFailure({ message: "Could not read older websites." }),
+          }),
+        "amicited.domains.adopt": ({ projectId }) =>
+          Effect.tryPromise({
+            try: () => cloud.domains!.adopt(projectId),
+            catch: () => new DomainFailure({ message: "Could not add this website to AmICited." }),
+          }),
+        "amicited.domains.listCloud": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.listCloudDomains(),
+            catch: () =>
+              new DomainFailure({
+                message: "Could not read cloud websites. Local websites are still available.",
+              }),
+          }),
         "amicited.setup.read": () =>
           Effect.tryPromise({
             try: () => cloud.setup?.read() ?? Promise.resolve({ finished: false }),
@@ -2069,7 +2137,7 @@ export const layerWsRpc = (
           }),
         "amicited.domains.list": () =>
           Effect.tryPromise({
-            try: () => cloud.domains?.metadata() ?? Promise.resolve([]),
+            try: () => cloud.domains?.scoped() ?? Promise.resolve([]),
             catch: () =>
               new DomainFailure({ message: "Could not read your domains. Please try again." }),
           }).pipe(Effect.tap((domains) => Effect.forkDetach(domainFavicons.sync(domains)))),
@@ -2122,25 +2190,7 @@ export const layerWsRpc = (
           }).pipe(syncAudit(projectId)),
         "amicited.domains.connection": ({ projectId, action, apiKey }) =>
           Effect.tryPromise({
-            try: async () => {
-              await cloud.domains?.list();
-              const client =
-                (apiKey || action === "oauth") && cloud.domains
-                  ? await cloud.domains.prepareConnection(projectId)
-                  : cloud.forProject(projectId);
-              const result = await (apiKey
-                ? client.connectApiKey(apiKey)
-                : action === "oauth"
-                  ? client.connectOAuth()
-                  : action === "disconnect"
-                    ? cloud.domains
-                      ? cloud.domains.disconnect(projectId)
-                      : client.disconnect()
-                    : client.status());
-              return client === cloud.forProject(projectId)
-                ? result
-                : cloud.forProject(projectId).status();
-            },
+            try: () => cloud.domains!.connection(projectId, action, apiKey),
             catch: () =>
               new DomainFailure({
                 message: "Could not update the AmICited connection for this domain.",

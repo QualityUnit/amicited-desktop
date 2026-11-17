@@ -57,6 +57,10 @@ vi.mock("./localApi", async (original) => ({
     dialogs: { pickFolder: async () => state.folderPath },
   }),
 }));
+vi.mock("./rpc/amicitedAccount", () => ({
+  WorkspaceSwitcher: () => null,
+  OlderWebsites: () => null,
+}));
 vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => <section aria-label="Assistant setup">Assistant</section>,
 }));
@@ -275,13 +279,15 @@ it("reuses the saved migration project after a failed save and remount", async (
   localStorage.setItem("amicited.brand", JSON.stringify({ website: "acme.com", name: "Acme" }));
   try {
     {
-      await using _screen = await render(<DomainMigration />);
+      await using screen = await render(<DomainMigration />);
+      await screen.getByRole("button", { name: "Add to AmICited", exact: true }).click();
       await vi.waitFor(() =>
         expect(state.requests.some((r) => r.label === "domains:save")).toBe(true),
       );
       await vi.waitFor(() => expect(localStorage.getItem(key)).toBe("created-domain"));
     }
-    await using _screen = await render(<DomainMigration />);
+    await using screen = await render(<DomainMigration />);
+    await screen.getByRole("button", { name: "Add to AmICited", exact: true }).click();
     await vi.waitFor(() => expect(localStorage.getItem("amicited.brand")).toBeNull());
     expect(
       state.requests.filter((r) => r.label === "environment-data:projects:create-new"),

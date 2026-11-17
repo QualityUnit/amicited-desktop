@@ -11,6 +11,7 @@
     "./model": "./src/model.ts",
     "./domainModel": "./src/domainModel.ts",
     "./siteFiles": "./src/siteFiles.ts",
+    "./account": "./src/account.ts",
     "./domains": "./src/domains.ts",
     "./toolResult": "./src/toolResult.ts",
     "./capture": "./src/capture.ts"

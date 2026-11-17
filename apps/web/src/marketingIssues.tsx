@@ -100,7 +100,7 @@ const runAuditCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 const emptySnapshot: IssuesSnapshot = { issues: [], audits: [] };
 const noIssues = Atom.make(AsyncResult.success(emptySnapshot));
 
-function useIssues(environmentId: EnvironmentId | null | undefined) {
+export function useIssues(environmentId: EnvironmentId | null | undefined) {
   const value = useAtomValue(
     environmentId ? issuesStream({ environmentId, input: undefined }) : noIssues,
   );

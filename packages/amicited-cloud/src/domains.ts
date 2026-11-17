@@ -7,6 +7,7 @@ export interface Domain {
   brand: string;
   connectionRef: string;
   domainId?: string;
+  workspaceId?: string;
   cms?: import("./domainModel.ts").Cms;
   siteFiles?: string | null;
   framework?: string | null;
@@ -41,6 +42,11 @@ export class DomainConnections {
     migration?: { complete(): Promise<boolean>; finish(): Promise<void> };
     client(secrets: SecretStorage): CloudClient;
     changed(): void;
+    account?: {
+      currentId(): string | undefined;
+      client(id: string): CloudClient;
+      allClients?(): CloudClient[];
+    };
   };
   constructor(options: DomainConnections["options"]) {
     this.options = options;
@@ -77,6 +83,47 @@ export class DomainConnections {
       }))),
     ]);
   }
+  async scoped() {
+    const rows = await this.metadata();
+    return this.options.account
+      ? rows.filter(
+          (row) =>
+            row.workspaceId === this.options.account!.currentId() && row.workspaceId !== undefined,
+        )
+      : rows;
+  }
+  async older() {
+    return (await this.metadata()).filter((row) => !row.workspaceId);
+  }
+  async adopt(projectId: string) {
+    const id = this.options.account?.currentId();
+    if (!id) throw new Error("Sign in to continue.");
+    const domain = await this.serial(async () => {
+      const rows = (this.rows ??= await this.options.read());
+      const row = rows.find((r) => r.projectId === projectId);
+      if (!row || (row.workspaceId && row.workspaceId !== id))
+        throw new Error("Website is not available in this workspace.");
+      const updated = { ...(row.workspaceId ? row : withoutDomainId(row)), workspaceId: id };
+      const next = rows.map((r) => (r === row ? updated : r));
+      await this.options.write(next);
+      this.rows = next;
+      this.options.changed();
+      return updated;
+    });
+    await this.createCloudDomain(domain);
+    return (await this.metadata()).find((r) => r.projectId === projectId)!;
+  }
+  private async createCloudDomain(domain: Domain) {
+    if (!domain.workspaceId || domain.domainId) return;
+    try {
+      const result = await this.options
+        .account!.client(domain.workspaceId)
+        .call("create_domain", { domain_name: domain.hostname });
+      if (!result.isError) await this.rememberDomain(domain.projectId, result);
+    } catch {
+      // Offline and free-tier refusals keep the website local for a later retry.
+    }
+  }
   list() {
     return this.serial(async () => {
       const rows = (this.rows ??= (await this.options.read()).map((row) => ({
@@ -98,9 +145,13 @@ export class DomainConnections {
         cms: "unknown" as const,
         ...row,
       })));
+      const workspaceId = this.options.account?.currentId();
+      if (this.options.account && !workspaceId) throw new Error("Sign in to add a website.");
       const data = normalizeDomain(website, brand);
       const existing = rows.find((row) => row.projectId === projectId);
       if (existing) {
+        if (this.options.account && existing.workspaceId !== workspaceId)
+          throw new Error("Add this older website to AmICited first.");
         await this.migrate(rows).catch(() => {});
         const updated = {
           ...(existing.hostname === data.hostname ? existing : withoutDomainId(existing)),
@@ -110,6 +161,7 @@ export class DomainConnections {
         const next = rows.map((row) => (row.projectId === projectId ? updated : row));
         await this.options.write(next);
         this.rows = next;
+        this.options.changed();
         return updated;
       }
       const row = {
@@ -118,15 +170,44 @@ export class DomainConnections {
         cms: "unknown" as const,
         ...metadata,
         connectionRef: projectId,
+        ...(workspaceId ? { workspaceId } : {}),
       };
       // Persist the migration target before moving its credential, so retry is safe.
       await this.options.write([...rows, row]);
       this.rows = [...rows, row];
+      this.options.changed();
       // Cloud status retries secure migration; keyring failures cannot block local projects.
       await this.migrate([...rows, row]).catch(() => {});
       this.rows = [...rows, row];
+      this.options.changed();
       return row;
+    }).then(async (domain) => {
+      await this.createCloudDomain(domain);
+      return (await this.metadata()).find((r) => r.projectId === projectId)!;
     });
+  }
+  async connection(projectId: string, action: "status" | "oauth" | "disconnect", apiKey?: string) {
+    const rows = await this.list();
+    const domain = rows.find((r) => r.projectId === projectId);
+    if (domain?.workspaceId && this.options.account) {
+      if (domain.workspaceId !== this.options.account.currentId())
+        throw new Error("Switch to this website's workspace first.");
+      if (apiKey || action === "disconnect")
+        throw new Error("Manage the workspace connection in Account and Workspaces.");
+      return this.client(projectId).status();
+    }
+    if (this.options.account) throw new Error("Add this older website to AmICited first.");
+    const client =
+      apiKey || action === "oauth"
+        ? await this.prepareConnection(projectId)
+        : this.client(projectId);
+    return apiKey
+      ? client.connectApiKey(apiKey)
+      : action === "oauth"
+        ? client.connectOAuth()
+        : action === "disconnect"
+          ? this.disconnect(projectId)
+          : client.status();
   }
   prepareConnection(projectId: string) {
     return this.serial(async () => {
@@ -136,6 +217,7 @@ export class DomainConnections {
       })));
       const domain = rows.find((row) => row.projectId === projectId);
       if (!domain) throw new Error("Add a domain before connecting AmICited.");
+      if (domain.workspaceId) return this.client(projectId);
       this.release(projectId);
       const shared = rows.filter((row) => row.connectionRef === domain.connectionRef).length > 1;
       const next = rows.map((row) =>
@@ -148,11 +230,13 @@ export class DomainConnections {
       );
       await this.options.write(next);
       this.rows = next;
+      this.options.changed();
       return this.client(projectId);
     });
   }
   reuse(projectId: string, sourceProjectId: string) {
     return this.serial(async () => {
+      if (this.options.account) throw new Error("Websites use their workspace connection.");
       const rows = (this.rows ??= (await this.options.read()).map((row) => ({
         cms: "unknown" as const,
         ...row,
@@ -177,6 +261,7 @@ export class DomainConnections {
       );
       await this.options.write(next);
       this.rows = next;
+      this.options.changed();
     });
   }
   disconnect(projectId: string) {
@@ -186,6 +271,7 @@ export class DomainConnections {
         ...row,
       })));
       const row = rows.find((row) => row.projectId === projectId);
+      if (row?.workspaceId) throw new Error("Manage this connection in Account and Workspaces.");
       this.release(projectId);
       if (row && rows.filter((other) => other.connectionRef === row.connectionRef).length > 1) {
         const next = rows.map((other) =>
@@ -195,6 +281,7 @@ export class DomainConnections {
         );
         await this.options.write(next);
         this.rows = next;
+        this.options.changed();
         return this.client(projectId).status();
       }
       const result = await this.client(projectId).disconnect();
@@ -204,6 +291,7 @@ export class DomainConnections {
         );
         await this.options.write(next);
         this.rows = next;
+        this.options.changed();
       }
       return result;
     });
@@ -217,13 +305,17 @@ export class DomainConnections {
       const row = rows.find((row) => row.projectId === projectId);
       if (!row) return;
       this.release(projectId);
-      if (rows.filter((other) => other.connectionRef === row.connectionRef).length === 1) {
+      if (
+        !row.workspaceId &&
+        rows.filter((other) => other.connectionRef === row.connectionRef).length === 1
+      ) {
         const result = await this.client(projectId).disconnect();
         if (result.state === "error") throw new Error(result.message);
       }
       const next = rows.filter((other) => other.projectId !== projectId);
       await this.options.write(next);
       this.rows = next;
+      this.options.changed();
     });
   }
   rememberDomain(projectId: string, result: unknown) {
@@ -270,10 +362,22 @@ export class DomainConnections {
         );
         await this.options.write(next);
         this.rows = next;
+        this.options.changed();
       }
     });
   }
   client(projectId: string) {
+    const domain = this.rows?.find((r) => r.projectId === projectId);
+    if (this.options.account) {
+      if (domain?.workspaceId) return this.options.account.client(domain.workspaceId);
+      return this.options.client({
+        read: async () => undefined,
+        write: async () => {
+          throw new Error("Add this website to the current workspace first.");
+        },
+        clear: async () => {},
+      });
+    }
     const reference =
       this.rows?.find((row) => row.projectId === projectId)?.connectionRef ?? projectId;
     let client = this.clients.get(reference);
@@ -285,6 +389,8 @@ export class DomainConnections {
     return client;
   }
   allClients() {
-    return [...this.clients.values()];
+    return [
+      ...new Set([...this.clients.values(), ...(this.options.account?.allClients?.() ?? [])]),
+    ];
   }
 }

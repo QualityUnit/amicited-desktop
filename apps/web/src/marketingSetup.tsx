@@ -1,3 +1,4 @@
+import { OlderWebsites, WorkspaceSwitcher } from "./rpc/amicitedAccount";
 import { effectiveMarketingAssistant } from "./marketingAssistant";
 import { AmICitedMark } from "@amicited/ui-marketing";
 import { usePrimarySettings } from "./hooks/useSettings";
@@ -188,6 +189,7 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
       <div data-am="am-setup-column">
         <div data-am="am-setup-brand">
           <AmICitedMark />
+          <WorkspaceSwitcher compact />
         </div>
         <nav aria-label="Setup progress" data-am="am-setup-progress">
           {(["assistant", "website", "cloud"] as const).map((item, i) => (
@@ -206,12 +208,13 @@ export function MarketingSetupHost({ children }: { children?: import("react").Re
                 : step === "website"
                   ? "Keep your chats, brand and site files together in a domain."
                   : step === "cloud"
-                    ? "Your local tools always work without an account."
+                    ? "Your account is connected. Local tools work offline with your saved sign-in."
                     : "Uses your existing Claude or ChatGPT subscription. No API key; your login stays on this computer."}
             </p>
           </header>
         )}
         <div data-am="am-setup-body">
+          <OlderWebsites />
           {step === "assistant" && (
             <MarketingSubscriptions
               usageLink={false}
