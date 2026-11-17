@@ -1,11 +1,22 @@
 import { CloudClient } from "@amicited/cloud-client";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { assert, it } from "@effect/vitest";
+import {
+  ProjectId,
+  ProviderDriverKind,
+  ProviderInstanceId,
+  ScheduledTaskId,
+  type ScheduledTask,
+  type ScheduledTaskUpsertInput,
+} from "@t3tools/contracts";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as SqlClient from "effect/sql/SqlClient";
 
 import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { ProjectService } from "../project/ProjectService.ts";
+import { ProviderInstanceRegistry } from "../provider/ProviderInstanceRegistry.ts";
 import { ScheduledTaskService } from "../scheduledTasks/ScheduledTaskService.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { AmicitedCloud } from "./Cloud.ts";
@@ -19,6 +30,7 @@ const layer = Issues.layer.pipe(
       Layer.mock(ScheduledTaskService)({ list: () => Effect.succeed({ tasks: [] }) }),
       Layer.mock(ProjectService)({}),
       Layer.mock(ServerSettingsService)({}),
+      Layer.mock(ProviderInstanceRegistry)({}),
       Layer.succeed(
         AmicitedCloud,
         new CloudClient({
@@ -92,3 +104,94 @@ it.effect("refuses to start an audit for a domain that is not connected to AmICi
     assert.strictEqual(ran.message, "Connect AmICited to this domain first.");
   }).pipe(Effect.provide(layer)),
 );
+
+const ready = {
+  enabled: true,
+  installed: true,
+  status: "ready",
+  auth: { status: "authenticated" },
+};
+const signedOut = { ...ready, auth: { status: "unauthenticated" } };
+
+it.effect.each([
+  {
+    name: "Claude is the assistant but signed out, so Codex runs it on Sol",
+    claude: signedOut,
+    assistant: "claude",
+    expected: {
+      instanceId: ProviderInstanceId.make("codex"),
+      model: "gpt-6.1-sol",
+      options: [{ id: "reasoningEffort", value: "high" }],
+    },
+  },
+  {
+    name: "the assistant is neither Claude nor Codex, so Claude runs it on Opus",
+    claude: ready,
+    assistant: "cursor",
+    expected: {
+      instanceId: ProviderInstanceId.make("claude"),
+      model: "claude-opus-5-5",
+      options: [{ id: "effort", value: "high" }],
+    },
+  },
+])("moves an audit saved on the background model: $name", ({ claude, assistant, expected }) => {
+  const task = {
+    id: ScheduledTaskId.make("task-1"),
+    title: "Daily audit · example.com",
+    prompt: "Audit example.com",
+    enabled: true,
+    schedule: { type: "fixed_time", timeOfDay: "06:00" },
+    projectId: ProjectId.make("domain"),
+    threadId: null,
+    workspaceStrategy: { type: "root" },
+    modelSelection: { instanceId: ProviderInstanceId.make("codex"), model: "gpt-6-luna" },
+    runtimeMode: "approval-required",
+    interactionMode: "default",
+  } as ScheduledTask;
+  const provider = (id: string, snapshot: object) => ({
+    instanceId: ProviderInstanceId.make(id),
+    driverKind: ProviderDriverKind.make(id === "claude" ? "claudeAgent" : id),
+    enabled: true,
+    snapshot: { getSnapshot: Effect.succeed(snapshot) },
+  });
+  const oldAudit = Layer.effectDiscard(
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      yield* sql`CREATE TABLE amicited_migrations (migration_id INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)`;
+      yield* sql`INSERT INTO amicited_migrations VALUES (1, 'Issues', '2026-11-01T00:00:00Z')`;
+      yield* sql`CREATE TABLE amicited_issue_audits (project_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, instructions TEXT NOT NULL DEFAULT '')`;
+      yield* sql`INSERT INTO amicited_issue_audits VALUES ('domain', 'task-1', '')`;
+    }),
+  ).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
+  return Effect.gen(function* () {
+    const saved = yield* Deferred.make<ScheduledTaskUpsertInput>();
+    const deps = Layer.mergeAll(
+      oldAudit,
+      NodeCrypto.layer,
+      Layer.mock(ScheduledTaskService)({
+        list: () => Effect.succeed({ tasks: [task] }),
+        upsert: (input) => Deferred.succeed(saved, input).pipe(Effect.as({ task, created: false })),
+      }),
+      Layer.mock(ProjectService)({
+        getById: () => Effect.succeedSome({ defaultModelSelection: undefined } as never),
+      }),
+      Layer.mock(ServerSettingsService)({
+        getSettings: Effect.succeed({
+          textGenerationModelSelection: { instanceId: assistant, model: "default" },
+        } as never),
+      }),
+      Layer.mock(ProviderInstanceRegistry)({
+        listInstances: Effect.succeed([
+          provider("claude", claude),
+          provider("codex", ready),
+          provider("cursor", ready),
+        ] as never),
+      }),
+      Layer.succeed(AmicitedCloud, {} as never),
+    );
+    const moved = yield* Deferred.await(saved).pipe(
+      Effect.provide(Issues.layer.pipe(Layer.provideMerge(deps))),
+    );
+    assert.deepStrictEqual(moved.modelSelection, expected);
+  });
+});
