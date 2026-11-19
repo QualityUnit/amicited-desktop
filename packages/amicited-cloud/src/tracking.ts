@@ -62,6 +62,7 @@ export const TrackingAnswer = Schema.Struct({
   brand: Schema.optionalKey(BrandMention),
   domain: Schema.optionalKey(DomainMention),
   search: Schema.optionalKey(SearchResults),
+  webSearch: Schema.optionalKey(Schema.Boolean),
   /** Which browser captured the answer: the user's own, or the AmICited browser. */
   browser: Schema.optionalKey(Schema.String),
 });
@@ -211,6 +212,7 @@ export function trackingAnswer(
     brand: result.brand,
     domain: result.domain,
     ...(result.search ? { search: result.search } : {}),
+    ...(result.webSearch === undefined ? {} : { webSearch: result.webSearch }),
     ...(browser ? { browser } : {}),
   };
 }

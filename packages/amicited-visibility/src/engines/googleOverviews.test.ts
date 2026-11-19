@@ -64,14 +64,13 @@ describe("Google results pages", () => {
   });
 
   it("ranks the brand in the overview's list and ignores display text in Google's data", () => {
-    const result = readPage("google-commercial", { brand: "HubSpot", domain: "hubspot.com" });
+    const result = readPage("google-commercial", {
+      brand: "HubSpot",
+      domain: "hubspot.com",
+      competitors: ["Pipedrive", "Salesforce"],
+    });
     expect(result.brand).toMatchObject({ mentioned: true, listPosition: 1 });
-    expect(result.competitors).toEqual([
-      "Pipedrive",
-      "Zoho CRM",
-      "monday CRM",
-      "Less Annoying CRM",
-    ]);
+    expect(result.competitors).toEqual(["Pipedrive"]);
     expect(result.sources.map((s) => s.domain)).toEqual([
       "uschamber.com",
       "uk.pcmag.com",

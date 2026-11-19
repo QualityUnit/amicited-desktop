@@ -79,6 +79,23 @@ Each prompt runs once per day per engine at `TrackingConfig.time`. A slot missed
 computer was off or asleep runs once on the next tick, and older missed slots are recorded
 as missed. Runs are persisted before they start, so a day never runs twice.
 
+## ChatGPT
+
+- **Two front ends.** Signed-out visitors get a server-rendered page (`li[data-message-role]`,
+  citation pills are buttons without URLs); signed-in accounts get the React app
+  (`[data-message-author-role]`, pills are links). The engine's page scripts read both. The
+  signed-out page keeps each answer's markdown, with every citation URL in order, in a hidden
+  `conversationState` input, which is filled a few seconds after `data-message-complete`.
+- **Titles need clicks.** The signed-out Sources panel lists only each pill's first source, so
+  the engine opens every pill and the Sources panel and reads the titles they show.
+- **Prompt in the URL.** `https://chatgpt.com/?temporary-chat=true&q=…` opens a fresh chat and
+  sends the prompt, with no synthetic typing; prompts over 1,500 characters are typed.
+  `temporary-chat` keeps checks out of a signed-in user's history and is ignored signed out,
+  where no history is kept. Nothing is deleted afterwards.
+- **Search is ChatGPT's choice.** The engine does not force web search, so the answer is the
+  one the user would get; `webSearch` records whether ChatGPT searched (the "Searching the
+  web" phase, citation pills or a Sources button).
+
 ## Google Search and AI Overviews
 
 `google_overviews` opens `/search?q=…&gl=<country>` and records the AI Overview and the first
@@ -96,5 +113,5 @@ page of organic results from the same page (`VisibilityResult.search`). Things t
   run stops as blocked. The connector needs `consent.google.com` for this.
 - **Formulas** render as images and SVG; their text is the LaTeX in `data-xpm-latex`.
 - **Fixtures** in `engines/fixtures` are what `readGoogleSearch` returned on real pages in
-  Firefox, with session ids and opaque tokens scrubbed. Lint bans DOM emulators in package
-  tests, so the in-page half is proven by running a check through the connector.
+  Firefox, with session ids and opaque tokens scrubbed. The in-page half was proven by running
+  checks through the connector.
