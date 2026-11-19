@@ -2,14 +2,21 @@ import * as Fiber from "effect/Fiber";
 import * as Random from "effect/Random";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
+import * as Clock from "effect/Clock";
+import * as Duration from "effect/Duration";
+import { engines, type EngineRegistry } from "@amicited/visibility/engines";
+import type { VisibilityEngine } from "@amicited/visibility/engine";
+import { askOrder, defaultPacing, retryDelay, SitePacer } from "@amicited/visibility/pacing";
+import { unansweredResult, type VisibilityResult } from "@amicited/visibility/result";
+import { localDay, planDailyRun } from "@amicited/visibility/schedule";
+import type { ProbeResult, SiteId } from "@amicited/visibility/sites";
 import {
   TrackingFailure,
   TrackingConfig,
   TrackingRun,
   detectCountry,
-  scheduleDays,
   suggestPrompts,
-  parseAnswer,
+  trackingAnswer,
   trackingFindings,
   engineConnection,
   type TrackingSnapshot,
@@ -29,12 +36,6 @@ import * as SqlClient from "effect/sql/SqlClient";
 import { AmicitedCloud } from "./Cloud.ts";
 import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
-import chatgpt from "./trackingAdapters/chatgpt.ts";
-import perplexity from "./trackingAdapters/perplexity.ts";
-import gemini from "./trackingAdapters/gemini.ts";
-import claude from "./trackingAdapters/claude.ts";
-import google from "./trackingAdapters/google.ts";
-import google_overviews from "./trackingAdapters/googleOverviews.ts";
 import * as HttpClient from "effect/http/HttpClient";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Option from "effect/Option";
@@ -49,7 +50,21 @@ const encodeEvidence = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown)
 const decodeRun = Schema.decodeEffect(Schema.fromJsonString(TrackingRun));
 const encodeConfig = Schema.encodeEffect(Schema.fromJsonString(TrackingConfig));
 const encodeRun = Schema.encodeEffect(Schema.fromJsonString(TrackingRun));
-const adapters = { chatgpt, perplexity, gemini, claude, google, google_overviews };
+/** The engines runs use; tests replace them with fakes. */
+export const TrackingEngines = Context.Reference<EngineRegistry>("t3/amicited/TrackingEngines", {
+  defaultValue: () => engines,
+});
+/** The sign-in state an engine result shows, or null when it says nothing about the sign-in. */
+const probeOf = (result: VisibilityResult, engine: VisibilityEngine): ProbeResult | null =>
+  result.status === "blocked"
+    ? "captcha"
+    : result.status === "logged_out"
+      ? "logged_out"
+      : result.session === "logged_in"
+        ? "logged_in"
+        : result.session === "logged_out" && engine.requiresLogin
+          ? "logged_out"
+          : null;
 export class Tracking extends Context.Service<
   Tracking,
   {
@@ -154,7 +169,7 @@ export const layer = Layer.effect(
     };
     const snapshot = Effect.fn("Tracking.snapshot")(function* () {
       const cs = yield* configs();
-      const day = scheduleDays(DateTime.toDate(yield* DateTime.now), "00:00", undefined).day;
+      const day = localDay(DateTime.toDate(yield* DateTime.now));
       const consumed = (yield* sql`SELECT prompt FROM amicited_tracking_ledger WHERE day = ${day}`)
         .length;
       const summaries = (yield* runs()).map((r) => {
@@ -225,11 +240,7 @@ export const layer = Layer.effect(
         return yield* new TrackingFailure({
           message: "Use this computer's country and unique, non-empty prompts.",
         });
-      const configuredDay = scheduleDays(
-        DateTime.toDate(yield* DateTime.now),
-        config.time,
-        undefined,
-      ).day;
+      const configuredDay = localDay(DateTime.toDate(yield* DateTime.now));
       const result = yield* sql.withTransaction(
         Effect.gen(function* () {
           const cs = [...(yield* configs())]
@@ -296,76 +307,98 @@ export const layer = Layer.effect(
       const previous = (yield* runs()).find(
         (x) => x.projectId === c.projectId && x.status === "complete",
       );
+      const registry = yield* TrackingEngines;
+      const clock = yield* Clock.Clock;
+      const rng = yield* Random.Random;
+      const now = () => clock.currentTimeMillisUnsafe();
+      const random = () => rng.nextDoubleUnsafe();
       let answers = [...r.answers];
-      const blocked = new Set<string>();
-      for (const engine of c.engines)
-        for (const p of c.prompts.filter((p) => p.enabled)) {
-          if (
-            answers.some(
-              (a) => a.engine === engine && a.promptId === p.id && a.status === "answered",
-            )
-          )
-            continue;
-          const connection = engineConnection(engine);
-          if (blocked.has(connection)) continue;
-          if (!usage([c], yield* metadata()).domains.length) break;
-          const reserve = sql.withTransaction(
-            Effect.gen(function* () {
-              const reservationDay = scheduleDays(
-                DateTime.toDate(yield* DateTime.now),
-                "00:00",
-                undefined,
-              ).day;
-              const key = p.text.trim().replace(/\s+/g, " ").toLowerCase();
-              const ledger = yield* sql<{
-                prompt: string;
-              }>`SELECT prompt FROM amicited_tracking_ledger WHERE day = ${reservationDay}`;
-              if (ledger.some((l) => l.prompt === key)) return true;
-              if (ledger.length >= 20) return false;
-              yield* sql`INSERT OR IGNORE INTO amicited_tracking_ledger VALUES (${reservationDay}, ${key})`;
-              return true;
-            }),
-          );
-          let exhausted = false;
-          const result = yield* connections
+      const pacer = new SitePacer<SiteId>(defaultPacing);
+      const prompts = c.prompts.filter((p) => p.enabled);
+      for (const { prompt: p, engine } of askOrder(prompts, c.engines)) {
+        if (
+          answers.some((a) => a.engine === engine && a.promptId === p.id && a.status === "answered")
+        )
+          continue;
+        const implementation = registry[engine];
+        const site = implementation.site;
+        if (pacer.stopped(site)) continue;
+        if (!usage([c], yield* metadata()).domains.length) break;
+        yield* Effect.sleep(Duration.millis(pacer.delayBefore(site, now(), random())));
+        const reserve = sql.withTransaction(
+          Effect.gen(function* () {
+            const reservationDay = localDay(DateTime.toDate(yield* DateTime.now));
+            const key = p.text.trim().replace(/\s+/g, " ").toLowerCase();
+            const ledger = yield* sql<{
+              prompt: string;
+            }>`SELECT prompt FROM amicited_tracking_ledger WHERE day = ${reservationDay}`;
+            if (ledger.some((l) => l.prompt === key)) return true;
+            if (ledger.length >= 20) return false;
+            yield* sql`INSERT OR IGNORE INTO amicited_tracking_ledger VALUES (${reservationDay}, ${key})`;
+            return true;
+          }),
+        );
+        let exhausted = false;
+        let outcome: { result: VisibilityResult; browser?: string };
+        for (let attempt = 1; ; attempt++) {
+          pacer.asked(site, now());
+          outcome = yield* connections
             .run((e, signal, runEffect) =>
               e.withSiteSession(
-                engineConnection(engine),
+                site,
                 async (page) => {
                   if (!(await runEffect(reserve))) {
                     exhausted = true;
                     throw new Error("Daily prompt budget exhausted");
                   }
-                  return adapters[engine](page, p.text);
+                  const result = await implementation.run(
+                    page,
+                    { prompt: p.text, brand: d.brand, domain: d.hostname, country: c.country },
+                    {
+                      signal,
+                      now: () => DateTime.toDate(DateTime.makeUnsafe(now())),
+                      random,
+                      sleep: (ms) => runEffect(Effect.sleep(Duration.millis(ms))),
+                    },
+                  );
+                  return {
+                    value: { result, browser: page.browser },
+                    probe: probeOf(result, implementation),
+                  };
                 },
                 signal,
               ),
             )
-            .pipe(Effect.orElseSucceed(() => null));
-          if (result?.status === "needs_sign_in") blocked.add(connection);
-          const answer = {
-            promptId: p.id,
-            prompt: p.text,
-            engine,
-            status: exhausted
-              ? ("budget_exhausted" as const)
-              : result === null
-                ? ("failed" as const)
-                : result.status === "needs_sign_in"
-                  ? ("needs_sign_in" as const)
-                  : ("answered" as const),
-            ...parseAnswer(
-              result?.status === "ok" ? result.value.text : "",
-              result?.status === "ok" ? result.value.links : [],
-              d.brand,
-              d.hostname,
-            ),
-          };
-          answers = answers.filter((a) => a.engine !== engine || a.promptId !== p.id);
-          answers.push(answer);
-          yield* persistRun({ ...r, answers });
-          yield* Effect.sleep(`${2000 + (yield* Random.nextIntBetween(0, 3000))} millis`);
+            .pipe(
+              Effect.catch((error) =>
+                Effect.succeed({
+                  result: unansweredResult(
+                    {
+                      engine,
+                      prompt: p.text,
+                      country: c.country,
+                      capturedAt: DateTime.formatIso(DateTime.makeUnsafe(now())),
+                    },
+                    "failed",
+                    error.message,
+                  ),
+                }),
+              ),
+            );
+          const delay = exhausted
+            ? null
+            : retryDelay(outcome.result.status, attempt, defaultPacing, random());
+          if (delay === null) break;
+          yield* Effect.sleep(Duration.millis(delay));
         }
+        if (!exhausted) pacer.record(site, outcome.result.status);
+        const answer = exhausted
+          ? { ...trackingAnswer(p.id, outcome.result), status: "budget_exhausted" as const }
+          : trackingAnswer(p.id, outcome.result, outcome.browser);
+        answers = answers.filter((a) => a.engine !== engine || a.promptId !== p.id);
+        answers.push(answer);
+        yield* persistRun({ ...r, answers });
+      }
       const findings = trackingFindings(answers, previous?.answers ?? []);
       for (const finding of findings)
         yield* issues
@@ -403,7 +436,7 @@ export const layer = Layer.effect(
         const connection = issue.fingerprint.split(":")[2];
         if (
           successful.some((a) => engineConnection(a.engine) === connection) &&
-          !blocked.has(connection!)
+          !pacer.stopped(connection as SiteId)
         )
           yield* issues
             .update({ id: issue.id, status: "done", resolution: "audit" })
@@ -439,6 +472,7 @@ export const layer = Layer.effect(
       projectId: string,
       threadId?: string,
       resumeId?: string,
+      slot?: string,
     ) {
       if (active.has(projectId)) {
         if (threadId)
@@ -462,7 +496,7 @@ export const layer = Layer.effect(
         return yield* new TrackingFailure({
           message: "Set up local tracking for this domain first.",
         });
-      const day = scheduleDays(DateTime.toDate(yield* DateTime.now), c.time, undefined).day;
+      const day = slot ?? localDay(DateTime.toDate(yield* DateTime.now));
       const oldSummary = s.runs.find(
         (r) => r.projectId === projectId && r.day === day && r.status !== "missed",
       );
@@ -560,19 +594,20 @@ export const layer = Layer.effect(
     const tick = Effect.gen(function* () {
       const s = yield* snapshot();
       yield* syncUsage();
+      const now = DateTime.toDate(yield* DateTime.now);
       for (const c of s.configs) {
         if (!s.usage.domains.some((d) => d.projectId === c.projectId)) continue;
         const latest = s.runs.find((r) => r.projectId === c.projectId);
         const [start] = yield* sql<{
           configured_day: string;
         }>`SELECT configured_day FROM amicited_tracking_config WHERE project_id = ${c.projectId}`;
-        const days = scheduleDays(
-          DateTime.toDate(yield* DateTime.now),
-          c.time,
-          latest?.day,
-          start?.configured_day,
-        );
-        for (const day of days.missed)
+        const plan = planDailyRun({
+          now,
+          time: c.time,
+          lastRunSlot: latest?.day,
+          firstSlot: start?.configured_day,
+        });
+        for (const day of plan.missed)
           yield* persistRun({
             id: `missed:${c.projectId}:${day}`,
             projectId: c.projectId,
@@ -581,37 +616,38 @@ export const layer = Layer.effect(
             total: 0,
             answers: [],
           });
-        const reconnect =
-          latest?.day === days.day &&
-          latest.answers.some(
-            (a) =>
-              a.status === "needs_sign_in" &&
-              connections.engine
-                .snapshot()
-                .connections.some(
-                  (connection) =>
-                    connection.id === engineConnection(a.engine) &&
-                    connection.status === "connected" &&
-                    !(latest.reconnectAttempts ?? []).includes(
-                      `${connection.id}:${connection.reconnectedAt ?? "initial"}`,
-                    ),
-                ),
-          );
+        // The latest slot's run, or a manual run made today before today's slot.
+        const current = latest && latest.day >= plan.latestSlot ? latest : undefined;
+        const reconnect = current?.answers.some(
+          (a) =>
+            (a.status === "needs_sign_in" || a.status === "blocked") &&
+            connections.engine
+              .snapshot()
+              .connections.some(
+                (connection) =>
+                  connection.id === engineConnection(a.engine) &&
+                  connection.status === "connected" &&
+                  !(current.reconnectAttempts ?? []).includes(
+                    `${connection.id}:${connection.reconnectedAt ?? "initial"}`,
+                  ),
+              ),
+        );
         const interrupted =
-          latest?.day === days.day &&
-          (latest.status === "running" || latest.status === "interrupted") &&
+          (current?.status === "running" || current?.status === "interrupted") &&
           !active.has(c.projectId);
-        if (reconnect && latest) {
+        if (reconnect && current) {
           const tokens = connections.engine
             .snapshot()
             .connections.filter((c) => c.status === "connected")
             .map((c) => `${c.id}:${c.reconnectedAt ?? "initial"}`);
           yield* persistRun({
-            ...latest,
-            reconnectAttempts: [...new Set([...(latest.reconnectAttempts ?? []), ...tokens])],
+            ...current,
+            reconnectAttempts: [...new Set([...(current.reconnectAttempts ?? []), ...tokens])],
           });
         }
-        if (days.due || reconnect || interrupted) yield* runNow(c.projectId);
+        const slot = plan.due ?? (reconnect || interrupted ? current?.day : undefined);
+        if (slot)
+          yield* startLock.withPermits(1)(startRun(c.projectId, undefined, undefined, slot));
       }
     }).pipe(Effect.mapError(failure));
 
@@ -657,7 +693,7 @@ export const layer = Layer.effect(
         else {
           const tomorrow = DateTime.toDate(yield* DateTime.now);
           tomorrow.setDate(tomorrow.getDate() + 1);
-          const until = mode === "later" ? scheduleDays(tomorrow, "00:00", undefined).day : null;
+          const until = mode === "later" ? localDay(tomorrow) : null;
           yield* sql`INSERT INTO amicited_tracking_dismissals VALUES (${key}, ${until}) ON CONFLICT(key) DO UPDATE SET until_day=excluded.until_day`;
         }
         yield* notify;

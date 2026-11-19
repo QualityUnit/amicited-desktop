@@ -1,6 +1,8 @@
 import * as AmicitedTracking from "./amicited/Tracking.ts";
 import * as HtmlRender from "./htmlRender/HtmlRender.ts";
 import * as AmicitedConnections from "./amicited/Connections.ts";
+import * as AmicitedBrowserBridge from "./amicited/browser/BrowserBridge.ts";
+import * as AmicitedBrowserSessions from "./amicited/browser/BrowserSessions.ts";
 import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsApi from "./amicited/ReportsApi.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
@@ -781,6 +783,12 @@ const layerCommandReadiness = HttpRouter.middleware(
 );
 
 const layerConnectionsBrowser = AmicitedConnections.layer.pipe(
+  Layer.provide(
+    AmicitedBrowserSessions.layer.pipe(
+      Layer.provide(AmicitedBrowserBridge.layer),
+      Layer.provide(ExternalLauncher.layer),
+    ),
+  ),
   Layer.provideMerge(
     ServerBrowser.layer.pipe(
       Layer.provide(Layer.merge(DesktopBrowserChannel.layer, PreviewAgentActivity.layer)),

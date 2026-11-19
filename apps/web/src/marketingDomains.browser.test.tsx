@@ -602,7 +602,7 @@ it("ignores a folder inspection that completes after a newer choice", async () =
   }
 });
 
-it("requires a website before assistant setup and an AI app before prompts", async () => {
+it("requires a website before assistant setup and starts with the apps that need no sign-in", async () => {
   const { cache, publish } = await import("./marketingDomainStore");
   const { MarketingSetupHost } = await import("./marketingSetup");
   cache.clear();
@@ -637,9 +637,10 @@ it("requires a website before assistant setup and an AI app before prompts", asy
     await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
     await screen.getByRole("button", { name: "Set up later", exact: true }).click();
     await expect.element(screen.getByRole("region", { name: "AI apps" })).toBeVisible();
+    await expect.element(screen.getByText("4 of 6 connected", { exact: true })).toBeVisible();
     await expect
       .element(screen.getByRole("button", { name: "Continue", exact: true }))
-      .toBeDisabled();
+      .toBeEnabled();
     expect(state.threadSelections).toEqual([]);
   } finally {
     state.emptyDomains = false;

@@ -71,6 +71,10 @@
         "ffi-rs",
       ],
     },
+    "apps/amicited-connector": {
+      // The browser loads the bundled background script; the build script writes its manifests.
+      "entry": ["src/background.ts!", "scripts/manifests.ts!"],
+    },
     "apps/desktop": {
       // Electron loads these bundles by filename rather than importing them.
       "entry": [

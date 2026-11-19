@@ -37,6 +37,7 @@ import type {
 } from "@t3tools/client-runtime/connection";
 import type { WsRpcProtocolClient } from "@t3tools/client-runtime/rpc";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
+import type { Domain } from "@amicited/cloud-client/domains";
 import { APP_VERSION } from "~/branding";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -339,9 +340,52 @@ const subscribe = <A>(first: ReadonlyArray<A>, register?: (queue: Queue.Queue<A>
     }),
   );
 
+const defaultDomains: ReadonlyArray<Domain> = [
+  {
+    projectId: PROJECT_ID,
+    hostname: "example.com",
+    brand: "Example",
+    connectionRef: PROJECT_ID,
+    cms: "unknown",
+    siteFiles: null,
+  },
+];
+let domains = defaultDomains;
+/** Replaces what `amicited.domains.list` returns; the account gate publishes it to the domain store. */
+export function withFakeDomains(rows: ReadonlyArray<Domain>): Disposable {
+  domains = rows;
+  return {
+    [Symbol.dispose]: () => {
+      domains = defaultDomains;
+    },
+  };
+}
+
 const handlers: Record<string, (input: never) => unknown> = {
-  "amicited.setup.read": () => Effect.succeed({ finished: true }),
+  "amicited.setup.read": () => Effect.succeed({ finished: true, trackingOffered: true }),
   "amicited.setup.write": () => Effect.succeed({ finished: true }),
+  "amicited.account.subscribe": () =>
+    subscribe([
+      {
+        state: "signed_in" as const,
+        currentWorkspaceId: "workspace",
+        signingIn: false,
+        workspaces: [
+          {
+            id: "workspace",
+            name: "Acme",
+            email: "test@acme.com",
+            userName: "Test",
+            plan: "free",
+            access: "free" as const,
+            sessionEnded: false,
+            attentionCount: 0,
+            websites: [],
+          },
+        ],
+      },
+    ]),
+  "amicited.domains.list": () => Effect.succeed(domains),
   [WS_METHODS.subscribeTerminalMetadata]: () =>
     subscribe<TerminalMetadataStreamEvent>([{ type: "snapshot", terminals: [] }], (queue) => {
       terminalMetadataSubscriber = queue;
