@@ -115,3 +115,18 @@ page of organic results from the same page (`VisibilityResult.search`). Things t
 - **Fixtures** in `engines/fixtures` are what `readGoogleSearch` returned on real pages in
   Firefox, with session ids and opaque tokens scrubbed. The in-page half was proven by running
   checks through the connector.
+
+## Gemini
+
+- **Signed out works.** Gemini answers signed-out visitors with sources, so `requiresLogin` is
+  false. The engine answers Google's consent dialog with "Reject all". A redirect to
+  `accounts.google.com` or `consent.google.com` stops the check with a sign-in message; the
+  connector cannot run scripts on `accounts.google.com`.
+- **Sources hide behind chips.** Inline citation chips carry no URLs; each opens a popover of
+  source cards on a keyboard Enter (untrusted clicks do nothing). The engine opens every chip
+  right after the answer settles, because Gemini removes the chips about 25 seconds later.
+- **Errors look like answers.** Gemini reports failures as a short reply ("Sorry, something
+  went wrong"), so a short reply with no sources that matches those phrases is a failure.
+- **History.** Every check opens a new chat; signed-out chats are not kept. Signed in, the
+  engine switches to a temporary chat when that control is present and confirms it took
+  effect; otherwise the chat stays in Recent chats. Nothing is deleted afterwards.
