@@ -65,6 +65,16 @@ export class FakePage implements EnginePage {
         : { found: false, busy: false, text: "", links: [] };
       return snapshot as R;
     }
+    // Google Search reads the whole page and needs no prompt sent.
+    if (script.name === "readGoogleSearch") {
+      const answer = this.site.answer;
+      const overview = answer && {
+        text: answer.text,
+        items: answer.links.map((l) => ({ kind: "link", url: l.url, label: l.title ?? "" })),
+      };
+      return { url: this.url, results: true, overview: overview ?? null, organic: [] } as R;
+    }
+    if (script.name === "rejectGoogleConsent") return "none" as R;
     return true as R;
   }
   async type(selector: string, text: string) {

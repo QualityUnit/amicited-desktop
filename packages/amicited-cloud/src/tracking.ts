@@ -5,6 +5,7 @@ import {
   BrandMention,
   DomainMention,
   EngineId,
+  SearchResults,
   Source,
   type VisibilityResult,
 } from "@amicited/visibility/result";
@@ -60,6 +61,7 @@ export const TrackingAnswer = Schema.Struct({
   sources: Schema.optionalKey(Schema.Array(Source)),
   brand: Schema.optionalKey(BrandMention),
   domain: Schema.optionalKey(DomainMention),
+  search: Schema.optionalKey(SearchResults),
   webSearch: Schema.optionalKey(Schema.Boolean),
   /** Which browser captured the answer: the user's own, or the AmICited browser. */
   browser: Schema.optionalKey(Schema.String),
@@ -209,6 +211,7 @@ export function trackingAnswer(
     sources: result.sources,
     brand: result.brand,
     domain: result.domain,
+    ...(result.search ? { search: result.search } : {}),
     ...(result.webSearch === undefined ? {} : { webSearch: result.webSearch }),
     ...(browser ? { browser } : {}),
   };

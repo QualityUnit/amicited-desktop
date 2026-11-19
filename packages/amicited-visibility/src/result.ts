@@ -38,6 +38,24 @@ export const DomainMention = Schema.Struct({
   citedAt: Schema.Array(Schema.Number),
 });
 
+export const OrganicResult = Schema.Struct({
+  /** 1-based among organic results; ads and feature packs are not counted. */
+  position: Schema.Number,
+  /** The result's page, or its site's origin when Google links it only through a redirect. */
+  url: Schema.String,
+  title: Schema.String,
+  /** Empty when Google shows no site for the result. */
+  domain: Schema.String,
+});
+/** The search results page around an answer, for search engines. */
+export const SearchResults = Schema.Struct({
+  /** Whether an AI Overview was shown; `text` and `sources` are the overview. */
+  overview: Schema.Boolean,
+  organic: Schema.Array(OrganicResult),
+  /** Organic positions on the brand's domain. */
+  domainAt: Schema.Array(Schema.Number),
+});
+
 export const VisibilityResult = Schema.Struct({
   engine: EngineId,
   prompt: Schema.String,
@@ -56,6 +74,7 @@ export const VisibilityResult = Schema.Struct({
   /** The page's own sign-in state at capture time. */
   session: Schema.Literals(["logged_in", "logged_out", "unknown"]),
   pageUrl: Schema.NullOr(Schema.String),
+  search: Schema.optionalKey(SearchResults),
   /** Whether the engine searched the web for this answer, for engines that show it. */
   webSearch: Schema.optionalKey(Schema.Boolean),
 });
@@ -64,6 +83,15 @@ export type VisibilityResult = typeof VisibilityResult.Type;
 export interface RawAnswer {
   readonly text: string;
   readonly links: readonly { readonly url: string; readonly title?: string }[];
+  /** For search engines: whether an AI Overview showed, and organic results in page order. */
+  readonly search?: {
+    readonly overview: boolean;
+    readonly organic: readonly {
+      readonly url: string;
+      readonly title: string;
+      readonly domain: string;
+    }[];
+  };
   readonly webSearch?: boolean;
 }
 export interface Subject {
@@ -153,6 +181,13 @@ export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
       return name ? [name] : [];
     });
   const brand = subject.brand.trim().toLowerCase();
+  const onDomain = (host: string) => host === domain || host.endsWith(`.${domain}`);
+  const organic = answer.search?.organic.map((r, i) => ({
+    position: i + 1,
+    url: r.url,
+    title: r.title.trim(),
+    domain: bareDomain(r.domain),
+  }));
   return {
     text,
     sources,
@@ -164,11 +199,18 @@ export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
     domain: {
       mentioned: domainOffsets.length > 0,
       offsets: domainOffsets,
-      citedAt: sources
-        .filter((s) => s.domain === domain || s.domain.endsWith(`.${domain}`))
-        .map((s) => s.position),
+      citedAt: sources.filter((s) => onDomain(s.domain)).map((s) => s.position),
     },
     competitors: [...new Set([...known, ...guessed])].filter((n) => n.toLowerCase() !== brand),
+    ...(answer.search && organic
+      ? {
+          search: {
+            overview: answer.search.overview,
+            organic,
+            domainAt: organic.filter((r) => r.domain && onDomain(r.domain)).map((r) => r.position),
+          },
+        }
+      : {}),
   };
 }
 
