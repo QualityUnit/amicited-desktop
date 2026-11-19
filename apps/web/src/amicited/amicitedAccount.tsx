@@ -393,7 +393,7 @@ export function AccountSettings() {
         <h3>{actions.current?.plan} plan</h3>
         <p>
           {actions.current?.access === "full"
-            ? "Daily tracking in the cloud"
+            ? "Daily tracking in the cloud, plus up to 20 prompts a day on this computer"
             : "Daily tracking on this computer, through your own AI accounts"}
         </p>
         <a href="https://app.flowhunt.io/amicited/subscription">Start 7-day trial</a>
@@ -427,9 +427,8 @@ export function AccountSettings() {
                 {w.websites.length} websites: {w.websites.join(", ")}
               </p>
               <p className="am-muted">
-                {w.access === "full"
-                  ? "Tracked in the cloud · does not use this computer’s 20 a day"
-                  : `Tracks on this computer · ${tracking.snapshot.usage.domains.filter((d) => w.projectIds?.includes(d.projectId)).reduce((n, d) => n + d.count, 0)} prompts a day`}
+                {`Tracks on this computer · ${tracking.snapshot.usage.domains.filter((d) => w.projectIds?.includes(d.projectId)).reduce((n, d) => n + d.count, 0)} prompts a day`}
+                {w.access === "full" ? " · synced to AmICited, which also tracks in the cloud" : ""}
               </p>
               {w.id !== actions.current?.id && (
                 <Button variant="outline" onClick={() => void actions.switch(w.id)}>
@@ -444,7 +443,7 @@ export function AccountSettings() {
         </>
       )}
       <section className="am-card">
-        <h3>Free tracking on this computer</h3>
+        <h3>Tracking on this computer</h3>
         <p>
           {tracking.snapshot.usage.used} of 20 free prompts a day{" "}
           <BudgetBar used={tracking.snapshot.usage.used} />
@@ -455,7 +454,7 @@ export function AccountSettings() {
         </p>
         <p>
           {tracking.snapshot.usage.consumed} asked today. One limit for this computer, shared by
-          every free workspace. Paid workspaces don’t use it.
+          every workspace.
         </p>
       </section>
       <Dialog open={confirmation !== null} onOpenChange={(open) => !open && setConfirmation(null)}>

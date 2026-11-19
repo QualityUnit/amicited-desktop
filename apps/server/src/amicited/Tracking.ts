@@ -36,6 +36,7 @@ import * as SqlClient from "effect/sql/SqlClient";
 import { AmicitedCloud } from "./Cloud.ts";
 import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
+import { makeTrackingSync } from "./TrackingSync.ts";
 import * as HttpClient from "effect/http/HttpClient";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Option from "effect/Option";
@@ -124,6 +125,11 @@ export const layer = Layer.effect(
     yield* sql`CREATE TABLE IF NOT EXISTS amicited_tracking_ledger (day TEXT NOT NULL, prompt TEXT NOT NULL, PRIMARY KEY(day, prompt))`;
     yield* sql`CREATE TABLE IF NOT EXISTS amicited_tracking_threads (run_id TEXT NOT NULL, thread_id TEXT NOT NULL PRIMARY KEY)`;
     yield* sql`CREATE TABLE IF NOT EXISTS amicited_tracking_dismissals (key TEXT PRIMARY KEY, until_day TEXT)`;
+    const sync = yield* makeTrackingSync(cloud);
+    const syncNow = sync.drain().pipe(
+      Effect.flatMap((changed) => (changed ? notify : Effect.void)),
+      Effect.ignoreCause({ log: true }),
+    );
     const configs = Effect.fn("Tracking.configs")(function* () {
       const rows = yield* sql<{ value: string }>`SELECT value FROM amicited_tracking_config`;
       return (yield* Effect.forEach(rows, (r) =>
@@ -154,7 +160,7 @@ export const layer = Layer.effect(
       const domains = cs.flatMap((c) => {
         const d = meta.domains.find((d) => d.projectId === c.projectId);
         const w = meta.account?.workspaces.find((w) => w.id === d?.workspaceId);
-        return d && w && !w.sessionEnded && w.access !== "full"
+        return d && w && !w.sessionEnded
           ? [
               {
                 projectId: c.projectId,
@@ -191,6 +197,7 @@ export const layer = Layer.effect(
       const configuredUsage = usage(cs, yield* metadata());
       return {
         country,
+        sync: yield* sync.status().pipe(Effect.orElseSucceed(() => [])),
         dismissals: (yield* sql<{
           key: string;
           until_day: string | null;
@@ -230,8 +237,6 @@ export const layer = Layer.effect(
       const d = meta.domains.find((d) => d.projectId === config.projectId);
       if (!d?.workspaceId)
         return yield* new TrackingFailure({ message: "Add this domain to a workspace first." });
-      if (meta.account?.workspaces.find((w) => w.id === d.workspaceId)?.access === "full")
-        return { status: "cloud" } as const;
       if (
         config.country !== country ||
         config.prompts.some((p) => !p.text.trim()) ||
@@ -274,6 +279,10 @@ export const layer = Layer.effect(
     const persistRun = Effect.fn("Tracking.persistRun")(function* (r: TrackingRun) {
       yield* sql`INSERT INTO amicited_tracking_runs VALUES (${r.id},${r.projectId},${r.day},${r.status},${yield* encodeRun(r)}) ON CONFLICT(id) DO UPDATE SET value=excluded.value, status=excluded.status`;
       yield* sql`DELETE FROM amicited_tracking_runs WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY day DESC, rowid DESC) AS rank FROM amicited_tracking_runs) WHERE rank > 30) AND id NOT IN (SELECT run_id FROM amicited_tracking_threads)`;
+      if (r.status !== "running" && r.status !== "missed") {
+        yield* sync.record(r).pipe(Effect.ignoreCause({ log: true }));
+        yield* syncNow.pipe(Effect.forkIn(scope));
+      }
       yield* notify;
     });
     const lock = yield* Semaphore.make(1);
@@ -649,7 +658,21 @@ export const layer = Layer.effect(
         if (slot)
           yield* startLock.withPermits(1)(startRun(c.projectId, undefined, undefined, slot));
       }
+      yield* syncNow;
     }).pipe(Effect.mapError(failure));
+
+    // Catch up answers from runs that ended before an upload, such as while offline or closed.
+    yield* Effect.gen(function* () {
+      const since = localDay(DateTime.toDate(DateTime.subtract(yield* DateTime.now, { days: 15 })));
+      const rows = yield* sql<{
+        value: string;
+      }>`SELECT value FROM amicited_tracking_runs WHERE day >= ${since} AND status != 'missed'`;
+      for (const row of rows) {
+        const run = yield* decodeRun(row.value).pipe(Effect.orElseSucceed(() => null));
+        if (run) yield* sync.record(run);
+      }
+      yield* syncNow;
+    }).pipe(Effect.ignoreCause({ log: true }), Effect.forkIn(scope));
 
     yield* Stream.callback<void>((queue) =>
       Effect.acquireRelease(

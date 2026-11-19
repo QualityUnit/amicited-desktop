@@ -117,7 +117,31 @@ export const TrackingUsage = Schema.Struct({
   ),
 });
 export type TrackingUsage = typeof TrackingUsage.Type;
+/** Whether a domain's local answers reached its AmICited workspace. */
+export const TrackingSync = Schema.Struct({
+  projectId: Schema.String,
+  state: Schema.Literals([
+    "synced",
+    "pending",
+    "not_linked",
+    "signed_out",
+    "no_plan",
+    "no_credits",
+    "no_edit_rights",
+    "domain_missing",
+    "unsupported",
+    "offline",
+    "error",
+  ]),
+  message: Schema.String,
+  lastSyncedAt: Schema.NullOr(Schema.String),
+  pending: Schema.Number,
+  /** Answers the cloud refused for good, such as a prompt over the plan's cap. */
+  skipped: Schema.Number,
+});
+export type TrackingSync = typeof TrackingSync.Type;
 export const TrackingSnapshot = Schema.Struct({
+  sync: Schema.optionalKey(Schema.Array(TrackingSync)),
   dismissals: Schema.optionalKey(Schema.Array(Schema.String)),
   country: Schema.String,
   configs: Schema.Array(TrackingConfig),

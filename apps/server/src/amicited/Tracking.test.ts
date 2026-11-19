@@ -205,7 +205,7 @@ const config = (projectId: string, count: number, country: string): TrackingConf
   })),
 });
 it.effect(
-  "enforces the computer budget across workspaces atomically and excludes paid domains",
+  "enforces one computer budget across every workspace atomically, paid ones included",
   () => {
     const f = fixture();
     return Effect.gen(function* () {
@@ -224,7 +224,8 @@ it.effect(
       assert.equal(limited.status, "limit_reached");
       if (limited.status === "limit_reached") assert.equal(limited.usage.used, 20);
       assert.equal((yield* t.snapshot()).usage.used, 20);
-      assert.deepEqual(yield* t.save(config("paid", 100, country)), { status: "cloud" });
+      // Paid workspaces track on this computer too, inside the same daily budget.
+      assert.equal((yield* t.save(config("paid", 1, country))).status, "limit_reached");
       assert.equal((yield* t.snapshot()).usage.domains.length, 2);
       assert.deepEqual(yield* t.save(config("two", 9, country), "one:0"), { status: "saved" });
       assert.equal((yield* t.snapshot()).usage.used, 20);

@@ -23,6 +23,7 @@ import {
   type TrackingSnapshot,
   type TrackingConfig,
   type SaveTrackingResult,
+  type TrackingSync,
 } from "@amicited/cloud-client/tracking";
 import { useConnections } from "./amicitedConnections";
 import type { Domain } from "@amicited/cloud-client/domains";
@@ -151,6 +152,18 @@ export function TrackingVisibility({
     </Button>
   );
 }
+function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
+  if (!sync) return null;
+  const skipped = sync.skipped ? ` · ${sync.skipped} answers not accepted by AmICited` : "";
+  return (
+    <p className="am-muted">
+      {sync.state === "synced" && sync.lastSyncedAt
+        ? `Synced to AmICited ${new Date(sync.lastSyncedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
+        : sync.message}
+      {skipped}
+    </p>
+  );
+}
 /** @public Onboarding can render the editor directly. */
 export function TrackingPrompts({
   domain,
@@ -207,14 +220,7 @@ export function TrackingPrompts({
     setText("");
     setAdding(false);
   };
-  if (account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full")
-    return (
-      <section className="am-card">
-        <h2>AI visibility</h2>
-        <p>AmICited tracks this domain in the cloud</p>
-        <a href="https://app.flowhunt.io/amicited">Manage prompts in AmICited</a>
-      </section>
-    );
+  const paid = account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full";
   const add = () =>
     persist(
       {
@@ -245,6 +251,7 @@ export function TrackingPrompts({
         </div>
         <Button onClick={() => setAdding(true)}>Add prompt</Button>
       </header>
+      <SyncStatus sync={state.snapshot.sync?.find((s) => s.projectId === domain.projectId)} />
       <p className="am-muted">
         {state.snapshot.usage.consumed ?? 0} of 20 free prompts used today{" "}
         <BudgetBar used={state.snapshot.usage.consumed ?? 0} />{" "}
@@ -280,6 +287,19 @@ export function TrackingPrompts({
           />
         </Label>
       </div>
+      <p className="am-muted">
+        These prompts are checked on this computer, in your own browser.
+        {paid && (
+          <>
+            {" "}
+            Prompts AmICited checks in the cloud are in{" "}
+            <a href="https://app.flowhunt.io/amicited" target="_blank" rel="noreferrer">
+              AmICited
+            </a>
+            .
+          </>
+        )}
+      </p>
       <div className="am-prompt-list">
         <Table>
           <TableHeader>

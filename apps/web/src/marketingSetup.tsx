@@ -326,7 +326,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
                   ? "You set these up before accounts existed. Add them to AmICited to keep using them."
                   : "Keep your chats, brand and site files together in a domain."
                 : step === "cloud"
-                  ? "Your plan tracks prompts every day in the cloud. There are no AI apps to sign in to on this computer."
+                  ? "Your plan tracks prompts every day in the cloud. You can also check up to 20 a day on this computer later, from Prompts."
                   : step === "prompts"
                     ? "Start with 10 suggested questions, edit them or add your own."
                     : "AmICited asks them your prompts in your own browser, signed in as you. Sign in once to each."}
