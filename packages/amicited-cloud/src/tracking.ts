@@ -12,6 +12,7 @@ import {
 } from "@amicited/visibility/result";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
+import { DomainVisibility } from "./visibility.ts";
 export const TrackingEngine = EngineId;
 const engineLabels = {
   chatgpt: "ChatGPT",
@@ -167,6 +168,11 @@ export const trackingRpcs = [
       threadId: Schema.optionalKey(Schema.String),
     },
     success: Schema.NullOr(TrackingRun),
+    error: TrackingFailure,
+  }),
+  Rpc.make("amicited.tracking.visibility", {
+    payload: { projectId: Schema.optionalKey(Schema.String) },
+    success: Schema.Array(DomainVisibility),
     error: TrackingFailure,
   }),
   Rpc.make("amicited.tracking.save", {

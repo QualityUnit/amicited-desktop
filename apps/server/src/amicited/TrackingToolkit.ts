@@ -60,6 +60,7 @@ const call = Effect.fn("Tracking.mcp")(
       country: s.country,
       config: s.configs.find((c) => c.projectId === projectId),
       sync: s.sync?.find((c) => c.projectId === projectId) ?? null,
+      visibility: (yield* tracking.visibility(projectId))[0] ?? null,
       runs: selected.filter((r) => r?.projectId === projectId),
     };
   },

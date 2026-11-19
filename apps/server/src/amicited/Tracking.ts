@@ -37,6 +37,7 @@ import { AmicitedCloud } from "./Cloud.ts";
 import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
 import { makeTrackingSync } from "./TrackingSync.ts";
+import { domainVisibility, type DomainVisibility } from "@amicited/cloud-client/visibility";
 import * as HttpClient from "effect/http/HttpClient";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Option from "effect/Option";
@@ -71,6 +72,8 @@ export class Tracking extends Context.Service<
   {
     detail: (runId: string) => Effect.Effect<TrackingRun | null, TrackingFailure>;
     snapshot: () => Effect.Effect<TrackingSnapshot, TrackingFailure>;
+    /** Share of voice and citation from this computer's answers, per domain. */
+    visibility: (projectId?: string) => Effect.Effect<readonly DomainVisibility[], TrackingFailure>;
     subscribe: () => Stream.Stream<TrackingSnapshot, TrackingFailure>;
     save: (
       config: TrackingConfig,
@@ -705,6 +708,26 @@ export const layer = Layer.effect(
         return row ? yield* decodeRun(row.value).pipe(Effect.orElseSucceed(() => null)) : null;
       }, Effect.mapError(failure)),
       snapshot,
+      visibility: Effect.fn("Tracking.visibility")(function* (projectId?: string) {
+        const domains = (yield* metadata()).domains.filter(
+          (d) => !projectId || d.projectId === projectId,
+        );
+        const rows = yield* sql<{
+          project_id: string;
+          value: string;
+        }>`SELECT project_id, value FROM amicited_tracking_runs WHERE status != 'missed' ORDER BY day, rowid`;
+        const today = localDay(DateTime.toDate(yield* DateTime.now));
+        const runsByProject = new Map<string, TrackingRun[]>();
+        for (const row of rows) {
+          if (!domains.some((d) => d.projectId === row.project_id)) continue;
+          const run = yield* decodeRun(row.value).pipe(Effect.orElseSucceed(() => null));
+          if (run)
+            runsByProject.set(row.project_id, [...(runsByProject.get(row.project_id) ?? []), run]);
+        }
+        return domains.map((d) =>
+          domainVisibility(d.projectId, runsByProject.get(d.projectId) ?? [], d, today),
+        );
+      }, Effect.mapError(failure)),
       save,
       runNow,
       dismiss: Effect.fn("Tracking.dismiss")(function* (

@@ -34,7 +34,7 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { useAmicitedAccount } from "./amicitedAccount";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import { MarketingLink, marketingNavigate } from "@amicited/ui-marketing";
+import { MarketingLink } from "@amicited/ui-marketing";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Table,
@@ -80,10 +80,6 @@ const detailCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tracking.detail",
   label: "tracking:detail",
 });
-const summaryCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.domains.cloudSummary",
-  label: "tracking:cloud-summary",
-});
 const saveCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tracking.save",
   label: "tracking:save",
@@ -127,32 +123,8 @@ export function LockPill() {
     </a>
   );
 }
-export function TrackingVisibility({
-  domain,
-  destination,
-}: {
-  domain: Domain;
-  destination: EnvironmentId;
-}) {
-  const state = useTracking(destination);
-  const run = state.snapshot.runs.find(
-    (r) => r.projectId === domain.projectId && r.status !== "missed",
-  );
-  const { account } = useAmicitedAccount();
-  const paid = account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full";
-  const cloud = useCloudSummary(destination, domain.projectId, paid);
-  const visibility = paid ? cloud?.visibility : run?.visibility;
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={() => marketingNavigate(`/prompts?site=${encodeURIComponent(domain.projectId)}`)}
-    >
-      {visibility != null ? `${Math.round(visibility)}%` : "–"}
-    </Button>
-  );
-}
-function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
+/** Whether this domain's answers reached its AmICited workspace. */
+export function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
   if (!sync) return null;
   const skipped = sync.skipped ? ` · ${sync.skipped} answers not accepted by AmICited` : "";
   return (
@@ -241,7 +213,7 @@ export function TrackingPrompts({
     <div className="am-page">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1>AI visibility</h1>
+          <h1>Prompts and answers · {domain.hostname}</h1>
           <p className="am-muted">
             Named in {run?.answers.filter((a) => a.mentioned).length ?? 0} of {run?.answered ?? 0}{" "}
             answers today (
@@ -659,26 +631,6 @@ function useRunDetail(
     ? { ...detail, answered: count, visibility: summary?.visibility ?? null }
     : summary;
 }
-function useCloudSummary(destination: EnvironmentId, projectId: string, paid: boolean | undefined) {
-  const read = useEffectEvent(useAtomCommand(summaryCommand));
-  const [summary, setSummary] = useState<{
-    visibility: number | null;
-    promptCount: number | null;
-  } | null>(null);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Paid visibility belongs to the cloud rather than the local runner.
-  useEffect(() => {
-    if (!paid) return;
-    let active = true;
-    void read({ environmentId: destination, input: { projectId } }).then((r) => {
-      if (active && r._tag === "Success") setSummary(r.value);
-    });
-    return () => {
-      active = false;
-    };
-  }, [destination, projectId, paid]);
-  return summary;
-}
-
 function countryName(country: string) {
   return country === "ZZ"
     ? "Location unavailable"

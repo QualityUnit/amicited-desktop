@@ -43,7 +43,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `scripts/export-android-icons.ts`: the mark's bounding box and safe-zone fraction.
 - `apps/web/src/components/ui/standalone-page.tsx`: the lockup next to the mark reads the product name.
 
-New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues}.tsx`)
+New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues,visibility,prompts}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.
 Home Ask and New task seed the selected assistant and send through the upstream
 composer once it mounts. Fix this with AI opens the same composer for review.

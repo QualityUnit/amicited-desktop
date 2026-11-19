@@ -1,6 +1,5 @@
 vi.mock("./amicited/SetupTrackingPrompts", () => ({ SetupTrackingPrompts: () => null }));
 vi.mock("./amicited/amicitedTracking", () => ({
-  TrackingVisibility: () => null,
   useFirstCheckChat: () => async () => {
     state.firstCheckCalls.push("create");
     return null;

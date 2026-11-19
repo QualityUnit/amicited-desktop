@@ -33,6 +33,7 @@ const RPC_AGGREGATES = {
   "amicited.cloud.pendingApprovals": "amicited",
   "amicited.tracking.subscribe": "amicited",
   "amicited.tracking.detail": "amicited",
+  "amicited.tracking.visibility": "amicited",
   "amicited.tracking.suggest": "amicited",
   "amicited.tracking.save": "amicited",
   "amicited.tracking.dismiss": "amicited",

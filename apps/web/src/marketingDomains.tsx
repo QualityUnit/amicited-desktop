@@ -1,5 +1,4 @@
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited marketing styles own these classes. */
-import { TrackingVisibility } from "./amicited/amicitedTracking";
 import { findReportKeySource } from "./marketingReports.logic";
 import { CmsGrid } from "@amicited/ui-marketing";
 import { desktopLocalBackendId } from "./connection/desktopLocal";
@@ -1365,12 +1364,7 @@ export function DomainFolderHeader({
       group={{ ...props.group, displayName: domain.hostname }}
       newThreadLabel="New chat"
       keepChevron
-      actions={
-        <>
-          <TrackingVisibility domain={domain} destination={destination} />
-          <DomainProjectActions domain={domain} destination={destination} />
-        </>
-      }
+      actions={<DomainProjectActions domain={domain} destination={destination} />}
     />
   );
 }

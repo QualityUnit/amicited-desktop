@@ -49,6 +49,7 @@ export const RPC_REQUIRED_SCOPES = {
   "amicited.cloud.subscribeApprovals": AuthOrchestrationReadScope,
   "amicited.tracking.subscribe": AuthOrchestrationReadScope,
   "amicited.tracking.detail": AuthOrchestrationReadScope,
+  "amicited.tracking.visibility": AuthOrchestrationReadScope,
   "amicited.tracking.suggest": AuthOrchestrationReadScope,
   "amicited.connections.status": AuthOrchestrationReadScope,
   "amicited.connections.subscribe": AuthOrchestrationReadScope,
