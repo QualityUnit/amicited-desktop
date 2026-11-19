@@ -1,3 +1,6 @@
+// @effect-diagnostics nodeBuiltinImport:off - Tests read saved page fixtures.
+import * as NodeFS from "node:fs";
+import * as NodePath from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import type { EngineContext } from "../engine.ts";
 import type { EnginePage, PageScript, PageState } from "../page.ts";
@@ -9,12 +12,71 @@ import {
   perplexityAnswer,
   stripCitationMarkers,
 } from "./perplexity.ts";
-import type { PerplexityPageAnswer } from "./perplexity.scripts.ts";
+import { readPerplexityAnswer, type PerplexityPageAnswer } from "./perplexity.scripts.ts";
 
 // Captured signed out on 2026-11-19, when Perplexity answered with its sign-up gate.
 const wall: PerplexityPageAnswer["thread"] = wallThread;
 // A finished answer in the shape of the thread API, with the sources the page lists.
 const answeredThread: PerplexityPageAnswer["thread"] = answerThread;
+
+const page = (name: string) =>
+  NodeFS.readFileSync(NodePath.join(import.meta.dirname, "fixtures", name), "utf8");
+// The package type-checks without DOM types; the test environment provides jsdom.
+const dom = globalThis as unknown as { document: { body: { innerHTML: string } } };
+
+/** Runs the page script the way the extension does: serialised, with only the page's globals. */
+async function readPage(html: string) {
+  dom.document.body.innerHTML = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)![1]!;
+  const run = new Function(`return (${readPerplexityAnswer.fn.toString()})`)() as (
+    arg: null,
+  ) => Promise<PerplexityPageAnswer>;
+  return (await run(null)).page;
+}
+
+describe("reading Perplexity's page", () => {
+  // Captured signed out on 2026-11-19: Perplexity answered with its sign-up gate.
+  it("reads the sign-up wall a signed-out ask gets", async () => {
+    expect(await readPage(page("perplexity-wall.html"))).toMatchObject({
+      text: "Sign up and repeat your request.",
+      links: [],
+      finished: true,
+      gated: true,
+    });
+  });
+
+  // The captured page's wrappers around answer markup in the shape Perplexity's renderer emits.
+  it("reads the whole answer as Markdown-like text and every citation chip in order", async () => {
+    const answer = await readPage(page("perplexity-answer.html"));
+    expect(answer.text).toBe(
+      [
+        "For most small businesses the strongest options are HubSpot CRM, Zoho CRM, Pipedrive and Salesforce Starter.",
+        "## Top picks",
+        "1. HubSpot CRM – a free core CRM with marketing tools built in",
+        "2. Zoho CRM – low price per seat and deep customisation",
+        "3. Pipedrive – a visual sales pipeline",
+        "  - Drag-and-drop deals",
+        "  - Workflow automation",
+        "| Tool | Starting price |",
+        "| HubSpot CRM | Free |",
+        "| Zoho CRM | $14 per user |",
+        "Compare current plans on Pipedrive's pricing page before you choose.",
+      ].join("\n"),
+    );
+    expect([...new Set(answer.links.map((l) => l.url))]).toEqual([
+      "https://www.g2.com/categories/crm",
+      "https://www.hubspot.com/products/crm",
+      "https://www.zoho.com/crm/",
+      "https://www.pipedrive.com/en/features",
+      "https://www.hubspot.com/pricing/crm",
+      "https://www.pipedrive.com/en/pricing",
+    ]);
+    expect(answer.links.at(-1)).toEqual({
+      url: "https://www.pipedrive.com/en/pricing",
+      title: "Pipedrive's pricing page",
+    });
+    expect(answer).toMatchObject({ finished: true, gated: false });
+  });
+});
 
 describe("Perplexity answers", () => {
   const page = { text: "", links: [], finished: false, busy: false, gated: false };
