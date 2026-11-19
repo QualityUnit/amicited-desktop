@@ -494,7 +494,7 @@ it.effect("groups engine findings and maps every Google engine to its connection
       "one",
       answeredResult(
         { engine: "chatgpt", prompt: "Question one", capturedAt: "", country: "SK" },
-        { text: "1. Acme", links: [] },
+        { text: "1. **Acme** – fast", links: [] },
         { brand: "Northwind", domain: "northwind.io" },
       ),
     );

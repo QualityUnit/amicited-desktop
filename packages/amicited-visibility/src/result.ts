@@ -56,12 +56,15 @@ export const VisibilityResult = Schema.Struct({
   /** The page's own sign-in state at capture time. */
   session: Schema.Literals(["logged_in", "logged_out", "unknown"]),
   pageUrl: Schema.NullOr(Schema.String),
+  /** Whether the engine searched the web for this answer, for engines that show it. */
+  webSearch: Schema.optionalKey(Schema.Boolean),
 });
 export type VisibilityResult = typeof VisibilityResult.Type;
 
 export interface RawAnswer {
   readonly text: string;
   readonly links: readonly { readonly url: string; readonly title?: string }[];
+  readonly webSearch?: boolean;
 }
 export interface Subject {
   readonly brand: string;
@@ -109,6 +112,19 @@ export function normalizeSources(links: RawAnswer["links"]): Source[] {
 }
 
 const listItem = /^\s*(?:(\d+)[.)]|[-*•])\s+/;
+const depth = (line: string) => line.length - line.trimStart().length;
+/** Rank of a list line within its own list, so feature bullets elsewhere in the answer do not count. */
+function rankInList(lines: readonly string[], at: number) {
+  let rank = 1;
+  for (let i = at - 1; i >= 0; i--) {
+    const line = lines[i]!;
+    if (!line.trim()) continue;
+    const item = listItem.test(line);
+    if (!item && depth(line) <= depth(lines[at]!)) break;
+    if (item && depth(line) === depth(lines[at]!)) rank++;
+  }
+  return rank;
+}
 /** Finds where the brand, its domain and competitors appear in an answer. */
 export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
   const text = answer.text;
@@ -119,9 +135,10 @@ export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
   const names = [subject.brand.trim(), domain].filter(Boolean);
   const named = (line: string) =>
     names.length > 0 && new RegExp(wordPattern(names).source, "iu").test(line);
-  const listed = text.split("\n").filter((line) => listItem.test(line));
-  const index = listed.findIndex(named);
-  const numbered = index < 0 ? undefined : listItem.exec(listed[index]!)?.[1];
+  const lines = text.split("\n");
+  const listed = lines.filter((line) => listItem.test(line));
+  const index = lines.findIndex((line) => listItem.test(line) && named(line));
+  const numbered = index < 0 ? undefined : listItem.exec(lines[index]!)?.[1];
   const known = (subject.competitors ?? []).filter(
     (name) => name.trim() && offsets(text, [name]).length,
   );
@@ -129,7 +146,8 @@ export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
     .filter((line) => !named(line))
     .flatMap((line) => {
       const name =
-        /^\s*(?:\d+[.)]|[-*•])\s+(?:\*\*)?([\p{L}\p{N}][\p{L}\p{N} .&-]{1,60}?)(?:\*\*|:| – | — |$)/u
+        // A name of up to four words, then bold's end or a dash: "**Acme**: …", "Acme – …".
+        /^\s*(?:\d+[.)]|[-*•])\s+(?:\*\*)?([\p{L}\p{N}][\p{L}\p{N}.&'-]*(?: [\p{L}\p{N}.&'-]+){0,3}?)(?:\*\*| [–—-] )/u
           .exec(line)?.[1]
           ?.trim();
       return name ? [name] : [];
@@ -141,7 +159,7 @@ export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
     brand: {
       mentioned: brandOffsets.length > 0,
       offsets: brandOffsets,
-      listPosition: index < 0 ? null : numbered ? Number(numbered) : index + 1,
+      listPosition: index < 0 ? null : numbered ? Number(numbered) : rankInList(lines, index),
     },
     domain: {
       mentioned: domainOffsets.length > 0,
@@ -185,6 +203,7 @@ export function answeredResult(
     status: "answered",
     reason: null,
     ...analyzeAnswer(answer, subject),
+    ...(answer.webSearch === undefined ? {} : { webSearch: answer.webSearch }),
   };
 }
 export function unansweredResult(
