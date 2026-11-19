@@ -1,6 +1,7 @@
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited marketing styles own these classes. */
 import { projectEnvironment } from "./state/projects";
 import { useNavigate } from "@tanstack/react-router";
+import { availableEngines } from "@amicited/cloud-client/tracking";
 import { ConnectAiAppsGrid, useConnections } from "./amicited/amicitedConnections";
 import { useFirstCheckChat } from "./amicited/amicitedTracking";
 import { SetupTrackingPrompts } from "./amicited/SetupTrackingPrompts";
@@ -289,17 +290,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
   };
   const back = () =>
     setStep(step === "prompts" ? "apps" : step === "apps" ? "assistant" : "website");
-  const connectedEngines = connections.snapshot.connections.flatMap((c) =>
-    c.status !== "connected" ||
-    !["chatgpt", "perplexity", "gemini", "claude", "google"].includes(c.id)
-      ? []
-      : c.id === "google"
-        ? (["gemini", "google", "google_overviews"] as const)
-        : c.id === "chatgpt" || c.id === "perplexity" || c.id === "gemini" || c.id === "claude"
-          ? [c.id]
-          : [],
-  );
-  const engines = [...new Set(connectedEngines)].filter(
+  const engines = availableEngines(connections.snapshot.connections).filter(
     (engine) => !excludedEngines.includes(engine),
   );
   return (

@@ -5,6 +5,7 @@ import {
   BrandMention,
   DomainMention,
   EngineId,
+  engineIds,
   Source,
   type VisibilityResult,
 } from "@amicited/visibility/result";
@@ -22,6 +23,20 @@ const engineLabels = {
 export type TrackingEngine = typeof TrackingEngine.Type;
 export function engineConnection(engine: TrackingEngine) {
   return engines[engine].site;
+}
+/** Whether tracking this engine waits for the user to connect its site. */
+export function engineNeedsConnect(engine: TrackingEngine) {
+  return engines[engine].requiresLogin;
+}
+/** Engines that answer signed out are on by default; the rest need their site connected. */
+export function availableEngines(
+  connections: readonly { readonly id: string; readonly status: string }[],
+): TrackingEngine[] {
+  return engineIds.filter(
+    (engine) =>
+      !engineNeedsConnect(engine) ||
+      connections.some((c) => c.id === engineConnection(engine) && c.status === "connected"),
+  );
 }
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
   message: Schema.String,
