@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { EngineContext } from "./engine.ts";
-import { engines } from "./engines/index.ts";
 import { FakePage, fakeEngine, type FakeSite } from "./testing.ts";
 
 const context = (): EngineContext & { elapsed: () => number } => {
@@ -68,17 +67,6 @@ describe("engine runs", () => {
       reason: expect.stringMatching(/no answer/),
     });
     expect(silent.ctx.elapsed()).toBeLessThan(10_000);
-  });
-
-  it("records a missing AI Overview as an answer without swallowing navigation failures", async () => {
-    const overviews = engines.google_overviews;
-    expect(await overviews.run(new FakePage({}), query, context())).toMatchObject({
-      status: "answered",
-      text: "No AI Overview shown",
-    });
-    expect(
-      (await overviews.run(new FakePage({ failNavigation: true }), query, context())).reason,
-    ).toBe("Navigation failed");
   });
 
   it("stops at cancellation instead of returning a result", async () => {

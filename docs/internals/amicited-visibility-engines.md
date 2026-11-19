@@ -78,3 +78,23 @@ in a row also stop the site. A run never loops on a site that needs the user.
 Each prompt runs once per day per engine at `TrackingConfig.time`. A slot missed while the
 computer was off or asleep runs once on the next tick, and older missed slots are recorded
 as missed. Runs are persisted before they start, so a day never runs twice.
+
+## Google Search and AI Overviews
+
+`google_overviews` opens `/search?q=…&gl=<country>` and records the AI Overview and the first
+page of organic results from the same page (`VisibilityResult.search`). Things the page hides:
+
+- **Links are opaque.** Organic results and overview citations link through
+  `/goto?url=<token>`, not to the page. Citation URLs come from the JSON Google embeds in
+  `<!--…|||[…]-->` comments beside each citation; organic results carry no full URL anywhere,
+  so they are recorded by their displayed site. Interpreting that data happens in the app, not
+  in the page script, so it can change without a connector release.
+- **The overview is collapsed** behind a "Show more" control, but its text is already in the
+  DOM; the engine expands it anyway and reads computed visibility, not `aria-hidden`.
+- **Consent.** The cookie dialog over the results is left alone. Google's full-page consent
+  screen is answered with "Reject all", the choice that shares the least; if that fails, the
+  run stops as blocked. The connector needs `consent.google.com` for this.
+- **Formulas** render as images and SVG; their text is the LaTeX in `data-xpm-latex`.
+- **Fixtures** in `engines/fixtures` are what `readGoogleSearch` returned on real pages in
+  Firefox, with session ids and opaque tokens scrubbed. Lint bans DOM emulators in package
+  tests, so the in-page half is proven by running a check through the connector.

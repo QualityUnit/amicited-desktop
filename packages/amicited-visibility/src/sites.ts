@@ -31,7 +31,7 @@ export const sites = {
     id: "google",
     label: "Google (Gemini, AI Overviews and AI Mode)",
     url: "https://www.google.com/",
-    hosts: ["www.google.com", "gemini.google.com"],
+    hosts: ["www.google.com", "gemini.google.com", "consent.google.com"],
     loggedIn: 'a[href*="accounts.google.com/SignOutOptions"], a[href*="myaccount.google.com"]',
     loggedOut: 'a[href*="accounts.google.com/ServiceLogin"]',
     cookies: ["google.com"],
