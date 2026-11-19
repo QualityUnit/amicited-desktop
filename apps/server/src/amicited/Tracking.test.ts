@@ -481,14 +481,14 @@ it.effect("groups engine findings and maps every Google engine to its connection
       ["gemini", "google", "google_overviews"].map((e) => engineConnection(e as TrackingEngine)),
       ["google", "google", "google"],
     );
-    assert.deepEqual(availableEngines([]), ["google", "google_overviews"]);
+    assert.deepEqual(availableEngines([]), ["chatgpt", "google", "google_overviews"]);
     assert.deepEqual(
       availableEngines([
         { id: "perplexity", status: "connected" },
         { id: "google", status: "connected" },
         { id: "chatgpt", status: "signed_out" },
       ]),
-      ["perplexity", "gemini", "google", "google_overviews"],
+      ["chatgpt", "perplexity", "gemini", "google", "google_overviews"],
     );
     const answer = trackingAnswer(
       "one",
