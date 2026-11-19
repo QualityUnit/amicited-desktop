@@ -1,3 +1,5 @@
+import * as NodeFS from "node:fs";
+import * as NodePath from "node:path";
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { EngineContext } from "../engine.ts";
 import type { EnginePage, PageScript } from "../page.ts";
@@ -5,46 +7,9 @@ import { answeredResult } from "../result.ts";
 import { ChatGptEngine, chatgptAnswer, cleanUrl } from "./chatgpt.ts";
 import { chatgptCitations, chatgptRead, chatgptStatus } from "./chatgpt.scripts.ts";
 
-// Trimmed from signed-out chatgpt.com answers: the markup the scripts rely on, nothing else.
-const markdown = [
-  "For most small businesses:",
-  "- **HubSpot CRM** – Best overall.\n- **Zoho CRM** – Best value.",
-  "Prices vary. ([techradar.com](https://www.techradar.com/best/crm?utm_source=chatgpt.com), [g2.com](https://www.g2.com/categories/crm?utm_source=chatgpt.com))",
-  "### 1. Zoho CRM – Best value",
-  "[Zoho CRM official website](https://www.zoho.com/crm/?utm_source=chatgpt.com)",
-].join("\n\n");
-const state = JSON.stringify({
-  messages: [
-    { id: "u1", role: "user", content: "Best CRM tools?" },
-    { id: "a1", role: "assistant", content: markdown },
-  ],
-}).replaceAll('"', "&quot;");
-const searched = `<main><ol data-conversation-transcript>
-<li data-message-role="user" id="u1"><p>Best CRM tools?</p></li>
-<li data-message-role="assistant" id="a1" data-message-complete><div data-assistant-markdown-root><div aria-busy="false">
-<p>For most small businesses:</p>
-<ul><li><strong>HubSpot CRM</strong> – Best overall.</li><li><strong>Zoho CRM</strong> – Best value.</li></ul>
-<div><span data-message-content-controls><button aria-label="Copy table"></button></span><div><table>
-<thead><tr><th>CRM</th><th>Price</th></tr></thead>
-<tbody><tr><td>HubSpot</td><td>Free</td></tr><tr><td>Zoho CRM</td><td>$14/user/month</td></tr></tbody></table></div></div>
-<p>Prices vary. <span role="group" aria-label="Sources"><button aria-haspopup="dialog" aria-label="TechRadar, 2 sources"><span>TechRadar</span><span>+1</span></button></span></p>
-<h3>1. <button aria-haspopup="dialog">Zoho CRM</button> – Best value</h3>
-<p><a href="https://www.zoho.com/crm/?utm_source=chatgpt.com">Zoho CRM official website</a></p>
-</div></div>
-<div data-assistant-message-actions role="group"><button aria-label="Copy response"></button><button aria-haspopup="dialog">Sources</button></div>
-</li></ol></main>
-<dialog id="assistant-sources-dialog" open><article data-assistant-sources-dialog><h2>Sources</h2><ol><li>
-<a href="https://www.techradar.com/best/crm?utm_source=chatgpt.com"><span><span><span>TechRadar</span></span><strong>Best CRM of 2026 | TechRadar</strong></span></a>
-</li></ol></article></dialog>
-<input name="conversationState" type="hidden" value="${state}">`;
-const unsearched = `<main><ol data-conversation-transcript>
-<li data-message-role="user" id="u1"><p>Best tools?</p></li>
-<li data-message-role="assistant" id="a1" data-message-complete><div data-assistant-markdown-root>
-<ol><li><strong>Asana</strong> – Best overall</li><li><strong>ClickUp</strong> – All in one</li></ol>
-<p><a href="https://asana.com/?utm_source=chatgpt.com">Asana official website</a></p>
-<p><a href="https://clickup.com/?utm_source=chatgpt.com">ClickUp official website</a></p>
-</div><div data-assistant-message-actions role="group"><button aria-label="Copy response"></button></div>
-</li></ol></main>`;
+// Signed-out answers saved from chatgpt.com (classes, icons and ids stripped).
+const fixture = (name: string) =>
+  NodeFS.readFileSync(NodePath.join(import.meta.dirname, "fixtures", `${name}.html`), "utf8");
 // The package type-checks without DOM types; the test environment provides jsdom.
 const dom = globalThis as unknown as {
   document: { body: { innerHTML: string } };
@@ -96,8 +61,8 @@ const context = (): EngineContext => {
 };
 
 describe("ChatGPT page scripts", () => {
-  it("read a searched answer, its citations in answer order and their titles", async () => {
-    show(searched);
+  it("read a searched answer with its tables, lists and inline citations", async () => {
+    show(fixture("chatgpt-search"));
     expect(await chatgptStatus.fn({})).toMatchObject({
       ui: "octane",
       sent: true,
@@ -106,48 +71,77 @@ describe("ChatGPT page scripts", () => {
       notice: null,
     });
     const read = await chatgptRead.fn({});
-    // Lists and tables stay readable; citation pills and controls are not answer text.
-    expect(read.text).toBe(
-      [
-        "For most small businesses:",
-        "- HubSpot CRM – Best overall.\n- Zoho CRM – Best value.",
-        "CRM | Price\nHubSpot | Free\nZoho CRM | $14/user/month",
-        "Prices vary.",
-        "1. Zoho CRM – Best value",
-        "Zoho CRM official website",
-      ].join("\n\n"),
+    expect(read.text).toContain(
+      "- HubSpot CRM – Best overall.\n- Zoho CRM – Best value for money.",
     );
-    expect(read).toMatchObject({ citations: 1, sourcesButton: true });
+    expect(read.text).toContain("CRM software | Best for | Starting price* | Free plan");
+    expect(read.text).toContain("Zoho CRM | Affordability and features | $14/user/month | Yes");
+    expect(read.text).toContain("1. HubSpot CRM – Best overall");
+    // Citation pills are sources, not answer text.
+    expect(read.text).not.toMatch(/PLYNTUM|\+2|Copy table|https?:/);
+    expect(read).toMatchObject({ citations: 2, sourcesButton: true });
 
-    const answer = chatgptAnswer(read, await chatgptCitations.fn({ waitMs: 0 }), false);
-    expect(answer).toEqual({
-      text: read.text,
-      webSearch: true,
-      links: [
-        { url: "https://www.techradar.com/best/crm", title: "Best CRM of 2026 | TechRadar" },
-        { url: "https://www.g2.com/categories/crm", title: "g2.com" },
-        { url: "https://www.zoho.com/crm/", title: "Zoho CRM official website" },
-      ],
+    const answer = chatgptAnswer(read, [], false);
+    expect(answer.webSearch).toBe(true);
+    expect(answer.links.slice(0, 4)).toEqual([
+      { url: "https://plyntum.com/en/guide/best-crm-small-business/", title: "plyntum.com" },
+      { url: "https://www.techradar.com/best/best-crm-for-small-business", title: "techradar.com" },
+      {
+        url: "https://toolsandthrive.com/best-crm-for-small-business/",
+        title: "toolsandthrive.com",
+      },
+      { url: "https://www.hubspot.com/", title: "HubSpot official website" },
+    ]);
+    const result = answeredResult(base, answer, {
+      brand: "Zoho CRM",
+      domain: "zoho.com",
+      competitors: ["HubSpot", "Monday.com"],
     });
-    const result = answeredResult(base, answer, { brand: "Zoho CRM", domain: "zoho.com" });
-    expect(result).toMatchObject({ webSearch: true, competitors: ["HubSpot CRM"] });
     expect(result.brand).toMatchObject({ mentioned: true, listPosition: 2 });
-    expect(result.domain).toMatchObject({ mentioned: false, citedAt: [3] });
+    expect(result.domain.mentioned).toBe(false);
+    expect(result.domain.citedAt).toEqual([5]);
+    expect(result.sources[4]).toMatchObject({
+      domain: "zoho.com",
+      url: "https://www.zoho.com/crm/",
+    });
+    expect(result.competitors).toContain("HubSpot");
+    expect(result.webSearch).toBe(true);
   });
 
   it("tell an answer without web search from one with it", async () => {
-    show(unsearched);
+    show(fixture("chatgpt-no-search"));
     const read = await chatgptRead.fn({});
-    expect(read).toMatchObject({ markdown: null, citations: 0, sourcesButton: false });
-    expect(chatgptAnswer(read, [], false)).toMatchObject({
-      webSearch: false,
-      links: [
-        { url: "https://asana.com/", title: "Asana official website" },
-        { url: "https://clickup.com/", title: "ClickUp official website" },
-      ],
-    });
-    // The "Searching the web" phase seen while waiting also counts.
+    expect(read).toMatchObject({ citations: 0, sourcesButton: false });
+    const answer = chatgptAnswer(read, [], false);
+    expect(answer.webSearch).toBe(false);
+    expect(answer.links.map((l) => l.url)).toEqual([
+      "https://asana.com/",
+      "https://clickup.com/",
+      "https://monday.com/",
+      "https://trello.com/",
+      "https://www.atlassian.com/software/jira",
+      "https://www.notion.com/",
+    ]);
+    const result = answeredResult(base, answer, { brand: "monday.com", domain: "monday.com" });
+    expect(result.brand.mentioned && result.domain.mentioned).toBe(true);
+    expect(result.domain.citedAt).toEqual([3]);
     expect(chatgptAnswer(read, [], true).webSearch).toBe(true);
+  });
+
+  it("take source titles from the open Sources panel", async () => {
+    show(fixture("chatgpt-sources-open"));
+    const citations = await chatgptCitations.fn({ waitMs: 0 });
+    expect(citations[0]).toEqual({
+      url: "https://technologyadvice.com/marketing/ecommerce-email-marketing-software/?utm_source=chatgpt.com",
+      title: "Best Ecommerce Email Marketing Software (2026)",
+      publisher: "TechnologyAdvice",
+    });
+    const answer = chatgptAnswer(await chatgptRead.fn({}), citations, false);
+    expect(answer.links[0]).toEqual({
+      url: "https://technologyadvice.com/marketing/ecommerce-email-marketing-software/",
+      title: "Best Ecommerce Email Marketing Software (2026)",
+    });
+    expect(answer.links.every((l) => !l.url.includes("utm_"))).toBe(true);
   });
 
   it("read the signed-in app's markup, whose citation pills are links", async () => {
@@ -183,7 +177,7 @@ describe("ChatGPT engine", () => {
   const query = { prompt: "Best tools?", brand: "Asana", domain: "asana.com", country: "SK" };
 
   it("sends the prompt in a temporary chat URL and returns the answer", async () => {
-    const page = domPage(unsearched);
+    const page = domPage(fixture("chatgpt-no-search"));
     const result = await engine.run(page, query, context());
     expect(page.log).toEqual(["goto https://chatgpt.com/?temporary-chat=true&q=Best+tools%3F"]);
     expect(result).toMatchObject({ status: "answered", webSearch: false });
@@ -197,7 +191,7 @@ describe("ChatGPT engine", () => {
       .spyOn(dom.Element.prototype, "getBoundingClientRect")
       .mockReturnValue({ width: 100, height: 20 });
     const composer = '<form data-mobile-composer><textarea name="prompt"></textarea></form>';
-    const page = domPage(unsearched + composer);
+    const page = domPage(fixture("chatgpt-no-search") + composer);
     const prompt = "x".repeat(2_000);
     await engine.run(page, { ...query, prompt }, context());
     expect(page.log.slice(0, 2)).toEqual([
