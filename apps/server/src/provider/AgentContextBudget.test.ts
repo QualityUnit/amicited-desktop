@@ -62,7 +62,7 @@ import budget from "./agentContextBudget.json" with { type: "json" };
 const toolHandlerServices = Layer.mergeAll(
   Layer.mock(TerminalManager)({}),
   Layer.mock(Connections)({
-    engine: new BrowserConnections<import("playwright-core").Page>({
+    engine: new BrowserConnections({
       open: async () => {
         throw new Error("unused");
       },

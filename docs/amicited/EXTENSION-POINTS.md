@@ -876,6 +876,8 @@ on the changed line only.
 
 - Existing marketing RPC authorization, instrumentation, subscription and permission extension points carry `amicited.tracking.*`.
 - `server.ts` shares the tracking service; the existing domain header and composer marketing mounts display its results.
+- `server.ts` provides the connections service with `amicited/browser/BrowserSessions.ts`, which drives the user's own browser through the AmICited Connector bridge and falls back to the `connections` profile. See `docs/internals/amicited-visibility-engines.md`.
+- `scripts/release-smoke.ts`, `pnpm-lock.yaml` and `knip.jsonc`: register `packages/amicited-visibility` and `apps/amicited-connector`.
 
 ## Onboarding first check
 

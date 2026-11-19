@@ -670,7 +670,7 @@ const layerUnusedConfigRpcServices = Layer.mergeAll(
   Layer.mock(DocumentText.DocumentText)({}),
   Layer.mock(DomainFavicons)({}),
   Layer.mock(Connections)({
-    engine: new BrowserConnections<import("playwright-core").Page>({
+    engine: new BrowserConnections({
       open: async () => {
         throw new Error("unused");
       },

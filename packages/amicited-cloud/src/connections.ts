@@ -1,13 +1,17 @@
 import type { ConnectionId, ConnectionsSnapshot } from "./connectionsRpc.ts";
-import chatgpt from "./connectionAdapters/chatgpt.ts";
-import perplexity from "./connectionAdapters/perplexity.ts";
-import claude from "./connectionAdapters/claude.ts";
-import google from "./connectionAdapters/google.ts";
-import linkedin from "./connectionAdapters/linkedin.ts";
+import { inspect, type EnginePage } from "@amicited/visibility/page";
+import {
+  challengeSelectors,
+  classifyProbe,
+  isChallengePage,
+  sites,
+  type ProbeResult,
+  type SiteId,
+} from "@amicited/visibility/sites";
 
-export const siteAdapters = { chatgpt, perplexity, claude, google, linkedin };
+export { classifyProbe, sites, type ProbeResult };
 export const connectionCatalogue = [
-  ...Object.values(siteAdapters).map((a) => ({
+  ...Object.values(sites).map((a) => ({
     id: a.id,
     label: a.label,
     group: a.id === "linkedin" ? "social" : "tracking",
@@ -25,65 +29,41 @@ export const connectionCatalogue = [
     permissions: "Available with AmICited",
   })),
 ];
-export interface SitePage {
-  goto(url: string, options?: { waitUntil: "domcontentloaded"; timeout: number }): Promise<unknown>;
-  locator(selector: string): { first(): { isVisible(): Promise<boolean> } };
-  close(): Promise<unknown>;
-  isClosed?(): boolean;
-}
-export type ProbeResult = "logged_in" | "logged_out" | "captcha" | "unknown";
-export function classifyProbe(markers: {
-  loggedIn: boolean;
-  loggedOut: boolean;
-  captcha: boolean;
-}): ProbeResult {
-  return markers.captcha
-    ? "captcha"
-    : markers.loggedOut
-      ? "logged_out"
-      : markers.loggedIn
-        ? "logged_in"
-        : "unknown";
-}
-export async function probePage(
-  id: keyof typeof siteAdapters,
-  page: SitePage,
-): Promise<ProbeResult> {
-  const a = siteAdapters[id];
-  const visible = (s: string) =>
-    page
-      .locator(s)
-      .first()
-      .isVisible()
-      .catch(() => false);
-  const [loggedIn, loggedOut, captcha] = await Promise.all([
-    visible(a.loggedIn),
-    visible(a.loggedOut),
-    visible('iframe[src*="captcha"], #captcha, #challenge-running, [name="cf-turnstile-response"]'),
-  ]);
-  return classifyProbe({ loggedIn, loggedOut, captcha });
+export async function probePage(id: SiteId, page: EnginePage): Promise<ProbeResult> {
+  const site = sites[id];
+  const state = await page
+    .run(inspect, { selectors: [site.loggedIn, site.loggedOut, ...challengeSelectors] })
+    .catch(() => null);
+  if (!state) return "unknown";
+  const [loggedIn = false, loggedOut = false, ...challenges] = state.visible;
+  return classifyProbe({
+    loggedIn,
+    loggedOut,
+    captcha: challenges.some(Boolean) || isChallengePage(state),
+  });
 }
 type Row = ConnectionsSnapshot["connections"][number];
-export interface ConnectionBrowser<P extends SitePage> {
+export interface ConnectionBrowser {
+  /** Opens a page for a site; a visible thread asks for a tab the user can sign in through. */
   open(
-    id: keyof typeof siteAdapters,
+    id: SiteId,
     visibleThread?: string,
-  ): Promise<{ page: P; tabId?: string; close(): Promise<unknown> }>;
+  ): Promise<{ page: EnginePage; tabId?: string; close(): Promise<unknown> }>;
   clearCookies(domains: readonly string[]): Promise<void>;
 }
-export class BrowserConnections<P extends SitePage = SitePage> {
+export class BrowserConnections {
   private cancelledClosures = new Set<Promise<unknown>>();
   async drainCancellation() {
     await Promise.all(this.cancelledClosures);
   }
   private rows = new Map<ConnectionId, Row>();
   private queues = new Map<ConnectionId, Promise<unknown>>();
-  private pending = new Map<ConnectionId, { page: P; close(): Promise<unknown> }>();
+  private pending = new Map<ConnectionId, { page: EnginePage; close(): Promise<unknown> }>();
   private requests = new Map<string, ConnectionsSnapshot["requests"][number]>();
   private usage: ConnectionsSnapshot["usage"] = null;
   private listeners = new Set<() => void>();
-  private readonly browser: ConnectionBrowser<P>;
-  constructor(browser: ConnectionBrowser<P>, saved: readonly Row[] = []) {
+  private readonly browser: ConnectionBrowser;
+  constructor(browser: ConnectionBrowser, saved: readonly Row[] = []) {
     this.browser = browser;
     this.restore(saved);
   }
@@ -142,11 +122,11 @@ export class BrowserConnections<P extends SitePage = SitePage> {
     return next;
   }
   private adapter(id: ConnectionId) {
-    if (!(id in siteAdapters))
-      throw new Error("This connection is not available for automation yet.");
-    return id as keyof typeof siteAdapters;
+    if (!(id in sites)) throw new Error("This connection is not available for automation yet.");
+    return id as SiteId;
   }
-  private result(id: ConnectionId, result: ProbeResult) {
+  /** Records a sign-in probe made by an engine run or a check. */
+  report(id: ConnectionId, result: ProbeResult) {
     this.update(id, {
       lastChecked: new Date().toISOString(),
       status:
@@ -162,11 +142,8 @@ export class BrowserConnections<P extends SitePage = SitePage> {
       const key = this.adapter(id);
       const tab = await this.browser.open(key);
       try {
-        await tab.page.goto(siteAdapters[key].url, {
-          waitUntil: "domcontentloaded",
-          timeout: 15000,
-        });
-        this.result(id, await probePage(key, tab.page));
+        await tab.page.goto(sites[key].url, { timeoutMs: 15_000 });
+        this.report(id, await probePage(key, tab.page));
       } finally {
         await tab.close();
       }
@@ -197,7 +174,7 @@ export class BrowserConnections<P extends SitePage = SitePage> {
         return this.snapshot();
       }
       const result = await probePage(this.adapter(id), tab.page);
-      this.result(id, result);
+      this.report(id, result);
       if (result === "logged_in") {
         await tab.close();
         this.pending.delete(id);
@@ -219,7 +196,7 @@ export class BrowserConnections<P extends SitePage = SitePage> {
   async disconnect(id: ConnectionId) {
     await this.cancel(id);
     return this.serial(id, async () => {
-      await this.browser.clearCookies(siteAdapters[this.adapter(id)].cookies);
+      await this.browser.clearCookies(sites[this.adapter(id)].cookies);
       this.update(id, { status: "signed_out", lastChecked: new Date().toISOString() });
       return this.snapshot();
     });
@@ -241,17 +218,19 @@ export class BrowserConnections<P extends SitePage = SitePage> {
     this.changed();
     return this.row(connectionId);
   }
+  /**
+   * Runs work on a fresh page of a site, one at a time per site. The work reports the
+   * sign-in state it saw, or null when it saw nothing conclusive.
+   */
   withSiteSession<T>(
     id: ConnectionId,
-    action: (page: P) => Promise<T>,
+    action: (page: EnginePage) => Promise<{ value: T; probe: ProbeResult | null }>,
     signal?: AbortSignal,
-  ): Promise<{ status: "ok"; value: T } | { status: "needs_sign_in"; reason: ProbeResult }> {
+  ): Promise<T> {
     return this.serial(id, async () => {
       if (id === "linkedin") throw new Error("LinkedIn automation is coming soon.");
       signal?.throwIfAborted();
-      const key = this.adapter(id);
-      if (this.pending.has(id)) return { status: "needs_sign_in", reason: "logged_out" };
-      const tab = await this.browser.open(key);
+      const tab = await this.browser.open(this.adapter(id));
       const abort = () => {
         const closing = tab.close().catch(() => {});
         this.cancelledClosures.add(closing);
@@ -260,27 +239,10 @@ export class BrowserConnections<P extends SitePage = SitePage> {
       signal?.addEventListener("abort", abort, { once: true });
       try {
         signal?.throwIfAborted();
-        await tab.page.goto(siteAdapters[key].url, {
-          waitUntil: "domcontentloaded",
-          timeout: 15000,
-        });
-        const before = await probePage(key, tab.page);
-        this.result(id, before);
-        if (before !== "logged_in") return { status: "needs_sign_in", reason: before };
-        let value: T;
-        try {
-          value = await action(tab.page);
-        } catch (error) {
-          const result = await probePage(key, tab.page);
-          this.result(id, result);
-          if (result !== "logged_in") return { status: "needs_sign_in", reason: result };
-          throw error;
-        }
-        const after = await probePage(key, tab.page);
-        this.result(id, after);
-        if (after !== "logged_in") return { status: "needs_sign_in", reason: after };
+        const { value, probe } = await action(tab.page);
+        if (probe) this.report(id, probe);
         this.update(id, { lastUsed: new Date().toISOString() });
-        return { status: "ok", value };
+        return value;
       } finally {
         signal?.removeEventListener("abort", abort);
         await tab.close();

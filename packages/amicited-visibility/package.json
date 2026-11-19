@@ -1,0 +1,29 @@
+{
+  "name": "@amicited/visibility",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./result": "./src/result.ts",
+    "./sites": "./src/sites.ts",
+    "./page": "./src/page.ts",
+    "./engine": "./src/engine.ts",
+    "./engines": "./src/engines/index.ts",
+    "./pacing": "./src/pacing.ts",
+    "./schedule": "./src/schedule.ts",
+    "./browsers": "./src/browsers.ts",
+    "./bridge": "./src/bridge.ts",
+    "./testing": "./src/testing.ts",
+    "./scripts": "./src/scripts.ts"
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
