@@ -30,6 +30,8 @@ import * as SqlClient from "effect/sql/SqlClient";
 import type * as SqlError from "effect/sql/SqlError";
 
 import * as ProjectService from "../project/ProjectService.ts";
+import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.ts";
+import type { ProviderInstance } from "@t3tools/provider-core/server/driver";
 import * as ScheduledTasks from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import { AmicitedCloud } from "./Cloud.ts";
@@ -124,8 +126,34 @@ const migrations: ReadonlyArray<
         `,
       ]),
   ],
-  [2, "Issue evidence", (sql) => sql`ALTER TABLE amicited_issues ADD COLUMN evidence TEXT`],
+  [
+    2,
+    "Audit model",
+    // 0 marks audits saved before they had their own model; startup moves those once.
+    (sql) => sql`ALTER TABLE amicited_issue_audits ADD COLUMN model_set INTEGER NOT NULL DEFAULT 0`,
+  ],
+  [3, "Issue evidence", (sql) => sql`ALTER TABLE amicited_issues ADD COLUMN evidence TEXT`],
 ];
+
+// Audits read every report and rank the fixes, so they need a flagship model, never a fast one.
+const AUDIT_MODELS: Partial<Record<string, ModelSelection["model"]>> = {
+  claudeAgent: "claude-opus-5-5",
+  codex: "gpt-6.1-sol",
+};
+const AUDIT_EFFORT_OPTION: Partial<Record<string, string>> = {
+  claudeAgent: "effort",
+  codex: "reasoningEffort",
+};
+
+function auditModelFor(
+  instanceId: ModelSelection["instanceId"],
+  driverKind: string,
+): ModelSelection | undefined {
+  const model = AUDIT_MODELS[driverKind];
+  const effort = AUDIT_EFFORT_OPTION[driverKind];
+  if (!model || !effort) return undefined;
+  return { instanceId, model, options: [{ id: effort, value: "high" }] };
+}
 
 interface IssueRow {
   readonly evidence: string | null;
@@ -151,6 +179,7 @@ interface AuditRow {
   readonly project_id: string;
   readonly task_id: string;
   readonly instructions: string;
+  readonly model_set: number;
 }
 
 const decodeEvidence = Schema.decodeEffect(Schema.fromJsonString(IssueEvidence));
@@ -206,6 +235,7 @@ const make = Effect.gen(function* () {
   const projects = yield* ProjectService.ProjectService;
   const settings = yield* ServerSettings.ServerSettingsService;
   const cloud = yield* AmicitedCloud;
+  const instances = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;
   const changes = yield* PubSub.sliding<void>(1);
   const notify = PubSub.publish(changes, undefined);
 
@@ -394,6 +424,21 @@ const make = Effect.gen(function* () {
       Effect.mapError(fail("Could not read the audit.")),
     );
 
+  // A provider still on its first check at startup is probed now instead of being skipped.
+  const canRun = Effect.fn("AmicitedIssues.canRun")(function* (instance: ProviderInstance) {
+    let snapshot = yield* instance.snapshot.getSnapshot;
+    if (!snapshot.installed && snapshot.status === "warning" && snapshot.auth.status === "unknown")
+      snapshot = yield* instance.snapshot.refresh;
+    return (
+      instance.enabled &&
+      snapshot.enabled &&
+      snapshot.installed &&
+      snapshot.status !== "disabled" &&
+      snapshot.status !== "error" &&
+      snapshot.auth.status !== "unauthenticated"
+    );
+  });
+
   const resolveModel = Effect.fn("AmicitedIssues.resolveModel")(function* (projectId: string) {
     const project = yield* projects
       .getById(ProjectId.make(projectId))
@@ -408,6 +453,22 @@ const make = Effect.gen(function* () {
       current.defaultModelSelection ??
       current.textGenerationModelSelection;
     return selection;
+  });
+
+  // The user's own assistant goes first when it can run; otherwise Claude, then Codex.
+  const auditModel = Effect.fn("AmicitedIssues.auditModel")(function* (projectId: string) {
+    const preferred = yield* resolveModel(projectId);
+    const usable: Array<ModelSelection> = [];
+    for (const instance of yield* instances.listInstances) {
+      const selection = auditModelFor(instance.instanceId, instance.driverKind);
+      if (selection && (yield* canRun(instance))) usable.push(selection);
+    }
+    return (
+      usable.find((selection) => selection.instanceId === preferred.instanceId) ??
+      usable.find((selection) => selection.model === AUDIT_MODELS.claudeAgent) ??
+      usable[0] ??
+      preferred
+    );
   });
 
   const hostname = (projectId: string) =>
@@ -454,22 +515,23 @@ const make = Effect.gen(function* () {
         projectId: ProjectId.make(input.projectId),
         threadMode: "fresh_session",
         workspaceStrategy: { type: "root" },
-        modelSelection: task?.modelSelection ?? (yield* resolveModel(input.projectId)),
+        modelSelection:
+          task && existing?.model_set ? task.modelSelection : yield* auditModel(input.projectId),
         runtimeMode: "approval-required",
         interactionMode: "default",
       })
       .pipe(Effect.mapError((error) => new IssueFailure({ message: error.message })));
     yield* sql`
-      INSERT INTO amicited_issue_audits (project_id, task_id, instructions)
-      VALUES (${input.projectId}, ${result.task.id}, ${instructions})
-      ON CONFLICT (project_id) DO UPDATE SET task_id = excluded.task_id, instructions = excluded.instructions
+      INSERT INTO amicited_issue_audits (project_id, task_id, instructions, model_set)
+      VALUES (${input.projectId}, ${result.task.id}, ${instructions}, 1)
+      ON CONFLICT (project_id) DO UPDATE SET task_id = excluded.task_id, instructions = excluded.instructions, model_set = 1
     `.pipe(Effect.mapError(fail("Could not save the audit.")));
     yield* notify;
     // The first audit runs right away so a new connection is not an empty list until tomorrow.
     if (task === undefined && input.enabled)
       yield* scheduled.runNow({ id: result.task.id }).pipe(Effect.ignoreCause({ log: true }));
     return toAudit(
-      { project_id: input.projectId, task_id: result.task.id, instructions },
+      { project_id: input.projectId, task_id: result.task.id, instructions, model_set: 1 },
       (yield* tasks).get(result.task.id) ?? result.task,
     );
   });
@@ -511,6 +573,40 @@ const make = Effect.gen(function* () {
       .pipe(Effect.mapError(fail("Could not remove this domain's issues.")));
     yield* notify;
   });
+
+  // Audits saved before they had their own model may still run on the fast background model.
+  const moveOldAudits = Effect.gen(function* () {
+    const rows = yield* sql<AuditRow>`SELECT * FROM amicited_issue_audits WHERE model_set = 0`;
+    const byId = yield* tasks;
+    const move = Effect.fn("AmicitedIssues.moveOldAudit")(function* (row: AuditRow) {
+      const task = byId.get(row.task_id);
+      if (task?.schedule.type === "fixed_time") {
+        const modelSelection = yield* auditModel(row.project_id);
+        // Retried next start, once a Claude or Codex assistant is ready.
+        if (!Object.values(AUDIT_MODELS).includes(modelSelection.model)) return;
+        yield* scheduled.upsert({
+          id: task.id,
+          requireExisting: true,
+          title: task.title,
+          prompt: task.prompt,
+          enabled: task.enabled,
+          schedule: task.schedule,
+          projectId: task.projectId,
+          threadMode: "fresh_session",
+          workspaceStrategy: task.workspaceStrategy,
+          modelSelection,
+          runtimeMode: task.runtimeMode,
+          interactionMode: task.interactionMode,
+        });
+      }
+      yield* sql`UPDATE amicited_issue_audits SET model_set = 1 WHERE project_id = ${row.project_id}`;
+    });
+    yield* Effect.forEach(rows, (row) => move(row).pipe(Effect.ignoreCause({ log: true })), {
+      discard: true,
+    });
+  });
+  // Forked so provider checks never hold up server startup.
+  yield* moveOldAudits.pipe(Effect.ignoreCause({ log: true }), Effect.forkScoped);
 
   return AmicitedIssues.of({
     snapshot,

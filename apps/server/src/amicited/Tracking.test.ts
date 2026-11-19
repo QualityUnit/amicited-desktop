@@ -7,6 +7,7 @@ import { ProviderInstanceId, type ServerSettings } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import {
   TrackingRun,
+  availableEngines,
   engineConnection,
   trackingAnswer,
   type TrackingEngine,
@@ -479,6 +480,15 @@ it.effect("groups engine findings and maps every Google engine to its connection
     assert.deepEqual(
       ["gemini", "google", "google_overviews"].map((e) => engineConnection(e as TrackingEngine)),
       ["google", "google", "google"],
+    );
+    assert.deepEqual(availableEngines([]), ["chatgpt", "gemini", "google", "google_overviews"]);
+    assert.deepEqual(
+      availableEngines([
+        { id: "perplexity", status: "connected" },
+        { id: "google", status: "connected" },
+        { id: "chatgpt", status: "signed_out" },
+      ]),
+      ["chatgpt", "perplexity", "gemini", "google", "google_overviews"],
     );
     const answer = trackingAnswer(
       "one",

@@ -15,7 +15,7 @@ export const sites = {
     url: "https://www.perplexity.ai/",
     hosts: ["www.perplexity.ai", "perplexity.ai"],
     loggedIn: 'a[href*="/settings"], button[data-testid="user-menu-button"]',
-    loggedOut: 'a[href*="/auth/signin"]',
+    loggedOut: 'a[href*="/auth/signin"], [data-testid="login-modal"]',
     cookies: ["perplexity.ai"],
   },
   claude: {

@@ -10,6 +10,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
 import { connectionCatalogue } from "@amicited/cloud-client/connections";
+import { engineNeedsConnect } from "@amicited/cloud-client/tracking";
 import type { ConnectionId, ConnectionsSnapshot } from "@amicited/cloud-client/connectionsRpc";
 import {
   createEnvironmentRpcCommand,
@@ -121,11 +122,12 @@ export function ConnectAiAppsGrid({
     <section>
       <h2 className="am-section-label">AI apps to track</h2>
       <div className="am-engine-grid">
-        {["chatgpt", "perplexity", "gemini", "claude", "google_overviews", "google"].map(
+        {(["chatgpt", "perplexity", "gemini", "claude", "google_overviews", "google"] as const).map(
           (engine) => {
             const id = ["gemini", "google_overviews"].includes(engine) ? "google" : engine;
             const row = state.snapshot.connections.find((r) => r.id === id);
-            const connected = row?.status === "connected";
+            const signInFree = !engineNeedsConnect(engine);
+            const connected = signInFree || row?.status === "connected";
             return (
               <article className="am-engine-tile" key={engine}>
                 <span className="am-engine-logo">
@@ -159,7 +161,11 @@ export function ConnectAiAppsGrid({
                   </Button>
                 )}
                 <small>
-                  {connected ? "Sign-in stays on this computer" : "Opens a sign-in window"}
+                  {signInFree
+                    ? "No sign-in needed"
+                    : connected
+                      ? "Sign-in stays on this computer"
+                      : "Opens a sign-in window"}
                 </small>
               </article>
             );
@@ -167,8 +173,8 @@ export function ConnectAiAppsGrid({
         )}
       </div>
       <p className="am-muted">
-        Your sign-ins stay on this computer. Connect at least one. You can manage them later in
-        Connections.
+        Apps that answer without a sign-in are on already. Connect the others to track them; your
+        sign-ins stay on this computer. You can manage them later in Connections.
       </p>
       <h2 className="am-section-label">Available with AmICited</h2>
       <div className="am-engine-grid">

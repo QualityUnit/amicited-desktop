@@ -1119,7 +1119,7 @@
 .am-engine-tile strong {
   font-size: 12px;
   font-weight: 400;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 .am-engine-tile small {
   grid-column: 1 / -1;

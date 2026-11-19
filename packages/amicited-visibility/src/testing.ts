@@ -1,6 +1,7 @@
 import { VisibilityEngine, defaultTiming, type EngineContext } from "./engine.ts";
 import type { AnswerSnapshot, EnginePage, PageScript, PageState } from "./page.ts";
 import type { EngineId, RawAnswer } from "./result.ts";
+import { engines } from "./engines/index.ts";
 import { challengeSelectors, sites, type SiteId } from "./sites.ts";
 
 export interface FakeSite {
@@ -17,7 +18,10 @@ export interface FakeSite {
 
 const loggedOutMarkers = new Set<string>(Object.values(sites).map((s) => s.loggedOut));
 const loggedInMarkers = new Set<string>(Object.values(sites).map((s) => s.loggedIn));
-const challengeMarkers = new Set<string>(challengeSelectors);
+const challengeMarkers = new Set<string>([
+  ...challengeSelectors,
+  ...Object.values(engines).flatMap((e) => e.selectors.blocked ?? []),
+]);
 
 /** A scripted page with no DOM, for tests and the dev evidence fixtures. */
 export class FakePage implements EnginePage {

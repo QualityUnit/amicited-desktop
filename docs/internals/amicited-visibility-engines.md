@@ -67,6 +67,16 @@ its extensions ship only inside a signed macOS app, and `safaridriver` cannot us
 profile, so Safari users get the AmICited browser. Disconnecting a site clears cookies only
 in the AmICited browser; the app never signs the user out of their own browser.
 
+## Engines that need a sign-in
+
+`VisibilityEngine.requiresLogin` decides whether tracking an engine waits for the user to
+connect its site. Engines that answer signed out are on by default; the rest stay off until
+their site is connected (`availableEngines` in `@amicited/cloud-client/tracking`, used by
+onboarding and new tracking configs). Connections reads a site's sign-in through its engine's
+`probe`, so Connect and runs agree on what "signed in" means. Perplexity needs a sign-in:
+signed-out asks get "Sign up and repeat your request." instead of an answer, and the engine
+reports that as `logged_out` rather than scoring it.
+
 ## Runs
 
 `Tracking` asks in prompt-major order, so consecutive asks go to different sites. It waits

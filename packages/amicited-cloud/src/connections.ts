@@ -1,4 +1,5 @@
 import type { ConnectionId, ConnectionsSnapshot } from "./connectionsRpc.ts";
+import { engines } from "@amicited/visibility/engines";
 import { inspect, type EnginePage } from "@amicited/visibility/page";
 import {
   challengeSelectors,
@@ -29,7 +30,10 @@ export const connectionCatalogue = [
     permissions: "Available with AmICited",
   })),
 ];
+/** Reads a site's sign-in the way its engines do, so Connect and runs agree. */
 export async function probePage(id: SiteId, page: EnginePage): Promise<ProbeResult> {
+  const engine = Object.values(engines).find((e) => e.site === id);
+  if (engine) return engine.probe(page).catch(() => "unknown");
   const site = sites[id];
   const state = await page
     .run(inspect, { selectors: [site.loggedIn, site.loggedOut, ...challengeSelectors] })
