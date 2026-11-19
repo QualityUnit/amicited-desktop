@@ -1,0 +1,71 @@
+{
+  "entries": [
+    {
+      "status": "COMPLETED",
+      "query_str": "What are the best CRM tools for small businesses?",
+      "blocks": [
+        {
+          "intended_usage": "ask_text",
+          "markdown_block": {
+            "progress": "DONE",
+            "chunks": ["For most small businesses ", "the strongest options are..."],
+            "answer": "For most small businesses the strongest options are **HubSpot CRM**, Zoho CRM, Pipedrive and Salesforce Starter [1][2][3].\n\n## Top picks\n\n1. **HubSpot CRM** – a free core CRM with marketing tools built in[2]\n2. **Zoho CRM** – low price per seat and deep customisation [web:4]\n3. **Pipedrive** – a visual sales pipeline[5](https://www.pipedrive.com/en/features)\n\n| Tool | Starting price |\n| --- | --- |\n| HubSpot CRM | Free[2] |\n| Zoho CRM | $14 per user |"
+          }
+        },
+        {
+          "intended_usage": "web_results",
+          "web_result_block": {
+            "progress": "DONE",
+            "web_results": [
+              {
+                "name": "Best CRM Software: User Reviews from 2026",
+                "url": "https://www.g2.com/categories/crm",
+                "snippet": "",
+                "is_image": false,
+                "is_attachment": false
+              },
+              {
+                "name": "Free CRM Software & Tools for Your Whole Team",
+                "url": "https://www.hubspot.com/products/crm",
+                "snippet": "",
+                "is_image": false,
+                "is_attachment": false
+              },
+              {
+                "name": "CRM chart",
+                "url": "https://images.example.com/crm.png",
+                "snippet": "",
+                "is_image": true
+              },
+              {
+                "name": "The 8 best CRMs for small business",
+                "url": "https://zapier.com/blog/best-crm-app/",
+                "snippet": "",
+                "is_image": false,
+                "is_attachment": false
+              },
+              {
+                "name": "Zoho CRM",
+                "url": "https://www.zoho.com/crm/",
+                "snippet": "",
+                "is_image": false,
+                "is_attachment": false
+              },
+              {
+                "name": "Pipedrive features",
+                "url": "https://www.pipedrive.com/en/features",
+                "snippet": "",
+                "is_image": false,
+                "is_attachment": false
+              }
+            ]
+          }
+        },
+        {
+          "intended_usage": "pro_search_steps",
+          "plan_block": { "progress": "DONE", "goals": [], "final": true }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import { expect, it } from "vite-plus/test";
 import { FakePage, type FakeSite } from "@amicited/visibility/testing";
-import { BrowserConnections, classifyProbe } from "./connections.ts";
+import type { PageScript } from "@amicited/visibility/page";
+import { BrowserConnections, classifyProbe, probePage } from "./connections.ts";
 function fixture() {
   let site: FakeSite = { loggedIn: true };
   const closed: string[] = [];
@@ -50,6 +51,22 @@ it("completes or cancels sign-in, tracks logout and clears only site cookies", a
   await f.engine.disconnect("chatgpt");
   expect(row().status).toBe("signed_out");
   expect(f.cleared).toEqual([["chatgpt.com", "openai.com"]]);
+});
+it("reads a site's sign-in through its engine, so Perplexity connects from its session", async () => {
+  class SessionPage extends FakePage {
+    session: string | null = "signed_in";
+    override run<A, R>(script: PageScript<A, R>, arg: A): Promise<R> {
+      return script.name === "perplexitySession"
+        ? Promise.resolve(this.session as R)
+        : super.run(script, arg);
+    }
+  }
+  const page = new SessionPage({ loggedIn: false });
+  expect(await probePage("perplexity", page)).toBe("logged_in");
+  page.session = "signed_out";
+  expect(await probePage("perplexity", page)).toBe("logged_out");
+  page.setSite({ state: "captcha" });
+  expect(await probePage("perplexity", page)).toBe("captcha");
 });
 it("serialises a site's work while another site continues and recovers after errors", async () => {
   const { engine, closed } = fixture();
