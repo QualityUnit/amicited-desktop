@@ -4,5 +4,6 @@
  */
 import "./engines/gemini.scripts.ts";
 export { pageScripts } from "./page.ts";
+import "./engines/googleOverviews.scripts.ts";
 import "./engines/chatgpt.scripts.ts";
 import "./engines/perplexity.scripts.ts";

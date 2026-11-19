@@ -106,12 +106,32 @@ as missed. Runs are persisted before they start, so a day never runs twice.
   one the user would get; `webSearch` records whether ChatGPT searched (the "Searching the
   web" phase, citation pills or a Sources button).
 
+## Google Search and AI Overviews
+
+`google_overviews` opens `/search?q=…&gl=<country>` and records the AI Overview and the first
+page of organic results from the same page (`VisibilityResult.search`). Things the page hides:
+
+- **Links are opaque.** Organic results and overview citations link through
+  `/goto?url=<token>`, not to the page. Citation URLs come from the JSON Google embeds in
+  `<!--…|||[…]-->` comments beside each citation; organic results carry no full URL anywhere,
+  so they are recorded by their displayed site. Interpreting that data happens in the app, not
+  in the page script, so it can change without a connector release.
+- **The overview is collapsed** behind a "Show more" control, but its text is already in the
+  DOM; the engine expands it anyway and reads computed visibility, not `aria-hidden`.
+- **Consent.** The cookie dialog over the results is left alone. Google's full-page consent
+  screen is answered with "Reject all", the choice that shares the least; if that fails, the
+  run stops as blocked. The connector needs `consent.google.com` for this.
+- **Formulas** render as images and SVG; their text is the LaTeX in `data-xpm-latex`.
+- **Fixtures** in `engines/fixtures` are what `readGoogleSearch` returned on real pages in
+  Firefox, with session ids and opaque tokens scrubbed. The in-page half was proven by running
+  checks through the connector.
+
 ## Gemini
 
 - **Signed out works.** Gemini answers signed-out visitors with sources, so `requiresLogin` is
-  false. The engine answers Google's consent dialog with "Reject all". The connector cannot
-  run scripts on `accounts.google.com` or `consent.google.com`, so a redirect there stops the
-  check with a sign-in message rather than widening the extension's host permissions.
+  false. The engine answers Google's consent dialog with "Reject all". A redirect to
+  `accounts.google.com` or `consent.google.com` stops the check with a sign-in message; the
+  connector cannot run scripts on `accounts.google.com`.
 - **Sources hide behind chips.** Inline citation chips carry no URLs; each opens a popover of
   source cards on a keyboard Enter (untrusted clicks do nothing). The engine opens every chip
   right after the answer settles, because Gemini removes the chips about 25 seconds later.

@@ -88,8 +88,8 @@ export abstract class VisibilityEngine {
   readonly requiresLogin: boolean = true;
   readonly timing: EngineTiming = defaultTiming;
 
-  /** The page a run opens. Sites that accept the prompt in the URL can return it here. */
-  entryUrl(_prompt: string): string {
+  /** The page a run opens. Sites that accept the prompt (and country) in the URL can use them here. */
+  entryUrl(_prompt: string, _country: string): string {
     return sites[this.site].url;
   }
   /** Puts the prompt to the opened page. */
@@ -171,7 +171,9 @@ export abstract class VisibilityEngine {
     let session: ProbeResult = "unknown";
     try {
       ctx.signal.throwIfAborted();
-      await page.goto(this.entryUrl(query.prompt), { timeoutMs: this.timing.navigationTimeoutMs });
+      await page.goto(this.entryUrl(query.prompt, query.country), {
+        timeoutMs: this.timing.navigationTimeoutMs,
+      });
       session = await this.checkpoint(page);
       await this.ask(page, query.prompt, ctx);
       await this.waitForAnswer(page, ctx);
