@@ -17,13 +17,14 @@
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",
-    "test": "vp test run --config ../../vite.config.ts --dir ."
+    "test": "vp test run"
   },
   "dependencies": {
     "effect": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "jsdom": "^30.0.1",
     "vite-plus": "catalog:"
   }
 }
