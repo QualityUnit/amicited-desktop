@@ -33,7 +33,9 @@ export interface ExtensionApi {
     ): Promise<Tab>;
     get(tabId: number): Promise<Tab>;
     remove(tabId: number): Promise<void>;
-    readonly onUpdated: Event<(tabId: number, change: { readonly status?: string }) => void>;
+    readonly onUpdated: Event<
+      (tabId: number, change: { readonly status?: string }, tab?: Tab) => void
+    >;
   };
   readonly windows: {
     create(props: { readonly url: string; readonly focused: boolean }): Promise<{
