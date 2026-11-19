@@ -1,32 +1,18 @@
 import { expect, it } from "vite-plus/test";
-import { BrowserConnections, classifyProbe, siteAdapters, type SitePage } from "./connections.ts";
+import { FakePage, type FakeSite } from "@amicited/visibility/testing";
+import type { PageScript } from "@amicited/visibility/page";
+import { BrowserConnections, classifyProbe, probePage } from "./connections.ts";
 function fixture() {
-  let marker = "logged_in";
+  let site: FakeSite = { loggedIn: true };
   const closed: string[] = [];
   const cleared: string[][] = [];
   const engine = new BrowserConnections({
-    open: async (id) => {
-      const page: SitePage = {
-        goto: async () => {},
-        close: async () => {},
-        locator: (selector) => ({
-          first: () => ({
-            isVisible: async () =>
-              marker === "logged_in"
-                ? selector === siteAdapters[id].loggedIn
-                : marker === "logged_out"
-                  ? selector === siteAdapters[id].loggedOut
-                  : marker === "captcha" && selector.includes("#captcha"),
-          }),
-        }),
-      };
-      return {
-        page,
-        close: async () => {
-          closed.push(id);
-        },
-      };
-    },
+    open: async (id) => ({
+      page: new FakePage(site),
+      close: async () => {
+        closed.push(id);
+      },
+    }),
     clearCookies: async (domains) => {
       cleared.push([...domains]);
     },
@@ -35,8 +21,8 @@ function fixture() {
     engine,
     closed,
     cleared,
-    setMarker: (value: string) => {
-      marker = value;
+    setSite: (value: FakeSite) => {
+      site = value;
     },
   };
 }
@@ -54,15 +40,11 @@ it("completes or cancels sign-in, tracks logout and clears only site cookies", a
   expect(row().signingIn).toBe(true);
   await f.engine.finish("chatgpt");
   expect(row()).toMatchObject({ status: "connected", signingIn: false });
-  f.setMarker("logged_out");
+  f.setSite({ state: "logged_out" });
   await f.engine.check("chatgpt");
   expect(row().status).toBe("needs_attention");
-  f.setMarker("captcha");
-  expect(
-    await f.engine.withSiteSession("chatgpt", async () => {
-      throw new Error("must not run");
-    }),
-  ).toEqual({ status: "needs_sign_in", reason: "captcha" });
+  await f.engine.withSiteSession("chatgpt", async () => ({ value: null, probe: "captcha" }));
+  expect(row().status).toBe("needs_attention");
   await f.engine.connect("chatgpt", "thread");
   await f.engine.cancel("chatgpt");
   expect(row().signingIn).toBe(false);
@@ -70,8 +52,24 @@ it("completes or cancels sign-in, tracks logout and clears only site cookies", a
   expect(row().status).toBe("signed_out");
   expect(f.cleared).toEqual([["chatgpt.com", "openai.com"]]);
 });
+it("reads a site's sign-in through its engine, so Perplexity connects from its session", async () => {
+  class SessionPage extends FakePage {
+    session: string | null = "signed_in";
+    override run<A, R>(script: PageScript<A, R>, arg: A): Promise<R> {
+      return script.name === "perplexitySession"
+        ? Promise.resolve(this.session as R)
+        : super.run(script, arg);
+    }
+  }
+  const page = new SessionPage({ loggedIn: false });
+  expect(await probePage("perplexity", page)).toBe("logged_in");
+  page.session = "signed_out";
+  expect(await probePage("perplexity", page)).toBe("logged_out");
+  page.setSite({ state: "captcha" });
+  expect(await probePage("perplexity", page)).toBe("captcha");
+});
 it("serialises a site's work while another site continues and recovers after errors", async () => {
-  const { engine } = fixture();
+  const { engine, closed } = fixture();
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const order: string[] = [];
@@ -79,15 +77,16 @@ it("serialises a site's work while another site continues and recovers after err
     order.push("a");
     entered.resolve();
     await release.promise;
-    return 1;
+    return { value: 1, probe: null };
   });
   await entered.promise;
   const b = engine.withSiteSession("chatgpt", async () => {
     order.push("b");
-    return 2;
+    return { value: 2, probe: null };
   });
   await engine.withSiteSession("google", async () => {
     order.push("google");
+    return { value: 0, probe: null };
   });
   expect(order).toEqual(["a", "google"]);
   release.resolve();
@@ -98,20 +97,8 @@ it("serialises a site's work while another site continues and recovers after err
       throw new Error("failure");
     }),
   ).rejects.toThrow("failure");
-  expect(await engine.withSiteSession("chatgpt", async () => 3)).toEqual({
-    status: "ok",
-    value: 3,
-  });
-});
-it("turns logout during an action into a sign-in result and closes the page", async () => {
-  const f = fixture();
-  expect(
-    await f.engine.withSiteSession("chatgpt", async () => {
-      f.setMarker("logged_out");
-      throw new Error("logged out");
-    }),
-  ).toEqual({ status: "needs_sign_in", reason: "logged_out" });
-  expect(f.closed).toEqual(["chatgpt"]);
+  expect(closed.filter((id) => id === "chatgpt")).toHaveLength(3);
+  expect(await engine.withSiteSession("chatgpt", async () => ({ value: 3, probe: null }))).toBe(3);
 });
 it("replaces dependencies by identity, removes them, and resolves chat requests on sign-in", async () => {
   const { engine } = fixture();
@@ -128,13 +115,15 @@ it("replaces dependencies by identity, removes them, and resolves chat requests 
   await engine.connect("google", "t");
   await engine.finish("google");
   expect(engine.snapshot().requests).toEqual([]);
-  await expect(engine.withSiteSession("linkedin", async () => {})).rejects.toThrow("coming soon");
+  await expect(
+    engine.withSiteSession("linkedin", async () => ({ value: null, probe: null })),
+  ).rejects.toThrow("coming soon");
 });
 
 it("restores metadata without reviving an abandoned sign-in tab", async () => {
   const first = fixture();
   first.engine.registerUsage("google", { id: "tracking:a", label: "Tracking a" });
-  await first.engine.withSiteSession("google", async () => 1);
+  await first.engine.withSiteSession("google", async () => ({ value: 1, probe: "logged_in" }));
   await first.engine.connect("google", "old-thread");
   const second = fixture();
   second.engine.restore(first.engine.snapshot().connections);
@@ -153,14 +142,8 @@ it("closes the active page when collection is cancelled", async () => {
   const blocked = Promise.withResolvers<void>();
   let closed = 0;
   const engine = new BrowserConnections({
-    open: async (id) => ({
-      page: {
-        goto: async () => {},
-        close: async () => {},
-        locator: (selector: string) => ({
-          first: () => ({ isVisible: async () => selector === siteAdapters[id].loggedIn }),
-        }),
-      },
+    open: async () => ({
+      page: new FakePage({ loggedIn: true }),
       close: async () => {
         closed++;
         blocked.reject(new Error("Page closed"));
@@ -174,6 +157,7 @@ it("closes the active page when collection is cancelled", async () => {
     async () => {
       entered.resolve();
       await blocked.promise;
+      return { value: null, probe: null };
     },
     controller.signal,
   );

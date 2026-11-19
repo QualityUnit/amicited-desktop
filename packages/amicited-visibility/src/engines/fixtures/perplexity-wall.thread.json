@@ -1,0 +1,51 @@
+{
+  "entries": [
+    {
+      "status": "COMPLETED",
+      "query_str": "Which open source code editors are best for web development?",
+      "blocks": [
+        {
+          "intended_usage": "plan",
+          "plan_block": {
+            "progress": "DONE",
+            "goals": [
+              {
+                "id": "0",
+                "description": "Sign up and repeat your request.",
+                "final": true,
+                "todo_task_status": "INCOMPLETE"
+              }
+            ],
+            "final": true
+          }
+        },
+        {
+          "intended_usage": "ask_text",
+          "markdown_block": {
+            "progress": "DONE",
+            "chunks": ["Sign up and repeat your request."],
+            "chunk_starting_offset": 0,
+            "answer": "Sign up and repeat your request."
+          }
+        },
+        {
+          "intended_usage": "pro_search_steps",
+          "plan_block": {
+            "progress": "DONE",
+            "goals": [],
+            "steps": [
+              {
+                "uuid": "",
+                "step_type": "INITIAL_QUERY",
+                "initial_query_content": {
+                  "query": "Which open source code editors are best for web development?"
+                }
+              }
+            ],
+            "final": true
+          }
+        }
+      ]
+    }
+  ]
+}

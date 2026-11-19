@@ -28,6 +28,7 @@
   "dependencies": {
     "@amicited/tools": "workspace:*",
     "@amicited/tools-core": "workspace:*",
+    "@amicited/visibility": "workspace:*",
     "@modelcontextprotocol/sdk": "1.29.0",
     "effect": "catalog:"
   },

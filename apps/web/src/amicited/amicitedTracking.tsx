@@ -18,11 +18,13 @@ import {
   createEnvironmentRpcSubscriptionAtomFamily,
   createEnvironmentRpcCommand,
 } from "@t3tools/client-runtime/state/runtime";
-import type {
-  TrackingSnapshot,
-  TrackingConfig,
-  SaveTrackingResult,
+import {
+  availableEngines,
+  type TrackingSnapshot,
+  type TrackingConfig,
+  type SaveTrackingResult,
 } from "@amicited/cloud-client/tracking";
+import { useConnections } from "./amicitedConnections";
 import type { Domain } from "@amicited/cloud-client/domains";
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
@@ -159,6 +161,7 @@ export function TrackingPrompts({
 }) {
   const state = useTracking(destination);
   const { account } = useAmicitedAccount();
+  const connections = useConnections(destination);
   const saved = state.snapshot.configs.find((c) => c.projectId === domain.projectId);
   const [draft, setDraft] = useState<TrackingConfig | null>(null);
   const config = draft ??
@@ -166,7 +169,7 @@ export function TrackingPrompts({
       projectId: domain.projectId,
       country: state.snapshot.country,
       time: "09:00",
-      engines: [],
+      engines: availableEngines(connections.snapshot.connections),
       prompts: [],
     };
   const [text, setText] = useState("");

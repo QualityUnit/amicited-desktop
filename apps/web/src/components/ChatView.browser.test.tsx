@@ -22,6 +22,7 @@ import {
   threadWithHistory,
   assistantItem,
   type FakeDriver,
+  withFakeDomains,
 } from "../../test/fakeEnvironment";
 import { render } from "../../test/render";
 import { threadEnvironment } from "~/state/threads";
@@ -55,22 +56,6 @@ it.each(["developer", "marketer"] as const)(
       };
     })();
     using _environment = installFakeEnvironment([]);
-    if (mode === "marketer")
-      publish(ENVIRONMENT_ID, [
-        {
-          projectId: PROJECT_ID,
-          hostname: "example.com",
-          brand: "Example",
-          connectionRef: PROJECT_ID,
-          cms: "unknown",
-          siteFiles: null,
-        },
-      ]);
-    using _domains = {
-      [Symbol.dispose]() {
-        if (mode === "marketer") publish(ENVIRONMENT_ID, []);
-      },
-    };
 
     using fetchSpy = vi.spyOn(globalThis, "fetch");
     __setClientSettingsForTests({
@@ -153,7 +138,7 @@ it.each([false, true])("shows marketer thread location with site files=%s", asyn
     },
   };
   using _environment = installFakeEnvironment([fixture]);
-  publish(ENVIRONMENT_ID, [
+  using _domains = withFakeDomains([
     {
       projectId: PROJECT_ID,
       hostname: "example.com",

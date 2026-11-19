@@ -1,11 +1,10 @@
 import { runConnection } from "./ConnectionSessionAdapter.ts";
-import { evidenceEnabled, evidencePage } from "./EvidenceFixtures.ts";
-import type { Page } from "playwright-core";
+import { BrowserSessions, type BrowserMode } from "./browser/BrowserSessions.ts";
 import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
 import { ConnectionsSnapshot } from "@amicited/cloud-client/connectionsRpc";
 import { ServerConfig } from "../config.ts";
-import { BrowserConnections, siteAdapters } from "@amicited/cloud-client/connections";
+import { BrowserConnections } from "@amicited/cloud-client/connections";
 import { ConnectionFailure } from "@amicited/cloud-client/connectionsRpc";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -13,16 +12,17 @@ import * as Layer from "effect/Layer";
 import * as Schedule from "effect/Schedule";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
-import { ServerBrowser } from "../preview/ServerBrowser.ts";
 export class Connections extends Context.Service<
   Connections,
   {
-    engine: BrowserConnections<Page>;
+    engine: BrowserConnections;
+    /** Whether runs use the user's own browser, and why not when they do not. */
+    browserMode: Effect.Effect<BrowserMode>;
     snapshot: Effect.Effect<ReturnType<BrowserConnections["snapshot"]>>;
     changes: Stream.Stream<ReturnType<BrowserConnections["snapshot"]>>;
     run: <T>(
       action: (
-        engine: BrowserConnections<Page>,
+        engine: BrowserConnections,
         signal: AbortSignal,
         runEffect: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
       ) => Promise<T>,
@@ -33,31 +33,11 @@ const decodeSnapshot = Schema.decodeUnknownEffect(Schema.fromJsonString(Connecti
 export const layer = Layer.effect(
   Connections,
   Effect.gen(function* () {
-    const browser = yield* ServerBrowser;
+    const sessions = yield* BrowserSessions;
     const run = Effect.runPromiseWith(yield* Effect.context<never>());
-    let fixtureIndex = 0;
-    const engine = new BrowserConnections<Page>({
-      open: async (id, threadId) => {
-        if (evidenceEnabled()) {
-          const page = evidencePage(fixtureIndex++);
-          return { page, close: () => page.close() };
-        }
-        if (threadId) {
-          const tab = await run(browser.connectionTab(threadId, siteAdapters[id].url));
-          return { page: tab.page, tabId: tab.tabId, close: () => run(tab.close) };
-        }
-        const context = await run(browser.connectionContext);
-        const page = await context.newPage();
-        return { page, close: () => page.close() };
-      },
-      clearCookies: async (domains) => {
-        if (evidenceEnabled()) return;
-        const context = await run(browser.connectionContext);
-        for (const domain of domains)
-          await context.clearCookies({
-            domain: new RegExp(String.raw`(^|\.)${domain.replaceAll(".", String.raw`\.`)}$`),
-          });
-      },
+    const engine = new BrowserConnections({
+      open: (id, threadId) => run(sessions.open(id, threadId)),
+      clearCookies: (domains) => run(sessions.clearCookies(domains)),
     });
     const fs = yield* FileSystem.FileSystem;
     const config = yield* ServerConfig;
@@ -98,6 +78,7 @@ export const layer = Layer.effect(
     const snapshot = Effect.sync(() => engine.snapshot());
     return {
       engine,
+      browserMode: sessions.mode,
       snapshot,
       run: Effect.fn("Connections.session")((action) => runConnection(engine, action)),
       changes: Stream.callback<ReturnType<BrowserConnections["snapshot"]>>((queue) =>

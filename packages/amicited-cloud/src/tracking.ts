@@ -1,15 +1,18 @@
 import { timezoneCountries } from "./timezoneCountries.ts";
 import { answerSchema } from "@amicited/tools/visibility-schema";
+import { engines } from "@amicited/visibility/engines";
+import {
+  BrandMention,
+  DomainMention,
+  EngineId,
+  engineIds,
+  SearchResults,
+  Source,
+  type VisibilityResult,
+} from "@amicited/visibility/result";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
-export const TrackingEngine = Schema.Literals([
-  "chatgpt",
-  "perplexity",
-  "gemini",
-  "claude",
-  "google",
-  "google_overviews",
-]);
+export const TrackingEngine = EngineId;
 const engineLabels = {
   chatgpt: "ChatGPT",
   perplexity: "Perplexity",
@@ -20,7 +23,21 @@ const engineLabels = {
 };
 export type TrackingEngine = typeof TrackingEngine.Type;
 export function engineConnection(engine: TrackingEngine) {
-  return engine === "gemini" || engine === "google_overviews" ? "google" : engine;
+  return engines[engine].site;
+}
+/** Whether tracking this engine waits for the user to connect its site. */
+export function engineNeedsConnect(engine: TrackingEngine) {
+  return engines[engine].requiresLogin;
+}
+/** Engines that answer signed out are on by default; the rest need their site connected. */
+export function availableEngines(
+  connections: readonly { readonly id: string; readonly status: string }[],
+): TrackingEngine[] {
+  return engineIds.filter(
+    (engine) =>
+      !engineNeedsConnect(engine) ||
+      connections.some((c) => c.id === engineConnection(engine) && c.status === "connected"),
+  );
 }
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
   message: Schema.String,
@@ -45,12 +62,24 @@ export const TrackingAnswer = Schema.Struct({
   ...answerSchema.fields,
   promptId: Schema.String,
   engine: TrackingEngine,
-  status: Schema.Literals(["answered", "needs_sign_in", "failed", "budget_exhausted"]),
+  status: Schema.Literals(["answered", "needs_sign_in", "blocked", "failed", "budget_exhausted"]),
   excerpt: Schema.String,
   mentioned: Schema.Boolean,
   position: Schema.NullOr(Schema.Number),
   competitorsMentioned: Schema.Array(Schema.String),
   citations: Schema.Array(Schema.String),
+  // Added with the engine base; answers saved before it lack them.
+  text: Schema.optionalKey(Schema.String),
+  reason: Schema.optionalKey(Schema.String),
+  capturedAt: Schema.optionalKey(Schema.String),
+  country: Schema.optionalKey(Schema.String),
+  sources: Schema.optionalKey(Schema.Array(Source)),
+  brand: Schema.optionalKey(BrandMention),
+  domain: Schema.optionalKey(DomainMention),
+  search: Schema.optionalKey(SearchResults),
+  webSearch: Schema.optionalKey(Schema.Boolean),
+  /** Which browser captured the answer: the user's own, or the AmICited browser. */
+  browser: Schema.optionalKey(Schema.String),
 });
 export type TrackingAnswer = typeof TrackingAnswer.Type;
 export const TrackingRun = Schema.Struct({
@@ -168,71 +197,38 @@ export function detectCountry(
   void locale;
   return timezoneCountries[timezone] ?? "ZZ";
 }
-export function scheduleDays(
-  now: Date,
-  time: string,
-  lastDay: string | undefined,
-  configuredDay?: string,
-) {
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  const day = local.toISOString().slice(0, 10);
-  const due = local.toISOString().slice(11, 16) >= time && day !== lastDay;
-  const missed: string[] = [];
-  if (lastDay ?? configuredDay) {
-    const cursor = new Date(`${lastDay ?? configuredDay}T12:00:00Z`);
-    if (lastDay) cursor.setUTCDate(cursor.getUTCDate() + 1);
-    while (cursor.toISOString().slice(0, 10) < day && missed.length < 366) {
-      missed.push(cursor.toISOString().slice(0, 10));
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-  }
-  return { day, due, missed };
-}
-export function parseAnswer(
-  text: string,
-  links: readonly string[],
-  brand: string,
-  hostname: string,
-) {
-  const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const mention = new RegExp(
-    `(^|[^\\p{L}\\p{N}])(?:${[brand, hostname].filter(Boolean).map(escape).join("|")})(?=$|[^\\p{L}\\p{N}])`,
-    "iu",
-  );
-  const lines = text.split("\n");
-  const listed = lines.filter((l) => /^\s*(?:\d+[.)]|[-*])\s/.test(l));
-  const index = listed.findIndex((l) => mention.test(l));
-  const numbered = index < 0 ? null : /^\s*(\d+)[.)]/.exec(listed[index]!)?.[1];
-  const citations = [
-    ...new Set(
-      links.flatMap((link) => {
-        try {
-          const u = new URL(link);
-          return /^https?:$/.test(u.protocol) ? [u.href] : [];
-        } catch {
-          return [];
-        }
-      }),
-    ),
-  ];
+const statuses = {
+  answered: "answered",
+  logged_out: "needs_sign_in",
+  blocked: "blocked",
+  failed: "failed",
+} as const;
+/** Stores an engine result as a tracking answer; the legacy fields stay for older clients. */
+export function trackingAnswer(
+  promptId: string,
+  result: VisibilityResult,
+  browser?: string,
+): TrackingAnswer {
   return {
-    excerpt: text.slice(0, 2000),
-    mentioned: mention.test(text),
-    position: index < 0 ? null : numbered ? Number(numbered) : index + 1,
-    competitorsMentioned: [
-      ...new Set(
-        listed
-          .filter((l) => !mention.test(l))
-          .flatMap((l) => {
-            const name =
-              /^\s*(?:\d+[.)]|[-*])\s+(?:\*\*)?([\p{L}\p{N}][\p{L}\p{N} .&-]{1,60}?)(?:\*\*|:| – | — |$)/u
-                .exec(l)?.[1]
-                ?.trim();
-            return name ? [name] : [];
-          }),
-      ),
-    ],
-    citations,
+    promptId,
+    prompt: result.prompt,
+    engine: result.engine,
+    status: statuses[result.status],
+    excerpt: result.text.slice(0, 2000),
+    mentioned: result.brand.mentioned || result.domain.mentioned,
+    position: result.brand.listPosition,
+    competitorsMentioned: result.competitors,
+    citations: result.sources.map((s) => s.url),
+    text: result.text.slice(0, 20_000),
+    ...(result.reason ? { reason: result.reason } : {}),
+    capturedAt: result.capturedAt,
+    country: result.country,
+    sources: result.sources,
+    brand: result.brand,
+    domain: result.domain,
+    ...(result.search ? { search: result.search } : {}),
+    ...(result.webSearch === undefined ? {} : { webSearch: result.webSearch }),
+    ...(browser ? { browser } : {}),
   };
 }
 export function trackingFindings(
@@ -256,7 +252,7 @@ export function trackingFindings(
       report: "AI visibility",
       effort: "small" as const,
     };
-    if (a.status === "needs_sign_in") {
+    if (a.status === "needs_sign_in" || a.status === "blocked") {
       const connection = engineConnection(a.engine);
       const labels: Record<string, string> = {
         google: "Google",
@@ -271,7 +267,10 @@ export function trackingFindings(
           kind: "connect" as const,
           priority: "high" as const,
           fingerprint: `tracking:connection:${connection}`,
-          title: `${label} needs your sign-in`,
+          title:
+            a.status === "blocked"
+              ? `${label} asks you to complete a CAPTCHA`
+              : `${label} needs your sign-in`,
           body: a.prompt,
         },
       ];

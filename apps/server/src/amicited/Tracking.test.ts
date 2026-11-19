@@ -1,16 +1,20 @@
-import googleOverviews from "./trackingAdapters/googleOverviews.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { createModelSelection } from "@t3tools/shared/model";
-import { vi, expect } from "vite-plus/test";
+import { vi } from "vite-plus/test";
 import * as Settings from "../serverSettings.ts";
 import * as Registry from "../provider/ProviderInstanceRegistry.ts";
 import { ProviderInstanceId, type ServerSettings } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import {
   TrackingRun,
+  availableEngines,
   engineConnection,
+  trackingAnswer,
   type TrackingEngine,
 } from "@amicited/cloud-client/tracking";
+import { engines, type EngineRegistry } from "@amicited/visibility/engines";
+import { answeredResult, engineIds } from "@amicited/visibility/result";
+import { FakePage, fakeEngine } from "@amicited/visibility/testing";
 import * as DateTime from "effect/DateTime";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -25,13 +29,11 @@ import { DomainConnections } from "@amicited/cloud-client/domains";
 import { BrowserConnections } from "@amicited/cloud-client/connections";
 import {
   type TrackingConfig,
-  parseAnswer,
-  scheduleDays,
+  type TrackingSnapshot,
   trackingFindings,
 } from "@amicited/cloud-client/tracking";
 import type { Issue } from "@amicited/cloud-client/issues";
 import { evidencePage } from "./EvidenceFixtures.ts";
-import type { Page } from "playwright-core";
 import * as Sqlite from "../persistence/Sqlite.ts";
 import { AmicitedCloud } from "./Cloud.ts";
 import { runConnection } from "./ConnectionSessionAdapter.ts";
@@ -39,6 +41,10 @@ import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
 import * as Tracking from "./Tracking.ts";
 const encodeTestRun = Schema.encodeEffect(Schema.fromJsonString(TrackingRun));
+/** Every engine id runs the fake engine, on its real site and needing a sign-in. */
+const fakeEngines = Object.fromEntries(
+  engineIds.map((id) => [id, fakeEngine(id, { site: engines[id].site, requiresLogin: true })]),
+) as unknown as EngineRegistry;
 const fixture = (recorded = false, blockAnswer = false, generation = false) => {
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
@@ -87,17 +93,8 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     userinfo: async () => ({ email: "test@example.com", name: "Test" }),
     domains: () => cloud.domains,
   });
-  const page = {
-    goto: async () => {},
-    close: async () => {},
-    locator: (selector: string) => ({
-      first: () => ({
-        isVisible: async () =>
-          selector.includes("Log in") || selector.includes("login") || selector.includes("Sign in"),
-      }),
-    }),
-  } as unknown as Page;
-  const engine = new BrowserConnections<Page>({
+  const page = new FakePage({ state: "logged_out" });
+  const engine = new BrowserConnections({
     open: async () => {
       const selected = recorded
         ? evidencePage(
@@ -147,6 +144,7 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     }),
     Sqlite.layerMemory,
     NodeCrypto.layer,
+    Layer.succeed(Tracking.TrackingEngines, fakeEngines),
     Layer.succeed(AmicitedCloud, cloud),
     Layer.mock(Connections)({
       engine,
@@ -248,30 +246,46 @@ it.effect(
     }).pipe(Effect.provide(f.layer));
   },
 );
-it.effect("records missed days using the Effect clock and runs today's due check", () => {
-  const f = fixture();
-  return Effect.gen(function* () {
-    const t = yield* Tracking.Tracking;
-    const country = (yield* t.snapshot()).country;
-    yield* t.save(config("one", 1, country));
-    yield* TestClock.adjust("1 day");
-    yield* t.tick;
-    assert.isTrue((yield* t.snapshot()).runs.some((r) => r.status === "missed"));
-    const id = yield* t.runNow("one");
-    const completed = yield* t.subscribe().pipe(
-      Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
-      Stream.take(1),
-      Stream.runDrain,
-      Effect.forkChild,
-    );
-    yield* Fiber.join(completed);
-    yield* TestClock.adjust("3 days");
-    yield* t.tick;
-    const s = yield* t.snapshot();
-    assert.isTrue(s.runs.some((r) => r.status === "missed"));
-    assert.equal(s.usage.used, 1);
-  }).pipe(Effect.provide(f.layer));
-});
+it.effect(
+  "catches up the latest missed day once, records older ones, and never runs a day twice",
+  () => {
+    const f = fixture(true);
+    return Effect.gen(function* () {
+      const t = yield* Tracking.Tracking;
+      const start = DateTime.toDate(DateTime.makeUnsafe("2026-11-17T08:00:00Z"));
+      start.setMinutes(start.getMinutes() + start.getTimezoneOffset());
+      yield* TestClock.setTime(start.getTime());
+      const country = (yield* t.snapshot()).country;
+      yield* t.save({ ...config("one", 1, country), engines: ["perplexity"] });
+      yield* TestClock.adjust("3 days");
+      yield* t.tick;
+      const runsOn = (s: TrackingSnapshot, day: string) =>
+        s.runs.filter((r) => r.projectId === "one" && r.day === day);
+      let s = yield* t.snapshot();
+      assert.deepEqual(
+        s.runs.filter((r) => r.status === "missed").map((r) => r.day),
+        ["2026-11-18", "2026-11-17"],
+      );
+      const caughtUp = runsOn(s, "2026-11-19")[0]!;
+      assert.equal(caughtUp.status, "running");
+      yield* TestClock.adjust("1 minute");
+      yield* t.subscribe().pipe(
+        Stream.filter((s) => s.runs.some((r) => r.id === caughtUp.id && r.status === "complete")),
+        Stream.take(1),
+        Stream.runDrain,
+      );
+      yield* t.tick;
+      s = yield* t.snapshot();
+      assert.equal(runsOn(s, "2026-11-19").length, 1);
+      assert.equal(runsOn(s, "2026-11-20").length, 0);
+      yield* TestClock.adjust("2 hours");
+      yield* t.tick;
+      yield* t.tick;
+      assert.equal(runsOn(yield* t.snapshot(), "2026-11-20").length, 1);
+      yield* t.stopNow("one");
+    }).pipe(Effect.provide(f.layer));
+  },
+);
 it.effect("records sign-in failures without aborting the run and creates connection Issues", () => {
   const f = fixture();
   return Effect.gen(function* () {
@@ -288,7 +302,7 @@ it.effect("records sign-in failures without aborting the run and creates connect
       Stream.runDrain,
       Effect.forkChild,
     );
-    yield* TestClock.adjust("15 seconds");
+    yield* TestClock.adjust("1 minute");
     yield* Fiber.join(done);
     assert.equal(f.findings.length, 2);
     const r = (yield* t.snapshot()).runs.find((r) => r.id === id)!;
@@ -309,42 +323,26 @@ it.effect("records sign-in failures without aborting the run and creates connect
       Stream.runDrain,
       Effect.forkChild,
     );
-    yield* TestClock.adjust("30 seconds");
+    yield* TestClock.adjust("5 minutes");
     yield* Fiber.join(recovered);
     assert.isTrue(f.findings.filter((i) => i.kind === "connect").every((i) => i.status === "done"));
   }).pipe(Effect.provide(f.layer));
 });
-it("extracts mentions, ranked competitors and citations from a recorded answer", () => {
-  const text =
-    "1. **Mixpanel**: Strong funnels.\n2. **Northwind Analytics**: Simple setup at northwind.io.\n3. **Amplitude**: Retention reports.";
-  const parsed = parseAnswer(
-    text,
-    ["https://northwind.io/pricing"],
-    "Northwind Analytics",
-    "northwind.io",
+it("raises findings for dropped visibility and for sign-in walls", () => {
+  const answer = trackingAnswer(
+    "p",
+    answeredResult(
+      { engine: "chatgpt", prompt: "Question", capturedAt: "", country: "SK" },
+      { text: "1. Mixpanel\n2. Northwind Analytics", links: [] },
+      { brand: "Northwind Analytics", domain: "northwind.io" },
+    ),
   );
-  assert.equal(parsed.position, 2);
-  assert.isTrue(parsed.mentioned);
-  assert.deepEqual(parsed.competitorsMentioned, ["Mixpanel", "Amplitude"]);
-  assert.deepEqual(parsed.citations, ["https://northwind.io/pricing"]);
-  assert.isFalse(
-    parseAnswer("Try NotNorthwindAnalytics instead", [], "NorthwindAnalytics", "northwind.io")
-      .mentioned,
-  );
-  const answer = {
-    ...parsed,
-    engine: "chatgpt" as const,
-    promptId: "p",
-    prompt: "Question",
-    status: "answered" as const,
-  };
+  assert.isTrue(answer.mentioned);
+  assert.equal(answer.position, 2);
   const dropped = { ...answer, mentioned: false };
   assert.equal(trackingFindings([dropped], [answer])[0]?.priority, "high");
   assert.equal(trackingFindings([{ ...answer, status: "needs_sign_in" }], [])[0]?.kind, "connect");
-  assert.isFalse(
-    scheduleDays(DateTime.toDate(DateTime.makeUnsafe("2026-11-17T00:00:00")), "09:00", "2026-11-17")
-      .due,
-  );
+  assert.include(trackingFindings([{ ...answer, status: "blocked" }], [])[0]?.title, "CAPTCHA");
 });
 
 it.effect("stops a check without the scheduler restarting it, and permits a manual restart", () => {
@@ -395,7 +393,7 @@ it.effect(
         Stream.runDrain,
         Effect.forkChild,
       );
-      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("1 minute");
       yield* Fiber.join(done);
       assert.equal((yield* t.detail(id))?.outcome, "ok");
       assert.equal(f.findings.find((i) => i.id === "legacy")?.status, "done");
@@ -428,7 +426,7 @@ it.effect(
         Stream.runDrain,
         Effect.forkChild,
       );
-      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("1 minute");
       yield* Fiber.join(exhausted);
       assert.equal(
         (yield* t.detail(limited))?.answers.filter((a) => a.status === "answered").length,
@@ -468,6 +466,7 @@ it.effect("Stop cancels answer collection and closes its page before returning",
     const country = (yield* t.snapshot()).country;
     yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
     const id = yield* t.runNow("one");
+    yield* TestClock.adjust("10 seconds");
     yield* Effect.promise(() => f.entered);
     yield* t.stopNow("one");
     yield* Effect.promise(() => f.closed);
@@ -482,13 +481,23 @@ it.effect("groups engine findings and maps every Google engine to its connection
       ["gemini", "google", "google_overviews"].map((e) => engineConnection(e as TrackingEngine)),
       ["google", "google", "google"],
     );
-    const answer = {
-      ...parseAnswer("1. Acme", [], "Northwind", "northwind.io"),
-      engine: "chatgpt" as const,
-      promptId: "one",
-      prompt: "Question one",
-      status: "answered" as const,
-    };
+    assert.deepEqual(availableEngines([]), ["chatgpt", "gemini", "google", "google_overviews"]);
+    assert.deepEqual(
+      availableEngines([
+        { id: "perplexity", status: "connected" },
+        { id: "google", status: "connected" },
+        { id: "chatgpt", status: "signed_out" },
+      ]),
+      ["chatgpt", "perplexity", "gemini", "google", "google_overviews"],
+    );
+    const answer = trackingAnswer(
+      "one",
+      answeredResult(
+        { engine: "chatgpt", prompt: "Question one", capturedAt: "", country: "SK" },
+        { text: "1. **Acme** – fast", links: [] },
+        { brand: "Northwind", domain: "northwind.io" },
+      ),
+    );
     const grouped = trackingFindings(
       [answer, { ...answer, promptId: "two", prompt: "Question two" }],
       [],
@@ -509,12 +518,7 @@ it.effect("reserves on the current local day across midnight and persists dismis
     const country = (yield* t.snapshot()).country;
     yield* t.save({ ...config("one", 2, country), engines: ["chatgpt"] });
     const id = yield* t.runNow("one");
-    yield* t.subscribe().pipe(
-      Stream.filter((s) => s.runs.some((r) => r.id === id && r.answers.length === 1)),
-      Stream.take(1),
-      Stream.runDrain,
-    );
-    yield* TestClock.adjust("10 seconds");
+    yield* TestClock.adjust("1 minute");
     yield* t.subscribe().pipe(
       Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
       Stream.take(1),
@@ -549,7 +553,7 @@ it.effect(
       const c = { ...config("one", 2, country), engines: ["gemini" as const] };
       yield* t.save(c);
       const id = yield* t.runNow("one");
-      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("1 minute");
       yield* t.subscribe().pipe(
         Stream.filter((s) => s.runs.some((r) => r.status === "complete")),
         Stream.take(1),
@@ -571,7 +575,7 @@ it.effect(
       yield* sql`UPDATE amicited_tracking_runs SET value=${partialValue} WHERE id=${id}`;
       f.setRecorded(true);
       assert.equal(yield* t.checkMissing(id), id);
-      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("1 minute");
       yield* t.subscribe().pipe(
         Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
         Stream.take(1),
@@ -589,7 +593,7 @@ it.effect(
       yield* Effect.gen(function* () {
         const restored = yield* Tracking.Tracking;
         yield* restored.tick;
-        yield* TestClock.adjust("10 seconds");
+        yield* TestClock.adjust("1 minute");
         yield* restored.subscribe().pipe(
           Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
           Stream.take(1),
@@ -618,7 +622,7 @@ it.effect("generates website suggestions and persists assistant-written fixes", 
     const country = (yield* t.snapshot()).country;
     yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
     const id = yield* t.runNow("one");
-    yield* TestClock.adjust("10 seconds");
+    yield* TestClock.adjust("1 minute");
     yield* t.subscribe().pipe(
       Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
       Stream.take(1),
@@ -627,32 +631,6 @@ it.effect("generates website suggestions and persists assistant-written fixes", 
     assert.deepEqual((yield* t.detail(id))?.fixes, ["Fix A", "Fix B", "Fix C"]);
     assert.equal((yield* t.detail(id))?.fixesSource, "assistant");
   }).pipe(Effect.provide(f.layer));
-});
-
-it("records missing AI Overviews as answered without swallowing navigation failures", async () => {
-  const timeout = new Error("No overview");
-  timeout.name = "TimeoutError";
-  const page = evidencePage(0);
-  const locator = page.locator.bind(page);
-  page.locator = ((selector: string) => {
-    const result = locator(selector);
-    if (selector.includes("AIOverview"))
-      result.last = () =>
-        ({
-          ...result,
-          waitFor: async () => {
-            throw timeout;
-          },
-        }) as typeof result;
-    return result;
-  }) as typeof page.locator;
-  const result = await googleOverviews(page, "What is best?");
-  assert.equal(result.text, "No AI Overview shown");
-  assert.isFalse(parseAnswer(result.text, [], "Northwind", "northwind.io").mentioned);
-  page.goto = async () => {
-    throw new Error("Navigation failed");
-  };
-  await expect(googleOverviews(page, "What is best?")).rejects.toThrow("Navigation failed");
 });
 
 it.effect(
@@ -664,7 +642,7 @@ it.effect(
       const country = (yield* t.snapshot()).country;
       yield* t.save({ ...config("one", 1, country), engines: ["gemini"] });
       const id = yield* t.runNow("one");
-      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("1 minute");
       yield* t.subscribe().pipe(
         Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
         Stream.take(1),
@@ -685,7 +663,7 @@ it.effect(
       connected("reconnect-one");
       yield* t.tick;
       assert.equal((yield* t.detail(id))?.status, "running");
-      yield* TestClock.adjust("10 seconds");
+      yield* TestClock.adjust("1 minute");
       yield* t.subscribe().pipe(
         Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
         Stream.take(1),

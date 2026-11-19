@@ -36,12 +36,13 @@ it.effect("proxies reads while refusing writes from a read-only client", () =>
     };
     const dependencies = Layer.mergeAll(
       Layer.succeed(Connections, {
-        engine: new BrowserConnections<import("playwright-core").Page>({
+        engine: new BrowserConnections({
           open: async () => {
             throw new Error("unused");
           },
           clearCookies: async () => {},
         }),
+        browserMode: Effect.die("unused"),
         snapshot: Effect.succeed({ connections: [], requests: [], usage: null }),
         changes: Stream.empty,
         run: () => Effect.die("unused"),
@@ -124,12 +125,13 @@ it.effect("encodes cloud data, refusals and unreadable results at the MCP bounda
     });
     const dependencies = Layer.mergeAll(
       Layer.succeed(Connections, {
-        engine: new BrowserConnections<import("playwright-core").Page>({
+        engine: new BrowserConnections({
           open: async () => {
             throw new Error("sign-in must be user initiated");
           },
           clearCookies: async () => {},
         }),
+        browserMode: Effect.die("unused"),
         snapshot: Effect.succeed({ connections: [], requests: [], usage: null }),
         changes: Stream.empty,
         run: () => Effect.die("unused"),
@@ -251,7 +253,7 @@ it.effect("keeps a real approval pending until the user declines and encodes the
     });
     const dependencies = Layer.mergeAll(
       Layer.mock(Connections)({
-        engine: new BrowserConnections<import("playwright-core").Page>({
+        engine: new BrowserConnections({
           open: async () => {
             throw new Error("unused");
           },
