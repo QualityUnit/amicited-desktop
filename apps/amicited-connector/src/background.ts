@@ -6,7 +6,7 @@ import {
   type ConnectorMessage,
 } from "@amicited/visibility/bridge";
 import { pageScripts } from "@amicited/visibility/scripts";
-import { ext } from "./extension.ts";
+import { ext, type Tab } from "./extension.ts";
 
 const origin = `http://127.0.0.1:${defaultBridgePort}`;
 /** Tabs this extension opened or took over; it never touches the user's other tabs. */
@@ -49,15 +49,17 @@ function connect() {
 }
 
 /** Resolves when the tab finishes loading; register before navigating so the event is not missed. */
-function loaded(tabId: number, timeoutMs: number) {
+function loaded(tabId: number, timeoutMs: number, url: string) {
   return new Promise<void>((resolve) => {
     const done = () => {
       clearTimeout(timer);
       ext.tabs.onUpdated.removeListener(listener);
       resolve();
     };
-    const listener = (id: number, change: { readonly status?: string }) => {
-      if (id === tabId && change.status === "complete") done();
+    // A blank tab reports its own load late; that must not end the wait for the next page.
+    const listener = (id: number, change: { readonly status?: string }, tab?: Tab) => {
+      if (id !== tabId || change.status !== "complete") return;
+      if (url === "about:blank" || tab?.url !== "about:blank") done();
     };
     // A page that never reports complete is still usable once parsed; the engine checks the DOM.
     const timer = setTimeout(done, timeoutMs);
@@ -65,7 +67,7 @@ function loaded(tabId: number, timeoutMs: number) {
   });
 }
 async function navigate(tabId: number, url: string, timeoutMs: number, active?: boolean) {
-  const ready = loaded(tabId, timeoutMs);
+  const ready = loaded(tabId, timeoutMs, url);
   const tab = await ext.tabs.update(tabId, active === undefined ? { url } : { url, active });
   await ready;
   return tab;
@@ -85,7 +87,7 @@ async function open(url: string, focus: boolean) {
     const [blank] = await ext.tabs.query({ windowId });
     if (blank?.id !== undefined) {
       owned.add(blank.id);
-      await navigate(blank.id, url, 30_000);
+      if (url !== "about:blank") await navigate(blank.id, url, 30_000);
       return { tabId: blank.id };
     }
   }
@@ -94,7 +96,7 @@ async function open(url: string, focus: boolean) {
     : (await ext.windows.create({ url, focused: false })).tabs?.[0];
   if (tab?.id === undefined) throw new Error("Could not open a tab.");
   owned.add(tab.id);
-  const ready = loaded(tab.id, 30_000);
+  const ready = loaded(tab.id, 30_000, url);
   if ((await ext.tabs.get(tab.id)).status !== "complete") await ready;
   return { tabId: tab.id };
 }

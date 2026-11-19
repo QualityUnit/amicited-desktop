@@ -4,3 +4,4 @@
  */
 import "./engines/gemini.scripts.ts";
 export { pageScripts } from "./page.ts";
+import "./engines/chatgpt.scripts.ts";

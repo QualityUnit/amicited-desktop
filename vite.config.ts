@@ -20,8 +20,8 @@ const TEST_CONFIG_PACKAGES = [
   "apps/mobile",
   "apps/server",
   "apps/web",
-  "packages/client-runtime",
   "packages/amicited-visibility",
+  "packages/client-runtime",
 ];
 
 // `vp test run <file>` from the repo root hands each file to its package's

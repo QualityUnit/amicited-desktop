@@ -878,7 +878,7 @@ on the changed line only.
 - `server.ts` shares the tracking service; the existing domain header and composer marketing mounts display its results.
 - `server.ts` provides the connections service with `amicited/browser/BrowserSessions.ts`, which drives the user's own browser through the AmICited Connector bridge and falls back to the `connections` profile. See `docs/internals/amicited-visibility-engines.md`.
 - `scripts/release-smoke.ts`, `pnpm-lock.yaml` and `knip.jsonc`: register `packages/amicited-visibility` and `apps/amicited-connector`.
-- `vite.config.ts`: `TEST_CONFIG_PACKAGES` lists `packages/amicited-visibility`, whose own config runs engine page-script tests in jsdom.
+- `vite.config.ts`: lists `packages/amicited-visibility` in `TEST_CONFIG_PACKAGES`, so its own config gives page-script tests a jsdom environment.
 
 ## Onboarding first check
 

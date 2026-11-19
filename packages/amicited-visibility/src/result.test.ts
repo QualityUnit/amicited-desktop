@@ -11,7 +11,7 @@ const base = {
 const subject = { brand: "Northwind Analytics", domain: "www.northwind.io", competitors: ["Heap"] };
 const answers: RawAnswer[] = [
   {
-    text: "1. **Mixpanel**: Strong funnels.\n2. **Northwind Analytics**: Simple setup at northwind.io.\n3. **Amplitude**: Retention.\nHeap is also popular.\n- Pricing: Free plan.\n- Pricing: Paid plans.",
+    text: "1. **Mixpanel**: Strong funnels.\n2. **Northwind Analytics**: Simple setup at northwind.io.\n3. **Amplitude**: Retention.\nHeap is also popular.",
     links: [
       { url: "https://northwind.io/pricing#:~:text=Plans", title: " Pricing " },
       { url: "https://www.google.com/url?q=https://mixpanel.com/&sa=U", title: "Mixpanel" },
@@ -72,5 +72,16 @@ describe("visibility results", () => {
     expect(result.domain.citedAt).toEqual([1, 3]);
     expect(result.competitors).toEqual(["Heap", "Mixpanel", "Amplitude"]);
     expect(answeredResult(base, answers[1]!, subject).brand.mentioned).toBe(false);
+    // Rank within the brand's own list; plain feature bullets are neither ranks nor competitors.
+    const ranked = answeredResult(
+      base,
+      {
+        text: "Why it matters:\n- Easy setup\n- 10 g salt\n\nTop picks:\n- Acme – fast\n- Northwind Analytics – simple",
+        links: [],
+      },
+      subject,
+    );
+    expect(ranked.brand.listPosition).toBe(2);
+    expect(ranked.competitors).toEqual(["Acme"]);
   });
 });
