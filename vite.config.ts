@@ -20,6 +20,7 @@ const TEST_CONFIG_PACKAGES = [
   "apps/mobile",
   "apps/server",
   "apps/web",
+  "packages/amicited-visibility",
   "packages/client-runtime",
 ];
 

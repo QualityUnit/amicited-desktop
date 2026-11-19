@@ -5,8 +5,8 @@ export const sites = {
     label: "ChatGPT",
     url: "https://chatgpt.com/",
     hosts: ["chatgpt.com"],
-    loggedIn: '[data-testid="profile-button"]',
-    loggedOut: '[data-testid="login-button"]',
+    loggedIn: '[data-testid="accounts-profile-button"], [data-testid="profile-button"]',
+    loggedOut: '[data-testid="login-button"], form[data-logged-out]',
     cookies: ["chatgpt.com", "openai.com"],
   },
   perplexity: {
