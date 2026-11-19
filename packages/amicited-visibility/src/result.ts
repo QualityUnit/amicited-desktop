@@ -133,7 +133,8 @@ export function analyzeAnswer(answer: RawAnswer, subject: Subject) {
           .exec(line)?.[1]
           ?.trim();
       return name ? [name] : [];
-    });
+    })
+    .filter((name, _, all) => all.indexOf(name) === all.lastIndexOf(name));
   const brand = subject.brand.trim().toLowerCase();
   return {
     text,

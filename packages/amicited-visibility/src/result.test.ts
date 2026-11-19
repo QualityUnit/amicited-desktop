@@ -11,7 +11,7 @@ const base = {
 const subject = { brand: "Northwind Analytics", domain: "www.northwind.io", competitors: ["Heap"] };
 const answers: RawAnswer[] = [
   {
-    text: "1. **Mixpanel**: Strong funnels.\n2. **Northwind Analytics**: Simple setup at northwind.io.\n3. **Amplitude**: Retention.\nHeap is also popular.",
+    text: "1. **Mixpanel**: Strong funnels.\n2. **Northwind Analytics**: Simple setup at northwind.io.\n3. **Amplitude**: Retention.\nHeap is also popular.\n- Pricing: Free plan.\n- Pricing: Paid plans.",
     links: [
       { url: "https://northwind.io/pricing#:~:text=Plans", title: " Pricing " },
       { url: "https://www.google.com/url?q=https://mixpanel.com/&sa=U", title: "Mixpanel" },

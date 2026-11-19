@@ -33,7 +33,8 @@ export const sites = {
     url: "https://www.google.com/",
     hosts: ["www.google.com", "gemini.google.com"],
     loggedIn: 'a[href*="accounts.google.com/SignOutOptions"], a[href*="myaccount.google.com"]',
-    loggedOut: 'a[href*="accounts.google.com/ServiceLogin"]',
+    loggedOut:
+      'a[href*="accounts.google.com/ServiceLogin"], [data-test-id="sidenav-error-action-link"]',
     cookies: ["google.com"],
   },
   linkedin: {
