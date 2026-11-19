@@ -1,4 +1,3 @@
-import { TrackingVisibility } from "./amicited/amicitedTracking";
 import { useEnvironmentSettings } from "./hooks/useSettings";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {
@@ -157,7 +156,6 @@ export function MarketingComposerContext({
       Add domain
     </MarketingButton>
   );
-  const cloud = <CloudConnectedChip destination={environmentId ?? undefined} />;
   return (
     <div>
       <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
@@ -166,7 +164,7 @@ export function MarketingComposerContext({
             <div className="am-composer-context">
               {domain ? <span>Working on</span> : null}
               {site}
-              {cloud}
+              <CloudConnectedChip destination={environmentId ?? undefined} />
             </div>,
             headerTarget,
           )
@@ -186,11 +184,7 @@ export function MarketingComposerContext({
             Choose assistant
           </MarketingButton>
         )}
-        {headerTarget ? null : cloud}
       </div>
-      {domain && environmentId && (
-        <TrackingVisibility domain={domain} destination={environmentId} />
-      )}
       <AssistantSetupDialog
         destination={environmentId}
         open={setupOpen}

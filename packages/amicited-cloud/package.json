@@ -14,6 +14,7 @@
     "./formatting": "./src/formatting.ts",
     "./account": "./src/account.ts",
     "./domains": "./src/domains.ts",
+    "./keyring": "./src/keyring.ts",
     "./toolResult": "./src/toolResult.ts",
     "./capture": "./src/capture.ts",
     "./connections": "./src/connections.ts",

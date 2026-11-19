@@ -9,7 +9,7 @@ import { useThreadShell } from "../state/entities";
 import { useDomains } from "../marketingDomains";
 import { newMessageId, newThreadId } from "../lib/utils";
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited owns these marketing styles. */
-import { useState, useEffect, useEffectEvent } from "react";
+import { useId, useState, useEffect, useEffectEvent } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import * as Atom from "effect/reactivity/Atom";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
@@ -58,6 +58,7 @@ import {
   SelectItem,
 } from "../components/ui/select";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { toastManager } from "../components/ui/toast";
 const emptySnapshot: TrackingSnapshot = {
   country: "ZZ",
@@ -126,53 +127,26 @@ export function LockPill() {
 export function TrackingVisibility({
   domain,
   destination,
-  compact = false,
 }: {
   domain: Domain;
   destination: EnvironmentId;
-  compact?: boolean;
 }) {
   const state = useTracking(destination);
-  const newThread = useNewThreadHandler();
   const run = state.snapshot.runs.find(
     (r) => r.projectId === domain.projectId && r.status !== "missed",
   );
-  const answers = run?.answers.filter((a) => a.status === "answered") ?? [];
-  const named = answers.filter((a) => a.mentioned).length;
-
   const { account } = useAmicitedAccount();
   const paid = account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full";
   const cloud = useCloudSummary(destination, domain.projectId, paid);
   const visibility = paid ? cloud?.visibility : run?.visibility;
-  const percent = visibility != null ? `${Math.round(visibility)}%` : "–";
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => marketingNavigate(`/prompts?site=${encodeURIComponent(domain.projectId)}`)}
-      >
-        {compact
-          ? percent
-          : paid
-            ? `AI visibility today · ${percent} · ${cloud?.promptCount ?? "Your"} prompts tracked in the cloud by AmICited`
-            : `AI visibility today · ${percent} · named in ${named} of ${answers.length} answers`}
-      </Button>
-      {!compact && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            void newThread(scopeProjectRef(destination, ProjectId.make(domain.projectId)), {
-              prompt: `Explain these AI visibility results for ${domain.hostname} and suggest what to fix. Read the results using amicited_tracking.`,
-              sendImmediately: true,
-            })
-          }
-        >
-          Ask about this
-        </Button>
-      )}
-    </>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => marketingNavigate(`/prompts?site=${encodeURIComponent(domain.projectId)}`)}
+    >
+      {visibility != null ? `${Math.round(visibility)}%` : "–"}
+    </Button>
   );
 }
 /** @public Onboarding can render the editor directly. */
@@ -203,6 +177,7 @@ export function TrackingPrompts({
   const [replace, setReplace] = useState("");
   const [replacementScope, setReplacementScope] = useState("here");
   const [adding, setAdding] = useState(false);
+  const promptId = useId();
   const [answer, setAnswer] = useState<
     import("@amicited/cloud-client/tracking").TrackingAnswer | null
   >(null);
@@ -293,14 +268,14 @@ export function TrackingPrompts({
             </MenuItem>
           </MenuPopup>
         </Menu>
-        <label>
-          Checked daily at{" "}
+        <Label>
+          Checked daily at
           <Input
             type="time"
             value={config.time}
             onChange={(e) => setDraft({ ...config, time: e.target.value })}
           />
-        </label>
+        </Label>
       </div>
       <div className="am-prompt-list">
         <Table>
@@ -399,10 +374,10 @@ export function TrackingPrompts({
             </DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <label>
-              Prompt
-              <Input value={text} onChange={(e) => setText(e.target.value)} />
-            </label>
+            <div className="grid gap-1.5">
+              <Label htmlFor={promptId}>Prompt</Label>
+              <Input id={promptId} value={text} onChange={(e) => setText(e.target.value)} />
+            </div>
             <h3>Today's free prompts</h3>
             <p>
               {state.snapshot.usage.used} of 20 used <BudgetBar used={state.snapshot.usage.used} />

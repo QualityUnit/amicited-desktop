@@ -11,6 +11,8 @@ import type {
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 
 import {
+  ACCOUNT_CLIENT_ID,
+  ACCOUNT_SCOPES,
   MCP_URL,
   SCOPES,
   SUBSCRIPTION_URL,
@@ -418,6 +420,8 @@ export class CloudClient {
     secrets: SecretStorage;
     openExternal(url: string): Promise<void>;
     endpoint?: string;
+    /** Signs in as FlowHunt's own `amicited-desktop` client: one token for every workspace. */
+    account?: boolean;
     onSessionRejected?: () => void;
     onChange?: () => void;
   };
@@ -436,6 +440,7 @@ export class CloudClient {
     persist: (value: Credential) => Promise<void>,
   ): OAuthClientProvider {
     let verifier = "";
+    const account = this.options.account;
     return {
       redirectUrl: redirect,
       clientMetadata: {
@@ -444,10 +449,12 @@ export class CloudClient {
         grant_types: ["authorization_code", "refresh_token"],
         response_types: ["code"],
         token_endpoint_auth_method: "none",
-        scope: SCOPES.join(" "),
+        scope: (account ? ACCOUNT_SCOPES : SCOPES).join(" "),
       },
       state: () => state,
-      clientInformation: () => credential.client,
+      clientInformation: () => (account ? { client_id: ACCOUNT_CLIENT_ID } : credential.client),
+      // FlowHunt refuses a resource-bound request from its own desktop client.
+      ...(account ? { validateResourceURL: async () => undefined } : {}),
       saveClientInformation: async (client) => {
         credential.client = client;
       },
@@ -713,17 +720,20 @@ export class CloudClient {
         },
         async () => {},
       );
-      await auth(provider, { serverUrl: this.endpoint(), scope: SCOPES.join(" "), fetchFn });
+      await auth(provider, {
+        serverUrl: this.endpoint(),
+        scope: (this.options.account ? ACCOUNT_SCOPES : SCOPES).join(" "),
+        fetchFn,
+      });
       await auth(provider, {
         serverUrl: this.endpoint(),
         authorizationCode: await codePromise,
         fetchFn,
       });
-      const connected = await this.validate(credential, {
-        signal: controller.signal,
-        generation,
-        fetchFn,
-      });
+      // An account token has no workspace yet, so the account checks each workspace after sign-in.
+      const connected: Connection = this.options.account
+        ? { state: "connected", workspace: "", auth: "oauth", access: "unknown", scopes: [] }
+        : await this.validate(credential, { signal: controller.signal, generation, fetchFn });
       await this.serial(async () => {
         if (generation !== this.generation) return;
         await this.options.secrets.write(JSON.stringify(credential));

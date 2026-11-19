@@ -6,6 +6,7 @@ import { AmICitedMark } from "@amicited/ui-marketing";
 import { Button } from "../components/ui/button";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../components/ui/collapsible";
 import { Spinner } from "../components/ui/spinner";
+import { WindowDragStrip } from "./WindowDragStrip";
 type Account = Schema.Schema.Type<typeof AccountStatus>;
 export function AccountGateScreen({
   account,
@@ -22,6 +23,7 @@ export function AccountGateScreen({
   const ended = account.state === "session_ended";
   return (
     <main data-am="am-setup" data-onboarding-surface="" aria-label="AmICited account">
+      <WindowDragStrip />
       <div data-am="am-setup-column">
         <div data-am="am-setup-brand">
           <AmICitedMark />

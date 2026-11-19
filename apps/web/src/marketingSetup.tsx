@@ -6,7 +6,8 @@ import { useFirstCheckChat } from "./amicited/amicitedTracking";
 import { SetupTrackingPrompts } from "./amicited/SetupTrackingPrompts";
 import { OlderWebsites, WorkspaceSwitcher, useAmicitedAccount } from "./amicited/amicitedAccount";
 import { effectiveMarketingAssistant } from "./marketingAssistant";
-import { AmICitedMark } from "@amicited/ui-marketing";
+import { AmICitedLoader, AmICitedMark } from "@amicited/ui-marketing";
+import { WindowDragStrip } from "./amicited/WindowDragStrip";
 import { usePrimarySettings } from "./hooks/useSettings";
 import { lastDomains } from "./marketingDomainStore";
 import { useThreadRouteTarget } from "./hooks/useThreadRouteTarget";
@@ -102,6 +103,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
   const [importing, setImporting] = useState(false);
   const loadCloudWebsites = useEffectEvent(readCloud);
   const [cloudRows, setCloudRows] = useState<ReturnType<typeof cloudSetupWebsites>>([]);
+  const [domainReady, setDomainReady] = useState(false);
   const [cloudWebsite, setCloudWebsite] = useState("");
   const [addingWebsite, setAddingWebsite] = useState(false);
   const [olderCount, setOlderCount] = useState(0);
@@ -268,7 +270,12 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
     };
   }, [step, environmentId, summaryProjectId]);
   if (finished === null && domains.rows.length === 0)
-    return <main data-am="am-setup-loading">Loading your workspace…</main>;
+    return (
+      <main data-am="am-setup-loading">
+        <WindowDragStrip />
+        <AmICitedLoader label="Loading your workspace…" />
+      </main>
+    );
   if (!step)
     return (
       <>
@@ -304,6 +311,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
   );
   return (
     <main data-am="am-setup" data-onboarding-surface="" aria-label="AmICited setup">
+      <WindowDragStrip />
       <div data-am="am-setup-column">
         <div data-am="am-setup-brand">
           <AmICitedMark />
@@ -366,6 +374,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
               open
               inline
               onOpenChange={() => {}}
+              onReadyChange={setDomainReady}
               onCreated={(projectId) => {
                 setSetupDomainId(projectId);
                 setStep(setupAfterWebsite(current?.access));
@@ -544,7 +553,11 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
                 </Button>
               )}
               {step === "website" && (olderCount > 0 || !cloudRows.length || addingWebsite) ? (
-                <Button type="submit" form="amicited-onboarding-domain">
+                <Button
+                  type="submit"
+                  form="amicited-onboarding-domain"
+                  disabled={!olderCount && !domainReady}
+                >
                   {olderCount ? "Add websites and continue" : "Continue"}
                 </Button>
               ) : step === "website" ? null : (

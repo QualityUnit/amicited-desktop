@@ -3,7 +3,11 @@ import * as NodeHttp from "node:http";
 import { expect, it } from "vite-plus/test";
 import { CloudClient, type SecretStorage } from "./index.ts";
 import { DomainConnections, normalizeDomain, type Domain } from "./domains.ts";
-function fixture(endpoint?: string, initialRows: Domain[] = []) {
+function fixture(
+  endpoint?: string,
+  initialRows: Domain[] = [],
+  account?: ConstructorParameters<typeof DomainConnections>[0]["account"],
+) {
   const secrets = new Map<string, string>();
   let rows: Domain[] = initialRows;
   let migrated = false;
@@ -32,6 +36,7 @@ function fixture(endpoint?: string, initialRows: Domain[] = []) {
     changed: () => {},
     client: (secrets) =>
       new CloudClient({ secrets, ...(endpoint ? { endpoint } : {}), openExternal: async () => {} }),
+    ...(account ? { account } : {}),
   };
   const domains = new DomainConnections(options);
   return { secrets, domains, storage, restart: () => new DomainConnections(options) };
@@ -300,4 +305,29 @@ it("round-trips CMS and site files, migrates old rows, and preserves them when d
     framework: "Astro",
     brand: "Updated",
   });
+});
+it("stops a paid workspace on a refused cloud domain and keeps a free one local", async () => {
+  const refused = { isError: true, content: [{ type: "text", text: "Domain limit reached" }] };
+  const setup = (access: string) => {
+    const calls: string[] = [];
+    const client = {
+      call: async (name: string) => {
+        calls.push(name);
+        return name === "list_domains" ? { content: [{ type: "text", text: "[]" }] } : refused;
+      },
+    } as unknown as CloudClient;
+    const { domains: linked } = fixture(undefined, [], {
+      currentId: () => "w",
+      client: () => client,
+      status: async () => ({ workspaces: [{ id: "w", access }] }),
+    });
+    return { linked, calls };
+  };
+  const paid = setup("full");
+  await expect(paid.linked.register("p", "acme.com", "Acme")).rejects.toThrow(
+    "Could not add acme.com to AmICited: Domain limit reached",
+  );
+  expect(paid.calls).toEqual(["create_domain", "list_domains"]);
+  const free = setup("free");
+  expect((await free.linked.register("p", "acme.com", "Acme")).domainId).toBeUndefined();
 });

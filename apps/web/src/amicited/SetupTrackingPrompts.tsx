@@ -9,6 +9,7 @@ import type { EnvironmentId } from "@t3tools/contracts";
 import { newMessageId } from "../lib/utils";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { Checkbox } from "../components/ui/checkbox";
 import { useTracking, BudgetBar, LockPill } from "./amicitedTracking";
 type SetupTrackingProps = {
@@ -151,10 +152,10 @@ function TrackingPromptsSetupForm({
             </MenuItem>
           </MenuPopup>
         </Menu>
-        <label>
-          Checked daily at{" "}
+        <Label>
+          Checked daily at
           <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-        </label>
+        </Label>
       </div>
       <div className="am-prompt-list">
         {prompts.map((p) => (

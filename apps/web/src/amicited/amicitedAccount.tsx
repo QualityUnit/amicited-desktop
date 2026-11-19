@@ -1,4 +1,5 @@
 import { Checkbox } from "../components/ui/checkbox";
+import { WindowDragStrip } from "./WindowDragStrip";
 import { AccountGateScreen, BrowserSignInPreview } from "./AccountGateScreen";
 import { useIssues } from "../marketingIssues";
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited setup classes are owned by the marketing package. */
@@ -13,7 +14,7 @@ import {
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
-import { AmICitedMark, marketingNavigate } from "@amicited/ui-marketing";
+import { AmICitedLoader, AmICitedMark, marketingNavigate } from "@amicited/ui-marketing";
 import { useTracking, BudgetBar } from "./amicitedTracking";
 import {
   Dialog,
@@ -24,7 +25,21 @@ import {
   DialogPanel,
 } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
-import { Menu, MenuTrigger, MenuPopup, MenuItem } from "../components/ui/menu";
+import {
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuRadioItemIndicator,
+  MenuSeparator,
+  MenuTrigger,
+} from "../components/ui/menu";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
+import { ChevronsUpDown, Plus, Settings } from "lucide-react";
+import { formatPlanLabel, pluralize } from "@amicited/cloud-client/formatting";
 import { toastManager } from "../components/ui/toast";
 import { publish } from "../marketingDomainStore";
 import { useLocation } from "@tanstack/react-router";
@@ -163,12 +178,24 @@ export function AmicitedAccountGate({ children }: { children: ReactNode }) {
   }, [environmentId, currentId]);
   if (["/pair", "/connect", "/connect-agent"].includes(pathname)) return children;
   if (!environmentId) return children;
-  if (!account) return <main data-am="am-setup-loading">Connecting to your AmICited account…</main>;
+  if (!account)
+    return (
+      <main data-am="am-setup-loading">
+        <WindowDragStrip />
+        <AmICitedLoader label="Connecting to your AmICited account…" />
+      </main>
+    );
   if (account.state === "signed_in" && currentId !== loadedWorkspaceId)
-    return <main data-am="am-setup-loading">Loading {current?.name} workspace…</main>;
+    return (
+      <main data-am="am-setup-loading">
+        <WindowDragStrip />
+        <AmICitedLoader label={`Loading ${current?.name ?? "your"} workspace…`} />
+      </main>
+    );
   if (account.state === "signed_in" && account.signingIn)
     return (
       <main data-am="am-setup" data-onboarding-surface="">
+        <WindowDragStrip />
         <div data-am="am-setup-column">
           <div data-am="am-setup-brand">
             <AmICitedMark />
@@ -223,49 +250,116 @@ export function AmicitedAccountGate({ children }: { children: ReactNode }) {
   );
 }
 
+const workspaceTone = (id: string) =>
+  [...id].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0) % 6;
+
+function WorkspaceAvatar({
+  workspace,
+  attention = false,
+}: {
+  workspace: { id: string; name: string };
+  attention?: boolean;
+}) {
+  return (
+    <span data-am="am-ws-avatar" data-tone={workspaceTone(workspace.id)} aria-hidden="true">
+      {workspace.name.trim()[0]?.toUpperCase() ?? "?"}
+      {attention && <i />}
+    </span>
+  );
+}
+
 export function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
   const actions = useAccountActions();
   if (!actions.account || !actions.current) return null;
   const { account, current } = actions;
-  const attention = account.workspaces.some(
+  const needing = account.workspaces.filter(
     (w) => w.id !== current.id && (w.attentionCount > 0 || w.sessionEnded),
   );
   return (
     <Menu>
-      <MenuTrigger
-        render={
-          compact ? (
-            <button type="button" className="am-workspace-chip" disabled={!actions.canManage} />
-          ) : (
-            <Button disabled={!actions.canManage} variant="ghost" />
-          )
-        }
-      >
-        <span
-          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
-          aria-hidden="true"
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              render={
+                <button
+                  type="button"
+                  data-am="am-ws-trigger"
+                  data-compact={compact ? "" : undefined}
+                  disabled={!actions.canManage}
+                  aria-label={`Workspace: ${current.name}. ${
+                    needing.length > 0
+                      ? `${needing.map((w) => w.name).join(", ")} needs attention. `
+                      : ""
+                  }Switch workspace`}
+                />
+              }
+            />
+          }
         >
-          {current.name[0]?.toUpperCase()}
-        </span>
-        {compact
-          ? `${current.email} · ${current.name}${/workspace$/i.test(current.name) ? "" : " workspace"} · Switch`
-          : `${current.name} · ${current.plan}`}
-        {attention && <span aria-label="Another workspace needs attention">●</span>}
-        <span aria-hidden="true">⌄</span>
-      </MenuTrigger>
-      <MenuPopup>
-        <p>{current.email}</p>
-        {account.workspaces.map((w) => (
-          <MenuItem key={w.id} onClick={() => void actions.switch(w.id)}>
-            {w.id === current.id ? "✓ " : ""}
-            {w.name} · {w.plan} · {w.websites.length} websites
-            {w.sessionEnded ? " · Sign in again" : w.attentionCount > 0 ? " · ●" : ""}
-          </MenuItem>
-        ))}
-        <MenuItem onClick={() => void actions.add()}>Add another workspace</MenuItem>
-        <MenuItem onClick={() => marketingNavigate("/settings/general?section=workspaces")}>
-          Manage workspaces
-        </MenuItem>
+          <WorkspaceAvatar workspace={current} attention={needing.length > 0} />
+          <span data-am="am-ws-name">{current.name}</span>
+          <span data-am="am-ws-plan">{formatPlanLabel(current.access, current.plan)}</span>
+          <ChevronsUpDown aria-hidden="true" />
+        </TooltipTrigger>
+        <TooltipPopup side="right">{current.name}</TooltipPopup>
+      </Tooltip>
+      <MenuPopup align="start">
+        <div data-am="am-ws-menu">
+          <MenuGroup>
+            <MenuGroupLabel>
+              <span data-am="am-ws-email">{current.email}</span>
+            </MenuGroupLabel>
+            <MenuRadioGroup value={current.id}>
+              {account.workspaces.map((w) => (
+                <Tooltip key={w.id}>
+                  <TooltipTrigger
+                    render={
+                      <MenuRadioItem
+                        value={w.id}
+                        closeOnClick
+                        onClick={() => void actions.switch(w.id)}
+                      />
+                    }
+                  >
+                    <span data-am="am-ws-row">
+                      <WorkspaceAvatar workspace={w} />
+                      <span data-am="am-ws-text">
+                        <span data-am="am-ws-name">{w.name}</span>
+                        <span data-am="am-ws-meta">
+                          {formatPlanLabel(w.access, w.plan)} ·{" "}
+                          {pluralize(w.websites.length, "website")}
+                        </span>
+                      </span>
+                      {w.sessionEnded ? (
+                        <span data-am="am-ws-pill" data-state="ended">
+                          Signed out
+                        </span>
+                      ) : w.attentionCount > 0 ? (
+                        <span data-am="am-ws-pill" data-state="attention">
+                          {pluralize(w.attentionCount, "new issue")}
+                        </span>
+                      ) : null}
+                      <MenuRadioItemIndicator />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipPopup side="right">{w.name}</TooltipPopup>
+                </Tooltip>
+              ))}
+            </MenuRadioGroup>
+          </MenuGroup>
+          <MenuSeparator />
+          <div data-am="am-ws-actions">
+            <MenuItem onClick={() => void actions.add()}>
+              <Plus />
+              Add another workspace
+            </MenuItem>
+            <MenuItem onClick={() => marketingNavigate("/settings/general?section=workspaces")}>
+              <Settings />
+              Manage workspaces
+            </MenuItem>
+          </div>
+        </div>
       </MenuPopup>
     </Menu>
   );

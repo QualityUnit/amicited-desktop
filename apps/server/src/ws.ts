@@ -4,6 +4,7 @@ import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
 import { templates as reportTemplates } from "@amicited/reports/templates";
 import { inspectSiteFiles } from "@amicited/cloud-client/siteFiles";
+import { CloudDomainError } from "@amicited/cloud-client/domains";
 import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
@@ -2205,9 +2206,12 @@ export const layerWsRpc = (
                   if (!cloud.domains) throw new Error("Domains unavailable");
                   return cloud.domains.register(projectId, website, brand, metadata);
                 },
-                catch: () =>
+                catch: (error) =>
                   new DomainFailure({
-                    message: "Could not save this domain. Check the website and try again.",
+                    message:
+                      error instanceof CloudDomainError
+                        ? error.message
+                        : "Could not save this domain. Check the website and try again.",
                   }),
               }),
             ),

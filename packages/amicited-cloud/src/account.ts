@@ -10,6 +10,7 @@ export interface SavedAccount {
   workspaces: readonly Workspace[];
   currentWorkspaceId?: string;
 }
+const ACCOUNT_SECRET = "account";
 export function workspaceFromToken(token: string) {
   const claims: unknown = JSON.parse(
     Buffer.from(token.split(".")[1] ?? "", "base64url").toString(),
@@ -67,7 +68,13 @@ export class AccountConnections {
       secrets: SecretStorage,
       open: (url: string) => Promise<void>,
       rejected: () => void,
+      target: { endpoint?: string; account?: boolean },
     ): CloudClient;
+    /** One FlowHunt sign-in for every workspace, instead of one sign-in per workspace. */
+    accountSignIn?: {
+      mcpUrl: string;
+      workspaces(token: string): Promise<ReadonlyArray<{ id: string; name: string }>>;
+    };
     openExternal(url: string): Promise<void>;
     userinfo(token: string): Promise<{ email: string; name: string }>;
     domains(): DomainConnections | undefined;
@@ -78,6 +85,9 @@ export class AccountConnections {
   private async load() {
     await (this.loaded ??= this.options.read().then((value) => {
       this.saved = value;
+      // Plans change in FlowHunt, so an account sign-in rereads them once per launch.
+      const first = value.workspaces[0];
+      if (this.options.accountSignIn && first) void this.refreshPlans(first.id);
     }));
   }
   private serial<T>(action: () => Promise<T>) {
@@ -98,9 +108,17 @@ export class AccountConnections {
       const workspaces = this.saved.workspaces.map((w) => {
         const connection = this.clients.get(w.id)?.connectionSnapshot();
         if (connection?.state !== "connected") return w;
-        const access = connection.access ?? w.access;
+        const access =
+          connection.access && connection.access !== "unknown" ? connection.access : w.access;
         const plan =
-          connection.plan ?? (access === "full" ? "Paid" : access === "free" ? "Free" : w.plan);
+          connection.plan ??
+          (access === w.access
+            ? w.plan
+            : access === "full"
+              ? "Paid"
+              : access === "free"
+                ? "Free"
+                : w.plan);
         if (access === w.access && plan === w.plan) return w;
         modified = true;
         return { ...w, access, plan };
@@ -123,20 +141,30 @@ export class AccountConnections {
   currentId() {
     return this.saved.currentWorkspaceId;
   }
+  private secretsFor(id: string) {
+    return this.options.secrets(this.options.accountSignIn ? ACCOUNT_SECRET : id);
+  }
   client(id: string) {
     let client = this.clients.get(id);
     if (!client) {
-      client = this.options.client(this.options.secrets(id), this.options.openExternal, () => {
-        void this.serial(async () => {
-          await this.load();
-          await this.save({
-            ...this.saved,
-            workspaces: this.saved.workspaces.map((w) =>
-              w.id === id ? { ...w, sessionEnded: true } : w,
-            ),
+      const account = this.options.accountSignIn;
+      const target = account ? { endpoint: `${account.mcpUrl}/${id}`, account: true } : {};
+      client = this.options.client(
+        this.secretsFor(id),
+        this.options.openExternal,
+        () => {
+          void this.serial(async () => {
+            await this.load();
+            await this.save({
+              ...this.saved,
+              workspaces: this.saved.workspaces.map((w) =>
+                w.id === id ? { ...w, sessionEnded: true } : w,
+              ),
+            });
           });
-        });
-      });
+        },
+        target,
+      );
       this.clients.set(id, client);
     }
     return client;
@@ -144,9 +172,16 @@ export class AccountConnections {
   async status(): Promise<Status> {
     await this.load();
     const rows = (await this.options.domains()?.metadata()) ?? [];
+    let unreadable: string | undefined;
     const checked = await Promise.all(
       this.saved.workspaces.map(async (w) => {
-        const raw = await this.options.secrets(w.id).read();
+        let raw: string | undefined;
+        try {
+          raw = await this.secretsFor(w.id).read();
+        } catch (error) {
+          unreadable = error instanceof Error ? error.message : String(error);
+          return w;
+        }
         if (!raw) return { ...w, sessionEnded: true };
         const connection = await this.client(w.id).status();
         return connection.state === "disconnected" ? { ...w, sessionEnded: true } : w;
@@ -160,6 +195,7 @@ export class AccountConnections {
         : [];
     });
     const current = usable.find((w) => w.id === this.currentId());
+    const problem = unreadable ?? this.error;
     return {
       state: !current ? "signed_out" : current.sessionEnded ? "session_ended" : "signed_in",
       workspaces: usable.map((w) => ({
@@ -171,7 +207,7 @@ export class AccountConnections {
       })),
       ...(current ? { currentWorkspaceId: current.id } : {}),
       signingIn: !!this.pending,
-      ...(this.error ? { error: this.error } : {}),
+      ...(problem ? { error: problem } : {}),
     };
   }
   async addWorkspace() {
@@ -188,6 +224,7 @@ export class AccountConnections {
         raw = undefined;
       },
     };
+    const account = this.options.accountSignIn;
     const client = this.options.client(
       temporary,
       async (url) => {
@@ -195,6 +232,7 @@ export class AccountConnections {
         await this.options.openExternal(url);
       },
       () => {},
+      account ? { endpoint: account.mcpUrl, account: true } : {},
     );
     this.pending = client;
     this.error = undefined;
@@ -210,6 +248,10 @@ export class AccountConnections {
         const credential = JSON.parse(raw) as { tokens?: { access_token?: string } };
         const token = credential.tokens?.access_token;
         if (!token) throw new Error("Sign in with an AmICited account.");
+        if (account) {
+          await this.finishAccountSignIn(account, token, raw, generation);
+          return;
+        }
         const id = workspaceFromToken(token);
         const user = await this.options.userinfo(token);
         const workspace: Workspace = {
@@ -247,6 +289,67 @@ export class AccountConnections {
     })();
     return this.status();
   }
+  private async finishAccountSignIn(
+    account: NonNullable<AccountConnections["options"]["accountSignIn"]>,
+    token: string,
+    raw: string,
+    generation: number,
+  ) {
+    const [user, listed] = await Promise.all([
+      this.options.userinfo(token),
+      account.workspaces(token),
+    ]);
+    if (!listed.length) throw new Error("Create a workspace in AmICited, then sign in again.");
+    await this.serial(async () => {
+      if (generation !== this.generation) return;
+      await Promise.all([...this.clients.values()].map((c) => c.close()));
+      this.clients.clear();
+      await this.options.secrets(ACCOUNT_SECRET).write(raw);
+      const previous = new Map(this.saved.workspaces.map((w) => [w.id, w]));
+      const workspaces = listed.map((w): Workspace => ({
+        email: user.email,
+        userName: user.name,
+        plan: previous.get(w.id)?.plan ?? "Free",
+        access: previous.get(w.id)?.access ?? "unknown",
+        attentionCount: 0,
+        websites: [],
+        id: w.id,
+        name: w.name || workspaceLabel(user.email),
+        sessionEnded: false,
+      }));
+      const current = this.saved.currentWorkspaceId;
+      await this.save({
+        workspaces,
+        currentWorkspaceId: workspaces.some((w) => w.id === current) ? current! : workspaces[0]!.id,
+      });
+    });
+    await this.refreshPlans(listed[0]!.id);
+  }
+  private async refreshPlans(id: string) {
+    try {
+      const data = toolData(await this.client(id).call("list_workspaces", {}));
+      const rows = (data as { workspaces?: unknown } | undefined)?.workspaces;
+      if (!Array.isArray(rows)) return;
+      const plans = new Map<string, { access: Workspace["access"]; plan: string }>();
+      for (const row of rows as Array<Record<string, unknown>>) {
+        if (typeof row.workspace_id !== "string") continue;
+        const access = row.access === "full" ? "full" : "free";
+        const plan = typeof row.plan === "string" && row.plan ? row.plan : "";
+        plans.set(row.workspace_id, {
+          access,
+          plan: access === "full" && plan ? plan[0]!.toUpperCase() + plan.slice(1) : "Free",
+        });
+      }
+      await this.serial(async () => {
+        await this.save({
+          ...this.saved,
+          workspaces: this.saved.workspaces.map((w) => ({ ...w, ...plans.get(w.id) })),
+        });
+      });
+    } catch {
+      /* Plans fill in from each workspace's own status when this lookup fails. */
+    }
+  }
   async cancelSignIn() {
     ++this.generation;
     const pending = this.pending;
@@ -272,8 +375,11 @@ export class AccountConnections {
     await this.cancelSignIn();
     await this.serial(async () => {
       await this.load();
-      const result = await this.client(id).disconnect();
-      if (result.state === "error") throw new Error(result.message);
+      if (this.options.accountSignIn) await this.clients.get(id)?.close();
+      else {
+        const result = await this.client(id).disconnect();
+        if (result.state === "error") throw new Error(result.message);
+      }
       this.clients.delete(id);
       const workspaces = this.saved.workspaces.filter((w) => w.id !== id);
       const currentWorkspaceId = this.currentId() === id ? workspaces[0]?.id : this.currentId();
@@ -284,6 +390,7 @@ export class AccountConnections {
   async signOut() {
     await this.cancelSignIn();
     for (const w of this.saved.workspaces) await this.removeWorkspace(w.id);
+    if (this.options.accountSignIn) await this.options.secrets(ACCOUNT_SECRET).clear();
     return this.status();
   }
   async listCloudDomains() {
@@ -380,6 +487,23 @@ export class AccountConnections {
   }
 }
 
+export async function readAccountWorkspaces(token: string, restUrl: string) {
+  const response = await fetch(new URL("/v2/workspaces/me/my_workspaces", restUrl), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ limit: 100 }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok)
+    throw new Error("Could not list your AmICited workspaces. Try signing in again.");
+  const rows: unknown = await response.json();
+  if (!Array.isArray(rows)) throw new Error("AmICited did not return your workspaces.");
+  return rows.flatMap((row: unknown) => {
+    if (!row || typeof row !== "object") return [];
+    const { workspace_id: id, workspace_name: name } = row as Record<string, unknown>;
+    return typeof id === "string" ? [{ id, name: typeof name === "string" ? name : "" }] : [];
+  });
+}
 export async function readAccountUserinfo(
   token: string,
   endpoint = "https://api.flowhunt.io/v2/auth/oauth/userinfo",

@@ -822,6 +822,9 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
     expect(secrets.get("older")).toBe(legacy);
     fake.refuse("");
     await domains.register("new", "new.example");
+    expect(fake.argumentsByTool.create_domain).toEqual({
+      create_request: { homepage_url: "https://new.example" },
+    });
     expect((await domains.scoped()).map((r) => r.projectId)).toEqual(["older", "new"]);
     const browserOpened = Promise.withResolvers<void>();
     signInOpened = browserOpened.resolve;

@@ -1,4 +1,9 @@
-import { AccountConnections, readAccountUserinfo } from "@amicited/cloud-client/account";
+import {
+  AccountConnections,
+  readAccountUserinfo,
+  readAccountWorkspaces,
+} from "@amicited/cloud-client/account";
+import { keyringSecrets } from "@amicited/cloud-client/keyring";
 import { AccountWorkspace } from "@amicited/cloud-client/rpc";
 import * as NodeModule from "node:module";
 import type * as Keyring from "@napi-rs/keyring";
@@ -63,19 +68,30 @@ export const layer = Layer.effect(
     const oauthLog = yield* Config.String("AMICITED_OAUTH_CAPTURE_URL").pipe(
       Config.withDefault(""),
     );
+    // Points the app at another FlowHunt, such as a local one, for development.
+    const flowhunt = (yield* Config.String("AMICITED_FLOWHUNT_URL").pipe(Config.withDefault("")))
+      .trim()
+      .replace(/\/+$/, "");
+    const accountSignIn =
+      (yield* Config.String("AMICITED_ACCOUNT_SIGNIN").pipe(Config.withDefault(""))) === "1";
     const fixtureEndpoint =
-      capture === "1" && /^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(endpoint) ? endpoint : undefined;
-    const secretsFor = (reference = account) => ({
-      read: async () => {
+      capture === "1" && /^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(endpoint)
+        ? endpoint
+        : flowhunt
+          ? `${flowhunt}/mcp/amicited`
+          : undefined;
+    const restUrl = flowhunt || "https://api.flowhunt.io";
+    const keyring = keyringSecrets({
+      get: async (reference) => {
         try {
-          return await (await entry(reference)).getPassword();
+          return (await (await entry(reference)).getPassword()) ?? undefined;
         } catch (error) {
           if (missing(error)) return undefined;
           throw error;
         }
       },
-      write: async (value: string) => (await entry(reference)).setPassword(value),
-      clear: async () => {
+      set: async (reference, value) => (await entry(reference)).setPassword(value),
+      delete: async (reference) => {
         try {
           await (await entry(reference)).deleteCredential();
         } catch (error) {
@@ -83,6 +99,7 @@ export const layer = Layer.effect(
         }
       },
     });
+    const secretsFor = (reference = account) => keyring(reference);
     const openExternal = async (url: string) => {
       await Effect.runPromiseWith(context)(
         launcher.launchBrowser(url).pipe(Effect.withTracerEnabled(false)),
@@ -135,13 +152,14 @@ export const layer = Layer.effect(
         await run(fs.rename(`${accountPath}.tmp`, accountPath));
       },
       secrets: (id) => secretsFor(`${account}:workspace:${id}`),
-      client: (secrets, open, rejected) => {
+      client: (secrets, open, rejected, target) => {
         const client = new CloudClient({
           secrets,
           openExternal: open,
           onSessionRejected: rejected,
           onChange: () => cloud.account?.changed(),
           ...(fixtureEndpoint ? { endpoint: fixtureEndpoint } : {}),
+          ...target,
         });
         client.subscribeApprovals(() => cloud.notifyApprovals());
         return client;
@@ -153,8 +171,17 @@ export const layer = Layer.effect(
           token,
           fixtureEndpoint ? new URL("/v2/auth/oauth/userinfo", fixtureEndpoint).href : undefined,
         ),
+      ...(accountSignIn
+        ? {
+            accountSignIn: {
+              mcpUrl: `${restUrl}/mcp/amicited`,
+              workspaces: (token: string) => readAccountWorkspaces(token, restUrl),
+            },
+          }
+        : {}),
     });
-    yield* Effect.promise(() => cloud.account!.status());
+    // A locked keyring must not stop the server; the account screen reports it instead.
+    yield* Effect.promise(() => cloud.account!.status().catch(() => undefined));
     const metadataPath = `${config.stateDir}/amicited-domains.json`;
     cloud.domains = new DomainConnections({
       read: async () => {

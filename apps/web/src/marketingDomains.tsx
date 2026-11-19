@@ -1,3 +1,4 @@
+/* oxlint-disable shadcn/no-unknown-classes -- AmICited marketing styles own these classes. */
 import { TrackingVisibility } from "./amicited/amicitedTracking";
 import { findReportKeySource } from "./marketingReports.logic";
 import { CmsGrid } from "@amicited/ui-marketing";
@@ -7,13 +8,6 @@ import { useEnvironment } from "./state/environments";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "./components/ui/tooltip";
 import { newProjectId } from "./lib/utils";
 import { cmsLabel, type Cms } from "@amicited/cloud-client/domainModel";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectPopup,
-  SelectItem,
-} from "./components/ui/select";
 import { sourceControlEnvironment } from "./state/sourceControl";
 import { useProjectClone, silenceProjectCloneToasts } from "./state/projectClones";
 import { useServerConfigs } from "./state/entities";
@@ -22,7 +16,7 @@ import { CloudDisclosure } from "./rpc/amicitedApprovals";
 import { useAtomValue } from "@effect/atom-react";
 import { SidebarProjectFolderHeader } from "./components/sidebar/SidebarProjectFolderHeader";
 import { DomainConnectionWarning, AmicitedConnectPanel } from "@amicited/ui-cloud";
-import { useEffect, useRef, useEffectEvent, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useEffectEvent, useState, useSyncExternalStore } from "react";
 import type { Domain } from "@amicited/cloud-client/domains";
 import { guessBrandName, normalizeDomain } from "@amicited/cloud-client/domainModel";
 import type { Connection } from "@amicited/cloud-client/model";
@@ -42,9 +36,12 @@ import { createLocalApi } from "./localApi";
 import { projectEnvironment } from "./state/projects";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from "./components/ui/menu";
-import { MoreHorizontal } from "lucide-react";
+import * as Cause from "effect/Cause";
+import * as Option from "effect/Option";
+import { FolderOpen, GitBranch, MoreHorizontal, SkipForward } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { Label } from "./components/ui/label";
 import {
   Dialog,
   DialogPopup,
@@ -120,6 +117,22 @@ export function useDomains(destination?: EnvironmentId | null) {
     loaded,
   };
 }
+const siteFileChoices = [
+  {
+    id: "skip",
+    title: "Skip for now",
+    detail: "Chat about your site without its code",
+    Icon: SkipForward,
+  },
+  {
+    id: "folder",
+    title: "Folder on this computer",
+    detail: "Use a copy you already have",
+    Icon: FolderOpen,
+  },
+  { id: "clone", title: "Clone from Git", detail: "Download it from a Git URL", Icon: GitBranch },
+] as const;
+
 function displayFolder(path: string) {
   const homePath = path.replace(/^(?:\/Users\/[^/]+|\/home\/[^/]+)(?=\/|$)/, "~");
   return homePath.length > 64 ? `${homePath.slice(0, 24)}…${homePath.slice(-36)}` : homePath;
@@ -133,7 +146,9 @@ export function NewDomainDialog({
   inline = false,
   initialWebsite = "",
   cloudDomain,
+  onReadyChange,
 }: {
+  onReadyChange?: (ready: boolean) => void;
   inline?: boolean;
   initialWebsite?: string;
   cloudDomain?: { domainId?: string; brand?: string } | undefined;
@@ -164,6 +179,9 @@ export function NewDomainDialog({
   const configs = useServerConfigs();
   const [cms, setCms] = useState<Cms>(editing?.cms ?? "unknown");
   const [siteFiles, setSiteFiles] = useState(editing?.siteFiles ?? "");
+  const websiteId = useId();
+  const brandId = useId();
+  const siteFilesId = useId();
   const [framework, setFramework] = useState<string | null>(editing?.framework ?? null);
   const [validatedPath, setValidatedPath] = useState("");
   const [folderNote, setFolderNote] = useState("");
@@ -265,14 +283,31 @@ export function NewDomainDialog({
   const canSave = useAtomValue(save.permissionAtom(environmentId));
   const newThread = useNewThreadHandler();
   let existingDomain: Domain | undefined;
+  let websiteValid = false;
   try {
     const hostname = normalizeDomain(website).hostname;
+    websiteValid = true;
     existingDomain = registeredDomains.find(
       (row) => row.hostname === hostname && row.projectId !== editing?.projectId,
     );
   } catch {
     // Incomplete website input has no matching domain yet.
   }
+  const ready =
+    websiteValid &&
+    !existingDomain &&
+    !busy &&
+    canCreate &&
+    canSave &&
+    !(fileChoice !== "skip" && !siteFiles) &&
+    !(fileChoice === "folder" && validatedPath !== siteFiles) &&
+    !(fileChoice === "clone" && clone?.phase !== "done") &&
+    !(!!cloneId && clone?.phase !== "done");
+  const reportReady = useEffectEvent((value: boolean) => onReadyChange?.(value));
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- The setup footer's Continue button lives outside this form and must follow its validity.
+  useEffect(() => {
+    reportReady(ready);
+  }, [ready]);
   const openExisting = async (domain: Domain) => {
     if (!environmentId) return;
     onOpenChange(false);
@@ -348,8 +383,11 @@ export function NewDomainDialog({
             },
           });
           if (result._tag !== "Success") {
+            const failure = Option.getOrNull(Cause.findErrorOption(result.cause));
             setError(
-              "The folder was created, but its domain could not be saved. Please try again.",
+              failure && "message" in failure && failure.message.startsWith("Could not add")
+                ? failure.message
+                : "The folder was created, but its domain could not be saved. Please try again.",
             );
             return;
           }
@@ -367,9 +405,10 @@ export function NewDomainDialog({
           .then(() => setBusy(false));
       }}
     >
-      <label>
-        Website
+      <div className="grid gap-1.5">
+        <Label htmlFor={websiteId}>Website</Label>
         <Input
+          id={websiteId}
           required
           disabled={busy}
           autoFocus
@@ -381,7 +420,7 @@ export function NewDomainDialog({
           }}
           placeholder="example.com"
         />
-      </label>
+      </div>
       {existingDomain ? (
         <p role="status" className="text-sm text-muted-foreground">
           <span>{existingDomain.hostname} is already added.</span>{" "}
@@ -398,16 +437,17 @@ export function NewDomainDialog({
       ) : (
         <DomainHint website={website} />
       )}
-      <label>
-        Brand name (optional)
+      <div className="grid gap-1.5">
+        <Label htmlFor={brandId}>Brand name (optional)</Label>
         <Input
+          id={brandId}
           value={brand}
           onChange={(event) => {
             setBrandEdited(true);
             setBrand(event.target.value);
           }}
         />
-      </label>
+      </div>
       <CmsGrid
         value={cms}
         disabled={busy}
@@ -428,34 +468,32 @@ export function NewDomainDialog({
       ) : (
         ["git", "headless", "unknown"].includes(cms) && (
           <fieldset className="flex min-w-0 max-w-full flex-col gap-2 [&>*]:min-w-0 [&>*]:max-w-full">
-            <legend>Site files</legend>
-            <Select
-              disabled={busy}
-              value={fileChoice}
-              onValueChange={(value) => {
-                if (value) {
-                  invalidateSource();
-                  setFileChoice(value);
-                }
-              }}
-            >
-              <SelectTrigger aria-label="Site files">
-                <SelectValue>
-                  {() =>
-                    fileChoice === "skip"
-                      ? "Skip for now"
-                      : fileChoice === "folder"
-                        ? "Use a folder on this computer"
-                        : "Clone from a Git URL"
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectPopup>
-                <SelectItem value="skip">Skip for now</SelectItem>
-                <SelectItem value="folder">Use a folder on this computer</SelectItem>
-                <SelectItem value="clone">Clone from a Git URL</SelectItem>
-              </SelectPopup>
-            </Select>
+            <Label render={<legend />}>Site files</Label>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Optional. With your site&apos;s code, the assistant can read and edit pages directly.
+            </p>
+            <div className="am-source-grid" role="radiogroup" aria-label="Site files">
+              {siteFileChoices.map(({ id, title, detail, Icon }) => (
+                <label key={id} className="am-cms-tile">
+                  <input
+                    type="radio"
+                    name="site-files"
+                    value={id}
+                    checked={fileChoice === id}
+                    disabled={busy}
+                    aria-labelledby={`${siteFilesId}-${id}`}
+                    aria-describedby={`${siteFilesId}-${id}-detail`}
+                    onChange={() => {
+                      invalidateSource();
+                      setFileChoice(id);
+                    }}
+                  />
+                  <Icon aria-hidden="true" className="size-5" />
+                  <span id={`${siteFilesId}-${id}`}>{title}</span>
+                  <small id={`${siteFilesId}-${id}-detail`}>{detail}</small>
+                </label>
+              ))}
+            </div>
             {fileChoice === "folder" && (
               <>
                 <Button
@@ -681,17 +719,7 @@ export function NewDomainDialog({
         <Button type="button" variant="ghost" onClick={() => closeDialog(false)}>
           Cancel
         </Button>
-        <Button
-          type="submit"
-          disabled={
-            busy ||
-            !canCreate ||
-            !canSave ||
-            (fileChoice !== "skip" && !siteFiles) ||
-            (fileChoice === "folder" && validatedPath !== siteFiles) ||
-            (!!cloneId && clone?.phase !== "done")
-          }
-        >
+        <Button type="submit" disabled={!ready}>
           {busy ? "Saving…" : editing ? "Save domain" : "Create domain"}
         </Button>
       </div>
@@ -862,10 +890,11 @@ export function DomainConnection({
   const connected = connection?.state === "connected";
   const command = useAtomCommand(connectionCommand);
   const [chooseAccount, setChooseAccount] = useState(false);
-  if (domain.workspaceId)
-    return (
-      <span>{domain.domainId ? "In AmICited" : "Not yet in AmICited"} · Workspace connection</span>
-    );
+  if (domain.workspaceId) {
+    const tracked = domain.domainId ? "In AmICited" : "Not in AmICited yet";
+    if (quiet) return domain.domainId ? null : <span>{tracked}</span>;
+    return <span>{tracked} · connected through your workspace</span>;
+  }
   const connectionPanel = connection && (
     <fieldset disabled={!canConnect}>
       <AmicitedConnectPanel
@@ -1338,7 +1367,7 @@ export function DomainFolderHeader({
       keepChevron
       actions={
         <>
-          <TrackingVisibility domain={domain} destination={destination} compact />
+          <TrackingVisibility domain={domain} destination={destination} />
           <DomainProjectActions domain={domain} destination={destination} />
         </>
       }

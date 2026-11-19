@@ -74,3 +74,65 @@ it("reads scoped paid cloud evidence and rejects write tools and free domains", 
     "paid domain",
   );
 });
+it("signs in once for every workspace and keeps that sign-in until sign-out", async () => {
+  const stored = new Map<string, string>();
+  const targets: Array<{ endpoint?: string; account?: boolean }> = [];
+  let saved: import("./account.ts").SavedAccount = { workspaces: [] };
+  let finished!: () => void;
+  const signedIn = new Promise<void>((resolve) => (finished = resolve));
+  const account = new AccountConnections({
+    read: async () => saved,
+    write: async (value) => {
+      saved = value;
+      if (value.workspaces.length) finished();
+    },
+    secrets: (id) => ({
+      read: async () => stored.get(id),
+      write: async (value) => void stored.set(id, value),
+      clear: async () => void stored.delete(id),
+    }),
+    client: (secrets, _open, _rejected, target) => {
+      targets.push(target);
+      return {
+        connectOAuth: async () => {
+          await secrets.write(JSON.stringify({ tokens: { access_token: "token" } }));
+          return { state: "connected" };
+        },
+        status: async () => ({ state: "connected" }),
+        close: async () => {},
+      } as unknown as CloudClient;
+    },
+    openExternal: async () => {},
+    userinfo: async () => ({ email: "a@acme.com", name: "A" }),
+    domains: () => undefined,
+    accountSignIn: {
+      mcpUrl: "https://flowhunt.test/mcp/amicited",
+      workspaces: async (token) =>
+        token === "token"
+          ? [
+              { id: "one", name: "Acme" },
+              { id: "two", name: "Side project" },
+            ]
+          : [],
+    },
+  });
+  await account.addWorkspace();
+  await signedIn;
+  const status = await account.status();
+  expect(status.state).toBe("signed_in");
+  expect(status.workspaces.map((w) => [w.id, w.name])).toEqual([
+    ["one", "Acme"],
+    ["two", "Side project"],
+  ]);
+  expect([...stored.keys()]).toEqual(["account"]);
+  expect(targets).toEqual([
+    { endpoint: "https://flowhunt.test/mcp/amicited", account: true },
+    { endpoint: "https://flowhunt.test/mcp/amicited/one", account: true },
+    { endpoint: "https://flowhunt.test/mcp/amicited/two", account: true },
+  ]);
+  await account.removeWorkspace("one");
+  expect(stored.has("account")).toBe(true);
+  expect((await account.status()).currentWorkspaceId).toBe("two");
+  await account.signOut();
+  expect(stored.has("account")).toBe(false);
+});

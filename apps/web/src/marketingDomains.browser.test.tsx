@@ -323,8 +323,7 @@ it("uses the chosen site folder as the T3 project workspaceRoot", async () => {
   );
   await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "site.example");
   await userEvent.click(screen.getByRole("radio", { name: /^Git-based site/ }));
-  await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
-  await userEvent.click(page.getByRole("option", { name: "Use a folder on this computer" }));
+  await userEvent.click(page.getByRole("radio", { name: "Folder on this computer" }));
   await userEvent.click(screen.getByRole("button", { name: "Choose folder" }));
   await expect.element(screen.getByText(/Detected Next.js/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
@@ -357,8 +356,7 @@ it.each([
   const props = { open: true, onOpenChange: () => {}, destination: EnvironmentId.make("local") };
   await using screen = await render(<NewDomainDialog {...props} />);
   await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "first.example");
-  await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
-  await userEvent.click(page.getByRole("option", { name: "Clone from a Git URL" }));
+  await userEvent.click(page.getByRole("radio", { name: "Clone from Git" }));
   await userEvent.fill(screen.getByRole("textbox", { name: "Git URL" }), "/fixture/bare.git");
   await userEvent.click(screen.getByRole("button", { name: "Clone site files", exact: true }));
   await expect
@@ -395,10 +393,9 @@ it.each([
       .toBeEnabled();
     return;
   } else {
-    await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
     await userEvent.click(
-      page.getByRole("option", {
-        name: transition === "skip" ? "Skip for now" : "Use a folder on this computer",
+      page.getByRole("radio", {
+        name: transition === "skip" ? "Skip for now" : "Folder on this computer",
       }),
     );
     if (transition !== "skip")
@@ -418,9 +415,7 @@ it.each([
       }),
     );
   await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
-  await expect
-    .element(screen.getByRole("combobox", { name: "Site files", exact: true }))
-    .toHaveTextContent("Skip for now");
+  await expect.element(screen.getByRole("radio", { name: "Skip for now" })).toBeChecked();
   state.emptyDomains = false;
 });
 
@@ -435,10 +430,9 @@ it.each(["folder", "clone"])(
     );
     for (const hostname of ["first.example", "second.example"]) {
       await userEvent.fill(screen.getByLabelText("Website", { exact: true }), hostname);
-      await userEvent.click(screen.getByRole("combobox", { name: "Site files", exact: true }));
       await userEvent.click(
-        page.getByRole("option", {
-          name: source === "folder" ? "Use a folder on this computer" : "Clone from a Git URL",
+        page.getByRole("radio", {
+          name: source === "folder" ? "Folder on this computer" : "Clone from Git",
         }),
       );
       if (source === "folder") {
@@ -497,10 +491,9 @@ it.each(["failed-save", "reused-copy"])(
     state.clonePhase = "done";
     await using screen = await render(<NewDomainDialog open onOpenChange={() => {}} />);
     await screen.getByLabelText("Website", { exact: true }).fill("first.example");
-    await screen.getByRole("combobox", { name: "Site files", exact: true }).click();
     await page
-      .getByRole("option", {
-        name: source === "failed-save" ? "Use a folder on this computer" : "Clone from a Git URL",
+      .getByRole("radio", {
+        name: source === "failed-save" ? "Folder on this computer" : "Clone from Git",
       })
       .click();
     if (source === "reused-copy") {
@@ -538,8 +531,7 @@ it("consumes a reused copy after saving and preserves the first domain on reopen
   const props = { open: true, onOpenChange: () => {} };
   await using screen = await render(<NewDomainDialog {...props} />);
   await screen.getByLabelText("Website", { exact: true }).fill("first.example");
-  await screen.getByRole("combobox", { name: "Site files", exact: true }).click();
-  await page.getByRole("option", { name: "Clone from a Git URL" }).click();
+  await page.getByRole("radio", { name: "Clone from Git" }).click();
   await screen.getByRole("textbox", { name: "Git URL" }).fill("/fixture/bare.git");
   await screen.getByRole("button", { name: "Clone site files", exact: true }).click();
   await expect.element(screen.getByText(/^Copied to/)).toBeVisible();
@@ -582,8 +574,7 @@ it("ignores a folder inspection that completes after a newer choice", async () =
   try {
     await using screen = await render(<NewDomainDialog open onOpenChange={() => {}} />);
     await screen.getByLabelText("Website", { exact: true }).fill("site.example");
-    await screen.getByRole("combobox", { name: "Site files", exact: true }).click();
-    await page.getByRole("option", { name: "Use a folder on this computer" }).click();
+    await page.getByRole("radio", { name: "Folder on this computer" }).click();
     const path = screen.getByRole("textbox", { name: "Folder path" });
     await path.fill("/fixture/first");
     await userEvent.tab();
