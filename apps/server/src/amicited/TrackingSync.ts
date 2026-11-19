@@ -107,27 +107,56 @@ export const makeTrackingSync = Effect.fn("TrackingSync.make")(function* (cloud:
     return added;
   });
 
-  const upload = Effect.fn("TrackingSync.upload")(function* (
-    projectId: string,
+  const call = Effect.fn("TrackingSync.call")(function* (
     client: CloudClient,
-    domainId: string,
-    rows: readonly OutboxRow[],
+    tool: string,
+    args: Record<string, unknown>,
   ) {
-    const results: LocalResult[] = [];
-    for (const row of rows) results.push((yield* decodeResult(row.payload)) as LocalResult);
     const response = yield* Effect.result(
       Effect.tryPromise({
-        try: () =>
-          client.call("submit_local_results", {
-            submission: { domain_id: domainId, collector: "desktop", results },
-          }),
+        try: () => client.call(tool, args),
         catch: (error) =>
           new SyncUploadError({ message: error instanceof Error ? error.message : String(error) }),
       }),
     );
-    if (Result.isFailure(response)) return syncProblem(response.failure.message);
-    if (response.success.isError) return syncProblem(response.success);
-    const outcomes = uploadOutcomes(toolData(response.success));
+    if (Result.isFailure(response)) return { problem: syncProblem(response.failure.message) };
+    if (response.success.isError) return { problem: syncProblem(response.success) };
+    return { result: response.success };
+  });
+
+  // Workspaces whose plan or credits refused the paid upload use the free daily pass instead.
+  const free = new Set<string>();
+  const passes = new Map<string, { result: unknown; pass: string }>();
+  const dayPass = Effect.fn("TrackingSync.dayPass")(function* (
+    client: CloudClient,
+    workspaceId: string,
+    day: string,
+  ) {
+    const cached = passes.get(`${workspaceId}|${day}`);
+    if (cached) return cached;
+    const issued = yield* call(client, "issue_local_results_pass", { day });
+    if (issued.problem) return { problem: issued.problem };
+    const pass = (toolData(issued.result) as { day_pass?: unknown } | undefined)?.day_pass;
+    if (typeof pass !== "string") return { problem: "error" as const };
+    const value = { result: issued.result, pass };
+    passes.set(`${workspaceId}|${day}`, value);
+    return value;
+  });
+
+  const upload = Effect.fn("TrackingSync.upload")(function* (
+    projectId: string,
+    client: CloudClient,
+    submission: Record<string, unknown>,
+    tool: string,
+    rows: readonly OutboxRow[],
+  ) {
+    const results: LocalResult[] = [];
+    for (const row of rows) results.push((yield* decodeResult(row.payload)) as LocalResult);
+    const response = yield* call(client, tool, {
+      submission: { ...submission, collector: "desktop", results },
+    });
+    if (response.problem) return response.problem;
+    const outcomes = uploadOutcomes(toolData(response.result));
     if (!outcomes) return syncProblem("AmICited sent an unreadable reply.");
     const now = yield* Clock.currentTimeMillis;
     const stopped = new Set<string>();
@@ -143,21 +172,89 @@ export const makeTrackingSync = Effect.fn("TrackingSync.make")(function* (cloud:
     return null;
   });
 
+  const pause = Effect.fn("TrackingSync.pause")(function* (
+    projectId: string,
+    problem: SyncProblem | "not_linked",
+  ) {
+    const now = yield* Clock.currentTimeMillis;
+    const [state] = yield* sql<{
+      attempts: number;
+    }>`SELECT attempts FROM amicited_tracking_sync WHERE project_id = ${projectId}`;
+    const attempts = state?.attempts ?? 0;
+    const wait =
+      problem === "offline" || problem === "error" || problem === "pass_invalid"
+        ? syncBackoff(attempts)
+        : BLOCKED_RETRY;
+    yield* setProblem(projectId, problem, now + wait, attempts + 1);
+    return true;
+  });
+
   const drainProject = Effect.fn("TrackingSync.drainProject")(function* (projectId: string) {
     const domain = (yield* domains()).find((d) => d.projectId === projectId);
-    if (!cloud.account || !domain?.workspaceId || !domain.domainId)
+    if (!cloud.account || !domain?.workspaceId)
       return yield* setProblem(projectId, "not_linked", 0, 0);
-    const client = cloud.account.client(domain.workspaceId);
+    const workspaceId = domain.workspaceId;
+    const client = cloud.account.client(workspaceId);
+    const today = () => Clock.currentTimeMillis.pipe(Effect.map((now) => iso(now).slice(0, 10)));
+    let domainId = domain.domainId;
+    if (!domainId) {
+      // The day pass lists the workspace's domains, which a free workspace cannot list otherwise.
+      const pass = yield* dayPass(client, workspaceId, yield* today());
+      if ("problem" in pass) return yield* pause(projectId, pass.problem);
+      yield* Effect.promise(() => cloud.domains!.rememberDomain(projectId, pass.result));
+      domainId = (yield* domains()).find((d) => d.projectId === projectId)?.domainId;
+      if (!domainId) return yield* pause(projectId, "not_linked");
+    }
     let changed = false;
+    let renewed = false;
     for (let batch = 0; batch < MAX_BATCHES; batch++) {
       const now = yield* Clock.currentTimeMillis;
-      let rows =
-        yield* sql<OutboxRow>`SELECT key, prompt, payload, attempts FROM amicited_tracking_outbox WHERE project_id = ${projectId} AND state = 'pending' AND next_at <= ${now} AND solo = 0 ORDER BY checked_at, rowid LIMIT ${SYNC_BATCH}`;
-      if (!rows.length)
-        rows =
-          yield* sql<OutboxRow>`SELECT key, prompt, payload, attempts FROM amicited_tracking_outbox WHERE project_id = ${projectId} AND state = 'pending' AND next_at <= ${now} ORDER BY checked_at, rowid LIMIT 1`;
+      // Answers the cloud refused as a malformed batch go one at a time, after the rest.
+      const due = (day: string, solo: number) =>
+        sql<OutboxRow>`SELECT key, prompt, payload, attempts FROM amicited_tracking_outbox WHERE project_id = ${projectId} AND state = 'pending' AND next_at <= ${now} AND substr(checked_at, 1, 10) LIKE ${day} AND solo = ${solo} ORDER BY checked_at, rowid LIMIT ${solo ? 1 : SYNC_BATCH}`;
+      let day = "%";
+      if (free.has(workspaceId)) {
+        // A pass covers today or yesterday, so older answers can no longer reach a free workspace.
+        const yesterday = iso(now - 24 * HOUR).slice(0, 10);
+        yield* sql`UPDATE amicited_tracking_outbox SET state = 'dropped', outcome = 'pass_expired' WHERE project_id = ${projectId} AND state = 'pending' AND substr(checked_at, 1, 10) < ${yesterday}`;
+        const [first] = [...(yield* due("%", 0)), ...(yield* due("%", 1))];
+        if (!first) break;
+        day = ((yield* decodeResult(first.payload)) as LocalResult).checked_at.slice(0, 10);
+      }
+      let rows = yield* due(day, 0);
+      if (!rows.length) rows = yield* due(day, 1);
       if (!rows.length) break;
-      const problem = yield* upload(projectId, client, domain.domainId, rows);
+      let problem: SyncProblem | null;
+      if (free.has(workspaceId)) {
+        const pass = yield* dayPass(client, workspaceId, day);
+        problem =
+          "problem" in pass
+            ? pass.problem
+            : yield* upload(
+                projectId,
+                client,
+                { domain_id: domainId, day_pass: pass.pass },
+                "submit_free_local_results",
+                rows,
+              );
+        if (problem === "pass_invalid" && !renewed) {
+          passes.delete(`${workspaceId}|${day}`);
+          renewed = true;
+          continue;
+        }
+      } else {
+        problem = yield* upload(
+          projectId,
+          client,
+          { domain_id: domainId },
+          "submit_local_results",
+          rows,
+        );
+        if (problem === "no_plan" || problem === "no_credits") {
+          free.add(workspaceId);
+          continue;
+        }
+      }
       changed = true;
       if (problem === "malformed") {
         // One bad answer fails the whole batch; send them one by one, and drop one that fails alone.
@@ -167,16 +264,7 @@ export const makeTrackingSync = Effect.fn("TrackingSync.make")(function* (cloud:
             : sql`UPDATE amicited_tracking_outbox SET state = 'dropped', outcome = 'malformed' WHERE project_id = ${projectId} AND key = ${row.key}`;
         continue;
       }
-      if (problem) {
-        const [state] = yield* sql<{
-          attempts: number;
-        }>`SELECT attempts FROM amicited_tracking_sync WHERE project_id = ${projectId}`;
-        const attempts = state?.attempts ?? 0;
-        const wait =
-          problem === "offline" || problem === "error" ? syncBackoff(attempts) : BLOCKED_RETRY;
-        yield* setProblem(projectId, problem, now + wait, attempts + 1);
-        return true;
-      }
+      if (problem) return yield* pause(projectId, problem);
       yield* sql`INSERT INTO amicited_tracking_sync (project_id, problem, synced_at, attempts, retry_at) VALUES (${projectId}, NULL, ${iso(now)}, 0, 0) ON CONFLICT(project_id) DO UPDATE SET problem = NULL, synced_at = excluded.synced_at, attempts = 0, retry_at = 0`;
     }
     return changed;
@@ -211,7 +299,8 @@ export const makeTrackingSync = Effect.fn("TrackingSync.make")(function* (cloud:
       synced_at: string | null;
     }>`SELECT o.project_id, SUM(o.state = 'pending') AS pending, SUM(o.state = 'dropped') AS skipped, s.problem, s.synced_at FROM amicited_tracking_outbox o LEFT JOIN amicited_tracking_sync s ON s.project_id = o.project_id GROUP BY o.project_id`;
     return rows.map((r): TrackingSync => {
-      const problem = r.problem === "malformed" ? "error" : r.problem;
+      const problem =
+        r.problem === "malformed" || r.problem === "pass_invalid" ? "error" : r.problem;
       const pending = Number(r.pending);
       return {
         projectId: r.project_id,

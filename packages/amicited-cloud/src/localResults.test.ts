@@ -171,6 +171,11 @@ it("names why a whole upload was refused", () => {
   expect(syncProblem(toolFailure("1 validation error for call[submit_local_results]"))).toBe(
     "malformed",
   );
+  expect(syncProblem(toolFailure("No active subscription plan found"))).toBe("no_plan");
+  expect(syncProblem(toolFailure("Insufficient credits to perform this action"))).toBe(
+    "no_credits",
+  );
+  expect(syncProblem(toolFailure("The day pass is invalid or expired."))).toBe("pass_invalid");
   expect(syncProblem("fetch failed")).toBe("offline");
   expect(syncProblem("Authentication required")).toBe("signed_out");
   expect(uploadOutcomes({ accepted: 1, rejected: 0, results: [{ index: 0 }] })).toEqual([

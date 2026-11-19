@@ -166,11 +166,12 @@ export type SyncProblem =
   | "domain_missing"
   | "unsupported"
   | "malformed"
+  | "pass_invalid"
   | "offline"
   | "error";
 
 export const syncMessages: Record<SyncProblem | "not_linked", string> = {
-  not_linked: "Not synced: this website isn't in your AmICited workspace yet.",
+  not_linked: "Not synced: add this website to your AmICited workspace first.",
   signed_out: "Not synced: sign in to this workspace again.",
   no_plan: "Not synced: syncing to AmICited needs a plan or trial. Answers stay on this computer.",
   no_credits: "Not synced: this workspace is out of AmICited credits.",
@@ -179,6 +180,7 @@ export const syncMessages: Record<SyncProblem | "not_linked", string> = {
   domain_missing: "Not synced: AmICited no longer has this website.",
   unsupported: "Not synced: AmICited doesn't accept desktop results yet.",
   malformed: "Some answers could not be synced.",
+  pass_invalid: "Not synced: AmICited refused today's sync pass. Retrying.",
   offline: "Not synced: AmICited can't be reached. Retrying.",
   error: "Not synced: AmICited refused the upload. Retrying.",
 };
@@ -190,6 +192,9 @@ export function syncProblem(failure: unknown): SyncProblem {
   const data = record(record(failure).structuredContent);
   const message = typeof data.message === "string" ? data.message : "";
   if (/unknown tool|tool .*not found/i.test(message)) return "unsupported";
+  if (/day pass is invalid or expired/i.test(message)) return "pass_invalid";
+  if (/no active subscription plan/i.test(message)) return "no_plan";
+  if (/payment limit|insufficient credits/i.test(message)) return "no_credits";
   switch (data.code) {
     case "plan_required":
       return "no_plan";
