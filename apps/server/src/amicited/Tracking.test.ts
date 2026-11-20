@@ -46,6 +46,8 @@ const fakeEngines = Object.fromEntries(
   engineIds.map((id) => [id, fakeEngine(id, { site: engines[id].site, requiresLogin: true })]),
 ) as unknown as EngineRegistry;
 const fixture = (recorded = false, blockAnswer = false, generation = false) => {
+  let browserUnavailable = false;
+  const openedSites: string[] = [];
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const closed = Promise.withResolvers<void>();
@@ -95,7 +97,9 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
   });
   const page = new FakePage({ state: "logged_out" });
   const engine = new BrowserConnections({
-    open: async () => {
+    open: async (site) => {
+      openedSites.push(site);
+      if (browserUnavailable) throw new Error("The server preview browser could not start.");
       const selected = recorded
         ? evidencePage(
             0,
@@ -181,6 +185,10 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     }),
   );
   return {
+    openedSites,
+    makeBrowserUnavailable: () => {
+      browserUnavailable = true;
+    },
     entered: entered.promise,
     closed: closed.promise,
     setRecorded: (value: boolean) => {
@@ -327,6 +335,33 @@ it.effect("records sign-in failures without aborting the run and creates connect
     yield* TestClock.adjust("5 minutes");
     yield* Fiber.join(recovered);
     assert.isTrue(f.findings.filter((i) => i.kind === "connect").every((i) => i.status === "done"));
+  }).pipe(Effect.provide(f.layer));
+});
+it.effect("finishes after the browser fails to open on both attempts", () => {
+  const f = fixture();
+  f.makeBrowserUnavailable();
+  return Effect.gen(function* () {
+    const t = yield* Tracking.Tracking;
+    const country = (yield* t.snapshot()).country;
+    yield* t.save({ ...config("one", 2, country), engines: ["chatgpt", "gemini"] });
+    const id = yield* t.runNow("one");
+    const done = yield* t.subscribe().pipe(
+      Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+      Stream.take(1),
+      Stream.runDrain,
+      Effect.forkChild,
+    );
+    yield* TestClock.adjust("10 minutes");
+    yield* Fiber.join(done);
+    const run = yield* t.detail(id);
+    assert.equal(run?.outcome, "failed");
+    assert.equal(run?.total, 4);
+    assert.deepEqual(
+      run?.answers.map((answer) => answer.status),
+      ["failed"],
+    );
+    assert.deepEqual(f.openedSites, ["chatgpt", "chatgpt"]);
+    assert.equal((yield* t.snapshot()).usage.consumed, 0);
   }).pipe(Effect.provide(f.layer));
 });
 it("raises findings for dropped visibility and for sign-in walls", () => {

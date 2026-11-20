@@ -4,7 +4,8 @@ import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServerConfig from "../../config.ts";
-import { ServerBrowser } from "../../preview/ServerBrowser.ts";
+import { PreviewBrowserSandboxError } from "../../preview/PreviewBrowserHost.ts";
+import { ServerBrowser, ServerBrowserLaunchError } from "../../preview/ServerBrowser.ts";
 import { ExternalLauncher } from "../../process/externalLauncher.ts";
 import { ProcessRunner } from "../../processRunner.ts";
 import { BrowserBridge, type BridgeConnection } from "./BrowserBridge.ts";
@@ -94,4 +95,45 @@ it.effect(
       ),
     );
   },
+);
+
+it.effect("says how to fix a managed browser the host's sandbox blocks", () =>
+  BrowserSessions.BrowserSessions.pipe(
+    Effect.flatMap((s) => Effect.flip(s.open("chatgpt"))),
+    Effect.map((error) => {
+      assert.include(error.message, "Install the AmICited Connector");
+      assert.include(error.message, "`t3 browser setup`");
+    }),
+    Effect.provide(
+      BrowserSessions.layer.pipe(
+        Layer.provide(
+          Layer.mergeAll(
+            Layer.succeed(BrowserBridge, {
+              port: 47615,
+              current: Effect.succeed(null),
+              awaitConnection: () => Effect.succeed(null),
+              subscribe: () => () => {},
+            }),
+            Layer.mock(ServerBrowser)({
+              connectionContext: Effect.fail(
+                new ServerBrowserLaunchError({
+                  cause: new PreviewBrowserSandboxError({ setupCommand: "t3 browser setup" }),
+                }),
+              ),
+            }),
+            Layer.mock(ExternalLauncher)({ launchBrowser: () => Effect.void }),
+            Layer.mock(ProcessRunner)({
+              run: () => Effect.succeed({ code: 0, stdout: "" } as never),
+            }),
+            Layer.succeed(HostProcess.Platform, "linux"),
+          ),
+        ),
+        Layer.provide(
+          ServerConfig.layerTest(process.cwd(), { prefix: "browser-sessions-" }).pipe(
+            Layer.provideMerge(NodeServices.layer),
+          ),
+        ),
+      ),
+    ),
+  ),
 );

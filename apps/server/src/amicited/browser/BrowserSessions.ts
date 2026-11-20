@@ -9,7 +9,12 @@ import * as Random from "effect/Random";
 import * as Schema from "effect/Schema";
 import { ProcessRunner } from "../../processRunner.ts";
 import { ServerConfig } from "../../config.ts";
-import { ServerBrowser } from "../../preview/ServerBrowser.ts";
+import { ServerBrowser, ServerBrowserLaunchError } from "../../preview/ServerBrowser.ts";
+import {
+  PreviewBrowserLibrariesError,
+  PreviewBrowserRootError,
+  PreviewBrowserSandboxError,
+} from "../../preview/PreviewBrowserHost.ts";
 import { ExternalLauncher } from "../../process/externalLauncher.ts";
 import { evidenceEnabled, evidencePage } from "../EvidenceFixtures.ts";
 import { BrowserBridge, bridgePage, type BridgeConnection } from "./BrowserBridge.ts";
@@ -36,6 +41,21 @@ export class BrowserSessionError extends Schema.TaggedError<BrowserSessionError>
 ) {}
 const sessionError = (cause: unknown, message: string) =>
   new BrowserSessionError({ message: cause instanceof Error ? cause.message : message });
+const isLaunchError = Schema.is(ServerBrowserLaunchError);
+const isSandboxError = Schema.is(PreviewBrowserSandboxError);
+const isHostSetupError = Schema.is(
+  Schema.Union([PreviewBrowserLibrariesError, PreviewBrowserRootError]),
+);
+/** The launch error's own text is generic; the host diagnosis under it says what to do. */
+const managedError = (cause: unknown) => {
+  const host = isLaunchError(cause) ? cause.cause : cause;
+  if (isSandboxError(host))
+    return new BrowserSessionError({
+      message: `Install the AmICited Connector in your browser to run checks there. This computer blocks the sandbox the AmICited browser needs; running \`${host.setupCommand}\` once allows it.`,
+    });
+  if (isHostSetupError(host)) return new BrowserSessionError({ message: host.message });
+  return sessionError(cause, "Could not open the AmICited browser.");
+};
 
 export class BrowserSessions extends Context.Service<
   BrowserSessions,
@@ -144,7 +164,7 @@ export const layer = Layer.effect(
             close: () => page.close(),
           };
         },
-        catch: (cause) => sessionError(cause, "Could not open the AmICited browser."),
+        catch: managedError,
       });
 
     const openOwn = (connection: BridgeConnection, site: SiteId, visibleThread?: string) =>

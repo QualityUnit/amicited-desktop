@@ -169,10 +169,9 @@ export function TrackingPrompts({
   const [answer, setAnswer] = useState<
     import("@amicited/cloud-client/tracking").TrackingAnswer | null
   >(null);
-  const run = useRunDetail(
-    destination,
-    state.snapshot.runs.find((r) => r.projectId === domain.projectId),
-  );
+  const latest = state.snapshot.runs.find((r) => r.projectId === domain.projectId);
+  const running = latest?.status === "running";
+  const run = useRunDetail(destination, latest);
   const persist = async (next: TrackingConfig, replacement?: string) => {
     if (!state.environmentId) return;
     const r = await state.save({
@@ -316,13 +315,15 @@ export function TrackingPrompts({
                       >
                         {a?.status === "needs_sign_in"
                           ? "Signed out"
-                          : a?.status === "failed"
-                            ? "Could not check"
-                            : a?.mentioned
-                              ? a.position
-                                ? `#${a.position}`
-                                : "Named"
-                              : "–"}
+                          : a?.status === "blocked"
+                            ? "Blocked"
+                            : a?.status === "failed"
+                              ? "Could not check"
+                              : a?.mentioned
+                                ? a.position
+                                  ? `#${a.position}`
+                                  : "Named"
+                                : "–"}
                       </Button>
                     </TableCell>
                   );
@@ -339,7 +340,7 @@ export function TrackingPrompts({
       )}
       <Button
         variant="outline"
-        disabled={!state.canRun || !saved}
+        disabled={!state.canRun || !saved || running}
         onClick={() =>
           state.environmentId &&
           void state.run({
@@ -348,7 +349,7 @@ export function TrackingPrompts({
           })
         }
       >
-        Run now
+        {running ? "Checking…" : "Run now"}
       </Button>
       <p className="am-muted">
         Other countries, Grok, Meta Muse and DeepSeek, more than 20 prompts, and days this computer
@@ -471,7 +472,7 @@ export function TrackingPrompts({
             <DialogDescription>{answer?.prompt}</DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <p>{answer?.excerpt || "No answer was collected."}</p>
+            <p>{answer?.excerpt || answer?.reason || "No answer was collected."}</p>
             {answer?.citations.map((url) => (
               <p key={url}>
                 <a href={url} target="_blank" rel="noreferrer">

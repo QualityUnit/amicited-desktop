@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useState } from "react";
 import { ScanEye } from "lucide-react";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
-import { availableEngines } from "@amicited/cloud-client/tracking";
+import { availableEngines, type TrackingRun } from "@amicited/cloud-client/tracking";
 import type { DomainVisibility } from "@amicited/cloud-client/visibility";
 import type { Domain } from "@amicited/cloud-client/domains";
 import { marketingNavigate } from "@amicited/ui-marketing";
@@ -131,9 +131,8 @@ function DomainVisibilityCard({
   const [settingUp, setSettingUp] = useState(false);
   const config = tracking.snapshot.configs.find((c) => c.projectId === domain.projectId);
   const sync = tracking.snapshot.sync?.find((s) => s.projectId === domain.projectId);
-  const running = tracking.snapshot.runs.some(
-    (r) => r.projectId === domain.projectId && r.status === "running",
-  );
+  const latest = tracking.snapshot.runs.find((r) => r.projectId === domain.projectId);
+  const running = latest?.status === "running";
   const run = () => void tracking.run({ environmentId, input: { projectId: domain.projectId } });
   const openPrompts = () =>
     marketingNavigate(`/prompts?site=${encodeURIComponent(domain.projectId)}`);
@@ -145,7 +144,7 @@ function DomainVisibilityCard({
           <h2 className="text-base font-semibold">{domain.hostname}</h2>
           {config && (
             <p className="text-xs text-muted-foreground">
-              {config.prompts.filter((p) => p.enabled).length} prompts · checked daily at{" "}
+              {plural(config.prompts.filter((p) => p.enabled).length, "prompt")} · checked daily at{" "}
               {config.time} on this computer
             </p>
           )}
@@ -194,8 +193,36 @@ function DomainVisibilityCard({
       ) : (
         <VisibilityResults visibility={visibility} />
       )}
+      {config && latest && <RunStatus run={latest} />}
       {config && <SyncStatus sync={sync} />}
     </section>
+  );
+}
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** What the latest check did, so a slow or failing run is visible rather than a frozen button. */
+function RunStatus({ run }: { run: TrackingRun }) {
+  const failed = run.answers.filter((a) => a.status !== "answered");
+  const reason = failed.findLast((a) => a.reason)?.reason;
+  const problem =
+    failed.length > 0
+      ? `${plural(failed.length, "check")} could not run${reason ? `: ${reason}` : "."}`
+      : null;
+  if (run.status === "running")
+    return (
+      <p className="text-xs text-muted-foreground">
+        Checking now: {run.answers.length} of {run.total} done.
+        {problem && <span className="text-destructive"> {problem}</span>}
+      </p>
+    );
+  if (!problem && run.status === "complete") return null;
+  const answered = run.answers.length - failed.length;
+  return (
+    <p className="text-xs text-destructive">
+      Last check ({run.day}): {answered} of {run.total} answered.{" "}
+      {problem ?? (run.status === "complete" ? "" : "It stopped before finishing.")}
+    </p>
   );
 }
 

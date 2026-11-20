@@ -351,6 +351,7 @@ export const layer = Layer.effect(
           }),
         );
         let exhausted = false;
+        let openedBrowser = false;
         let outcome: { result: VisibilityResult; browser?: string };
         for (let attempt = 1; ; attempt++) {
           pacer.asked(site, now());
@@ -359,6 +360,7 @@ export const layer = Layer.effect(
               e.withSiteSession(
                 site,
                 async (page) => {
+                  openedBrowser = true;
                   if (!(await runEffect(reserve))) {
                     exhausted = true;
                     throw new Error("Daily prompt budget exhausted");
@@ -410,6 +412,8 @@ export const layer = Layer.effect(
         answers = answers.filter((a) => a.engine !== engine || a.promptId !== p.id);
         answers.push(answer);
         yield* persistRun({ ...r, answers });
+        // Browser acquisition is shared across engines, so switching sites cannot fix it.
+        if (!openedBrowser) break;
       }
       const findings = trackingFindings(answers, previous?.answers ?? []);
       for (const finding of findings)
@@ -424,7 +428,6 @@ export const layer = Layer.effect(
                   ? `/connections?connect=${finding.fingerprint.split(":")[2]}`
                   : `/prompts?site=${encodeURIComponent(c.projectId)}&run=${encodeURIComponent(r.id)}`,
             },
-            body: `${finding.body}\n\nOpen answers: /prompts?site=${encodeURIComponent(c.projectId)}&run=${encodeURIComponent(r.id)}`,
           })
           .pipe(Effect.ignoreCause({ log: true }));
       const successful = answers.filter((a) => a.status === "answered");
