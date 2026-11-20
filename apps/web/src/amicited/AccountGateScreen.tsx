@@ -82,7 +82,7 @@ export function AccountGateScreen({
                 <>
                   <ul>
                     <li>
-                      Track 10 prompts a day in ChatGPT, Perplexity, Gemini and more, free, on this
+                      Track 20 prompts a day in ChatGPT, Perplexity, Gemini and more, free, on this
                       computer
                     </li>
                     <li>Works through the accounts you already have, in your own browser</li>
