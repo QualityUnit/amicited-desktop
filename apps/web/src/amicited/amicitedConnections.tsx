@@ -527,45 +527,56 @@ function SignInPage({
   );
 }
 function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> }) {
-  const [opened, setOpened] = useState(0);
   const pending = state.snapshot.connections.find((r) => r.signingIn);
   if (!pending || !state.environmentId) return null;
   const label = connectionCatalogue.find((c) => c.id === pending.id)?.label;
-  const inApp = pending.tabId && pending.threadId;
-  // The page is a webview outside the dialog: a click or focus there is not an outside press.
+  const cancel = () => void state.act("cancel", pending.id);
+  const finish = () => void state.act("finish", pending.id);
+  if (pending.tabId && pending.threadId)
+    return (
+      <div
+        role="dialog"
+        aria-label={`Connect ${label}`}
+        className="fixed inset-0 z-50 flex flex-col bg-background"
+      >
+        <header className="flex items-center gap-3 border-b px-4 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Connect {label}</p>
+            <p className="text-xs text-muted-foreground">
+              Sign in to {label} below, then choose Finish connecting. Your sign-in stays in
+              AmICited, on this computer.
+            </p>
+          </div>
+          <Button variant="outline" onClick={cancel}>
+            Cancel
+          </Button>
+          <Button onClick={finish}>Finish connecting</Button>
+        </header>
+        <div className="min-h-0 flex-1">
+          <SignInPage
+            environmentId={state.environmentId}
+            threadId={pending.threadId}
+            tabId={pending.tabId}
+            layoutVersion={0}
+          />
+        </div>
+      </div>
+    );
   return (
-    <Dialog
-      open
-      modal={false}
-      disablePointerDismissal
-      onOpenChange={(open) => !open && void state.act("cancel", pending.id)}
-      onOpenChangeComplete={() => setOpened((n) => n + 1)}
-    >
+    <Dialog open onOpenChange={(open) => !open && cancel()}>
       <DialogPopup>
         <DialogHeader>
           <DialogTitle>Connect {label}</DialogTitle>
           <DialogDescription>
-            {inApp
-              ? `Sign in to ${label} below. Your sign-in stays in AmICited, on this computer.`
-              : `Sign in to ${label} in the tab that opened in your browser.`}
+            Sign in to {label} in the tab that opened in your browser.
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
-          {pending.tabId && pending.threadId && (
-            <div style={{ height: 560 }}>
-              <SignInPage
-                environmentId={state.environmentId}
-                threadId={pending.threadId}
-                tabId={pending.tabId}
-                layoutVersion={opened}
-              />
-            </div>
-          )}
           <p>Waiting for you to sign in…</p>
-          <Button variant="outline" onClick={() => void state.act("cancel", pending.id)}>
+          <Button variant="outline" onClick={cancel}>
             Cancel
           </Button>
-          <Button onClick={() => void state.act("finish", pending.id)}>Finish connecting</Button>
+          <Button onClick={finish}>Finish connecting</Button>
         </DialogPanel>
       </DialogPopup>
     </Dialog>
