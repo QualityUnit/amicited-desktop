@@ -55,6 +55,15 @@ export interface ConnectionBrowser {
   ): Promise<{ page: EnginePage; tabId?: string; close(): Promise<unknown> }>;
   clearCookies(domains: readonly string[]): Promise<void>;
 }
+/** Sites whose every engine answers signed out: their saved browser is enough, a login is optional. */
+const signInOptional = new Set<string>(
+  Object.values(engines)
+    .map((e) => e.site)
+    .filter((site) => Object.values(engines).every((e) => e.site !== site || !e.requiresLogin)),
+);
+export function signInIsOptional(id: string) {
+  return signInOptional.has(id);
+}
 export class BrowserConnections {
   private cancelledClosures = new Set<Promise<unknown>>();
   async drainCancellation() {
@@ -138,7 +147,9 @@ export class BrowserConnections {
           ? "connected"
           : result === "logged_out" && this.row(id).status !== "connected"
             ? "signed_out"
-            : "needs_attention",
+            : result === "logged_out" && signInIsOptional(id)
+              ? "connected"
+              : "needs_attention",
     });
   }
   check(id: ConnectionId) {
@@ -178,14 +189,19 @@ export class BrowserConnections {
         return this.snapshot();
       }
       const result = await probePage(this.adapter(id), tab.page);
-      this.report(id, result);
-      if (result === "logged_in") {
+      // The page's cookies and consent already live in the saved profile; finishing keeps them.
+      if (result === "logged_in" || signInIsOptional(id)) {
         await tab.close();
         this.pending.delete(id);
-        this.update(id, { signingIn: false, reconnectedAt: new Date().toISOString() });
+        this.update(id, {
+          status: "connected",
+          lastChecked: new Date().toISOString(),
+          signingIn: false,
+          reconnectedAt: new Date().toISOString(),
+        });
         for (const [key, r] of this.requests) if (r.connectionId === id) this.requests.delete(key);
         this.changed();
-      }
+      } else this.report(id, result);
       return this.snapshot();
     });
   }

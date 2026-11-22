@@ -10,7 +10,7 @@ import { useLocation } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
-import { connectionCatalogue } from "@amicited/cloud-client/connections";
+import { connectionCatalogue, signInIsOptional } from "@amicited/cloud-client/connections";
 import { engineNeedsConnect } from "@amicited/cloud-client/tracking";
 import type {
   BrowserChoice,
@@ -567,8 +567,9 @@ function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> 
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
-                Sign in to {label} below, then choose Finish connecting. Your sign-in stays in
-                AmICited, on this computer.
+                {signInIsOptional(pending.id)
+                  ? `Signing in to ${label} is optional. Accept or close anything the page asks, then choose Finish connecting: AmICited keeps this browser for ${label}, on this computer.`
+                  : `Sign in to ${label} below, then choose Finish connecting. Your sign-in stays in AmICited, on this computer.`}
               </p>
             )}
           </div>
