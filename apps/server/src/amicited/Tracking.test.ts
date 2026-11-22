@@ -47,6 +47,7 @@ const fakeEngines = Object.fromEntries(
 ) as unknown as EngineRegistry;
 const fixture = (recorded = false, blockAnswer = false, generation = false) => {
   let browserUnavailable = false;
+  const cloudCalls: { tool: string; args: Record<string, unknown> }[] = [];
   const openedSites: string[] = [];
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
@@ -90,7 +91,17 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     write: async () => {},
     secrets: () => secrets,
     client: () =>
-      ({ status: async () => ({ state: "error", kind: "network" }) }) as unknown as CloudClient,
+      ({
+        status: async () => ({ state: "error", kind: "network" }),
+        call: async (tool: string, args: Record<string, unknown>) => {
+          cloudCalls.push({ tool, args });
+          return {
+            structuredContent: {
+              prompts: ["Cloud question one", " ", "Cloud question one", "Cloud question two"],
+            },
+          };
+        },
+      }) as unknown as CloudClient,
     openExternal: async () => {},
     userinfo: async () => ({ email: "test@example.com", name: "Test" }),
     domains: () => cloud.domains,
@@ -127,6 +138,10 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     Layer.mock(Settings.ServerSettingsService)({
       getSettings: Effect.succeed({
         defaultModelSelection: createModelSelection(ProviderInstanceId.make("assistant"), "test"),
+        textGenerationModelSelection: createModelSelection(
+          ProviderInstanceId.make("assistant"),
+          "small",
+        ),
       } as ServerSettings),
     }),
     Layer.mock(Registry.ProviderInstanceRegistry)({
@@ -185,6 +200,7 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     }),
   );
   return {
+    cloudCalls,
     openedSites,
     makeBrowserUnavailable: () => {
       browserUnavailable = true;
@@ -649,13 +665,37 @@ it.effect("generates website suggestions and persists assistant-written fixes", 
   return Effect.gen(function* () {
     using _fetch = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response("<html>Analytics for small teams</html>"));
+      .mockImplementation(async (url) =>
+        String(url).includes("two.example")
+          ? new Response("", { status: 503 })
+          : new Response("<html>Analytics for small teams</html>"),
+      );
     const t = yield* Tracking.Tracking;
+    const country = (yield* t.snapshot()).country;
+    // A workspace with cloud access gets FlowHunt's suggestions; free ones use the local model.
+    assert.deepEqual(yield* t.suggest("paid", ""), ["Cloud question one", "Cloud question two"]);
+    assert.deepEqual(f.cloudCalls, [
+      {
+        tool: "generate_prompts_from_url",
+        args: {
+          generate_request: {
+            url: "https://paid.example",
+            brand_name: "paid",
+            max_suggestions: 10,
+            country,
+          },
+        },
+      },
+    ]);
     assert.deepEqual(yield* t.suggest("one", "analytics"), [
       "Buyer question one",
       "Buyer question two",
     ]);
-    const country = (yield* t.snapshot()).country;
+    const unreadable = yield* Effect.flip(t.suggest("two", ""));
+    assert.equal(
+      unreadable.message,
+      "Couldn't suggest prompts for two.example. Add your own, or try again.",
+    );
     yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
     const id = yield* t.runNow("one");
     yield* TestClock.adjust("1 minute");

@@ -53,27 +53,29 @@ function TrackingPromptsSetupForm({
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [suggestionAttempt, setSuggestionAttempt] = useState(0);
+  const [suggestedAttempt, setSuggestedAttempt] = useState(-1);
+  const wantsSuggestions = !((saved || initialPrompts.length) && suggestionAttempt === 0);
+  const suggesting = wantsSuggestions && suggestedAttempt !== suggestionAttempt;
   const suggest = useEffectEvent(state.suggest);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Suggestions come from the environment service once on entering setup.
   useEffect(() => {
-    if ((saved || initialPrompts.length) && suggestionAttempt === 0) return;
+    if (!wantsSuggestions) return;
     let active = true;
+    const attempt = suggestionAttempt;
     void suggest({
       environmentId: destination,
       input: { projectId: domain.projectId, category: "" },
     }).then((r) => {
       if (!active) return;
+      setSuggestedAttempt(attempt);
       const failure =
         r._tag === "Failure" ? Option.getOrNull(Cause.findErrorOption(r.cause)) : null;
-      const suggestions =
-        r._tag === "Success"
-          ? r.value
-          : failure && "fallback" in failure
-            ? (failure.fallback ?? [])
-            : [];
+      const suggestions = r._tag === "Success" ? r.value : [];
       if (r._tag === "Failure")
         setError(
-          "Your assistant couldn't suggest prompts. These are template suggestions; edit them for your website or try again.",
+          failure && "message" in failure
+            ? failure.message
+            : `Couldn't suggest prompts for ${domain.hostname}. Add your own, or try again.`,
         );
       setPrompts(
         suggestions.map((text) => ({
@@ -87,7 +89,7 @@ function TrackingPromptsSetupForm({
     return () => {
       active = false;
     };
-  }, [destination, domain.projectId, saved, initialPrompts.length, suggestionAttempt]);
+  }, [destination, domain.projectId, domain.hostname, wantsSuggestions, suggestionAttempt]);
   const usedElsewhere =
     state.snapshot.usage.used - (saved?.prompts.filter((p) => p.enabled).length ?? 0);
   const finish = async (run: boolean) => {
@@ -125,7 +127,9 @@ function TrackingPromptsSetupForm({
       <p className="am-muted">
         {initialPrompts.length
           ? `We started with the ${initialPrompts.length} prompts you already have in AmICited for ${domain.hostname}.`
-          : `Your assistant suggests questions your buyers ask AI about ${domain.hostname}. Edit them or add your own.`}
+          : suggesting
+            ? `Reading ${domain.hostname} and drafting the questions your buyers ask AI…`
+            : `Questions your buyers ask AI, drafted from ${domain.hostname}. Edit them or add your own.`}
       </p>
       <p>
         {usedElsewhere + prompts.filter((p) => p.enabled).length} of 20 free prompts a day · One
@@ -213,7 +217,13 @@ function TrackingPromptsSetupForm({
       {error && (
         <p role="alert">
           {error}{" "}
-          <Button variant="link" onClick={() => setSuggestionAttempt((n) => n + 1)}>
+          <Button
+            variant="link"
+            onClick={() => {
+              setError("");
+              setSuggestionAttempt((n) => n + 1);
+            }}
+          >
             Try again
           </Button>
         </p>

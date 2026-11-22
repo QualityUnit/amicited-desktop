@@ -42,7 +42,6 @@ export function availableEngines(
 }
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
   message: Schema.String,
-  fallback: Schema.optionalKey(Schema.Array(Schema.String)),
 }) {}
 export const TrackedPrompt = Schema.Struct({
   id: Schema.String,
@@ -205,21 +204,6 @@ export const trackingRpcs = [
     error: TrackingFailure,
   }),
 ];
-export function suggestPrompts(brand: string, category: string, hostname: string) {
-  const topic = category.trim() || "tools in this category";
-  return [
-    `What are the best ${topic}?`,
-    `Which ${topic} work best for small teams?`,
-    `What are affordable ${topic}?`,
-    `Which ${topic} are easiest to set up?`,
-    `Compare the leading ${topic}.`,
-    `Which ${topic} are best for growing businesses?`,
-    `What should I look for when choosing ${topic}?`,
-    `What are alternatives to ${brand}?`,
-    `Is ${brand} a good choice?`,
-    `What does ${hostname} offer compared with other ${topic}?`,
-  ];
-}
 export function detectCountry(
   locale = Intl.DateTimeFormat().resolvedOptions().locale,
   timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
