@@ -135,15 +135,15 @@ export const layer = Layer.effect(
       } satisfies BrowserMode;
     });
 
-    /** The connector, launching the default browser when it ran there before but is closed now. */
+    /** A connector that ran here before: open the default browser if it is that one, then wait for it. */
     const connector = Effect.fn("BrowserSessions.connector")(function* () {
       const connected = yield* bridge.current;
-      if (connected || bridge.port === null) return connected;
+      if (connected || bridge.port === null || families.size === 0) return connected;
       const family = (yield* detected)?.family;
-      if (!family || !families.has(family)) return null;
-      yield* launcher
-        .launchBrowser(`http://127.0.0.1:${bridge.port}/`)
-        .pipe(Effect.ignoreCause({ log: true }));
+      if (family && families.has(family))
+        yield* launcher
+          .launchBrowser(`http://127.0.0.1:${bridge.port}/`)
+          .pipe(Effect.ignoreCause({ log: true }));
       return yield* bridge.awaitConnection("45 seconds");
     });
 
@@ -196,9 +196,20 @@ export const layer = Layer.effect(
         }
         const connection = yield* connector();
         yield* remember(connection);
-        return yield* connection
-          ? openOwn(connection, site, visibleThread)
-          : openManaged(site, visibleThread);
+        if (connection) return yield* openOwn(connection, site, visibleThread);
+        // A launch that never settles would otherwise hold the whole daily run.
+        return yield* openManaged(site, visibleThread).pipe(
+          Effect.timeoutOrElse({
+            duration: "1 minute",
+            orElse: () =>
+              Effect.fail(
+                new BrowserSessionError({
+                  message:
+                    "The AmICited browser did not start. Install the AmICited Connector in your browser to run checks there.",
+                }),
+              ),
+          }),
+        );
       }),
       clearCookies: Effect.fn("BrowserSessions.clearCookies")(function* (domains) {
         if (evidenceEnabled() || (yield* bridge.current)) return;

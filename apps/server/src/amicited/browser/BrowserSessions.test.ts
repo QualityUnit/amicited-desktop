@@ -2,6 +2,8 @@ import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as TestClock from "effect/testing/TestClock";
 import * as Layer from "effect/Layer";
 import * as ServerConfig from "../../config.ts";
 import { PreviewBrowserSandboxError } from "../../preview/PreviewBrowserHost.ts";
@@ -27,6 +29,7 @@ it.effect(
     let connector: BridgeConnection | null = null;
     const launched: string[] = [];
     const managedPages: string[] = [];
+    let defaultBrowser = "firefox_firefox.desktop";
     const sessions = BrowserSessions.layer.pipe(
       Layer.provide(
         Layer.mergeAll(
@@ -52,7 +55,7 @@ it.effect(
             launchBrowser: (url) => Effect.sync(() => void launched.push(url)),
           }),
           Layer.mock(ProcessRunner)({
-            run: () => Effect.succeed({ code: 0, stdout: "firefox_firefox.desktop\n" } as never),
+            run: () => Effect.sync(() => ({ code: 0, stdout: `${defaultBrowser}\n` }) as never),
           }),
           Layer.succeed(HostProcess.Platform, "linux"),
         ),
@@ -87,6 +90,13 @@ it.effect(
       const relaunched = yield* session((s) => s.open("perplexity"));
       assert.equal(relaunched.page.driver, "extension");
       assert.deepEqual(launched, ["http://127.0.0.1:47615/"]);
+
+      // A connector in a browser that is not the default reconnects on its own; wait for it.
+      connector = null;
+      defaultBrowser = "google-chrome.desktop";
+      const reconnected = yield* session((s) => s.open("perplexity"));
+      assert.equal(reconnected.page.driver, "extension");
+      assert.deepEqual(launched, ["http://127.0.0.1:47615/"]);
     }).pipe(
       Effect.provide(
         ServerConfig.layerTest(process.cwd(), { prefix: "browser-sessions-" }).pipe(
@@ -97,6 +107,31 @@ it.effect(
   },
 );
 
+const managedOnly = (connectionContext: ServerBrowser["Service"]["connectionContext"]) =>
+  BrowserSessions.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(BrowserBridge, {
+          port: 47615,
+          current: Effect.succeed(null),
+          awaitConnection: () => Effect.succeed(null),
+          subscribe: () => () => {},
+        }),
+        Layer.mock(ServerBrowser)({ connectionContext }),
+        Layer.mock(ExternalLauncher)({ launchBrowser: () => Effect.void }),
+        Layer.mock(ProcessRunner)({
+          run: () => Effect.succeed({ code: 0, stdout: "" } as never),
+        }),
+        Layer.succeed(HostProcess.Platform, "linux"),
+      ),
+    ),
+    Layer.provide(
+      ServerConfig.layerTest(process.cwd(), { prefix: "browser-sessions-" }).pipe(
+        Layer.provideMerge(NodeServices.layer),
+      ),
+    ),
+  );
+
 it.effect("says how to fix a managed browser the host's sandbox blocks", () =>
   BrowserSessions.BrowserSessions.pipe(
     Effect.flatMap((s) => Effect.flip(s.open("chatgpt"))),
@@ -105,35 +140,23 @@ it.effect("says how to fix a managed browser the host's sandbox blocks", () =>
       assert.include(error.message, "`t3 browser setup`");
     }),
     Effect.provide(
-      BrowserSessions.layer.pipe(
-        Layer.provide(
-          Layer.mergeAll(
-            Layer.succeed(BrowserBridge, {
-              port: 47615,
-              current: Effect.succeed(null),
-              awaitConnection: () => Effect.succeed(null),
-              subscribe: () => () => {},
-            }),
-            Layer.mock(ServerBrowser)({
-              connectionContext: Effect.fail(
-                new ServerBrowserLaunchError({
-                  cause: new PreviewBrowserSandboxError({ setupCommand: "t3 browser setup" }),
-                }),
-              ),
-            }),
-            Layer.mock(ExternalLauncher)({ launchBrowser: () => Effect.void }),
-            Layer.mock(ProcessRunner)({
-              run: () => Effect.succeed({ code: 0, stdout: "" } as never),
-            }),
-            Layer.succeed(HostProcess.Platform, "linux"),
-          ),
-        ),
-        Layer.provide(
-          ServerConfig.layerTest(process.cwd(), { prefix: "browser-sessions-" }).pipe(
-            Layer.provideMerge(NodeServices.layer),
-          ),
+      managedOnly(
+        Effect.fail(
+          new ServerBrowserLaunchError({
+            cause: new PreviewBrowserSandboxError({ setupCommand: "t3 browser setup" }),
+          }),
         ),
       ),
     ),
   ),
+);
+
+it.effect("gives up on a managed browser that never starts", () =>
+  Effect.gen(function* () {
+    const sessions = yield* BrowserSessions.BrowserSessions;
+    const opening = yield* Effect.forkChild(Effect.flip(sessions.open("chatgpt")));
+    yield* TestClock.adjust("1 minute");
+    const error = yield* Fiber.join(opening);
+    assert.include(error.message, "did not start");
+  }).pipe(Effect.provide(managedOnly(Effect.never))),
 );
