@@ -126,14 +126,26 @@ export function LockPill() {
 /** Whether this domain's answers reached its AmICited workspace. */
 export function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
   if (!sync) return null;
-  const skipped = sync.skipped ? ` · ${sync.skipped} answers not accepted by AmICited` : "";
+  const overLimit = sync.overLimit ?? 0;
+  const otherSkipped = overLimit ? 0 : sync.skipped;
   return (
-    <p className="am-muted">
-      {sync.state === "synced" && sync.lastSyncedAt
-        ? `Synced to AmICited ${new Date(sync.lastSyncedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
-        : sync.message}
-      {skipped}
-    </p>
+    <>
+      <p className="am-muted">
+        {sync.state === "synced" && sync.lastSyncedAt
+          ? `Synced to AmICited ${new Date(sync.lastSyncedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
+          : sync.message}
+        {otherSkipped ? ` · ${otherSkipped} answers not accepted by AmICited` : ""}
+      </p>
+      {overLimit > 0 && (
+        <p>
+          {overLimit === 1 ? "1 prompt isn't" : `${overLimit} prompts aren't`} in your AmICited
+          dashboard: your plan's prompt limit is reached. They still run here.{" "}
+          <a href="https://app.flowhunt.io/amicited/subscription" target="_blank" rel="noreferrer">
+            Upgrade plan
+          </a>
+        </p>
+      )}
+    </>
   );
 }
 /** @public Onboarding can render the editor directly. */

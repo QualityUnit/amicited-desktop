@@ -295,9 +295,10 @@ export const makeTrackingSync = Effect.fn("TrackingSync.make")(function* (cloud:
       project_id: string;
       pending: number;
       skipped: number;
+      over_limit: number;
       problem: SyncProblem | "not_linked" | null;
       synced_at: string | null;
-    }>`SELECT o.project_id, SUM(o.state = 'pending') AS pending, SUM(o.state = 'dropped') AS skipped, s.problem, s.synced_at FROM amicited_tracking_outbox o LEFT JOIN amicited_tracking_sync s ON s.project_id = o.project_id GROUP BY o.project_id`;
+    }>`SELECT o.project_id, SUM(o.state = 'pending') AS pending, SUM(o.state = 'dropped') AS skipped, COUNT(DISTINCT CASE WHEN o.state = 'dropped' AND o.outcome = 'prompt_limit_reached' THEN o.prompt END) AS over_limit, s.problem, s.synced_at FROM amicited_tracking_outbox o LEFT JOIN amicited_tracking_sync s ON s.project_id = o.project_id GROUP BY o.project_id`;
     return rows.map((r): TrackingSync => {
       const problem =
         r.problem === "malformed" || r.problem === "pass_invalid" ? "error" : r.problem;
@@ -315,6 +316,7 @@ export const makeTrackingSync = Effect.fn("TrackingSync.make")(function* (cloud:
         lastSyncedAt: r.synced_at,
         pending,
         skipped: Number(r.skipped),
+        overLimit: Number(r.over_limit),
       };
     });
   });

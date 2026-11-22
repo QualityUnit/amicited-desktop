@@ -138,6 +138,8 @@ export const TrackingSync = Schema.Struct({
   pending: Schema.Number,
   /** Answers the cloud refused for good, such as a prompt over the plan's cap. */
   skipped: Schema.Number,
+  /** Prompts the workspace's plan has no room for, so the dashboard never shows them. */
+  overLimit: Schema.optionalKey(Schema.Number),
 });
 export type TrackingSync = typeof TrackingSync.Type;
 export const TrackingSnapshot = Schema.Struct({

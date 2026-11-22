@@ -250,10 +250,10 @@ it.effect("stops on permanent refusals and pauses a domain the cloud refuses out
     assert.equal(fake.uploads.length, 1);
     const status = yield* sync.status();
     assert.deepEqual(
-      status.map((s) => [s.projectId, s.state, s.skipped]),
+      status.map((s) => [s.projectId, s.state, s.skipped, s.overLimit]),
       [
-        ["local", "not_linked", 0],
-        ["site", "synced", 3],
+        ["local", "not_linked", 0, 0],
+        ["site", "synced", 3, 1],
       ],
     );
 
