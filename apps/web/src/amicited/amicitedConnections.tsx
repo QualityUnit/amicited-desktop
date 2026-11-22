@@ -5,6 +5,7 @@ import { getProviderSummary } from "../components/settings/providerStatus";
 import { WorkLogRow } from "../components/chat/WorkLog";
 import { PlugZap } from "lucide-react";
 import { useState, useEffect, useEffectEvent } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
@@ -532,14 +533,22 @@ function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> 
   const label = connectionCatalogue.find((c) => c.id === pending.id)?.label;
   const cancel = () => void state.act("cancel", pending.id);
   const finish = () => void state.act("finish", pending.id);
+  // Above the app shell: out of the window's drag strip, clear of its controls, over every container.
   if (pending.tabId && pending.threadId)
-    return (
+    return createPortal(
       <div
         role="dialog"
         aria-label={`Connect ${label}`}
-        className="fixed inset-0 z-50 flex flex-col bg-background"
+        className="fixed inset-0 z-50 flex flex-col bg-background [-webkit-app-region:no-drag]"
       >
-        <header className="flex items-center gap-3 border-b px-4 py-2">
+        <header
+          className="flex items-center gap-3 border-b"
+          style={{
+            minHeight: "var(--workspace-topbar-height)",
+            paddingLeft: "var(--workspace-controls-left, 0.75rem)",
+            paddingRight: "var(--workspace-controls-right)",
+          }}
+        >
           <div className="min-w-0 flex-1">
             <p className="font-medium">Connect {label}</p>
             <p className="text-xs text-muted-foreground">
@@ -560,7 +569,8 @@ function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> 
             layoutVersion={0}
           />
         </div>
-      </div>
+      </div>,
+      document.body,
     );
   return (
     <Dialog open onOpenChange={(open) => !open && cancel()}>
