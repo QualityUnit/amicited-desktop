@@ -528,11 +528,20 @@ function SignInPage({
   );
 }
 function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> }) {
+  const [checking, setChecking] = useState(false);
+  const [checkedFor, setCheckedFor] = useState<string | null>(null);
   const pending = state.snapshot.connections.find((r) => r.signingIn);
   if (!pending || !state.environmentId) return null;
   const label = connectionCatalogue.find((c) => c.id === pending.id)?.label;
   const cancel = () => void state.act("cancel", pending.id);
-  const finish = () => void state.act("finish", pending.id);
+  const finish = async () => {
+    setChecking(true);
+    await state.act("finish", pending.id);
+    setChecking(false);
+    setCheckedFor(pending.id);
+  };
+  // Finish keeps the sign-in open when the page still looks signed out; say so instead of nothing.
+  const notYet = !checking && checkedFor === pending.id && pending.status !== "connected";
   // Above the app shell: out of the window's drag strip, clear of its controls, over every container.
   if (pending.tabId && pending.threadId)
     return createPortal(
@@ -551,15 +560,24 @@ function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> 
         >
           <div className="min-w-0 flex-1">
             <p className="font-medium">Connect {label}</p>
-            <p className="text-xs text-muted-foreground">
-              Sign in to {label} below, then choose Finish connecting. Your sign-in stays in
-              AmICited, on this computer.
-            </p>
+            {notYet ? (
+              <p role="alert" className="text-xs text-destructive">
+                You're not signed in to {label} yet. Log in on the page below, then choose Finish
+                connecting again.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Sign in to {label} below, then choose Finish connecting. Your sign-in stays in
+                AmICited, on this computer.
+              </p>
+            )}
           </div>
           <Button variant="outline" onClick={cancel}>
             Cancel
           </Button>
-          <Button onClick={finish}>Finish connecting</Button>
+          <Button disabled={checking} onClick={() => void finish()}>
+            {checking ? "Checking…" : "Finish connecting"}
+          </Button>
         </header>
         <div className="min-h-0 flex-1">
           <SignInPage
@@ -586,7 +604,7 @@ function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> 
           <Button variant="outline" onClick={cancel}>
             Cancel
           </Button>
-          <Button onClick={finish}>Finish connecting</Button>
+          <Button onClick={() => void finish()}>Finish connecting</Button>
         </DialogPanel>
       </DialogPopup>
     </Dialog>
