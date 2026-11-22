@@ -57,6 +57,7 @@ const RPC_AGGREGATES = {
   "amicited.domains.older": "amicited",
   "amicited.domains.adopt": "amicited",
   "amicited.domains.listCloud": "amicited",
+  "amicited.domains.listCloudPrompts": "amicited",
   "amicited.domains.cloudEvidence": "amicited",
   "amicited.domains.cloudSummary": "amicited",
   "amicited.setup.read": "amicited",

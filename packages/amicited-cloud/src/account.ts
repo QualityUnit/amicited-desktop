@@ -1,7 +1,8 @@
 import { formatPlanLabel } from "./formatting.ts";
 import { CloudClient, toolData, type SecretStorage } from "./index.ts";
 import type { DomainConnections } from "./domains.ts";
-import type * as Schema from "effect/Schema";
+import * as Schema from "effect/Schema";
+import { cloudSetupPrompts, cloudSetupWebsites } from "./setup.ts";
 import type { AccountStatus, AccountWorkspace } from "./rpc.ts";
 
 type Workspace = Schema.Schema.Type<typeof AccountWorkspace>;
@@ -11,6 +12,30 @@ export interface SavedAccount {
   currentWorkspaceId?: string;
 }
 const ACCOUNT_SECRET = "account";
+export function accountSignInEnabled(value?: string) {
+  return value !== "0";
+}
+
+function canCreateDomains(role: unknown) {
+  switch (role) {
+    case "O":
+    case "A":
+    case "owner":
+    case "admin":
+      return true;
+    case "E":
+    case "G":
+    case "M":
+    case "T":
+    case "editor":
+    case "guest":
+    case "member":
+    case "maintainer":
+      return false;
+    default:
+      return undefined;
+  }
+}
 export function workspaceFromToken(token: string) {
   const claims: unknown = JSON.parse(
     Buffer.from(token.split(".")[1] ?? "", "base64url").toString(),
@@ -35,19 +60,10 @@ export function workspaceLabel(email: string) {
     : `${domain} workspace`;
 }
 
-export function workspaceName(
-  workspace: Workspace,
-  workspaces: readonly Workspace[],
-  domains: readonly import("./domains.ts").Domain[],
-) {
-  const base = (w: Workspace) =>
-    (w.name !== workspaceLabel(w.email)
-      ? w.name
-      : domains.find((d) => d.workspaceId === w.id)?.brand) || workspaceLabel(w.email);
-  const label = base(workspace);
-  const matches = workspaces.filter((w) => base(w) === label);
+export function workspaceName(workspace: Workspace, workspaces: readonly Workspace[]) {
+  const matches = workspaces.filter((w) => w.name === workspace.name);
   const ordinal = matches.findIndex((w) => w.id === workspace.id) + 1;
-  return ordinal > 1 ? `${label} (${ordinal})` : label;
+  return ordinal > 1 ? `${workspace.name} (${ordinal})` : workspace.name;
 }
 
 export class AccountConnections {
@@ -73,7 +89,10 @@ export class AccountConnections {
     /** One FlowHunt sign-in for every workspace, instead of one sign-in per workspace. */
     accountSignIn?: {
       mcpUrl: string;
-      workspaces(token: string): Promise<ReadonlyArray<{ id: string; name: string }>>;
+      workspaces(
+        token: string,
+      ): Promise<ReadonlyArray<Pick<Workspace, "id" | "name" | "canCreateDomains">>>;
+      listDomains(token: string, workspaceId: string): ReturnType<typeof readAccountDomains>;
     };
     openExternal(url: string): Promise<void>;
     userinfo(token: string): Promise<{ email: string; name: string }>;
@@ -200,13 +219,17 @@ export class AccountConnections {
       state: !current ? "signed_out" : current.sessionEnded ? "session_ended" : "signed_in",
       workspaces: usable.map((w) => ({
         ...w,
-        name: workspaceName(w, usable, rows),
-        plan: formatPlanLabel(w.access, w.plan),
+        name: workspaceName(w, usable),
+        plan:
+          this.options.accountSignIn && w.access !== "unknown"
+            ? w.plan
+            : formatPlanLabel(w.access, w.plan),
         websites: rows.filter((d) => d.workspaceId === w.id).map((d) => d.hostname),
         projectIds: rows.filter((d) => d.workspaceId === w.id).map((d) => d.projectId),
       })),
       ...(current ? { currentWorkspaceId: current.id } : {}),
       signingIn: !!this.pending,
+      accountWide: !!this.options.accountSignIn,
       ...(problem ? { error: problem } : {}),
     };
   }
@@ -313,7 +336,7 @@ export class AccountConnections {
         access: previous.get(w.id)?.access ?? "unknown",
         attentionCount: 0,
         websites: [],
-        id: w.id,
+        ...w,
         name: w.name || workspaceLabel(user.email),
         sessionEnded: false,
       }));
@@ -330,14 +353,16 @@ export class AccountConnections {
       const data = toolData(await this.client(id).call("list_workspaces", {}));
       const rows = (data as { workspaces?: unknown } | undefined)?.workspaces;
       if (!Array.isArray(rows)) return;
-      const plans = new Map<string, { access: Workspace["access"]; plan: string }>();
+      const plans = new Map<string, Pick<Workspace, "access" | "plan" | "canCreateDomains">>();
       for (const row of rows as Array<Record<string, unknown>>) {
         if (typeof row.workspace_id !== "string") continue;
         const access = row.access === "full" ? "full" : "free";
         const plan = typeof row.plan === "string" && row.plan ? row.plan : "";
+        const canCreate = canCreateDomains(row.role);
         plans.set(row.workspace_id, {
           access,
-          plan: access === "full" && plan ? plan[0]!.toUpperCase() + plan.slice(1) : "Free",
+          plan: plan ? plan[0]!.toUpperCase() + plan.slice(1) : formatPlanLabel(access),
+          ...(canCreate === undefined ? {} : { canCreateDomains: canCreate }),
         });
       }
       await this.serial(async () => {
@@ -393,48 +418,37 @@ export class AccountConnections {
     if (this.options.accountSignIn) await this.options.secrets(ACCOUNT_SECRET).clear();
     return this.status();
   }
-  async listCloudDomains() {
+  private async websiteWorkspace(workspaceId?: string) {
     await this.load();
-    const id = this.currentId();
-    if (!id) throw new Error("Sign in to continue.");
-    const client = this.client(id);
-    const result = await client.call("list_domains", {});
-    if (result.isError) return result;
-    const data = toolData(result);
-    const record = (value: unknown): Record<string, unknown> =>
-      value !== null && typeof value === "object" && !Array.isArray(value)
-        ? (value as Record<string, unknown>)
-        : {};
-    const rows = Array.isArray(data) ? data : record(data).domains;
-    if (!Array.isArray(rows)) return result;
-    const domains = [];
-    for (const value of rows) {
-      const row = record(value);
-      const domainId = row.id ?? row.domain_id;
-      let prompts = row.prompts;
-      if (typeof domainId === "string" && !Array.isArray(prompts)) {
-        try {
-          const response = await client.call("list_prompts", { domain_id: domainId });
-          if (!response.isError) {
-            const found = toolData(response);
-            prompts = Array.isArray(found) ? found : record(found).prompts;
-          }
-        } catch {
-          /* Offline and free-tier refusals fall back to local suggestions. */
-        }
-      }
-      domains.push({ ...row, ...(Array.isArray(prompts) ? { prompts } : {}) });
+    const current = this.currentId();
+    const id = workspaceId ?? current;
+    if (
+      !id ||
+      !this.saved.workspaces.some((workspace) => workspace.id === id) ||
+      (!this.options.accountSignIn && id !== current)
+    )
+      throw new Error("Workspace not available.");
+    return id;
+  }
+  async listCloudDomains(workspaceId?: string) {
+    const id = await this.websiteWorkspace(workspaceId);
+    const account = this.options.accountSignIn;
+    if (account) {
+      const token = await this.client(this.currentId() ?? id).accountAccessToken();
+      return account.listDomains(token, id);
     }
-    const first = record(domains[0]);
-    const name = record(data).workspace_name ?? first.brand_name ?? first.brand;
-    if (typeof name === "string" && name.trim())
-      await this.serial(async () => {
-        await this.save({
-          ...this.saved,
-          workspaces: this.saved.workspaces.map((w) => (w.id === id ? { ...w, name } : w)),
-        });
-      });
-    return { ...result, structuredContent: { domains } };
+    const result = await this.client(id).call("list_domains", {});
+    if (result.isError) throw new Error("Could not read this workspace's websites.");
+    return cloudSetupWebsites(toolData(result), id);
+  }
+  async listCloudPrompts(workspaceId: string, domainId: string) {
+    const id = await this.websiteWorkspace(workspaceId);
+    try {
+      const result = await this.client(id).call("list_prompts", { domain_id: domainId });
+      return result.isError ? [] : cloudSetupPrompts(toolData(result));
+    } catch {
+      return [];
+    }
   }
   async cloudEvidence(projectId: string, tool: string, args: Record<string, unknown>) {
     const domain = (await this.options.domains()?.metadata())?.find(
@@ -451,15 +465,17 @@ export class AccountConnections {
     return client.call(tool, { ...args, domain_id: domain.domainId });
   }
   async cloudSummary(projectId: string) {
+    await this.load();
     const domain = (await this.options.domains()?.metadata())?.find(
       (d) => d.projectId === projectId,
     );
-    if (!domain?.domainId || domain.workspaceId !== this.currentId()) return null;
+    if (!domain?.domainId || !domain.workspaceId || domain.workspaceId !== this.currentId())
+      return null;
     try {
-      const result = await this.listCloudDomains();
+      const result = await this.client(domain.workspaceId).call("list_domains", {});
       if (result.isError) return null;
       const data = toolData(result) as { domains?: Record<string, unknown>[] };
-      const row = data.domains?.find((r) => (r.domain_id ?? r.id) === domain.domainId);
+      const row = data?.domains?.find((r) => (r.domain_id ?? r.id) === domain.domainId);
       if (!row) return null;
       const countries = Array.isArray(row.countries)
         ? row.countries.filter((c): c is string => typeof c === "string")
@@ -487,11 +503,45 @@ export class AccountConnections {
   }
 }
 
-export async function readAccountWorkspaces(token: string, restUrl: string) {
-  const response = await fetch(new URL("/v2/workspaces/me/my_workspaces", restUrl), {
+const decodeAccountDomainList = Schema.decodeUnknownSync(
+  Schema.Array(
+    Schema.Struct({
+      workspace_id: Schema.String,
+      domain_id: Schema.NonEmptyString,
+      domain_name: Schema.NonEmptyString,
+      brand_name: Schema.optionalKey(Schema.NullOr(Schema.String)),
+    }),
+  ),
+);
+
+export async function readAccountDomains(
+  token: string,
+  restUrl: string,
+  workspaceId: string,
+  fetchDomains = fetch,
+) {
+  const url = new URL("/v2/amicited/domains", restUrl);
+  url.searchParams.set("workspace_id", workspaceId);
+  const response = await fetchDomains(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error("Could not read this workspace's websites.");
+  const rows = decodeAccountDomainList(await response.json());
+  if (rows.some((row) => row.workspace_id !== workspaceId))
+    throw new Error("AmICited returned websites from a different workspace.");
+  return cloudSetupWebsites(rows, workspaceId);
+}
+
+export async function readAccountWorkspaces(
+  token: string,
+  restUrl: string,
+  fetchWorkspaces = fetch,
+) {
+  const response = await fetchWorkspaces(new URL("/v2/workspaces/me/my_workspaces", restUrl), {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ limit: 100 }),
+    body: JSON.stringify({ limit: null }),
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok)
@@ -500,8 +550,17 @@ export async function readAccountWorkspaces(token: string, restUrl: string) {
   if (!Array.isArray(rows)) throw new Error("AmICited did not return your workspaces.");
   return rows.flatMap((row: unknown) => {
     if (!row || typeof row !== "object") return [];
-    const { workspace_id: id, workspace_name: name } = row as Record<string, unknown>;
-    return typeof id === "string" ? [{ id, name: typeof name === "string" ? name : "" }] : [];
+    const { workspace_id: id, workspace_name: name, role } = row as Record<string, unknown>;
+    const canCreate = canCreateDomains(role);
+    return typeof id === "string"
+      ? [
+          {
+            id,
+            name: typeof name === "string" ? name : "",
+            ...(canCreate === undefined ? {} : { canCreateDomains: canCreate }),
+          },
+        ]
+      : [];
   });
 }
 export async function readAccountUserinfo(

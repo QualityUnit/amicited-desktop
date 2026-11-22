@@ -2160,13 +2160,18 @@ export const layerWsRpc = (
             try: () => cloud.account?.cloudSummary(projectId) ?? Promise.resolve(null),
             catch: () => new DomainFailure({ message: "Could not read cloud summary." }),
           }),
-        "amicited.domains.listCloud": () =>
+        "amicited.domains.listCloud": ({ workspaceId }) =>
           Effect.tryPromise({
-            try: () => cloud.account!.listCloudDomains(),
+            try: () => cloud.account!.listCloudDomains(workspaceId),
             catch: () =>
               new DomainFailure({
                 message: "Could not read cloud websites. Local websites are still available.",
               }),
+          }),
+        "amicited.domains.listCloudPrompts": ({ workspaceId, domainId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.listCloudPrompts(workspaceId, domainId),
+            catch: () => new DomainFailure({ message: "Could not read this website's prompts." }),
           }),
         "amicited.setup.read": () =>
           Effect.tryPromise({

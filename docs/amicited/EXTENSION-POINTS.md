@@ -885,3 +885,4 @@ on the changed line only.
 - `components/chat/MessagesTimeline.tsx` mounts the persisted tracking activity card in marketer chats; provider turns remain on the normal thread path.
 - `routeTree.gen.ts` registers the AmICited prompts and results route.
 - Existing marketing setup, domain, report, command palette and account RPC extension points assemble the account-first onboarding journey and its tracking offer marker.
+- `apps/web/src/amicited/SetupWebsitePicker.tsx` groups workspace catalogs and supplies the shared domain editor's cross-workspace notice. The existing cloud RPC, authorization, and instrumentation extension points also carry the picked website's prompt lookup.

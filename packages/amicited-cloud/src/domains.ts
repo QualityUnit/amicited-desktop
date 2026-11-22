@@ -170,7 +170,12 @@ export class DomainConnections {
     projectId: string,
     website: string,
     brand?: string,
-    metadata: Pick<Domain, "cms" | "siteFiles" | "framework" | "domainId"> = {},
+    {
+      expectedWorkspaceId,
+      ...metadata
+    }: Pick<Domain, "cms" | "siteFiles" | "framework" | "domainId"> & {
+      expectedWorkspaceId?: string;
+    } = {},
   ) {
     return this.serial(async () => {
       const rows = (this.rows ??= (await this.options.read()).map((row) => ({
@@ -179,6 +184,8 @@ export class DomainConnections {
       })));
       const workspaceId = this.options.account?.currentId();
       if (this.options.account && !workspaceId) throw new Error("Sign in to add a website.");
+      if (expectedWorkspaceId !== undefined && expectedWorkspaceId !== workspaceId)
+        throw new Error("The selected workspace has changed.");
       const data = normalizeDomain(website, brand);
       const existing = rows.find((row) => row.projectId === projectId);
       if (existing) {
