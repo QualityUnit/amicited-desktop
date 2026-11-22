@@ -2086,6 +2086,7 @@ export const layerWsRpc = (
           connections.run((e) => e.finish(connectionId)),
         "amicited.connections.connect": ({ connectionId, threadId }) =>
           connections.run((e) => e.connect(connectionId, threadId)),
+        "amicited.connections.useBrowser": ({ use }) => connections.useBrowser(use),
         "amicited.account.status": () =>
           Effect.tryPromise({
             try: () => cloud.account!.status(),

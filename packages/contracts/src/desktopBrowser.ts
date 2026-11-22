@@ -20,6 +20,14 @@ export type DesktopBrowserEvent = typeof DesktopBrowserEvent.Type;
 export const DesktopBrowserCommand = Schema.Union([
   Schema.Struct({ type: Schema.Literal("cdp"), ...TabKey, message: Schema.String }),
   Schema.Struct({ type: Schema.Literal("release"), ...TabKey }),
+  /** Opens a page no window shows, in the storage of an environment's browser profile. */
+  Schema.Struct({
+    type: Schema.Literal("openHidden"),
+    ...TabKey,
+    environmentId: TrimmedNonEmptyString,
+    profileId: TrimmedNonEmptyString,
+  }),
+  Schema.Struct({ type: Schema.Literal("closeHidden"), ...TabKey }),
   Schema.Struct({
     type: Schema.Literal("pointer"),
     ...TabKey,

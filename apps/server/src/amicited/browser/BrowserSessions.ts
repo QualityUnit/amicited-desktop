@@ -1,4 +1,5 @@
-import { browserSupport, type DefaultBrowser } from "@amicited/visibility/browsers";
+import type { BrowserChoice, BrowserMode } from "@amicited/cloud-client/connectionsRpc";
+import { browserSupport } from "@amicited/visibility/browsers";
 import type { EnginePage } from "@amicited/visibility/page";
 import { sites, type SiteId } from "@amicited/visibility/sites";
 import * as Context from "effect/Context";
@@ -21,14 +22,7 @@ import { BrowserBridge, bridgePage, type BridgeConnection } from "./BrowserBridg
 import { detectDefaultBrowser } from "./DefaultBrowser.ts";
 import { playwrightPage } from "./PlaywrightPage.ts";
 
-export interface BrowserMode {
-  readonly driver: "extension" | "managed";
-  /** The browser runs use, for people. */
-  readonly browser: string;
-  readonly defaultBrowser: DefaultBrowser | null;
-  /** Why runs use the AmICited browser instead of the user's own; null when they do not. */
-  readonly reason: string | null;
-}
+export type { BrowserMode };
 export interface SessionTab {
   readonly page: EnginePage;
   readonly tabId?: string;
@@ -51,7 +45,7 @@ const managedError = (cause: unknown) => {
   const host = isLaunchError(cause) ? cause.cause : cause;
   if (isSandboxError(host))
     return new BrowserSessionError({
-      message: `Install the AmICited Connector in your browser to run checks there. This computer blocks the sandbox the AmICited browser needs; running \`${host.setupCommand}\` once allows it.`,
+      message: `This computer blocks the sandbox the AmICited browser needs; running \`${host.setupCommand}\` once allows it.`,
     });
   if (isHostSetupError(host)) return new BrowserSessionError({ message: host.message });
   return sessionError(cause, "Could not open the AmICited browser.");
@@ -61,6 +55,9 @@ export class BrowserSessions extends Context.Service<
   BrowserSessions,
   {
     readonly mode: Effect.Effect<BrowserMode>;
+    readonly use: (choice: BrowserChoice) => Effect.Effect<void>;
+    /** Calls back when the mode may have changed. */
+    readonly subscribe: (listener: () => void) => () => void;
     /** Opens a page for a site; a visible thread asks for a tab the user can sign in through. */
     readonly open: (
       site: SiteId,
@@ -71,7 +68,10 @@ export class BrowserSessions extends Context.Service<
   }
 >()("t3/amicited/browser/BrowserSessions") {}
 
-const Remembered = Schema.Struct({ connectorFamilies: Schema.Array(Schema.String) });
+const Remembered = Schema.Struct({
+  connectorFamilies: Schema.Array(Schema.String),
+  use: Schema.optionalKey(Schema.Literals(["app", "connector"])),
+});
 const decodeRemembered = Schema.decodeUnknownEffect(Schema.fromJsonString(Remembered));
 const encodeRemembered = Schema.encodeEffect(Schema.fromJsonString(Remembered));
 
@@ -87,11 +87,18 @@ export const layer = Layer.effect(
     const random = yield* Random.Random;
     const run = Effect.runPromiseWith(yield* Effect.context<never>());
     const file = `${config.stateDir}/amicited-browser.json`;
-    const families = new Set(
-      (yield* fs.readFileString(file).pipe(
-        Effect.flatMap(decodeRemembered),
-        Effect.orElseSucceed(() => ({ connectorFamilies: [] })),
-      )).connectorFamilies,
+    const remembered = yield* fs.readFileString(file).pipe(
+      Effect.flatMap(decodeRemembered),
+      Effect.orElseSucceed((): typeof Remembered.Type => ({ connectorFamilies: [] })),
+    );
+    const families = new Set(remembered.connectorFamilies);
+    let choice: BrowserChoice = remembered.use ?? "app";
+    const listeners = new Set<() => void>();
+    const save = Effect.suspend(() =>
+      encodeRemembered({ connectorFamilies: [...families], use: choice }),
+    ).pipe(
+      Effect.flatMap((value) => fs.writeFileString(file, value)),
+      Effect.ignoreCause({ log: true }),
     );
     /** Families the connector has run in, so the app may open that browser for it later. */
     const remember = (connection: BridgeConnection | null) =>
@@ -99,40 +106,31 @@ export const layer = Layer.effect(
         ? Effect.void
         : Effect.suspend(() => {
             families.add(connection.info.family);
-            return encodeRemembered({ connectorFamilies: [...families] });
-          }).pipe(
-            Effect.flatMap((value) => fs.writeFileString(file, value)),
-            Effect.ignoreCause({ log: true }),
-          );
+            return save;
+          });
     const detected = yield* Effect.cached(
       detectDefaultBrowser().pipe(Effect.provideService(ProcessRunner, runner)),
     );
 
-    const mode = Effect.fn("BrowserSessions.mode")(function* (connection: BridgeConnection | null) {
-      const defaultBrowser = yield* detected;
+    const mode = Effect.fn("BrowserSessions.mode")(function* () {
+      const connection = yield* bridge.current;
       if (connection)
         return {
-          driver: "extension",
-          browser: connection.info.browser,
-          defaultBrowser,
-          reason: null,
+          use: choice,
+          connector: connection.info.browser,
+          connectorSetup: null,
         } satisfies BrowserMode;
-      const family = defaultBrowser?.family ?? "unknown";
+      const family = (yield* detected)?.family ?? "unknown";
       const support = family === "unknown" ? null : browserSupport[family];
-      const reason =
+      const connectorSetup =
         bridge.port === null
           ? "Another app is using the AmICited Connector port."
           : !support
-            ? "AmICited cannot detect your default browser."
+            ? "Install the AmICited Connector in Chrome, Edge or Firefox."
             : !support.connector
-              ? `${support.label} cannot be driven yet.`
-              : `Install the AmICited Connector in ${support.label} to use your own sign-ins.`;
-      return {
-        driver: "managed",
-        browser: "AmICited browser",
-        defaultBrowser,
-        reason,
-      } satisfies BrowserMode;
+              ? `${support.label} cannot run the AmICited Connector. Install it in Chrome, Edge or Firefox.`
+              : `Install the AmICited Connector in ${support.label}.`;
+      return { use: choice, connector: null, connectorSetup } satisfies BrowserMode;
     });
 
     /** A connector that ran here before: open the default browser if it is that one, then wait for it. */
@@ -147,7 +145,8 @@ export const layer = Layer.effect(
       return yield* bridge.awaitConnection("45 seconds");
     });
 
-    const openManaged = (site: SiteId, visibleThread?: string) =>
+    /** AmICited's browser: the desktop app's when there is one, else Chromium on this server. */
+    const openApp = (site: SiteId, visibleThread?: string) =>
       Effect.tryPromise({
         try: async (): Promise<SessionTab> => {
           if (visibleThread) {
@@ -158,6 +157,12 @@ export const layer = Layer.effect(
               close: () => run(tab.close),
             };
           }
+          const hidden = await run(browser.connectionPage);
+          if (hidden)
+            return {
+              page: playwrightPage(hidden.page, () => random.nextDoubleUnsafe()),
+              close: hidden.close,
+            };
           const page = await (await run(browser.connectionContext)).newPage();
           return {
             page: playwrightPage(page, () => random.nextDoubleUnsafe()),
@@ -188,38 +193,73 @@ export const layer = Layer.effect(
 
     let fixtureIndex = 0;
     return BrowserSessions.of({
-      mode: bridge.current.pipe(Effect.flatMap(mode)),
+      mode: mode(),
+      use: Effect.fn("BrowserSessions.use")(function* (next) {
+        if (choice === next) return;
+        choice = next;
+        yield* save;
+        for (const listener of listeners) listener();
+      }),
+      subscribe: (listener) => {
+        listeners.add(listener);
+        const off = bridge.subscribe(listener);
+        return () => {
+          listeners.delete(listener);
+          off();
+        };
+      },
       open: Effect.fn("BrowserSessions.open")(function* (site: SiteId, visibleThread?: string) {
         if (evidenceEnabled()) {
           const page = evidencePage(fixtureIndex++);
           return { page, close: () => page.close() };
         }
-        const connection = yield* connector();
-        yield* remember(connection);
-        if (connection) return yield* openOwn(connection, site, visibleThread);
+        if (choice === "connector") {
+          const connection = yield* connector();
+          yield* remember(connection);
+          if (connection) return yield* openOwn(connection, site, visibleThread);
+          return yield* new BrowserSessionError({
+            message:
+              "The AmICited Connector is not connected. Open your browser, or switch Connections back to the AmICited browser.",
+          });
+        }
         // A launch that never settles would otherwise hold the whole daily run.
-        return yield* openManaged(site, visibleThread).pipe(
+        return yield* openApp(site, visibleThread).pipe(
           Effect.timeoutOrElse({
             duration: "1 minute",
             orElse: () =>
               Effect.fail(
-                new BrowserSessionError({
-                  message:
-                    "The AmICited browser did not start. Install the AmICited Connector in your browser to run checks there.",
-                }),
+                new BrowserSessionError({ message: "The AmICited browser did not start." }),
               ),
           }),
         );
       }),
       clearCookies: Effect.fn("BrowserSessions.clearCookies")(function* (domains) {
-        if (evidenceEnabled() || (yield* bridge.current)) return;
+        if (evidenceEnabled()) return;
+        const matches = (domain: string) =>
+          domains.some((d) => domain.replace(/^\./, "") === d || domain.endsWith(`.${d}`));
         yield* Effect.tryPromise({
           try: async () => {
-            const context = await run(browser.connectionContext);
-            for (const domain of domains)
-              await context.clearCookies({
-                domain: new RegExp(String.raw`(^|\.)${domain.replaceAll(".", String.raw`\.`)}$`),
-              });
+            const hidden = await run(browser.connectionPage);
+            if (!hidden) {
+              const context = await run(browser.connectionContext);
+              for (const domain of domains)
+                await context.clearCookies({
+                  domain: new RegExp(String.raw`(^|\.)${domain.replaceAll(".", String.raw`\.`)}$`),
+                });
+              return;
+            }
+            try {
+              const cdp = await hidden.page.context().newCDPSession(hidden.page);
+              const { cookies } = await cdp.send("Network.getAllCookies");
+              for (const cookie of cookies.filter((c) => matches(c.domain)))
+                await cdp.send("Network.deleteCookies", {
+                  name: cookie.name,
+                  domain: cookie.domain,
+                  path: cookie.path,
+                });
+            } finally {
+              await hidden.close();
+            }
           },
           catch: (cause) => sessionError(cause, "Could not sign out of the AmICited browser."),
         });

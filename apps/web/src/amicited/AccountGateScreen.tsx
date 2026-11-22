@@ -89,7 +89,7 @@ export function AccountGateScreen({
                       Track 20 prompts a day in ChatGPT, Perplexity, Gemini and more, free, on this
                       computer
                     </li>
-                    <li>Works through the accounts you already have, in your own browser</li>
+                    <li>Works through the accounts you already have, signed in on this computer</li>
                     <li>Your assistant turns what it finds into fixes for your website</li>
                   </ul>
                   <p>
@@ -132,8 +132,8 @@ export function AccountGateScreen({
               <Collapsible>
                 <CollapsibleTrigger>› How this works</CollapsibleTrigger>
                 <CollapsiblePanel>
-                  Your AI sign-ins stay on this computer. Checks run in your own browser while this
-                  computer is on. AmICited never sees your passwords.
+                  Your AI sign-ins stay on this computer. Checks run in AmICited's built-in browser
+                  while this computer is on. AmICited never sees your passwords.
                 </CollapsiblePanel>
               </Collapsible>
             </div>

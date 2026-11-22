@@ -46,6 +46,7 @@ const RPC_AGGREGATES = {
   "amicited.connections.cancel": "amicited",
   "amicited.connections.finish": "amicited",
   "amicited.connections.disconnect": "amicited",
+  "amicited.connections.useBrowser": "amicited",
   "amicited.account.status": "amicited",
   "amicited.account.subscribe": "amicited",
   "amicited.account.addWorkspace": "amicited",

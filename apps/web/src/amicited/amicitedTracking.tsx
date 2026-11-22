@@ -271,7 +271,7 @@ export function TrackingPrompts({
         </Label>
       </div>
       <p className="am-muted">
-        These prompts are checked on this computer, in your own browser.
+        These prompts are checked on this computer, signed in as you.
         {paid && (
           <>
             {" "}

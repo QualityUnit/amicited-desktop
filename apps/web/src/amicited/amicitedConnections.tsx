@@ -11,7 +11,11 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
 import { connectionCatalogue } from "@amicited/cloud-client/connections";
 import { engineNeedsConnect } from "@amicited/cloud-client/tracking";
-import type { ConnectionId, ConnectionsSnapshot } from "@amicited/cloud-client/connectionsRpc";
+import type {
+  BrowserChoice,
+  ConnectionId,
+  ConnectionsSnapshot,
+} from "@amicited/cloud-client/connectionsRpc";
 import {
   createEnvironmentRpcCommand,
   createEnvironmentRpcSubscriptionAtomFamily,
@@ -21,6 +25,13 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { useAmicitedAccount } from "./amicitedAccount";
 import { ServerBrowserSurface } from "../browser/ServerBrowserSurface";
+import { BrowserSurfaceSlot } from "../browser/BrowserSurfaceSlot";
+import { previewRuntimeTabId } from "../browser/previewRuntimeTabId";
+import { isElectron } from "../env";
+import { useThreadPreviewState } from "../previewStateStore";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { ThreadId, type EnvironmentId } from "@t3tools/contracts";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../components/ui/collapsible";
 import { MarketingLink } from "@amicited/ui-marketing";
 import { BudgetBar } from "./amicitedTracking";
 import { engineLabel } from "./trackingPresentation";
@@ -66,7 +77,11 @@ const check = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.connections.check",
   label: "connections:check",
 });
-export function useConnections(destination?: import("@t3tools/contracts").EnvironmentId) {
+const browserChoice = createEnvironmentRpcCommand(connectionAtomRuntime, {
+  tag: "amicited.connections.useBrowser",
+  label: "connections:useBrowser",
+});
+export function useConnections(destination?: EnvironmentId) {
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const environmentId = destination ?? primaryEnvironmentId;
   const result = useAtomValue(
@@ -80,7 +95,8 @@ export function useConnections(destination?: import("@t3tools/contracts").Enviro
     stop = useAtomCommand(cancel),
     done = useAtomCommand(finish),
     remove = useAtomCommand(disconnect),
-    probe = useAtomCommand(check);
+    probe = useAtomCommand(check),
+    choose = useAtomCommand(browserChoice);
   const allowed = useAtomValue(environmentId ? connect.permissionAtom(environmentId) : unavailable);
   const act = async (
     action: "connect" | "cancel" | "finish" | "disconnect" | "check",
@@ -101,7 +117,13 @@ export function useConnections(destination?: import("@t3tools/contracts").Enviro
         title: "Could not update connection. Please try again.",
       });
   };
-  return { snapshot, environmentId, allowed, act };
+  const chooseBrowser = async (use: BrowserChoice) => {
+    if (!environmentId) return;
+    const r = await choose({ environmentId, input: { use } });
+    if (r._tag === "Failure")
+      toastManager.add({ type: "error", title: "Could not change the browser. Please try again." });
+  };
+  return { snapshot, environmentId, allowed, act, chooseBrowser };
 }
 const labels = {
   connected: "Connected",
@@ -165,7 +187,7 @@ export function ConnectAiAppsGrid({
                     ? "No sign-in needed"
                     : connected
                       ? "Sign-in stays on this computer"
-                      : "Opens a sign-in window"}
+                      : "Sign in inside AmICited"}
                 </small>
               </article>
             );
@@ -225,8 +247,8 @@ export function ConnectionsHub({ onboarding = false }: { onboarding?: boolean })
         {onboarding ? "Connect your AI apps" : `${current?.name ?? "Workspace"} / Connections`}
       </h1>
       <p>
-        AmICited asks your prompts in your own browser, signed in as you. Sign in once to each. Your
-        agents ask first before anything goes public.
+        AmICited asks your prompts in its own browser on this computer, signed in as you. Sign in
+        once to each. Your agents ask first before anything goes public.
       </p>
       {row && detail ? (
         <section className="am-card">
@@ -387,6 +409,7 @@ export function ConnectionsHub({ onboarding = false }: { onboarding?: boolean })
           ),
         )
       )}
+      {!onboarding && !(row && detail) && <BrowserChoiceCard state={state} />}
       {!onboarding && (
         <>
           <section className="am-card">
@@ -429,28 +452,112 @@ export function ConnectionsHub({ onboarding = false }: { onboarding?: boolean })
     </div>
   );
 }
+function BrowserChoiceCard({ state }: { state: ReturnType<typeof useConnections> }) {
+  const browser = state.snapshot.browser;
+  if (!browser) return null;
+  const own = browser.use === "connector";
+  return (
+    <section className="am-card">
+      <h2>Browser</h2>
+      <p>
+        {own
+          ? `Sign-ins and checks use your own browser, through the AmICited Connector. ${
+              browser.connector ? `Connected in ${browser.connector}.` : browser.connectorSetup
+            }`
+          : "Sign-ins and checks use AmICited's built-in browser. Your sign-ins stay in it, on this computer."}
+      </p>
+      <Collapsible defaultOpen={own}>
+        <CollapsibleTrigger>› Advanced</CollapsibleTrigger>
+        <CollapsiblePanel>
+          <p className="am-muted">
+            {own
+              ? "Switch back to sign in to each site again inside AmICited."
+              : "If a site refuses to sign you in here, AmICited can use your own browser instead, through the AmICited Connector extension. You then sign in to each site there."}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!state.allowed}
+            onClick={() => void state.chooseBrowser(own ? "app" : "connector")}
+          >
+            {own ? "Use AmICited's browser" : "Use my own browser"}
+          </Button>
+        </CollapsiblePanel>
+      </Collapsible>
+    </section>
+  );
+}
+/** The desktop app shows its own tab; elsewhere the server streams the page. */
+function SignInPage({
+  environmentId,
+  threadId,
+  tabId,
+  layoutVersion,
+}: {
+  environmentId: EnvironmentId;
+  threadId: string;
+  tabId: string;
+  layoutVersion: number;
+}) {
+  const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const threadRef = scopeThreadRef(environmentId, ThreadId.make(threadId));
+  const preview = useThreadPreviewState(threadRef);
+  const native =
+    isElectron && environmentId === primaryEnvironmentId && !preview.sessions[tabId]?.headless;
+  if (!native)
+    return (
+      <ServerBrowserSurface
+        environmentId={environmentId}
+        threadId={threadId}
+        tabId={tabId}
+        visible
+      />
+    );
+  const runtimeTabId = previewRuntimeTabId(threadRef, preview.serverEpoch, tabId);
+  // Above the dialog, which would otherwise cover the page.
+  return (
+    <BrowserSurfaceSlot
+      key={runtimeTabId}
+      tabId={runtimeTabId}
+      visible
+      zIndex={70}
+      layoutVersion={layoutVersion}
+      className="h-full w-full"
+    />
+  );
+}
 function ConnectionSignIn({ state }: { state: ReturnType<typeof useConnections> }) {
+  const [opened, setOpened] = useState(0);
   const pending = state.snapshot.connections.find((r) => r.signingIn);
   if (!pending || !state.environmentId) return null;
+  const label = connectionCatalogue.find((c) => c.id === pending.id)?.label;
+  const inApp = pending.tabId && pending.threadId;
+  // The page is a webview outside the dialog: a click or focus there is not an outside press.
   return (
-    <Dialog open onOpenChange={(open) => !open && void state.act("cancel", pending.id)}>
+    <Dialog
+      open
+      modal={false}
+      disablePointerDismissal
+      onOpenChange={(open) => !open && void state.act("cancel", pending.id)}
+      onOpenChangeComplete={() => setOpened((n) => n + 1)}
+    >
       <DialogPopup>
         <DialogHeader>
-          <DialogTitle>
-            Connect {connectionCatalogue.find((c) => c.id === pending.id)?.label}
-          </DialogTitle>
+          <DialogTitle>Connect {label}</DialogTitle>
           <DialogDescription>
-            Sign in on the site’s own page. Your sign-in stays on this computer.
+            {inApp
+              ? `Sign in to ${label} below. Your sign-in stays in AmICited, on this computer.`
+              : `Sign in to ${label} in the tab that opened in your browser.`}
           </DialogDescription>
         </DialogHeader>
         <DialogPanel>
           {pending.tabId && pending.threadId && (
-            <div style={{ height: 500 }}>
-              <ServerBrowserSurface
+            <div style={{ height: 560 }}>
+              <SignInPage
                 environmentId={state.environmentId}
                 threadId={pending.threadId}
                 tabId={pending.tabId}
-                visible
+                layoutVersion={opened}
               />
             </div>
           )}

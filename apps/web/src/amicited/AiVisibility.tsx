@@ -178,7 +178,7 @@ function DomainVisibilityCard({
           <p className="text-sm">
             See how often ChatGPT, Gemini, Perplexity and Google name {brand} and cite{" "}
             {domain.hostname} when your buyers ask. Your assistant suggests the questions; the
-            checks run in your own browser, up to 20 prompts a day, free.
+            checks run on this computer, up to 20 prompts a day, free.
           </p>
           <Button disabled={!tracking.canSave} onClick={() => setSettingUp(true)}>
             Set up AI visibility
@@ -187,7 +187,7 @@ function DomainVisibilityCard({
       ) : !visibility || visibility.answers === 0 ? (
         <p className="text-sm text-muted-foreground">
           {running
-            ? "The first check is running in your browser. Results appear here as answers arrive."
+            ? "The first check is running on this computer. Results appear here as answers arrive."
             : `No answers yet. The first check runs at ${config.time}, or run it now.`}
         </p>
       ) : (

@@ -509,7 +509,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
                   ? "Your plan tracks prompts every day in the cloud. You can also check up to 20 a day on this computer later, from Prompts."
                   : step === "prompts"
                     ? "Start with 10 suggested questions, edit them or add your own."
-                    : "AmICited asks them your prompts in your own browser, signed in as you. Sign in once to each."}
+                    : "AmICited asks them your prompts in its built-in browser, signed in as you. Sign in once to each, right here."}
             </p>
           </header>
         )}
