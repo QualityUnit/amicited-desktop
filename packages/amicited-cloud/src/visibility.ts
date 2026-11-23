@@ -1,6 +1,6 @@
 import { EngineId as TrackingEngine } from "@amicited/visibility/result";
 import * as Schema from "effect/Schema";
-import type { TrackingAnswer, TrackingRun } from "./tracking.ts";
+import type { PromptHistory, TrackingAnswer, TrackingRun } from "./tracking.ts";
 
 const Rate = Schema.NullOr(Schema.Number);
 export const VisibilityDay = Schema.Struct({
@@ -36,6 +36,8 @@ export const PromptVisibility = Schema.Struct({
       status: Schema.String,
       mentioned: Schema.Boolean,
       position: Rate,
+      capturedAt: Schema.optionalKey(Schema.String),
+      reason: Schema.optionalKey(Schema.String),
     }),
   ),
 });
@@ -106,6 +108,16 @@ const shiftDay = (day: string, days: number) => {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 };
+/** The first local day of the window that ends today. */
+export const windowStart = (today: string, windowDays = 30) => shiftDay(today, 1 - windowDays);
+const domainMatcher = (hostname: string) => {
+  const domain = bare(hostname);
+  return (host: string) => !!host && (host === domain || host.endsWith(`.${domain}`));
+};
+const linksOf = (answer: TrackingAnswer) =>
+  answer.sources
+    ? answer.sources.map((s) => ({ url: s.url, title: s.title, host: s.domain || hostOf(s.url) }))
+    : answer.citations.map((url) => ({ url, title: "", host: hostOf(url) }));
 const count = <K>(map: Map<K, number>, key: K) => map.set(key, (map.get(key) ?? 0) + 1);
 const ranked = <K>(map: Map<K, number>) =>
   [...map.entries()].toSorted((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
@@ -150,10 +162,10 @@ export function domainVisibility(
   today: string,
   windowDays = 30,
 ): DomainVisibility {
-  const from = shiftDay(today, 1 - windowDays);
+  const from = windowStart(today, windowDays);
   const previousFrom = shiftDay(from, -windowDays);
   const domain = bare(subject.hostname);
-  const onDomain = (host: string) => !!host && (host === domain || host.endsWith(`.${domain}`));
+  const onDomain = domainMatcher(subject.hostname);
   const brand = subject.brand.trim() || subject.hostname;
   const latest = new Map<string, { day: string; answer: TrackingAnswer }>();
   const newest = new Map<string, TrackingAnswer>();
@@ -184,9 +196,7 @@ export function domainVisibility(
     const others = [...new Set(answer.competitorsMentioned)].filter(
       (name) => name.trim() && name.toLowerCase() !== brand.toLowerCase(),
     );
-    const links = answer.sources
-      ? answer.sources.map((s) => ({ url: s.url, title: s.title, host: s.domain || hostOf(s.url) }))
-      : answer.citations.map((url) => ({ url, title: "", host: hostOf(url) }));
+    const links = linksOf(answer);
     const own = links.filter((l) => onDomain(l.host)).length;
     const add = (tally: Tally) => {
       tally.answers += 1;
@@ -308,6 +318,8 @@ export function domainVisibility(
               status: a.status,
               mentioned: named,
               position: named ? (a.brand?.listPosition ?? a.position) : null,
+              ...(a.capturedAt ? { capturedAt: a.capturedAt } : {}),
+              ...(a.reason ? { reason: a.reason } : {}),
             };
           }),
       };
@@ -318,5 +330,59 @@ export function domainVisibility(
     pages: ranked(pages)
       .slice(0, 5)
       .map(([url, n]) => ({ url, title: titles.get(url) ?? "", citations: n })),
+  };
+}
+
+/**
+ * One prompt's checks over the window: a grid cell per day and engine, where an answered check
+ * wins its cell so the grid agrees with domainVisibility, plus each engine's newest answers.
+ */
+export function promptHistory(
+  projectId: string,
+  promptId: string,
+  runs: readonly TrackingRun[],
+  subject: { brand: string; hostname: string },
+  today: string,
+  windowDays = 30,
+): PromptHistory {
+  const from = windowStart(today, windowDays);
+  const onDomain = domainMatcher(subject.hostname);
+  const history = new Map<string, PromptHistory["history"][number]>();
+  const latest = new Map<TrackingAnswer["engine"], { day: string; answer: TrackingAnswer }>();
+  const answered = new Map<TrackingAnswer["engine"], { day: string; answer: TrackingAnswer }>();
+  for (const run of runs) {
+    if (run.day < from || run.day > today) continue;
+    for (const answer of run.answers) {
+      if (answer.promptId !== promptId) continue;
+      const key = `${run.day}|${answer.engine}`;
+      const isAnswer = answer.status === "answered";
+      const { search: _search, ...lean } = answer;
+      latest.set(answer.engine, { day: run.day, answer: lean });
+      if (isAnswer) answered.set(answer.engine, { day: run.day, answer: lean });
+      if (!isAnswer && history.get(key)?.status === "answered") continue;
+      const mentioned = isAnswer && isNamed(answer);
+      history.set(key, {
+        day: run.day,
+        engine: answer.engine,
+        status: answer.status,
+        mentioned,
+        position: mentioned ? (answer.brand?.listPosition ?? answer.position) : null,
+        cited:
+          (answer.domain?.citedAt.length ?? 0) > 0 || linksOf(answer).some((l) => onDomain(l.host)),
+        ...(answer.reason ? { reason: answer.reason } : {}),
+      });
+    }
+  }
+  return {
+    projectId,
+    promptId,
+    from,
+    to: today,
+    history: [...history.values()].toSorted((a, b) => a.day.localeCompare(b.day)),
+    latest: [...latest.values()],
+    lastAnswered: [...latest.entries()].flatMap(([engine, newest]) => {
+      const last = answered.get(engine);
+      return newest.answer.status !== "answered" && last ? [last] : [];
+    }),
   };
 }

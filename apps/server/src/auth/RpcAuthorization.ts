@@ -50,6 +50,7 @@ export const RPC_REQUIRED_SCOPES = {
   "amicited.tracking.subscribe": AuthOrchestrationReadScope,
   "amicited.tracking.detail": AuthOrchestrationReadScope,
   "amicited.tracking.visibility": AuthOrchestrationReadScope,
+  "amicited.tracking.prompt": AuthOrchestrationReadScope,
   "amicited.tracking.suggest": AuthOrchestrationReadScope,
   "amicited.connections.status": AuthOrchestrationReadScope,
   "amicited.connections.subscribe": AuthOrchestrationReadScope,

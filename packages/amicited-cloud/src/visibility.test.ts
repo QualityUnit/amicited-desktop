@@ -1,10 +1,15 @@
 import { answeredResult, unansweredResult } from "@amicited/visibility/result";
 import { expect, it } from "vite-plus/test";
 import { trackingAnswer, type TrackingRun } from "./tracking.ts";
-import { domainVisibility } from "./visibility.ts";
+import { domainVisibility, promptHistory } from "./visibility.ts";
 
 const subject = { brand: "Acme", domain: "acme.com", competitors: ["HubSpot", "Zoho"] };
-const answer = (prompt: string, text: string, links: string[], engine = "chatgpt" as const) =>
+const answer = (
+  prompt: string,
+  text: string,
+  links: string[],
+  engine: "chatgpt" | "gemini" = "chatgpt",
+) =>
   trackingAnswer(
     prompt,
     answeredResult(
@@ -131,5 +136,110 @@ it("reports no measurement, not zero, before any answer", () => {
     shareOfCitation: null,
     days: [],
     brands: [],
+  });
+});
+
+const unanswered = (prompt: string, engine: "chatgpt" | "gemini", reason: string) =>
+  trackingAnswer(
+    prompt,
+    unansweredResult(
+      { engine, prompt, capturedAt: "2026-11-19T08:00:00Z", country: "US" },
+      "failed",
+      reason,
+    ),
+  );
+
+it("lets an answered check win its day and engine, whichever order the runs came in", () => {
+  const result = promptHistory(
+    "site",
+    "a",
+    [
+      run("2026-11-18", [unanswered("a", "chatgpt", "Timed out")]),
+      run("2026-11-18", [
+        answer("a", "1. HubSpot\n2. Acme", ["https://acme.com/x"]),
+        answer("b", "Acme.", []),
+      ]),
+      run("2026-11-18", [unanswered("a", "chatgpt", "Prompt box missing")]),
+    ],
+    domain,
+    "2026-11-19",
+  );
+  expect(result).toMatchObject({
+    from: "2026-10-21",
+    to: "2026-11-19",
+    history: [
+      {
+        day: "2026-11-18",
+        engine: "chatgpt",
+        status: "answered",
+        mentioned: true,
+        position: 2,
+        cited: true,
+      },
+    ],
+  });
+  // The newest check failed, so the answer that did come back is kept next to it.
+  expect(result.latest.map((l) => l.answer.status)).toEqual(["failed"]);
+  expect(result.lastAnswered.map((l) => l.answer.text)).toEqual(["1. HubSpot\n2. Acme"]);
+});
+
+it("keeps the last answer per engine when the latest check failed, and only then", () => {
+  const result = promptHistory(
+    "site",
+    "a",
+    [
+      run("2026-11-18", [
+        answer("a", "Acme leads.", [], "chatgpt"),
+        answer("a", "HubSpot only.", [], "gemini"),
+      ]),
+      run("2026-11-19", [
+        unanswered("a", "chatgpt", "Prompt box missing"),
+        answer("a", "Zoho only.", [], "gemini"),
+      ]),
+    ],
+    domain,
+    "2026-11-19",
+  );
+  expect(result.history).toMatchObject([
+    { day: "2026-11-18", engine: "chatgpt", mentioned: true },
+    { day: "2026-11-18", engine: "gemini", mentioned: false },
+    {
+      day: "2026-11-19",
+      engine: "chatgpt",
+      status: "failed",
+      mentioned: false,
+      reason: "Prompt box missing",
+    },
+    { day: "2026-11-19", engine: "gemini", status: "answered", mentioned: false },
+  ]);
+  expect(result.latest).toMatchObject([
+    { day: "2026-11-19", answer: { engine: "chatgpt", status: "failed" } },
+    { day: "2026-11-19", answer: { engine: "gemini", text: "Zoho only." } },
+  ]);
+  expect(result.lastAnswered).toMatchObject([
+    { day: "2026-11-18", answer: { engine: "chatgpt", text: "Acme leads." } },
+  ]);
+});
+
+it("returns an empty history for a prompt with no checks in the window", () => {
+  expect(
+    promptHistory(
+      "site",
+      "a",
+      [
+        run("2026-10-01", [answer("a", "Acme.", [])]),
+        run("2026-11-19", [answer("b", "Acme.", [])]),
+      ],
+      domain,
+      "2026-11-19",
+    ),
+  ).toEqual({
+    projectId: "site",
+    promptId: "a",
+    from: "2026-10-21",
+    to: "2026-11-19",
+    history: [],
+    latest: [],
+    lastAnswered: [],
   });
 });

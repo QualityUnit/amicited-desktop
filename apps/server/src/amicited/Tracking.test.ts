@@ -450,7 +450,16 @@ it.effect(
       assert.equal((yield* t.detail(id))?.outcome, "ok");
       assert.equal(f.findings.find((i) => i.id === "legacy")?.status, "done");
       assert.isTrue((yield* t.detail(id))!.answers[0]!.excerpt.length > 0);
-      assert.equal((yield* t.snapshot()).runs[0]!.answers[0]!.excerpt, "");
+      const summary = (yield* t.snapshot()).runs[0]!.answers[0]!;
+      assert.equal(summary.excerpt, "");
+      assert.isUndefined(summary.text);
+      assert.isUndefined(summary.sources);
+      const history = yield* t.prompt("one", "one:0");
+      assert.deepEqual(
+        history.history.map((h) => [h.engine, h.status]),
+        [["chatgpt", "answered"]],
+      );
+      assert.isTrue((history.latest[0]?.answer.text?.length ?? 0) > 0);
       assert.equal((yield* t.snapshot()).usage.consumed, 1);
       yield* t.save({
         ...config("one", 1, country),

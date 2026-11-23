@@ -18,6 +18,8 @@ import {
   trackingAnswer,
   trackingFindings,
   engineConnection,
+  type PromptHistory,
+  type TrackingAnswer,
   type TrackingSnapshot,
   type TrackingUsage,
   type SaveTrackingResult,
@@ -37,7 +39,12 @@ import { AmicitedCloud } from "./Cloud.ts";
 import { Connections } from "./Connections.ts";
 import { AmicitedIssues } from "./Issues.ts";
 import { makeTrackingSync } from "./TrackingSync.ts";
-import { domainVisibility, type DomainVisibility } from "@amicited/cloud-client/visibility";
+import {
+  domainVisibility,
+  promptHistory,
+  windowStart,
+  type DomainVisibility,
+} from "@amicited/cloud-client/visibility";
 import * as HttpClient from "effect/http/HttpClient";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as Option from "effect/Option";
@@ -89,6 +96,8 @@ export class Tracking extends Context.Service<
     snapshot: () => Effect.Effect<TrackingSnapshot, TrackingFailure>;
     /** Share of voice and citation from this computer's answers, per domain. */
     visibility: (projectId?: string) => Effect.Effect<readonly DomainVisibility[], TrackingFailure>;
+    /** One prompt's last 30 days, with each engine's newest answers in full. */
+    prompt: (projectId: string, promptId: string) => Effect.Effect<PromptHistory, TrackingFailure>;
     subscribe: () => Stream.Stream<TrackingSnapshot, TrackingFailure>;
     save: (
       config: TrackingConfig,
@@ -109,6 +118,18 @@ export class Tracking extends Context.Service<
   }
 >()("t3/amicited/Tracking") {}
 const failure = () => new TrackingFailure({ message: "Could not update AI visibility tracking." });
+/** Snapshots go out on every change, so answers carry their verdict but not their text. */
+const summaryAnswer = ({
+  text: _text,
+  sources: _sources,
+  search: _search,
+  ...answer
+}: TrackingAnswer): TrackingAnswer => ({
+  ...answer,
+  excerpt: "",
+  citations: [],
+  competitorsMentioned: [],
+});
 export const layer = Layer.effect(
   Tracking,
   Effect.gen(function* () {
@@ -204,12 +225,7 @@ export const layer = Layer.effect(
           visibility: good.length
             ? (good.filter((a) => a.mentioned).length / good.length) * 100
             : null,
-          answers: r.answers.map((a) => ({
-            ...a,
-            excerpt: "",
-            citations: [],
-            competitorsMentioned: [],
-          })),
+          answers: r.answers.map(summaryAnswer),
         };
       });
       const configuredUsage = usage(cs, yield* metadata());
@@ -820,6 +836,27 @@ export const layer = Layer.effect(
           domainVisibility(d.projectId, runsByProject.get(d.projectId) ?? [], d, today),
         );
       }, Effect.mapError(failure)),
+      prompt: Effect.fn("Tracking.prompt")(
+        function* (projectId: string, promptId: string) {
+          const d = (yield* metadata()).domains.find((d) => d.projectId === projectId);
+          if (!d) return yield* new TrackingFailure({ message: "Domain not found." });
+          const today = localDay(DateTime.toDate(yield* DateTime.now));
+          const rows = yield* sql<{
+            value: string;
+          }>`SELECT value FROM amicited_tracking_runs WHERE project_id = ${projectId} AND day >= ${windowStart(today)} AND status != 'missed' ORDER BY day, rowid`;
+          const decoded = yield* Effect.forEach(rows, (r) =>
+            decodeRun(r.value).pipe(Effect.orElseSucceed(() => null)),
+          );
+          return promptHistory(
+            projectId,
+            promptId,
+            decoded.filter((r) => r !== null),
+            d,
+            today,
+          );
+        },
+        Effect.mapError((error) => (isTrackingFailure(error) ? error : failure())),
+      ),
       save,
       runNow,
       dismiss: Effect.fn("Tracking.dismiss")(function* (

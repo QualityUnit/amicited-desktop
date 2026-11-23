@@ -15,6 +15,7 @@ import {
 } from "../components/ui/table";
 import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
+import { EngineMark, MarkLegend, markTooltip } from "./EngineMark";
 import { engineLabel } from "./trackingPresentation";
 import { change, dayLabel, percent, plural } from "./visibilityFormat";
 
@@ -630,7 +631,11 @@ function PromptTable({
         ? winning(r.data?.mentionRate ?? null)
         : !!r.data?.answers && !winning(r.data.mentionRate),
   );
-  const open = () => marketingNavigate(`/prompts?site=${encodeURIComponent(visibility.projectId)}`);
+  const site = `/prompts?site=${encodeURIComponent(visibility.projectId)}`;
+  const open = (promptId?: string, engine?: TrackingEngine) =>
+    marketingNavigate(
+      `${site}${promptId ? `&prompt=${encodeURIComponent(promptId)}` : ""}${engine ? `&app=${engine}` : ""}`,
+    );
   return (
     <Card
       title="Prompts"
@@ -649,7 +654,7 @@ function PromptTable({
             <Toggle value="losing">Losing {counts.losing}</Toggle>
             <Toggle value="winning">Winning {counts.winning}</Toggle>
           </ToggleGroup>
-          <Button variant="ghost" size="xs" onClick={open}>
+          <Button variant="ghost" size="xs" onClick={() => open()}>
             Prompts and answers <ChevronRight />
           </Button>
         </div>
@@ -670,7 +675,7 @@ function PromptTable({
         </TableHeader>
         <TableBody>
           {shown.map(({ prompt, data }) => (
-            <TableRow key={prompt.id} className="cursor-pointer" onClick={open}>
+            <TableRow key={prompt.id} className="cursor-pointer" onClick={() => open(prompt.id)}>
               <TableCell>
                 <Tooltip>
                   <TooltipTrigger render={<span className="block max-w-80 truncate" />}>
@@ -679,11 +684,25 @@ function PromptTable({
                   <TooltipPopup>{prompt.text}</TooltipPopup>
                 </Tooltip>
               </TableCell>
-              {config.engines.map((e) => (
-                <TableCell key={e} className="text-center">
-                  <EngineMark latest={data?.latest.find((l) => l.engine === e)} />
-                </TableCell>
-              ))}
+              {config.engines.map((e) => {
+                const latest = data?.latest.find((l) => l.engine === e);
+                return (
+                  <TableCell
+                    key={e}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      open(prompt.id, e);
+                    }}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger render={<div className="flex justify-center" />}>
+                        <EngineMark latest={latest} />
+                      </TooltipTrigger>
+                      <TooltipPopup>{markTooltip(e, latest, visibility.to)}</TooltipPopup>
+                    </Tooltip>
+                  </TableCell>
+                );
+              })}
               <TableCell>
                 {data?.answers ? (
                   <span className="flex items-center gap-2 tabular-nums">
@@ -706,52 +725,7 @@ function PromptTable({
           ))}
         </TableBody>
       </Table>
-      <p className="flex gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <EngineMark latest={{ status: "answered", mentioned: true, position: null }} /> Named
-          (with its list position)
-        </span>
-        <span className="flex items-center gap-1.5">
-          <EngineMark latest={{ status: "answered", mentioned: false, position: null }} /> Not named
-        </span>
-        <span className="flex items-center gap-1.5">
-          <EngineMark latest={{ status: "failed", mentioned: false, position: null }} /> Could not
-          run
-        </span>
-      </p>
+      <MarkLegend />
     </Card>
-  );
-}
-
-/** Shape as well as colour: disc named, ring not named, square could not run. */
-function EngineMark({
-  latest,
-}: {
-  latest: { status: string; mentioned: boolean; position: number | null } | undefined;
-}) {
-  if (!latest) return <span className="inline-block size-4" aria-label="Not asked yet" />;
-  if (latest.status !== "answered")
-    return (
-      <span
-        aria-label="Could not run"
-        className="inline-flex size-4 items-center justify-center rounded-sm bg-warning/20 text-3xs font-bold text-warning-foreground"
-      >
-        !
-      </span>
-    );
-  if (!latest.mentioned)
-    return (
-      <span
-        aria-label="Not named"
-        className="inline-block size-4 rounded-full border-2 border-muted-foreground/40"
-      />
-    );
-  return (
-    <span
-      aria-label={latest.position ? `Named at #${latest.position}` : "Named"}
-      className="inline-flex size-4 items-center justify-center rounded-full bg-primary text-3xs font-semibold text-primary-foreground"
-    >
-      {latest.position ?? ""}
-    </span>
   );
 }

@@ -82,6 +82,32 @@ export const TrackingAnswer = Schema.Struct({
   browser: Schema.optionalKey(Schema.String),
 });
 export type TrackingAnswer = typeof TrackingAnswer.Type;
+const DatedAnswer = Schema.Struct({ day: Schema.String, answer: TrackingAnswer });
+/** One prompt's last 30 days on this computer, for its detail page. */
+export const PromptHistory = Schema.Struct({
+  projectId: Schema.String,
+  promptId: Schema.String,
+  /** The same window as DomainVisibility. */
+  from: Schema.String,
+  to: Schema.String,
+  /** One entry per day and engine that had a check; days without one are absent. */
+  history: Schema.Array(
+    Schema.Struct({
+      day: Schema.String,
+      engine: TrackingEngine,
+      status: TrackingAnswer.fields.status,
+      mentioned: Schema.Boolean,
+      position: Schema.NullOr(Schema.Number),
+      cited: Schema.Boolean,
+      reason: Schema.optionalKey(Schema.String),
+    }),
+  ),
+  /** Per engine: the newest check of any status, in full. */
+  latest: Schema.Array(DatedAnswer),
+  /** Per engine whose newest check is not an answer: the newest answered one, in full. */
+  lastAnswered: Schema.Array(DatedAnswer),
+});
+export type PromptHistory = typeof PromptHistory.Type;
 export const TrackingRun = Schema.Struct({
   id: Schema.String,
   engines: Schema.optionalKey(Schema.Array(TrackingEngine)),
@@ -174,6 +200,11 @@ export const trackingRpcs = [
   Rpc.make("amicited.tracking.visibility", {
     payload: { projectId: Schema.optionalKey(Schema.String) },
     success: Schema.Array(DomainVisibility),
+    error: TrackingFailure,
+  }),
+  Rpc.make("amicited.tracking.prompt", {
+    payload: { projectId: Schema.String, promptId: Schema.String },
+    success: PromptHistory,
     error: TrackingFailure,
   }),
   Rpc.make("amicited.tracking.save", {

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { useSearch } from "@tanstack/react-router";
-import { Clock, Globe, ScanEye } from "lucide-react";
+import { Clock, ExternalLink, Globe, LayoutDashboard, ScanEye } from "lucide-react";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
 import { availableEngines } from "@amicited/cloud-client/tracking";
@@ -22,10 +22,10 @@ import {
 } from "../components/ui/empty";
 import { SidebarMenuButton } from "../components/ui/sidebar";
 import { Skeleton } from "../components/ui/skeleton";
-import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
-import { useTracking } from "./amicitedTracking";
+import { runMilestones, useTracking } from "./amicitedTracking";
 import { useConnections } from "./amicitedConnections";
 import { SetupTrackingPrompts } from "./SetupTrackingPrompts";
+import { SiteSwitcher } from "./SiteSwitcher";
 import { engineLabel } from "./trackingPresentation";
 import { VisibilityDashboard } from "./VisibilityDashboard";
 import { VisibilityStatus } from "./VisibilityStatus";
@@ -74,7 +74,8 @@ export function AiVisibilitySidebarRow({
   );
 }
 
-function useVisibility(environmentId: EnvironmentId | null, refreshKey: string) {
+/** Every website's measured visibility, reread at each run milestone. */
+export function useVisibility(environmentId: EnvironmentId | null, refreshKey: string) {
   const read = useEffectEvent(useAtomCommand(visibilityCommand));
   const [rows, setRows] = useState<readonly DomainVisibility[] | null>(null);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Rereads the server's computed shares whenever a tracking run changes.
@@ -97,10 +98,7 @@ export function AiVisibilityPage() {
   const domains = useDomains(environmentId);
   const tracking = useTracking(environmentId ?? undefined);
   const { site } = useSearch({ strict: false }) as { site?: string };
-  const refreshKey = tracking.snapshot.runs
-    .map((r) => `${r.id}:${r.status}:${r.answered ?? r.answers.length}`)
-    .join(";");
-  const visibility = useVisibility(environmentId, refreshKey);
+  const visibility = useVisibility(environmentId, runMilestones(tracking.snapshot.runs));
   const domain =
     domains.rows.find((d) => d.projectId === site) ??
     domains.rows.find((d) => configured(tracking, d.projectId)) ??
@@ -110,22 +108,7 @@ export function AiVisibilityPage() {
     <div className="mx-auto flex max-w-6xl flex-col gap-3">
       <header className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">AI Visibility</h1>
-        {domains.rows.length > 1 && domain && (
-          <ToggleGroup
-            aria-label="Website"
-            value={[domain.projectId]}
-            onValueChange={(values) => {
-              if (values[0])
-                marketingNavigate(`/visibility?site=${encodeURIComponent(String(values[0]))}`);
-            }}
-          >
-            {domains.rows.map((d) => (
-              <Toggle key={d.projectId} value={d.projectId}>
-                {d.hostname}
-              </Toggle>
-            ))}
-          </ToggleGroup>
-        )}
+        {domain && <SiteSwitcher domains={domains.rows} current={domain} path="/visibility" />}
       </header>
       {loading ? (
         <LoadingSkeleton />
@@ -264,6 +247,7 @@ function DomainVisibilityView({
         onRun={() => run()}
         onStop={() => run(true)}
       />
+      <DashboardBanner domain={domain} synced={sync?.state === "synced"} />
       {visibility && visibility.answers > 0 ? (
         <VisibilityDashboard
           visibility={visibility}
@@ -298,5 +282,39 @@ function DomainVisibilityView({
         </Empty>
       )}
     </>
+  );
+}
+
+/** The website's own view in the AmICited web dashboard, once it is linked to a workspace. */
+const dashboardUrl = (domain: Domain) =>
+  domain.workspaceId && domain.domainId
+    ? `https://app.flowhunt.io/amicited/dashboard?ws=${encodeURIComponent(domain.workspaceId)}&domainId=${encodeURIComponent(domain.domainId)}`
+    : null;
+
+function DashboardBanner({ domain, synced }: { domain: Domain; synced: boolean }) {
+  const url = dashboardUrl(domain);
+  if (!url) return null;
+  return (
+    <section
+      aria-label="AmICited dashboard"
+      className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-4 py-3"
+    >
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <LayoutDashboard className="size-4" />
+      </span>
+      <p className="min-w-0 flex-1 text-sm">
+        <span className="font-medium">
+          {synced
+            ? `${domain.hostname}'s answers are in your AmICited dashboard.`
+            : `See ${domain.hostname} in your AmICited dashboard.`}
+        </span>{" "}
+        <span className="text-muted-foreground">
+          Full history, your team's view, and the prompts AmICited checks in the cloud.
+        </span>
+      </p>
+      <Button size="sm" render={<a href={url} target="_blank" rel="noreferrer" />}>
+        Open dashboard <ExternalLink />
+      </Button>
+    </section>
   );
 }

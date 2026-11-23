@@ -2066,6 +2066,8 @@ export const layerWsRpc = (
           tracking.detail(runId ?? threadId ?? ""),
         "amicited.tracking.subscribe": () => tracking.subscribe(),
         "amicited.tracking.visibility": ({ projectId }) => tracking.visibility(projectId),
+        "amicited.tracking.prompt": ({ projectId, promptId }) =>
+          tracking.prompt(projectId, promptId),
         "amicited.tracking.save": ({ config, replacePromptId }) =>
           tracking.save(config, replacePromptId),
         "amicited.tracking.suggest": ({ projectId, category }) =>

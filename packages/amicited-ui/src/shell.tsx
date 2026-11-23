@@ -55,7 +55,9 @@ export function MarketingShell({
             </MarketingHeader>
             <div
               className={
-                path.startsWith("/issues") || path.startsWith("/visibility")
+                path.startsWith("/issues") ||
+                path.startsWith("/visibility") ||
+                path.startsWith("/prompts")
                   ? "am-wide-page"
                   : "am-secondary-page"
               }

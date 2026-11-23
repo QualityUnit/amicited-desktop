@@ -1,18 +1,15 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Info, Minus } from "lucide-react";
-import type { TrackingRun, TrackingSync } from "@amicited/cloud-client/tracking";
+import { AlertTriangle, CheckCircle2, Clock, Info, Minus } from "lucide-react";
+import type { TrackingEngine, TrackingRun, TrackingSync } from "@amicited/cloud-client/tracking";
 import { marketingNavigate } from "@amicited/ui-marketing";
 import { Button } from "../components/ui/button";
 import { Spinner } from "../components/ui/spinner";
-import { engineLabel } from "./trackingPresentation";
-import { dayLabel, plural } from "./visibilityFormat";
+import { failureCopy } from "./trackingPresentation";
+import { dayLabel, laterToday, plural, when } from "./visibilityFormat";
 
 const upgradeUrl = "https://app.flowhunt.io/amicited/subscription";
-const clock = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-const today = () => new Date().toLocaleDateString("en-CA");
-const when = (iso: string) =>
-  `${iso.slice(0, 10) === today() ? "today" : dayLabel(iso.slice(0, 10))} at ${clock(iso)}`;
+/** About how long a check takes: one answer plus the pause before the next ask. */
+const secondsPerCheck = 25;
 
 /** Run state on the left, sync on the right, and one row per thing the user can fix. */
 export function VisibilityStatus({
@@ -22,6 +19,7 @@ export function VisibilityStatus({
   canRun,
   onRun,
   onStop,
+  firstCheck,
 }: {
   run: TrackingRun | undefined;
   sync: TrackingSync | undefined;
@@ -29,6 +27,8 @@ export function VisibilityStatus({
   canRun: boolean;
   onRun: () => void;
   onStop: () => void;
+  /** Before any check: the prompts and AI apps the first one will ask. */
+  firstCheck?: { prompts: number; engines: number } | undefined;
 }) {
   const rows = [...(run && run.status !== "running" ? failureRows(run, canRun, onRun) : [])];
   const overLimit = sync?.overLimit ?? 0;
@@ -62,7 +62,14 @@ export function VisibilityStatus({
   return (
     <section aria-label="Check status" className="rounded-xl border bg-card">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 text-sm">
-        <RunLine run={run} time={time} canRun={canRun} onRun={onRun} onStop={onStop} />
+        <RunLine
+          run={run}
+          time={time}
+          canRun={canRun}
+          onRun={onRun}
+          onStop={onStop}
+          firstCheck={firstCheck}
+        />
         <SyncLine sync={sync} />
       </div>
       {rows.length > 0 && <div className="flex flex-col border-t">{rows}</div>}
@@ -76,13 +83,38 @@ function RunLine({
   canRun,
   onRun,
   onStop,
+  firstCheck,
 }: {
   run: TrackingRun | undefined;
   time: string;
   canRun: boolean;
   onRun: () => void;
   onStop: () => void;
+  firstCheck: { prompts: number; engines: number } | undefined;
 }) {
+  if (!run && firstCheck)
+    return (
+      <span className="flex flex-1 items-center gap-2">
+        <Clock className="size-4 text-muted-foreground" />
+        <span className="font-medium">
+          The first check runs {laterToday(time)} at {time}
+        </span>
+        <span className="text-muted-foreground">
+          about{" "}
+          {plural(
+            Math.max(
+              1,
+              Math.ceil((firstCheck.prompts * firstCheck.engines * secondsPerCheck) / 60),
+            ),
+            "minute",
+          )}{" "}
+          for {plural(firstCheck.prompts, "prompt")}
+        </span>
+        <Button size="xs" disabled={!canRun} onClick={onRun}>
+          Run now
+        </Button>
+      </span>
+    );
   if (!run)
     return (
       <span className="flex-1 text-muted-foreground">
@@ -175,7 +207,7 @@ function SyncLine({ sync }: { sync: TrackingSync | undefined }) {
 function failureRows(run: TrackingRun, canRun: boolean, onRun: () => void) {
   const groups = new Map<
     string,
-    { engine: string; status: string; count: number; reason?: string | undefined }
+    { engine: TrackingEngine; status: string; count: number; reason?: string | undefined }
   >();
   for (const a of run.answers) {
     if (a.status === "answered") continue;
@@ -185,54 +217,33 @@ function failureRows(run: TrackingRun, canRun: boolean, onRun: () => void) {
     group.reason ??= a.reason;
     groups.set(key, group);
   }
-  const runAgain = (
-    <Button variant="outline" size="xs" disabled={!canRun} onClick={onRun}>
-      Run again
-    </Button>
-  );
   return [...groups.entries()].map(([key, g]) => {
-    const label = engineLabel(g.engine);
-    if (g.status === "needs_sign_in")
-      return (
-        <AttentionRow
-          key={key}
-          title={`${label} needs your sign-in.`}
-          detail={`${plural(g.count, "check")} waited for it. Sign in again in Connections.`}
-          action={
-            <Button
-              variant="outline"
-              size="xs"
-              onClick={() => marketingNavigate("/marketing-settings")}
-            >
-              Connect
-            </Button>
-          }
-        />
-      );
-    if (g.status === "budget_exhausted")
-      return (
-        <AttentionRow
-          key={key}
-          title="Today's free prompts are used."
-          detail={`The remaining ${plural(g.count, "check")} run tomorrow.`}
-        />
-      );
+    const copy = failureCopy(g.status, g.engine, g.reason, { count: g.count });
     return (
       <AttentionRow
         key={key}
-        title={
-          g.status === "blocked"
-            ? `${label} blocked ${plural(g.count, "check")}.`
-            : `${plural(g.count, "check")} could not run on ${label}.`
+        title={copy.title}
+        detail={copy.detail}
+        action={
+          copy.action && (
+            <Button
+              variant="outline"
+              size="xs"
+              disabled={copy.action.kind === "run" && !canRun}
+              onClick={
+                copy.action.kind === "run" ? onRun : () => marketingNavigate("/marketing-settings")
+              }
+            >
+              {copy.action.label}
+            </Button>
+          )
         }
-        detail={g.reason ?? "Running the check again usually fixes it."}
-        action={runAgain}
       />
     );
   });
 }
 
-function AttentionRow({
+export function AttentionRow({
   title,
   detail,
   action,
