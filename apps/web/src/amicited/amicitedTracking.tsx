@@ -124,7 +124,7 @@ export function LockPill() {
   );
 }
 /** Whether this domain's answers reached its AmICited workspace. */
-export function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
+function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
   if (!sync) return null;
   const overLimit = sync.overLimit ?? 0;
   const otherSkipped = overLimit ? 0 : sync.skipped;

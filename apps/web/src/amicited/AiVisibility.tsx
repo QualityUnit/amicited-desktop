@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent, useState } from "react";
-import { ScanEye } from "lucide-react";
+import { useSearch } from "@tanstack/react-router";
+import { Clock, Globe, ScanEye } from "lucide-react";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { createEnvironmentRpcCommand } from "@t3tools/client-runtime/state/runtime";
-import { availableEngines, type TrackingRun } from "@amicited/cloud-client/tracking";
+import { availableEngines } from "@amicited/cloud-client/tracking";
 import type { DomainVisibility } from "@amicited/cloud-client/visibility";
 import type { Domain } from "@amicited/cloud-client/domains";
 import { marketingNavigate } from "@amicited/ui-marketing";
@@ -11,10 +12,24 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { useDomains } from "../marketingDomains";
 import { Button } from "../components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "../components/ui/empty";
 import { SidebarMenuButton } from "../components/ui/sidebar";
-import { SyncStatus, useTracking } from "./amicitedTracking";
+import { Skeleton } from "../components/ui/skeleton";
+import { Toggle, ToggleGroup } from "../components/ui/toggle-group";
+import { useTracking } from "./amicitedTracking";
 import { useConnections } from "./amicitedConnections";
 import { SetupTrackingPrompts } from "./SetupTrackingPrompts";
+import { engineLabel } from "./trackingPresentation";
+import { VisibilityDashboard } from "./VisibilityDashboard";
+import { VisibilityStatus } from "./VisibilityStatus";
+import { plural } from "./visibilityFormat";
 
 const visibilityCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tracking.visibility",
@@ -81,42 +96,85 @@ export function AiVisibilityPage() {
   const environmentId = usePrimaryEnvironmentId();
   const domains = useDomains(environmentId);
   const tracking = useTracking(environmentId ?? undefined);
+  const { site } = useSearch({ strict: false }) as { site?: string };
   const refreshKey = tracking.snapshot.runs
     .map((r) => `${r.id}:${r.status}:${r.answered ?? r.answers.length}`)
     .join(";");
   const visibility = useVisibility(environmentId, refreshKey);
+  const domain =
+    domains.rows.find((d) => d.projectId === site) ??
+    domains.rows.find((d) => configured(tracking, d.projectId)) ??
+    domains.rows[0];
+  const loading = !domains.loaded || !tracking.loaded;
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <header>
+    <div className="mx-auto flex max-w-6xl flex-col gap-3">
+      <header className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold">AI Visibility</h1>
-        <p className="text-sm text-muted-foreground">
-          How AI answers name and cite your websites, from the checks on this computer over the last
-          30 days.
-        </p>
+        {domains.rows.length > 1 && domain && (
+          <ToggleGroup
+            aria-label="Website"
+            value={[domain.projectId]}
+            onValueChange={(values) => {
+              if (values[0])
+                marketingNavigate(`/visibility?site=${encodeURIComponent(String(values[0]))}`);
+            }}
+          >
+            {domains.rows.map((d) => (
+              <Toggle key={d.projectId} value={d.projectId}>
+                {d.hostname}
+              </Toggle>
+            ))}
+          </ToggleGroup>
+        )}
       </header>
-      {!domains.loaded || !tracking.loaded ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Loading AI visibility…
-        </p>
-      ) : domains.rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Add a website to track its AI visibility.</p>
+      {loading ? (
+        <LoadingSkeleton />
+      ) : !domain ? (
+        <Empty>
+          <EmptyMedia variant="icon">
+            <Globe />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>Add a website to see its AI visibility</EmptyTitle>
+            <EmptyDescription>
+              AmICited asks ChatGPT, Gemini, Perplexity and Google the questions your buyers ask,
+              and shows how often they name and cite you.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       ) : (
-        environmentId &&
-        domains.rows.map((domain) => (
-          <DomainVisibilityCard
+        environmentId && (
+          <DomainVisibilityView
             key={domain.projectId}
             domain={domain}
             environmentId={environmentId}
             tracking={tracking}
             visibility={visibility?.find((v) => v.projectId === domain.projectId) ?? null}
           />
-        ))
+        )
       )}
     </div>
   );
 }
 
-function DomainVisibilityCard({
+function LoadingSkeleton() {
+  return (
+    <div role="status" aria-label="Loading AI visibility" className="flex flex-col gap-3">
+      <Skeleton shape="card" className="h-11" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} shape="card" className="h-24" />
+        ))}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+        <Skeleton shape="card" className="h-64" />
+        <Skeleton shape="card" className="h-64" />
+      </div>
+    </div>
+  );
+}
+
+function DomainVisibilityView({
   domain,
   environmentId,
   tracking,
@@ -133,38 +191,23 @@ function DomainVisibilityCard({
   const sync = tracking.snapshot.sync?.find((s) => s.projectId === domain.projectId);
   const latest = tracking.snapshot.runs.find((r) => r.projectId === domain.projectId);
   const running = latest?.status === "running";
-  const run = () => void tracking.run({ environmentId, input: { projectId: domain.projectId } });
+  const engines = availableEngines(connections.snapshot.connections);
+  const run = (stop?: boolean) =>
+    void tracking.run({
+      environmentId,
+      input: { projectId: domain.projectId, ...(stop ? { stop } : {}) },
+    });
   const openPrompts = () =>
     marketingNavigate(`/prompts?site=${encodeURIComponent(domain.projectId)}`);
   const brand = domain.brand || domain.hostname;
-  return (
-    <section className="flex flex-col gap-4 rounded-xl border bg-card p-5">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold">{domain.hostname}</h2>
-          {config && (
-            <p className="text-xs text-muted-foreground">
-              {plural(config.prompts.filter((p) => p.enabled).length, "prompt")} · checked daily at{" "}
-              {config.time} on this computer
-            </p>
-          )}
-        </div>
-        {config && !settingUp && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={openPrompts}>
-              Prompts and answers
-            </Button>
-            <Button size="sm" disabled={!tracking.canRun || running} onClick={run}>
-              {running ? "Checking…" : "Run now"}
-            </Button>
-          </div>
-        )}
-      </header>
-      {settingUp ? (
+  const enabled = config?.prompts.filter((p) => p.enabled).length ?? 0;
+  if (settingUp)
+    return (
+      <section className="rounded-xl border bg-card p-5">
         <SetupTrackingPrompts
           domain={domain}
           destination={environmentId}
-          engines={availableEngines(connections.snapshot.connections)}
+          engines={engines}
           initialPrompts={[]}
           onBack={() => setSettingUp(false)}
           onComplete={async (saved) => {
@@ -173,245 +216,87 @@ function DomainVisibilityCard({
             setSettingUp(false);
           }}
         />
-      ) : !config || !config.prompts.some((p) => p.enabled) ? (
-        <div className="flex flex-col items-start gap-3">
-          <p className="text-sm">
-            See how often ChatGPT, Gemini, Perplexity and Google name {brand} and cite{" "}
-            {domain.hostname} when your buyers ask. Your assistant suggests the questions; the
-            checks run on this computer, up to 20 prompts a day, free.
-          </p>
+      </section>
+    );
+  if (!config || !enabled)
+    return (
+      <Empty>
+        <EmptyMedia variant="icon">
+          <ScanEye />
+        </EmptyMedia>
+        <EmptyHeader>
+          <EmptyTitle>See how AI answers talk about {brand}</EmptyTitle>
+          <EmptyDescription>
+            Your assistant suggests the questions buyers ask about {domain.hostname}. The checks run
+            on this computer every day, up to 20 prompts, free, on{" "}
+            {engines.map(engineLabel).join(", ")}.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent>
           <Button disabled={!tracking.canSave} onClick={() => setSettingUp(true)}>
             Set up AI visibility
           </Button>
-        </div>
-      ) : !visibility || visibility.answers === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {running
-            ? "The first check is running on this computer. Results appear here as answers arrive."
-            : `No answers yet. The first check runs at ${config.time}, or run it now.`}
-        </p>
-      ) : (
-        <VisibilityResults visibility={visibility} />
-      )}
-      {config && latest && <RunStatus run={latest} />}
-      {config && <SyncStatus sync={sync} />}
-    </section>
-  );
-}
-
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-
-/** What the latest check did, so a slow or failing run is visible rather than a frozen button. */
-function RunStatus({ run }: { run: TrackingRun }) {
-  const failed = run.answers.filter((a) => a.status !== "answered");
-  const reason = failed.findLast((a) => a.reason)?.reason;
-  const problem =
-    failed.length > 0
-      ? `${plural(failed.length, "check")} could not run${reason ? `: ${reason}` : "."}`
-      : null;
-  if (run.status === "running")
-    return (
-      <p className="text-xs text-muted-foreground">
-        Checking now: {run.answers.length} of {run.total} done.
-        {problem && <span className="text-destructive"> {problem}</span>}
-      </p>
+        </EmptyContent>
+      </Empty>
     );
-  if (!problem && run.status === "complete") return null;
-  const answered = run.answers.length - failed.length;
   return (
-    <p className="text-xs text-destructive">
-      Last check ({run.day}): {answered} of {run.total} answered.{" "}
-      {problem ?? (run.status === "complete" ? "" : "It stopped before finishing.")}
-    </p>
-  );
-}
-
-type Metric = "shareOfVoice" | "shareOfCitation";
-const metrics: { key: Metric; label: string; hint: string }[] = [
-  { key: "shareOfVoice", label: "Share of voice", hint: "Your mentions of all brand mentions" },
-  { key: "shareOfCitation", label: "Share of citation", hint: "Links to your site of all links" },
-];
-const previousOf = {
-  shareOfVoice: "previousShareOfVoice",
-  shareOfCitation: "previousShareOfCitation",
-} as const;
-
-function VisibilityResults({ visibility }: { visibility: DomainVisibility }) {
-  const [metric, setMetric] = useState<Metric>("shareOfVoice");
-  const label = metrics.find((m) => m.key === metric)!.label;
-  return (
-    <div className="grid gap-4 md:grid-cols-[1fr_220px]">
-      <div className="flex flex-col gap-3">
-        <div role="tablist" aria-label="Metric" className="grid grid-cols-2 gap-2">
-          {metrics.map((m) => {
-            const value = visibility[m.key];
-            const previous = visibility[previousOf[m.key]];
-            return (
-              <button
-                key={m.key}
-                type="button"
-                role="tab"
-                aria-selected={metric === m.key}
-                onClick={() => setMetric(m.key)}
-                className={`rounded-lg border p-3 text-left ${metric === m.key ? "border-primary" : ""}`}
-              >
-                <span className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {m.label}
-                </span>
-                <span className="block text-2xl font-semibold tabular-nums">
-                  {value === null ? "–" : `${value.toFixed(1)}%`}
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {value === null
-                    ? m.hint
-                    : previous === null
-                      ? "No previous data"
-                      : `${value - previous >= 0 ? "+" : ""}${(value - previous).toFixed(1)} pts vs previous 30 days`}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <ShareChart visibility={visibility} metric={metric} label={label} />
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          {visibility.answers} answers in the last 30 days
-          {visibility.lastDay ? ` · last answer ${dayLabel(visibility.lastDay)}` : ""}
+          {domain.hostname} · {plural(enabled, "prompt")} ·{" "}
+          {plural(config.engines.filter((e) => engines.includes(e)).length, "AI app")} · checked
+          daily at {config.time} on this computer · last 30 days
         </p>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={openPrompts}>
+            Prompts and answers
+          </Button>
+          <Button size="sm" disabled={!tracking.canRun || running} onClick={() => run()}>
+            Run now
+          </Button>
+        </div>
       </div>
-      <div>
-        <h3 className="mb-2 text-sm font-medium">Top brands</h3>
-        {visibility.brands.length ? (
-          <ol className="flex flex-col gap-1.5 text-sm">
-            {visibility.brands.map((b) => (
-              <li key={b.name} className="flex items-center justify-between gap-2">
-                <span className={b.you ? "font-medium" : ""}>
-                  {b.name}
-                  {b.you && <span className="ml-1 text-xs text-muted-foreground">you</span>}
-                </span>
-                <span className="tabular-nums text-muted-foreground">{b.share.toFixed(1)}%</span>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="text-sm text-muted-foreground">No brands named yet.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-const dayLabel = (day: string) =>
-  new Date(`${day}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-const daysBetween = (from: string, to: string) =>
-  Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
-
-/** One series over the 30-day window, 0–100%, with a hover readout per checked day. */
-function ShareChart({
-  visibility,
-  metric,
-  label,
-}: {
-  visibility: DomainVisibility;
-  metric: Metric;
-  label: string;
-}) {
-  const [hover, setHover] = useState<number | null>(null);
-  const width = 600;
-  const height = 180;
-  const pad = { left: 36, right: 12, top: 10, bottom: 24 };
-  const span = Math.max(1, daysBetween(visibility.from, visibility.to));
-  const x = (day: string) =>
-    pad.left + (daysBetween(visibility.from, day) / span) * (width - pad.left - pad.right);
-  const y = (value: number) => pad.top + (1 - value / 100) * (height - pad.top - pad.bottom);
-  const points = visibility.days.flatMap((d) =>
-    d[metric] === null ? [] : [{ day: d.day, value: d[metric]!, x: x(d.day), y: y(d[metric]!) }],
-  );
-  const active = hover === null ? null : points[hover];
-  return (
-    <figure className="m-0">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="w-full text-muted-foreground"
-        role="img"
-        aria-label={`${label} by day, last 30 days`}
-        onMouseLeave={() => setHover(null)}
-      >
-        {[0, 25, 50, 75, 100].map((tick) => (
-          <g key={tick}>
-            <line
-              x1={pad.left}
-              x2={width - pad.right}
-              y1={y(tick)}
-              y2={y(tick)}
-              stroke="currentColor"
-              strokeOpacity={tick === 0 ? 0.4 : 0.12}
-            />
-            <text
-              x={pad.left - 6}
-              y={y(tick) + 4}
-              textAnchor="end"
-              fontSize="10"
-              fill="currentColor"
-            >
-              {tick}%
-            </text>
-          </g>
-        ))}
-        {[visibility.from, visibility.to].map((day, i) => (
-          <text
-            key={day}
-            x={x(day)}
-            y={height - 6}
-            textAnchor={i ? "end" : "start"}
-            fontSize="10"
-            fill="currentColor"
-          >
-            {dayLabel(day)}
-          </text>
-        ))}
-        {points.length > 1 && (
-          <polyline
-            points={points.map((p) => `${p.x},${p.y}`).join(" ")}
-            fill="none"
-            stroke="var(--primary)"
-            strokeWidth={2}
-            strokeLinejoin="round"
-            strokeLinecap="round"
-          />
-        )}
-        {active && (
-          <line
-            x1={active.x}
-            x2={active.x}
-            y1={pad.top}
-            y2={height - pad.bottom}
-            stroke="currentColor"
-            strokeOpacity={0.3}
-          />
-        )}
-        {points.map((p, i) => (
-          <g key={p.day} onMouseEnter={() => setHover(i)}>
-            <rect
-              x={p.x - 12}
-              y={pad.top}
-              width={24}
-              height={height - pad.top - pad.bottom}
-              fill="transparent"
-            />
-            <circle
-              cx={p.x}
-              cy={p.y}
-              r={hover === i ? 5 : 4}
-              fill="var(--primary)"
-              stroke="var(--background)"
-              strokeWidth={2}
-            />
-          </g>
-        ))}
-      </svg>
-      <figcaption className="h-4 text-xs text-muted-foreground" aria-live="polite">
-        {active ? `${dayLabel(active.day)} · ${label} ${active.value.toFixed(1)}%` : ""}
-      </figcaption>
-    </figure>
+      <VisibilityStatus
+        run={latest}
+        sync={sync}
+        time={config.time}
+        canRun={tracking.canRun}
+        onRun={() => run()}
+        onStop={() => run(true)}
+      />
+      {visibility && visibility.answers > 0 ? (
+        <VisibilityDashboard
+          visibility={visibility}
+          config={config}
+          run={latest}
+          engines={engines}
+          brand={brand}
+          hostname={domain.hostname}
+        />
+      ) : (
+        <Empty>
+          <EmptyMedia variant="icon">
+            <Clock />
+          </EmptyMedia>
+          <EmptyHeader>
+            <EmptyTitle>
+              {running ? "The first check is running" : `The first check runs at ${config.time}`}
+            </EmptyTitle>
+            <EmptyDescription>
+              {running
+                ? "Your prompts are asked one at a time on this computer. Results fill in here as answers arrive; you can keep working."
+                : `Leave AmICited open at that time, or run it now. Each of the ${plural(enabled, "prompt")} is asked in every AI app.`}
+            </EmptyDescription>
+          </EmptyHeader>
+          {!running && (
+            <EmptyContent>
+              <Button disabled={!tracking.canRun} onClick={() => run()}>
+                Run now
+              </Button>
+            </EmptyContent>
+          )}
+        </Empty>
+      )}
+    </>
   );
 }
