@@ -13,7 +13,7 @@ interface GeminiNode extends PageNode {
   querySelectorAll(selector: string): ArrayLike<GeminiNode> & Iterable<GeminiNode>;
 }
 interface GeminiWindow extends Omit<PageWindow, "document"> {
-  readonly document: GeminiNode;
+  readonly document: GeminiNode & { readonly cookie: string };
   setTimeout(handler: () => void, ms: number): unknown;
 }
 export interface GeminiLink {
@@ -22,39 +22,53 @@ export interface GeminiLink {
 }
 
 interface GeminiPageState {
-  /** `consent` means a consent screen was just answered and the page is moving on. */
-  readonly step: "ready" | "consent" | "signin";
+  /**
+   * `consent` means a consent screen was just answered and the page is moving on; `loading`
+   * that the prompt box is not showing yet; `setup` that Gemini sent a signed-in account that
+   * has not started using Gemini to its welcome page, which asks to accept Gemini's terms.
+   */
+  readonly step: "ready" | "loading" | "consent" | "signin" | "setup";
   readonly signedIn: boolean;
+  /** Signed out with no cookie choice saved yet (`SOCS`): Google's consent dialog may still open. */
+  readonly consentPending: boolean;
 }
 /**
  * Answers Google's consent screen with "Reject all" (on gemini.google.com or consent.google.com)
  * and reports a sign-in interstitial. Rejecting keeps the user's choices as private as possible.
+ * On gemini.google.com the dialog opens seconds after the prompt box, and blocks sending.
  */
-export const prepareGemini = pageScript("prepareGemini", (_arg: null): GeminiPageState => {
-  const w = globalThis as unknown as GeminiWindow;
-  const shown = (node: GeminiNode | null) => {
-    if (!node) return false;
-    const box = node.getBoundingClientRect();
-    return box.width > 0 && box.height > 0;
-  };
-  // Gemini keeps the Google bar's account link in the DOM but hides it.
-  const signedIn = !!w.document.querySelector('a[href*="accounts.google.com/SignOutOptions"]');
-  const host = new URL(w.location.href).hostname;
-  if (host === "accounts.google.com") return { step: "signin", signedIn };
-  // consent.google.com posts "Reject all" from the form that sets set_eom=true.
-  const reject =
-    host === "consent.google.com"
-      ? (w.document
-          .querySelector('input[name="set_eom"][value="true"]')
-          ?.closest("form")
-          ?.querySelector("button") ?? null)
-      : w.document.querySelector('button[data-test-id="reject-button"]');
-  if (reject && shown(reject)) {
-    reject.click();
-    return { step: "consent", signedIn };
-  }
-  return { step: "ready", signedIn };
-});
+export const prepareGemini = pageScript(
+  "prepareGemini",
+  (arg: { readonly input: string }): GeminiPageState => {
+    const w = globalThis as unknown as GeminiWindow;
+    const shown = (node: GeminiNode | null) => {
+      if (!node) return false;
+      const box = node.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    };
+    // Gemini keeps the Google bar's account link in the DOM but hides it.
+    const signedIn = !!w.document.querySelector('a[href*="accounts.google.com/SignOutOptions"]');
+    const consentPending = !signedIn && !/(?:^|;\s*)SOCS=/.test(w.document.cookie);
+    const state = (step: GeminiPageState["step"]) => ({ step, signedIn, consentPending });
+    const { hostname, pathname } = new URL(w.location.href);
+    if (hostname === "accounts.google.com") return state("signin");
+    // consent.google.com posts "Reject all" from the form that sets set_eom=true.
+    const reject =
+      hostname === "consent.google.com"
+        ? (w.document
+            .querySelector('input[name="set_eom"][value="true"]')
+            ?.closest("form")
+            ?.querySelector("button") ?? null)
+        : w.document.querySelector('button[data-test-id="reject-button"]');
+    if (reject && shown(reject)) {
+      reject.click();
+      return state("consent");
+    }
+    // The app lives under /app and replaces its URL with / to show the welcome page.
+    if (pathname === "/") return state("setup");
+    return state(shown(w.document.querySelector(arg.input)) ? "ready" : "loading");
+  },
+);
 
 /**
  * Opens each inline citation chip of the latest answer and reads the source cards it shows.

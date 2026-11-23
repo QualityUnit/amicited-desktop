@@ -139,7 +139,7 @@ export class GoogleOverviewsEngine extends VisibilityEngine {
 /** Turns a results page into an answer: the overview with its citations, and the organic results. */
 export function googleAnswer(snapshot: GoogleSearchSnapshot): RawAnswer {
   const organic = snapshot.organic.map(organicResult);
-  const text = snapshot.overview?.text.trim() ?? "";
+  const text = withoutHighlightMarkers(snapshot.overview?.text ?? "");
   return text
     ? {
         text,
@@ -153,7 +153,26 @@ const isGoogle = (host: string) => /^(www\.)?google\.[a-z.]+$/.test(host);
 const isInternal = (host: string) =>
   isGoogle(host) ||
   /(^|\.)(gstatic|googleusercontent|ggpht)\.com$/.test(host) ||
-  host.startsWith("encrypted-tbn");
+  host.startsWith("encrypted-tbn") ||
+  isGoogleFooter(host);
+
+/** The AI answer's own footer: Google's privacy, terms and help links are not citations. */
+const isGoogleFooter = (host: string) => /^(support|policies)\.google\.com$/.test(host);
+/** Screen-reader markers Google puts around a highlighted passage. */
+const withoutHighlightMarkers = (text: string) =>
+  text.replace(/\n?\[Highlight (?:start|end)\]\n?/g, "").trim();
+/** An AI Mode answer without Google's own page furniture. */
+export const cleanGoogleAnswer = (answer: RawAnswer): RawAnswer => ({
+  ...answer,
+  text: withoutHighlightMarkers(answer.text),
+  links: answer.links.filter((link) => {
+    try {
+      return !isGoogleFooter(new URL(link.url).hostname);
+    } catch {
+      return true;
+    }
+  }),
+});
 
 /** The page a link leads to, unwrapping `/url?q=`; null for Google's own and opaque `/goto` links. */
 function target(href: string): URL | null {

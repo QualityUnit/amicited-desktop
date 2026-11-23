@@ -43,18 +43,31 @@ export class GeminiEngine extends VisibilityEngine {
     await this.typeAndSubmit(page, prompt, ctx);
   }
 
-  /** Gets past the consent screen and stops on Google's sign-in interstitial. */
+  /**
+   * Waits for the prompt box, gets past the consent screen and stops on Google's sign-in
+   * interstitial or Gemini's welcome page. Signed out with no cookie choice saved, it also waits
+   * for the consent dialog, which opens seconds after the prompt box.
+   */
   private async prepare(page: EnginePage, ctx: EngineContext) {
     for (let attempt = 0; ; attempt++) {
       // A page mid-navigation fails to run scripts, and so do accounts.google.com and
       // consent.google.com, which the connector has no access to.
-      const state = await page.run(prepareGemini, null).catch(() => null);
-      if (state?.step === "ready" || (state?.step === "consent" && attempt >= 4)) return state;
-      if (state?.step === "signin" || attempt >= 4)
+      const state = await page
+        .run(prepareGemini, { input: this.selectors.input })
+        .catch(() => null);
+      if (state?.step === "setup")
+        throw new EngineStop(
+          "failed",
+          "Gemini asks the Google account signed in here to accept its terms first. Open gemini.google.com with that account and choose Use Gemini.",
+        );
+      if (state?.step === "ready" && !state.consentPending) return state;
+      if (state?.step === "signin" || (!state && attempt >= 4))
         throw new EngineStop(
           "logged_out",
           "Google is showing a sign-in or consent page. Open gemini.google.com in your browser and finish it.",
         );
+      // The prompt box check in `typeAndSubmit` reports a page that never got ready.
+      if (attempt >= 4 && state) return state;
       await this.pause(ctx, 1_500, 2_500);
     }
   }

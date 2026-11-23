@@ -197,13 +197,24 @@ export const expandGoogleOverview = pageScript(
 
 /**
  * On Google's full-page consent screen, chooses "Reject all", the choice that shares the least.
- * The consent dialog over the results is left alone: it does not hide them.
+ * The consent dialog over a page is answered the same way only with `dialog`: over search
+ * results it hides nothing, but over AI Mode it takes the clicks meant for the prompt box.
  */
 export const rejectGoogleConsent = pageScript(
   "rejectGoogleConsent",
-  (arg: { readonly rejectField: string; readonly rejectButton: string }) => {
+  (arg: {
+    readonly rejectField: string;
+    readonly rejectButton: string;
+    readonly dialog?: true;
+  }) => {
     const w = globalThis as unknown as PageWindow;
-    if (!/^consent\.google\./.test(new URL(w.location.href).hostname)) return "none";
+    if (!/^consent\.google\./.test(new URL(w.location.href).hostname)) {
+      const button = arg.dialog ? w.document.querySelector(arg.rejectButton) : null;
+      const box = button?.getBoundingClientRect();
+      if (!button || !box?.width || !box.height) return "none";
+      button.click();
+      return "clicked";
+    }
     const form = w.document.querySelector(arg.rejectField)?.closest("form");
     const button =
       form?.querySelector('button, input[type="submit"]') ??

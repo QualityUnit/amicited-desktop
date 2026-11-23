@@ -34,12 +34,23 @@ const context = (): EngineContext => {
 };
 
 /**
- * Stands in for gemini.google.com: a prompt box, a consent dialog, and an answer that appears
- * on send. Citation chips open their source cards on Enter and close them on Escape, as on
- * the real page, except for chips listed in `stuck`.
+ * Stands in for gemini.google.com/app: a prompt box, a consent dialog that blocks sending until
+ * answered, and an answer that appears on send. Citation chips open their source cards on Enter
+ * and close them on Escape, as on the real page, except for chips listed in `stuck`.
  */
-function geminiPage(name: string, options: { readonly stuck?: readonly number[] } = {}) {
+function geminiPage(
+  name: string,
+  options: {
+    readonly stuck?: readonly number[];
+    /** The consent dialog opens on the second look, after the prompt box. */
+    readonly lateConsent?: boolean;
+    /** Gemini sends the signed-in account to its welcome page once the app has loaded. */
+    readonly welcome?: boolean;
+  } = {},
+) {
   const { xhtml, sources } = fixture(name);
+  history.replaceState(null, "", "/app");
+  document.cookie = "SOCS=; expires=Thu, 01 Jan 1970 00:00:00 GMT";
   document.body.innerHTML = `
     <button data-test-id="reject-button">Reject all</button>
     <rich-textarea><div class="ql-editor" contenteditable="true"></div></rich-textarea>
@@ -47,10 +58,16 @@ function geminiPage(name: string, options: { readonly stuck?: readonly number[] 
     <main></main>`;
   const main = document.querySelector("main")!;
   const reject = document.querySelector('[data-test-id="reject-button"]')!;
-  reject.addEventListener("click", () => reject.remove());
+  if (options.lateConsent) reject.remove();
+  let looks = 0;
+  reject.addEventListener("click", () => {
+    reject.remove();
+    document.cookie = "SOCS=CAI";
+  });
   document
     .querySelector('[data-test-id="send-button-container"] button')!
     .addEventListener("click", () => {
+      if (document.contains(reject)) return;
       const answer = new DOMParser().parseFromString(xhtml, "application/xhtml+xml");
       main.replaceChildren(document.importNode(answer.documentElement, true));
     });
@@ -72,7 +89,16 @@ function geminiPage(name: string, options: { readonly stuck?: readonly number[] 
     driver: "fake",
     browser: "jsdom",
     goto: async () => {},
-    run: async (script, arg) => script.fn(arg),
+    run: async (script, arg) => {
+      if (script.name === "prepareGemini" && looks++ === 1) {
+        if (options.lateConsent) document.body.prepend(reject);
+        if (options.welcome) {
+          history.replaceState(null, "", "/");
+          document.body.innerHTML = `<button>Chat with Gemini</button>`;
+        }
+      }
+      return script.fn(arg);
+    },
     type: async (selector, text) => {
       document.querySelector(selector)!.textContent = text;
     },
@@ -83,15 +109,21 @@ function geminiPage(name: string, options: { readonly stuck?: readonly number[] 
     close: async () => {},
     isClosed: () => false,
   };
-  return { page, sources, consentAnswered: () => !document.contains(reject) };
+  return { page, sources, consentAnswered: () => document.cookie.includes("SOCS=CAI") };
 }
 
-const ask = async (name: string, prompt: string, brand: string, domain: string) => {
+const ask = async (
+  name: string,
+  prompt: string,
+  brand: string,
+  domain: string,
+  options?: Parameters<typeof geminiPage>[1],
+) => {
   // jsdom lays nothing out; give every element a box so visibility checks pass.
   using _layout = vi
     .spyOn(Element.prototype, "getBoundingClientRect")
     .mockReturnValue({ width: 10, height: 10 } as DOMRect);
-  const site = geminiPage(name);
+  const site = geminiPage(name, options);
   const result = await new GeminiEngine().run(
     site.page,
     { prompt, brand, domain, country: "SK" },
@@ -122,6 +154,28 @@ describe("Gemini", () => {
     expect(result.sources[0]).toMatchObject({ position: 1, domain: "flowii.com" });
     expect(result.brand).toMatchObject({ mentioned: true, listPosition: 2 });
     expect(result.competitors).toEqual(["Trello", "ClickUp", "monday.com", "Basecamp"]);
+  });
+
+  it("waits for the consent dialog that opens after the prompt box, and rejects it", async () => {
+    const { result, consentAnswered } = await ask(
+      "multi-chip",
+      "What are the best email marketing platforms for ecommerce brands?",
+      "Klaviyo",
+      "klaviyo.com",
+      { lateConsent: true },
+    );
+    expect(consentAnswered()).toBe(true);
+    expect(result).toMatchObject({ status: "answered", reason: null });
+  });
+
+  it("stops on the welcome page Gemini shows an account that has not accepted its terms", async () => {
+    const { result } = await ask("table", "Which CRM is best?", "HubSpot", "hubspot.com", {
+      welcome: true,
+    });
+    expect(result).toMatchObject({
+      status: "failed",
+      reason: expect.stringMatching(/^Gemini asks the Google account signed in here to accept/),
+    });
   });
 
   it("keeps list structure, drops repeated chips' duplicate sources, and finds the brand", async () => {
@@ -167,6 +221,7 @@ describe("Gemini", () => {
 
   it("gives up on a chip whose sources never open and reads the rest", async () => {
     const { page, sources } = geminiPage("table", { stuck: [0] });
+    document.querySelector<HTMLElement>('[data-test-id="reject-button"]')!.click();
     document.querySelector<HTMLElement>('[data-test-id="send-button-container"] button')!.click();
     expect(await page.run(openGeminiSources, { openMs: 0 })).toEqual([[], sources[1]]);
   });
