@@ -72,12 +72,13 @@ export const errorState = (error: unknown): Extract<Connection, { state: "error"
     };
   }
   const text = String(error);
-  const kind: ErrorKind = /Pro plan|plan.*required|upgrade/i.test(text)
-    ? "plan_required"
-    : /credit|balance/i.test(text)
-      ? "no_credits"
-      : /429|rate.limit/i.test(text)
-        ? "rate_limited"
+  // FlowHunt's hourly-limit message also says "Upgrade", so limits match before plans.
+  const kind: ErrorKind = /429|rate.limit|limit resets/i.test(text)
+    ? "rate_limited"
+    : /Pro plan|plan.*required|upgrade/i.test(text)
+      ? "plan_required"
+      : /credit|balance/i.test(text)
+        ? "no_credits"
         : /401|403|unauthor|invalid.grant|auth|denied|state|cancel|registration/i.test(text)
           ? "auth"
           : "network";
@@ -101,14 +102,14 @@ export type ToolFailureCode =
   | "not_found"
   | "plan_required";
 export function toolFailure(message: string) {
-  const code: ToolFailureCode = /Pro plan|plan.*required|upgrade/i.test(message)
-    ? "plan_required"
-    : /scope|amicited:(?:read|write|spending)/i.test(message)
-      ? "scope_missing"
-      : /credit|balance/i.test(message)
-        ? "no_credits"
-        : /429|rate.limit|hourly.*limit/i.test(message)
-          ? "rate_limited"
+  const code: ToolFailureCode = /429|rate.limit|hourly.*limit|limit resets/i.test(message)
+    ? "rate_limited"
+    : /Pro plan|plan.*required|upgrade/i.test(message)
+      ? "plan_required"
+      : /scope|amicited:(?:read|write|spending)/i.test(message)
+        ? "scope_missing"
+        : /credit|balance/i.test(message)
+          ? "no_credits"
           : /not.found|does not exist|unknown (?:tool|domain)/i.test(message)
             ? "not_found"
             : "invalid_request";
@@ -401,8 +402,10 @@ export class CloudClient {
     return this.currentValue;
   }
   private set current(value: Connection) {
+    // Listeners re-read status, so announcing an unchanged failure would re-run the check.
+    const changed = JSON.stringify(value) !== JSON.stringify(this.currentValue);
     this.currentValue = value;
-    this.options.onChange?.();
+    if (changed) this.options.onChange?.();
   }
   private generation = 0;
   private checkedAt = 0;
@@ -613,18 +616,26 @@ export class CloudClient {
       (this.current.state === "error" && this.current.code)
     )
       return this.current;
-    if (this.current.state === "connected" && Date.now() - this.checkedAt < 30_000)
-      return this.current;
+    if (this.checkedRecently()) return this.current;
     return this.serial(async () => {
+      if (this.checkedRecently()) return this.current;
       try {
         const credential = await this.credential();
         this.current = credential ? await this.validate(credential) : { state: "disconnected" };
       } catch (error) {
         if (sessionRejected(error)) this.options.onSessionRejected?.();
         this.current = errorState(error);
+        this.checkedAt = Date.now();
       }
       return this.current;
     });
+  }
+  /** Each check spends one of the workspace's hourly AmICited requests (120 on most plans). */
+  private checkedRecently() {
+    const age = Date.now() - this.checkedAt;
+    return this.current.state === "connected"
+      ? age < 5 * 60_000
+      : this.current.state === "error" && age < 60_000;
   }
   async connectApiKey(apiKey: string): Promise<Connection> {
     this.cancelApprovals();

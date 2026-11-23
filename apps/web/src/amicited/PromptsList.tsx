@@ -431,7 +431,7 @@ function PromptsTable({
       <header className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4">
         <div className="flex flex-col">
           <h2 className="text-sm font-semibold">{plural(config.prompts.length, "prompt")}</h2>
-          {(!tracking.canSave || !tracking.canRun) && (
+          {(!tracking.canSave || !tracking.allowedToRun) && (
             <p className="text-xs text-muted-foreground">
               View only. This connection can't change prompts or run checks.
             </p>

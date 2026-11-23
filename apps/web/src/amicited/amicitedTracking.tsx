@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { useState } from "react";
 import * as Atom from "effect/reactivity/Atom";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import * as Option from "effect/Option";
@@ -60,16 +61,25 @@ export function useTracking(destination?: EnvironmentId) {
   );
   const snapshot = Option.getOrElse(AsyncResult.value(result), () => emptySnapshot);
   const save = useAtomCommand(saveCommand),
-    run = useAtomCommand(runCommand),
+    runCommandNow = useAtomCommand(runCommand),
     suggest = useAtomCommand(suggestCommand);
   const canSave = useAtomValue(environmentId ? saveCommand.permissionAtom(environmentId) : denied);
-  const canRun = useAtomValue(environmentId ? runCommand.permissionAtom(environmentId) : denied);
+  const allowedToRun = useAtomValue(
+    environmentId ? runCommand.permissionAtom(environmentId) : denied,
+  );
+  // Starting or stopping waits on the server; the buttons stay off so a click is not repeated.
+  const [starting, setStarting] = useState(false);
+  const run = (value: Parameters<typeof runCommandNow>[0]) => {
+    setStarting(true);
+    return runCommandNow(value).finally(() => setStarting(false));
+  };
   return {
     snapshot,
     loaded: Option.isSome(AsyncResult.value(result)),
     environmentId,
     canSave,
-    canRun,
+    allowedToRun,
+    canRun: allowedToRun && !starting,
     save,
     run,
     suggest,

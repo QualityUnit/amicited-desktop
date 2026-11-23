@@ -305,6 +305,10 @@ it("maps refused tools to honest actionable states without saving rejected keys"
     ["requires a Pro plan or above", "plan_required"],
     ["zero credit balance", "no_credits"],
     ["429 rate limited", "rate_limited"],
+    [
+      "This workspace has used its 120 AmICited MCP requests for the hour. The limit resets in 26s. Upgrade to a higher plan for AmICited to increase this limit.",
+      "rate_limited",
+    ],
     ["401 unauthorized", "auth"],
   ]) {
     fake.refuse(message!);
@@ -312,6 +316,31 @@ it("maps refused tools to honest actionable states without saving rejected keys"
     expect(fake.stored).toBeUndefined();
   }
   expect(errorState(new Error("DNS failed"))).toMatchObject({ kind: "network" });
+});
+it("a failed check is reused for a minute, so a rate limit cannot feed itself", async () => {
+  await using fake = await fixture();
+  let changes = 0;
+  const cloud = fake.make(undefined, { onChange: () => void changes++ });
+  const epoch = 1_800_000_000_000;
+  using clock = vi.spyOn(Date, "now").mockReturnValue(epoch);
+  await cloud.connectApiKey("key");
+  clock.mockReturnValue(epoch + 5 * 60_000);
+  fake.refuse(
+    "This workspace has used its 120 AmICited MCP requests for the hour. The limit resets in 26s. Upgrade to a higher plan for AmICited to increase this limit.",
+  );
+  const checks = () => fake.calls.filter((name) => name === "list_toolsets").length;
+  const before = checks();
+  changes = 0;
+  const reads = await Promise.all([cloud.status(), cloud.status(), cloud.status()]);
+  expect(reads.map((r) => r.state)).toEqual(["error", "error", "error"]);
+  expect(checks() - before).toBe(1);
+  expect(changes).toBe(1);
+  expect(await cloud.status()).toMatchObject({ kind: "rate_limited" });
+  expect(checks() - before).toBe(1);
+  fake.refuse("");
+  clock.mockReturnValue(epoch + 6 * 60_000);
+  expect((await cloud.status()).state).toBe("connected");
+  expect(checks() - before).toBe(2);
 });
 it("disconnect cancels browser sign-in and ignores later callbacks", async () => {
   await using fake = await fixture();
@@ -342,6 +371,10 @@ it("preserves the connection and original tool failures, then runs free tools", 
   for (const [message, code] of [
     ["Invalid arguments: url is required", "invalid_request"],
     ["Hourly rate limit exceeded", "rate_limited"],
+    [
+      "This workspace has used its 120 AmICited MCP requests for the hour. The limit resets in 26s. Upgrade to a higher plan for AmICited to increase this limit.",
+      "rate_limited",
+    ],
     ["Insufficient credits", "no_credits"],
     ["Missing scope amicited:write. Re-authenticate with this scope", "scope_missing"],
     ["Domain not found", "not_found"],
