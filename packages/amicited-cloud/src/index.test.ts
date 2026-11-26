@@ -22,6 +22,7 @@ async function fixture() {
   const calls: string[] = [];
   let initializations = 0;
   let listings = 0;
+  let stuckCursor = false;
   const argumentsByTool: Record<string, unknown> = {};
   let origin = "";
   const server = NodeHttp.createServer(async (req, res) => {
@@ -113,6 +114,7 @@ async function fixture() {
             annotations: { readOnlyHint: true, destructiveHint: true },
           },
         ],
+        ...(stuckCursor ? { nextCursor: "page-2" } : {}),
       };
     }
     if (rpc.method === "tools/call") {
@@ -228,6 +230,9 @@ async function fixture() {
     refuse(message: string) {
       refusal = message;
     },
+    stickCursor() {
+      stuckCursor = true;
+    },
     async [Symbol.asyncDispose]() {
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) =>
@@ -284,6 +289,28 @@ it("initializes MCP, validates keys, keeps them out of status, restores and clea
   expect(await cloud.status()).toMatchObject({ state: "connected", access: "full" });
   expect(await cloud.disconnect()).toEqual({ state: "disconnected" });
   expect(fake.stored).toBeUndefined();
+});
+it("stops paging tools when the server repeats a cursor", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make();
+  await cloud.connectApiKey("test-key");
+  fake.stickCursor();
+  expect(await cloud.toolPolicy("free_site_health_get")).toMatchObject({ needsApproval: false });
+  expect(fake.listings).toBe(2);
+});
+it("reports a connection change only when the connection actually changes", async () => {
+  await using fake = await fixture();
+  let changes = 0;
+  const cloud = fake.make(undefined, { onChange: () => changes++ });
+  await cloud.status();
+  await cloud.status();
+  expect(changes).toBe(0);
+  await cloud.connectApiKey("test-key");
+  const afterConnect = changes;
+  using _later = vi.spyOn(Date, "now").mockReturnValue(4_102_444_800_000);
+  await cloud.status();
+  expect(changes).toBe(afterConnect);
+  expect(fake.calls.filter((name) => name === "list_toolsets")).toHaveLength(2);
 });
 it("discovers OAuth, uses state and PKCE, persists and refreshes without exposing tokens", async () => {
   await using fake = await fixture();
