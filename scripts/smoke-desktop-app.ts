@@ -15,6 +15,36 @@ const FIXTURE_DB = NodePath.join(import.meta.dirname, "fixtures/desktop-launch/s
 const THREAD_TITLE = "Release launch check";
 const THREAD_MESSAGE = "The release opens and shows this thread.";
 const STEP_TIMEOUT_MS = 60_000;
+const WORKSPACE_ID = "desktop-launch-check";
+const SIGNED_IN_ACCOUNT = {
+  state: "signed_in",
+  currentWorkspaceId: WORKSPACE_ID,
+  signingIn: false,
+  workspaces: [
+    {
+      id: WORKSPACE_ID,
+      name: THREAD_TITLE,
+      email: "release-check@example.com",
+      userName: THREAD_TITLE,
+      plan: "Free",
+      access: "free",
+      sessionEnded: false,
+      attentionCount: 0,
+      websites: [],
+    },
+  ],
+};
+
+function readRpcFrame(
+  frame: string | Buffer,
+): { _tag?: string; id?: string | number; tag?: string; requestId?: string | number } | undefined {
+  try {
+    return JSON.parse(frame.toString());
+  } catch {
+    // Large RPC replies can span multiple frames. Forward those frames intact.
+    return undefined;
+  }
+}
 
 const { values } = NodeUtil.parseArgs({
   options: {
@@ -56,14 +86,42 @@ try {
   step = "waiting for the first window";
   const page = await app.firstWindow({ timeout: STEP_TIMEOUT_MS });
   try {
-    // AmICited opens in marketer mode, which shows onboarding and no thread sidebar; the
-    // developer workspace is the upstream shell this check knows (@amicited/ui-marketing/mode).
-    step = "switching to the developer workspace";
+    step = "waiting for the AmICited sign-in screen";
     await page.waitForURL(/^amicited:\/\/app\//u, { timeout: STEP_TIMEOUT_MS });
+    await page.getByRole("button", { name: "Continue with AmICited", exact: true }).waitFor({
+      timeout: STEP_TIMEOUT_MS,
+    });
+
+    // Exercise the account gate with a local signed-in fixture, leaving the packaged server
+    // responsible for every other RPC, including the domain list, sidebar and thread history.
+    step = "opening the signed-in developer workspace";
+    await page.routeWebSocket("**/ws?*", (socket) => {
+      const server = socket.connectToServer();
+      let accountRequestId: string | number | undefined;
+      socket.onMessage((frame) => {
+        const message = readRpcFrame(frame);
+        if (message?._tag === "Request" && message.tag === "amicited.account.subscribe") {
+          accountRequestId = message.id;
+        }
+        server.send(frame);
+      });
+      server.onMessage((frame) => {
+        const message = readRpcFrame(frame);
+        if (
+          accountRequestId !== undefined &&
+          message?._tag === "Chunk" &&
+          message.requestId === accountRequestId
+        ) {
+          socket.send(JSON.stringify({ ...message, values: [SIGNED_IN_ACCOUNT] }));
+        } else {
+          socket.send(frame);
+        }
+      });
+    });
     await page.evaluate(() => {
       localStorage.setItem("amicited.workspace-mode", "developer");
-      window.dispatchEvent(new Event("amicited-mode"));
     });
+    await page.reload();
     step = `finding "${THREAD_TITLE}" in the sidebar`;
     const thread = page.locator("li[data-thread-item]", { hasText: THREAD_TITLE });
     await thread.waitFor({ timeout: STEP_TIMEOUT_MS });

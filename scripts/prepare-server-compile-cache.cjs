@@ -58,9 +58,20 @@ module.exports = async ({ appOutDir, electronPlatformName, arch, packager }) => 
       runner,
       `require(${JSON.stringify(helper)}).generatePreparedServerCache(${JSON.stringify(resources)}).then(()=>process.exit(0),e=>{console.error(e);process.exit(1)})`,
     );
-    result = spawnSync(executable, [runner], { env, encoding: "utf8", timeout: 120000 });
+    result = spawnSync(executable, [runner], {
+      env,
+      encoding: "utf8",
+      timeout: 120000,
+      killSignal: "SIGKILL",
+    });
   } finally {
     fs.rmSync(state, { recursive: true, force: true });
+  }
+  if (runsWithRosetta && result.error?.code === "ETIMEDOUT") {
+    // Startup can generate this cache on the user's machine. Discard any partial output.
+    fs.rmSync(path.join(resources, "server-compile-cache"), { recursive: true, force: true });
+    console.warn("[server-compile-cache] Rosetta timed out. Shipping without prepared bytecode.");
+    return;
   }
   if (result.status !== 0)
     throw new Error(`Server compile cache generation failed: ${result.error || result.stderr}`);
