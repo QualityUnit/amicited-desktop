@@ -521,10 +521,10 @@ function CheckSettings({
       <header>
         <h2 className="text-sm font-semibold">How these are checked</h2>
         <p className="text-xs text-muted-foreground">
-          On this computer, signed in as you. Changes apply from the next check.
+          On this computer, in AmICited’s browser. Changes apply from the next check.
         </p>
       </header>
-      <div className="grid gap-4 sm:grid-cols-[auto_auto_1fr]">
+      <div className="grid gap-4 sm:grid-cols-[auto_auto_minmax(11rem,1fr)]">
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-muted-foreground">Every day at</span>
           <Input
@@ -560,7 +560,7 @@ function CheckSettings({
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-muted-foreground">AI apps</span>
-          <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+          <ul className="flex flex-col gap-1.5">
             {supportedEngines.map((engine) => {
               const connected = available.includes(engine);
               const on = config.engines.includes(engine);
@@ -619,7 +619,7 @@ function FreePrompts({
           <h2 className="text-sm font-semibold">Free prompts on this computer</h2>
           <p className="text-xs text-muted-foreground">One limit across all your websites.</p>
         </div>
-        <span className="text-sm font-semibold tabular-nums">
+        <span className="shrink-0 text-sm font-semibold tabular-nums">
           {usage.used} of {usage.limit}
         </span>
       </header>
