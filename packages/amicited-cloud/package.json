@@ -19,7 +19,9 @@
     "./capture": "./src/capture.ts",
     "./connections": "./src/connections.ts",
     "./connectionsRpc": "./src/connectionsRpc.ts",
-    "./tracking": "./src/tracking.ts"
+    "./tracking": "./src/tracking.ts",
+    "./localResults": "./src/localResults.ts",
+    "./visibility": "./src/visibility.ts"
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",

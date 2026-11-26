@@ -1,5 +1,7 @@
 import {
   AccountConnections,
+  accountSignInEnabled,
+  readAccountDomains,
   readAccountUserinfo,
   readAccountWorkspaces,
 } from "@amicited/cloud-client/account";
@@ -72,8 +74,9 @@ export const layer = Layer.effect(
     const flowhunt = (yield* Config.String("AMICITED_FLOWHUNT_URL").pipe(Config.withDefault("")))
       .trim()
       .replace(/\/+$/, "");
-    const accountSignIn =
-      (yield* Config.String("AMICITED_ACCOUNT_SIGNIN").pipe(Config.withDefault(""))) === "1";
+    const accountSignIn = accountSignInEnabled(
+      Option.getOrUndefined(yield* Config.String("AMICITED_ACCOUNT_SIGNIN").pipe(Config.option)),
+    );
     const fixtureEndpoint =
       capture === "1" && /^http:\/\/127\.0\.0\.1:\d+\/mcp$/.test(endpoint)
         ? endpoint
@@ -176,6 +179,8 @@ export const layer = Layer.effect(
             accountSignIn: {
               mcpUrl: `${restUrl}/mcp/amicited`,
               workspaces: (token: string) => readAccountWorkspaces(token, restUrl),
+              listDomains: (token: string, workspaceId: string) =>
+                readAccountDomains(token, restUrl, workspaceId),
             },
           }
         : {}),

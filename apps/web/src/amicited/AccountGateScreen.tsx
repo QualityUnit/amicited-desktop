@@ -73,7 +73,11 @@ export function AccountGateScreen({
             <>
               {ended ? (
                 <>
-                  <p>Your websites, chats, results and AI sign-ins are still here.</p>
+                  <p>
+                    {account.accountWide !== false &&
+                      "AmICited now signs in once for all your workspaces. "}
+                    Your local websites, chats, results and AI sign-ins are still here.
+                  </p>
                   <p>
                     Daily checks are paused until you sign in. Last signed in as {current?.email}.
                   </p>
@@ -82,10 +86,10 @@ export function AccountGateScreen({
                 <>
                   <ul>
                     <li>
-                      Track 10 prompts a day in ChatGPT, Perplexity, Gemini and more, free, on this
+                      Track 20 prompts a day in ChatGPT, Perplexity, Gemini and more, free, on this
                       computer
                     </li>
-                    <li>Works through the accounts you already have, in your own browser</li>
+                    <li>Works through the accounts you already have, signed in on this computer</li>
                     <li>Your assistant turns what it finds into fixes for your website</li>
                   </ul>
                   <p>
@@ -109,8 +113,9 @@ export function AccountGateScreen({
               <Collapsible>
                 <CollapsibleTrigger>› Why did this happen?</CollapsibleTrigger>
                 <CollapsiblePanel>
-                  Your account's sign-in expired or was rejected. Sign in again to reconnect this
-                  workspace. Your local data and AI sign-ins are safe.
+                  Sign in again to reconnect{" "}
+                  {account.accountWide === false ? "this workspace" : "your workspaces"}. Your local
+                  data and AI sign-ins are safe.
                 </CollapsiblePanel>
               </Collapsible>
             </>
@@ -127,8 +132,8 @@ export function AccountGateScreen({
               <Collapsible>
                 <CollapsibleTrigger>› How this works</CollapsibleTrigger>
                 <CollapsiblePanel>
-                  Your AI sign-ins stay on this computer. Checks run in your own browser while this
-                  computer is on. AmICited never sees your passwords.
+                  Your AI sign-ins stay on this computer. Checks run in AmICited's built-in browser
+                  while this computer is on. AmICited never sees your passwords.
                 </CollapsiblePanel>
               </Collapsible>
             </div>
@@ -138,6 +143,7 @@ export function AccountGateScreen({
         {waiting && (
           <BrowserSignInPreview
             email={current?.email}
+            accountWide={account.accountWide}
             workspaces={account.workspaces.map((w) => w.name)}
           />
         )}
@@ -159,9 +165,11 @@ export function AccountGateScreen({
 
 export function BrowserSignInPreview({
   email,
+  accountWide = true,
   workspaces,
 }: {
   email?: string | undefined;
+  accountWide?: boolean | undefined;
   workspaces: readonly string[];
 }) {
   return (
@@ -172,16 +180,19 @@ export function BrowserSignInPreview({
         <div>
           <h3>Connect AmICited Desktop</h3>
           <p className="am-muted">
-            {email
-              ? `Signed in as ${email}. Choose a workspace to add to this computer.`
-              : "Sign in to your AmICited account, then choose the workspace this computer should use."}
+            {email ? `Signed in as ${email}. ` : "Sign in to your AmICited account. "}
+            {accountWide
+              ? "Allow AmICited Desktop to connect to all your workspaces."
+              : "Choose the workspace this computer should use."}
           </p>
-          <div className="am-browser-workspaces">
-            {workspaces.map((name) => (
-              <span key={name}>{name}</span>
-            ))}
-            <span>{workspaces.length ? "Choose another workspace" : "Your workspace"}</span>
-          </div>
+          {!accountWide && (
+            <div className="am-browser-workspaces">
+              {workspaces.map((name) => (
+                <span key={name}>{name}</span>
+              ))}
+              <span>{workspaces.length ? "Choose another workspace" : "Your workspace"}</span>
+            </div>
+          )}
           <footer>
             <span>Cancel</span>
             <span>Allow and return to the app</span>

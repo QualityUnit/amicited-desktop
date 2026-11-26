@@ -1,6 +1,13 @@
-vi.mock("./amicited/SetupTrackingPrompts", () => ({ SetupTrackingPrompts: () => null }));
+vi.mock("./amicited/SetupTrackingPrompts", () => ({
+  SetupTrackingPrompts: ({ initialPrompts }: { initialPrompts: readonly string[] }) => (
+    <ul aria-label="Initial prompts">
+      {initialPrompts.map((prompt) => (
+        <li key={prompt}>{prompt}</li>
+      ))}
+    </ul>
+  ),
+}));
 vi.mock("./amicited/amicitedTracking", () => ({
-  TrackingVisibility: () => null,
   useFirstCheckChat: () => async () => {
     state.firstCheckCalls.push("create");
     return null;
@@ -16,6 +23,8 @@ import { page, userEvent } from "vite-plus/test/browser";
 import { expect, it, vi } from "vite-plus/test";
 import { EnvironmentId } from "@t3tools/contracts";
 import type { Connection } from "@amicited/cloud-client/model";
+import type { Cms } from "@amicited/cloud-client/domainModel";
+import type { CloudWebsite } from "@amicited/cloud-client/rpc";
 import { render } from "../test/render";
 const state = vi.hoisted(() => ({
   projectRoots: [] as string[],
@@ -31,10 +40,26 @@ const state = vi.hoisted(() => ({
   connections: new Map<string, Connection>(),
   failSave: false,
   emptyDomains: false,
+  workspaces: [] as Array<{ id: string; name: string; plan: string; canCreateDomains?: boolean }>,
+  workspaceId: "test",
+  workspaceUpdates: new EventTarget(),
+  loadWebsites: null as
+    | null
+    | ((
+        workspaceId: string,
+      ) => Promise<{ _tag: "Success"; value: readonly CloudWebsite[] } | { _tag: "Failure" }>),
+  cloudPrompts: [] as string[],
+  importedWebsite: null as CloudWebsite | null,
   requests: [] as Array<{
     label: string;
+    workspaceId?: string;
+    domainId?: string;
+    expectedWorkspaceId?: string;
     projectId?: string;
     website?: string;
+    brand?: string;
+    cms?: Cms;
+    siteFiles?: string | null;
     workspaceRoot?: string;
     remoteUrl?: string;
     destinationPath?: string;
@@ -71,11 +96,32 @@ vi.mock("./localApi", async (original) => ({
     dialogs: { pickFolder: async () => state.folderPath },
   }),
 }));
-vi.mock("./amicited/amicitedAccount", () => ({
-  WorkspaceSwitcher: () => null,
-  OlderWebsites: () => null,
-  useAmicitedAccount: () => ({ current: { id: "test", access: state.access } }),
-}));
+vi.mock("./amicited/amicitedAccount", async () => {
+  const { useEffect, useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => {
+    state.workspaceUpdates.addEventListener("change", listener);
+    return () => state.workspaceUpdates.removeEventListener("change", listener);
+  };
+  return {
+    WorkspaceSwitcher: () => null,
+    switchCommand: { label: "account:switch", permissionAtom: () => null },
+    OlderWebsites: ({ onCount }: { onCount(count: number): void }) => {
+      useEffect(() => onCount(0), [onCount]);
+      return null;
+    },
+    useAmicitedAccount: () => {
+      const workspaceId = useSyncExternalStore(subscribe, () => state.workspaceId);
+      const workspaces = (
+        state.workspaces.length ? state.workspaces : [{ id: "test", name: "Acme", plan: "Free" }]
+      ).map((workspace) => ({ ...workspace, access: state.access }));
+      return {
+        environmentId: "local",
+        account: { workspaces, accountWide: true },
+        current: workspaces.find(({ id }) => id === workspaceId),
+      };
+    },
+  };
+});
 vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => <section aria-label="Assistant setup">Assistant</section>,
 }));
@@ -102,9 +148,15 @@ vi.mock("./state/use-atom-command", () => ({
     }: {
       input?: {
         projectId?: string;
+        workspaceId?: string;
+        domainId?: string;
+        expectedWorkspaceId?: string;
         sourceProjectId?: string;
         apiKey?: string;
         website?: string;
+        brand?: string;
+        cms?: Cms;
+        siteFiles?: string | null;
         workspaceRoot?: string;
         remoteUrl?: string;
         destinationPath?: string;
@@ -113,15 +165,49 @@ vi.mock("./state/use-atom-command", () => ({
     }) => {
       state.requests.push({
         label: command.label,
+        ...(input?.workspaceId ? { workspaceId: input.workspaceId } : {}),
+        ...(input?.domainId ? { domainId: input.domainId } : {}),
+        ...(input?.expectedWorkspaceId ? { expectedWorkspaceId: input.expectedWorkspaceId } : {}),
         ...(input?.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
         ...(input?.remoteUrl ? { remoteUrl: input.remoteUrl } : {}),
         ...(input?.destinationPath ? { destinationPath: input.destinationPath } : {}),
         ...(input?.projectId ? { projectId: input.projectId } : {}),
         ...(input?.website ? { website: input.website } : {}),
+        ...(input?.brand !== undefined ? { brand: input.brand } : {}),
+        ...(input?.cms !== undefined ? { cms: input.cms } : {}),
+        ...(input?.siteFiles !== undefined ? { siteFiles: input.siteFiles } : {}),
       });
       if (command.label === "environment-data:source-control:project-clone-start")
         return { _tag: "Success", value: { cwd: input?.destinationPath } };
       if (command.label === "setup:read") return { _tag: "Success", value: { finished: false } };
+      if (command.label === "setup:cloud-websites")
+        return state.loadWebsites?.(input?.workspaceId ?? "") ?? { _tag: "Success", value: [] };
+      if (command.label === "setup:cloud-prompts")
+        return { _tag: "Success", value: state.cloudPrompts };
+      if (command.label === "account:switch" && input?.workspaceId) {
+        state.workspaceId = input.workspaceId;
+        state.workspaceUpdates.dispatchEvent(new Event("change"));
+        return { _tag: "Success" };
+      }
+      if (command.label === "setup:import-domain" && input?.expectedWorkspaceId && input.website) {
+        state.importedWebsite = { workspaceId: input.expectedWorkspaceId, hostname: input.website };
+        return { _tag: "Success", value: { projectId: input.projectId } };
+      }
+      if (
+        command.label === "domains:list" &&
+        state.importedWebsite?.workspaceId === state.workspaceId
+      )
+        return {
+          _tag: "Success",
+          value: [
+            {
+              ...state.importedWebsite,
+              projectId: "created-domain",
+              brand: "Imported",
+              connectionRef: "created-domain",
+            },
+          ],
+        };
       if (command.label === "domains:list" && !state.connected) return { _tag: "Failure" };
       if (command.label === "domains:inspect" && state.inspectPath)
         return state.inspectPath(input?.path ?? "");
@@ -224,16 +310,20 @@ it("normalizes a new domain and retries metadata saving without creating a secon
     .getByRole("textbox", { name: "Website", exact: true })
     .fill("https://WWW.Acme.com/about");
   await expect
-    .element(page.getByRole("textbox", { name: "Brand name (optional)" }))
+    .element(page.getByRole("textbox", { name: "Brand name", exact: true }))
     .toHaveValue("Acme");
-  await page.getByRole("textbox", { name: "Brand name (optional)" }).fill("Our brand");
+  await page.getByRole("textbox", { name: "Brand name", exact: true }).fill("Our brand");
   await page
     .getByRole("textbox", { name: "Website", exact: true })
     .fill("https://www.acme.com/pricing");
   await expect
-    .element(page.getByRole("textbox", { name: "Brand name (optional)" }))
+    .element(page.getByRole("textbox", { name: "Brand name", exact: true }))
     .toHaveValue("Our brand");
+  await page.getByRole("button", { name: /^More options/ }).click();
   await page.getByRole("radio", { name: "WordPress", exact: true }).click();
+  await expect
+    .element(page.getByRole("group", { name: "Site files (optional)" }))
+    .not.toBeInTheDocument();
   await userEvent.keyboard("{ArrowRight}");
   await expect.element(page.getByRole("radio", { name: "Webflow", exact: true })).toBeChecked();
   await page.getByRole("button", { name: "Create domain", exact: true }).click();
@@ -244,8 +334,22 @@ it("normalizes a new domain and retries metadata saving without creating a secon
     state.requests.filter((request) => request.label === "environment-data:projects:create-new"),
   ).toHaveLength(1);
   expect(state.requests.filter((request) => request.label === "domains:save")).toEqual([
-    { label: "domains:save", projectId: "created-domain", website: "acme.com" },
-    { label: "domains:save", projectId: "created-domain", website: "acme.com" },
+    {
+      label: "domains:save",
+      projectId: "created-domain",
+      website: "acme.com",
+      brand: "Our brand",
+      cms: "webflow",
+      siteFiles: null,
+    },
+    {
+      label: "domains:save",
+      projectId: "created-domain",
+      website: "acme.com",
+      brand: "Our brand",
+      cms: "webflow",
+      siteFiles: null,
+    },
   ]);
 });
 
@@ -322,8 +426,12 @@ it("uses the chosen site folder as the T3 project workspaceRoot", async () => {
     <NewDomainDialog open onOpenChange={() => {}} destination={EnvironmentId.make("local")} />,
   );
   await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "site.example");
+  const moreOptions = screen.getByRole("button", { name: /^More options/ });
+  await moreOptions.click();
   await userEvent.click(screen.getByRole("radio", { name: /^Git-based site/ }));
   await userEvent.click(page.getByRole("radio", { name: "Folder on this computer" }));
+  await expect.element(moreOptions).toHaveAttribute("aria-expanded", "true");
+  await expect.element(moreOptions).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Choose folder" }));
   await expect.element(screen.getByText(/Detected Next.js/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Create domain", exact: true }));
@@ -356,7 +464,9 @@ it.each([
   const props = { open: true, onOpenChange: () => {}, destination: EnvironmentId.make("local") };
   await using screen = await render(<NewDomainDialog {...props} />);
   await userEvent.fill(screen.getByLabelText("Website", { exact: true }), "first.example");
-  await userEvent.click(page.getByRole("radio", { name: "Clone from Git" }));
+  const moreOptions = screen.getByRole("button", { name: /^More options/ });
+  await moreOptions.click();
+  await userEvent.click(page.getByRole("radio", { name: "Copy from GitHub or Git" }));
   await userEvent.fill(screen.getByRole("textbox", { name: "Git URL" }), "/fixture/bare.git");
   await userEvent.click(screen.getByRole("button", { name: "Clone site files", exact: true }));
   await expect
@@ -371,6 +481,7 @@ it.each([
       .toBeEnabled();
   } else if (transition === "close") {
     await userEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+    await moreOptions.click();
     await expect.element(screen.getByText("Reuse previously copied site files")).toBeVisible();
     await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
     return;
@@ -415,6 +526,7 @@ it.each([
       }),
     );
   await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
+  await moreOptions.click();
   await expect.element(screen.getByRole("radio", { name: "Skip for now" })).toBeChecked();
   state.emptyDomains = false;
 });
@@ -430,9 +542,10 @@ it.each(["folder", "clone"])(
     );
     for (const hostname of ["first.example", "second.example"]) {
       await userEvent.fill(screen.getByLabelText("Website", { exact: true }), hostname);
+      await screen.getByRole("button", { name: /^More options/ }).click();
       await userEvent.click(
         page.getByRole("radio", {
-          name: source === "folder" ? "Folder on this computer" : "Clone from Git",
+          name: source === "folder" ? "Folder on this computer" : "Copy from GitHub or Git",
         }),
       );
       if (source === "folder") {
@@ -491,9 +604,11 @@ it.each(["failed-save", "reused-copy"])(
     state.clonePhase = "done";
     await using screen = await render(<NewDomainDialog open onOpenChange={() => {}} />);
     await screen.getByLabelText("Website", { exact: true }).fill("first.example");
+    const moreOptions = screen.getByRole("button", { name: /^More options/ });
+    await moreOptions.click();
     await page
       .getByRole("radio", {
-        name: source === "failed-save" ? "Folder on this computer" : "Clone from Git",
+        name: source === "failed-save" ? "Folder on this computer" : "Copy from GitHub or Git",
       })
       .click();
     if (source === "reused-copy") {
@@ -502,6 +617,7 @@ it.each(["failed-save", "reused-copy"])(
       await expect.element(screen.getByText(/^Copied to/)).toBeVisible();
       await screen.getByRole("button", { name: "Cancel", exact: true }).click();
       await screen.getByLabelText("Website", { exact: true }).fill("second.example");
+      await moreOptions.click();
       await screen.getByText("Reuse previously copied site files").click();
       await screen.getByRole("button", { name: "Use this copy", exact: true }).click();
     } else {
@@ -531,21 +647,26 @@ it("consumes a reused copy after saving and preserves the first domain on reopen
   const props = { open: true, onOpenChange: () => {} };
   await using screen = await render(<NewDomainDialog {...props} />);
   await screen.getByLabelText("Website", { exact: true }).fill("first.example");
-  await page.getByRole("radio", { name: "Clone from Git" }).click();
+  const moreOptions = screen.getByRole("button", { name: /^More options/ });
+  await moreOptions.click();
+  await page.getByRole("radio", { name: "Copy from GitHub or Git" }).click();
   await screen.getByRole("textbox", { name: "Git URL" }).fill("/fixture/bare.git");
   await screen.getByRole("button", { name: "Clone site files", exact: true }).click();
   await expect.element(screen.getByText(/^Copied to/)).toBeVisible();
   await screen.getByRole("button", { name: "Cancel", exact: true }).click();
   await screen.getByLabelText("Website", { exact: true }).fill("first.example");
+  await moreOptions.click();
   await screen.getByText("Reuse previously copied site files").click();
   await screen.getByRole("button", { name: "Use this copy", exact: true }).click();
   await screen.getByRole("button", { name: "Create domain", exact: true }).click();
   await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
   await screen.rerender(<NewDomainDialog {...props} open={false} />);
   await screen.rerender(<NewDomainDialog {...props} />);
+  await moreOptions.click();
   await expect
     .element(screen.getByText("Reuse previously copied site files"))
     .not.toBeInTheDocument();
+  await moreOptions.click();
   await screen.getByLabelText("Website", { exact: true }).fill("second.example");
   await screen.getByRole("button", { name: "Create domain", exact: true }).click();
   await expect.element(screen.getByLabelText("Website", { exact: true })).toHaveValue("");
@@ -574,6 +695,7 @@ it("ignores a folder inspection that completes after a newer choice", async () =
   try {
     await using screen = await render(<NewDomainDialog open onOpenChange={() => {}} />);
     await screen.getByLabelText("Website", { exact: true }).fill("site.example");
+    await screen.getByRole("button", { name: /^More options/ }).click();
     await page.getByRole("radio", { name: "Folder on this computer" }).click();
     const path = screen.getByRole("textbox", { name: "Folder path" });
     await path.fill("/fixture/first");
@@ -593,7 +715,7 @@ it("ignores a folder inspection that completes after a newer choice", async () =
   }
 });
 
-it("requires a website before assistant setup and starts with the apps that need no sign-in", async () => {
+it.each(["new", "existing"])("sets up the assistant and AI apps (website: %s)", async (website) => {
   const { cache, publish } = await import("./marketingDomainStore");
   const { MarketingSetupHost } = await import("./marketingSetup");
   cache.clear();
@@ -615,17 +737,37 @@ it("requires a website before assistant setup and starts with the apps that need
       .toBeVisible();
     expect(state.requests.some((r) => r.label === "setup:read")).toBe(true);
     expect(screen.getByRole("button", { name: "Skip", exact: true }).query()).toBeNull();
-    state.emptyDomains = false;
-    publish("local", [
-      {
-        projectId: "first-domain",
-        hostname: "flowhunt.io",
-        brand: "Flowhunt",
-        connectionRef: "first-domain",
-      },
-    ]);
-    await screen.getByRole("button", { name: "flowhunt.io", exact: true }).click();
+    const next = screen.getByRole("button", { name: "Continue", exact: true });
+    await expect.element(next).toBeDisabled();
+    if (website === "new") {
+      await expect
+        .element(screen.getByRole("button", { name: /More options.*Not sure.*none/ }))
+        .toHaveAttribute("aria-expanded", "false");
+      await screen.getByRole("textbox", { name: "Website", exact: true }).fill("flowhunt.io");
+      await screen.getByRole("textbox", { name: "Brand name", exact: true }).fill("");
+      await next.click();
+    } else {
+      state.emptyDomains = false;
+      publish("local", [
+        {
+          projectId: "first-domain",
+          hostname: "flowhunt.io",
+          brand: "Flowhunt",
+          connectionRef: "first-domain",
+        },
+      ]);
+      await screen.getByRole("button", { name: "flowhunt.io", exact: true }).click();
+    }
     await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
+    if (website === "new")
+      expect(state.requests).toContainEqual({
+        label: "domains:save",
+        projectId: "created-domain",
+        website: "flowhunt.io",
+        brand: "Flowhunt",
+        cms: "unknown",
+        siteFiles: null,
+      });
     await screen.getByRole("button", { name: "Set up later", exact: true }).click();
     await expect.element(screen.getByRole("region", { name: "AI apps" })).toBeVisible();
     await expect.element(screen.getByText("4 of 6 connected", { exact: true })).toBeVisible();
@@ -691,3 +833,213 @@ it("finishes paid setup without creating a first-check thread", async () => {
     cache.clear();
   }
 });
+
+function setupWebsitePicker() {
+  state.connected = true;
+  state.access = "free";
+  state.emptyDomains = true;
+  state.workspaceId = "test";
+  state.requests.length = 0;
+  state.workspaces = [
+    { id: "side", name: "Side project", plan: "Starter" },
+    { id: "test", name: "Acme", plan: "Free" },
+  ];
+  state.loadWebsites = null;
+  state.cloudPrompts = [];
+  state.importedWebsite = null;
+  return {
+    [Symbol.dispose]() {
+      state.emptyDomains = false;
+      state.workspaces = [];
+      state.workspaceId = "test";
+      state.loadWebsites = null;
+      state.cloudPrompts = [];
+      state.importedWebsite = null;
+    },
+  };
+}
+
+const ownWebsite = { workspaceId: "test", hostname: "acme.example", domainId: "acme-domain" };
+const otherWebsite = {
+  workspaceId: "side",
+  hostname: "northwind.example",
+  domainId: "side-domain",
+};
+
+it("loads five workspaces independently and retries only the failed group", async () => {
+  using _fixture = setupWebsitePicker();
+  const { cache } = await import("./marketingDomainStore");
+  const { MarketingSetupHost } = await import("./marketingSetup");
+  cache.clear();
+  state.workspaces.push(
+    { id: "third", name: "Third", plan: "Free" },
+    { id: "fourth", name: "Fourth", plan: "Agency" },
+    { id: "fifth", name: "Fifth", plan: "Free" },
+  );
+  let failSide!: (failure: { _tag: "Failure" }) => void;
+  const side = new Promise<{ _tag: "Failure" }>((resolve) => {
+    failSide = resolve;
+  });
+  const load = vi.fn(async (workspaceId: string) =>
+    workspaceId === "side"
+      ? await side
+      : { _tag: "Success" as const, value: workspaceId === "test" ? [ownWebsite] : [] },
+  );
+  state.loadWebsites = load;
+  await using screen = await render(<MarketingSetupHost />);
+  await expect.element(screen.getByRole("heading", { name: "Pick a website" })).toBeVisible();
+  const current = screen.getByRole("region", { name: "Acme" });
+  const other = screen.getByRole("region", { name: "Side project" });
+  await expect.element(current.getByRole("heading")).toHaveTextContent("Acme · Free · current");
+  await expect.element(current.getByRole("button", { name: "Pick", exact: true })).toBeVisible();
+  await expect.element(other.getByRole("status")).toHaveTextContent("Loading websites…");
+  expect(load.mock.calls.map(([id]) => id)).toEqual(["test", "side", "third", "fourth", "fifth"]);
+  failSide({ _tag: "Failure" });
+  await expect
+    .element(other.getByRole("alert").getByText("Couldn't load this workspace's websites"))
+    .toBeVisible();
+  load.mockResolvedValueOnce({
+    _tag: "Success",
+    value: [{ ...otherWebsite, hostname: ownWebsite.hostname }],
+  });
+  await other.getByRole("button", { name: "Retry" }).click();
+  await expect.element(other.getByRole("button", { name: "Switch and pick" })).toBeVisible();
+  await expect.element(current.getByRole("button", { name: "Pick", exact: true })).toBeVisible();
+  expect(load.mock.calls.map(([id]) => id)).toEqual([
+    "test",
+    "side",
+    "third",
+    "fourth",
+    "fifth",
+    "side",
+  ]);
+  expect(state.requests.filter((request) => request.label === "setup:cloud-prompts")).toEqual([]);
+});
+
+it("searches six workspaces and loads websites only for the chosen workspace", async () => {
+  using _fixture = setupWebsitePicker();
+  const { cache } = await import("./marketingDomainStore");
+  const { MarketingSetupHost } = await import("./marketingSetup");
+  cache.clear();
+  state.workspaces.push(
+    ...["Three", "Four", "Five", "Six"].map((name) => ({
+      id: name.toLowerCase(),
+      name,
+      plan: "Free",
+    })),
+  );
+  state.loadWebsites = async () => ({ _tag: "Success", value: [otherWebsite] });
+  await using screen = await render(<MarketingSetupHost />);
+  await expect.element(screen.getByRole("heading", { name: "Pick a workspace" })).toBeVisible();
+  await expect
+    .element(screen.getByText("You have 6 workspaces. Pick one to see its websites."))
+    .toBeVisible();
+  const workspaces = screen.getByRole("list");
+  await expect
+    .element(workspaces.getByRole("button").first())
+    .toHaveAccessibleName(/Acme Free · current/);
+  expect(state.requests.filter((request) => request.label === "setup:cloud-websites")).toEqual([]);
+  await screen.getByRole("textbox", { name: "Search workspaces" }).fill("side");
+  await expect.element(workspaces.getByRole("button", { name: /Acme/ })).not.toBeInTheDocument();
+  await workspaces.getByRole("button", { name: /Side project/ }).click();
+  await expect.element(screen.getByText("Side project · Starter", { exact: true })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Pick", exact: true })).toBeVisible();
+  expect(state.requests.filter((request) => request.label === "setup:cloud-websites")).toEqual([
+    { label: "setup:cloud-websites", workspaceId: "side" },
+  ]);
+  await screen.getByRole("button", { name: "Workspaces", exact: true }).click();
+  await expect.element(screen.getByRole("heading", { name: "Pick a workspace" })).toBeVisible();
+});
+
+it("switches to the picked website's workspace, imports there after remount, and loads its prompts", async () => {
+  using _fixture = setupWebsitePicker();
+  const { cache } = await import("./marketingDomainStore");
+  const { MarketingSetupHost } = await import("./marketingSetup");
+  cache.clear();
+  state.loadWebsites = async (id) => ({
+    _tag: "Success",
+    value: id === "side" ? [otherWebsite] : [],
+  });
+  state.cloudPrompts = ["Which products should I compare?"];
+  await using screen = await render(<MarketingSetupHost />);
+  await screen.getByRole("button", { name: "Switch and pick", exact: true }).click();
+  await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
+  expect(
+    state.requests.filter(({ label }) =>
+      ["account:switch", "setup:import-domain", "setup:cloud-prompts"].includes(label),
+    ),
+  ).toEqual([
+    { label: "account:switch", workspaceId: "side" },
+    {
+      label: "setup:import-domain",
+      website: "northwind.example",
+      projectId: "created-domain",
+      expectedWorkspaceId: "side",
+      domainId: "side-domain",
+      brand: "northwind.example",
+      cms: "unknown",
+      siteFiles: null,
+    },
+    { label: "setup:cloud-prompts", workspaceId: "side", domainId: "side-domain" },
+  ]);
+  await screen.getByRole("button", { name: "Set up later", exact: true }).click();
+  await screen.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect
+    .element(screen.getByRole("list", { name: "Initial prompts" }))
+    .toHaveTextContent("Which products should I compare?");
+});
+
+it("offers to use an existing website in another workspace and keeps the add form when dismissed", async () => {
+  using _fixture = setupWebsitePicker();
+  const { cache } = await import("./marketingDomainStore");
+  const { MarketingSetupHost } = await import("./marketingSetup");
+  cache.clear();
+  state.loadWebsites = async (id) => ({
+    _tag: "Success",
+    value: id === "side" ? [otherWebsite] : [],
+  });
+  await using screen = await render(<MarketingSetupHost />);
+  await expect.element(screen.getByRole("button", { name: "Switch and pick" })).toBeVisible();
+  await screen.getByRole("button", { name: "Add a new website" }).click();
+  const website = screen.getByLabelText("Website", { exact: true });
+  await website.fill("https://www.northwind.example/about");
+  await expect
+    .element(screen.getByText("northwind.example is already in Side project."))
+    .toBeVisible();
+  await screen.getByRole("button", { name: "or add it here too" }).click();
+  await expect
+    .element(screen.getByRole("button", { name: "Switch and use it" }))
+    .not.toBeInTheDocument();
+  await expect.element(website).toHaveValue("https://www.northwind.example/about");
+  await website.fill("northwind.example");
+  await screen.getByRole("button", { name: "Switch and use it" }).click();
+  await expect.element(screen.getByRole("region", { name: "Assistant setup" })).toBeVisible();
+});
+
+it.each([true, false])(
+  "labels view-only workspaces and hides Add (can list: %s)",
+  async (canList) => {
+    using _fixture = setupWebsitePicker();
+    const { cache } = await import("./marketingDomainStore");
+    const { MarketingSetupHost } = await import("./marketingSetup");
+    cache.clear();
+    state.workspaces[1] = { id: "test", name: "Acme", plan: "Agency", canCreateDomains: false };
+    state.loadWebsites = async (id) =>
+      id === "test" && !canList
+        ? { _tag: "Failure" }
+        : { _tag: "Success", value: id === "test" ? [ownWebsite] : [] };
+    await using screen = await render(<MarketingSetupHost />);
+    const workspace = screen.getByRole("region", { name: "Acme" });
+    await expect.element(workspace.getByText("View only", { exact: true })).toBeVisible();
+    if (canList) {
+      await expect
+        .element(workspace.getByRole("button", { name: "Pick", exact: true }))
+        .toBeVisible();
+    } else {
+      await expect.element(workspace.getByRole("alert")).toBeVisible();
+    }
+    await expect
+      .element(screen.getByRole("button", { name: "Add a new website" }))
+      .not.toBeInTheDocument();
+  },
+);

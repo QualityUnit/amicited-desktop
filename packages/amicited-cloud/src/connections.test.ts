@@ -40,9 +40,26 @@ it("completes or cancels sign-in, tracks logout and clears only site cookies", a
   expect(row().signingIn).toBe(true);
   await f.engine.finish("chatgpt");
   expect(row()).toMatchObject({ status: "connected", signingIn: false });
+  // ChatGPT answers signed out, so its saved browser stays ready without a login.
   f.setSite({ state: "logged_out" });
   await f.engine.check("chatgpt");
-  expect(row().status).toBe("needs_attention");
+  expect(row().status).toBe("connected");
+  await f.engine.connect("chatgpt", "thread");
+  await f.engine.finish("chatgpt");
+  expect(row()).toMatchObject({ status: "connected", signingIn: false });
+  // A site that needs a login keeps its sign-in open until there is one, and flags a lost one.
+  const claude = () => f.engine.snapshot().connections.find((r) => r.id === "claude")!;
+  await f.engine.connect("claude", "thread");
+  await f.engine.finish("claude");
+  expect(claude()).toMatchObject({ status: "signed_out", signingIn: true });
+  await f.engine.cancel("claude");
+  f.setSite({ loggedIn: true });
+  await f.engine.connect("claude", "thread");
+  await f.engine.finish("claude");
+  expect(claude()).toMatchObject({ status: "connected", signingIn: false });
+  f.setSite({ state: "logged_out" });
+  await f.engine.check("claude");
+  expect(claude().status).toBe("needs_attention");
   await f.engine.withSiteSession("chatgpt", async () => ({ value: null, probe: "captcha" }));
   expect(row().status).toBe("needs_attention");
   await f.engine.connect("chatgpt", "thread");

@@ -34,5 +34,11 @@ it("explains paused tracking for a rejected session", async () => {
     <AccountGateScreen {...props} account={{ ...props.account, state: "session_ended" }} />,
   );
   await expect.element(screen.getByRole("heading", { name: "Sign in again" })).toBeVisible();
+  await expect
+    .element(screen.getByText(/AmICited now signs in once for all your workspaces/))
+    .toBeVisible();
+  await expect
+    .element(screen.getByText(/Your local websites, chats, results and AI sign-ins are still here/))
+    .toBeVisible();
   await expect.element(screen.getByText(/Daily checks are paused/)).toBeVisible();
 });

@@ -2065,6 +2065,7 @@ export const layerWsRpc = (
         "amicited.tracking.detail": ({ runId, threadId }) =>
           tracking.detail(runId ?? threadId ?? ""),
         "amicited.tracking.subscribe": () => tracking.subscribe(),
+        "amicited.tracking.visibility": ({ projectId }) => tracking.visibility(projectId),
         "amicited.tracking.save": ({ config, replacePromptId }) =>
           tracking.save(config, replacePromptId),
         "amicited.tracking.suggest": ({ projectId, category }) =>
@@ -2085,6 +2086,7 @@ export const layerWsRpc = (
           connections.run((e) => e.finish(connectionId)),
         "amicited.connections.connect": ({ connectionId, threadId }) =>
           connections.run((e) => e.connect(connectionId, threadId)),
+        "amicited.connections.useBrowser": ({ use }) => connections.useBrowser(use),
         "amicited.account.status": () =>
           Effect.tryPromise({
             try: () => cloud.account!.status(),
@@ -2159,13 +2161,18 @@ export const layerWsRpc = (
             try: () => cloud.account?.cloudSummary(projectId) ?? Promise.resolve(null),
             catch: () => new DomainFailure({ message: "Could not read cloud summary." }),
           }),
-        "amicited.domains.listCloud": () =>
+        "amicited.domains.listCloud": ({ workspaceId }) =>
           Effect.tryPromise({
-            try: () => cloud.account!.listCloudDomains(),
+            try: () => cloud.account!.listCloudDomains(workspaceId),
             catch: () =>
               new DomainFailure({
                 message: "Could not read cloud websites. Local websites are still available.",
               }),
+          }),
+        "amicited.domains.listCloudPrompts": ({ workspaceId, domainId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.listCloudPrompts(workspaceId, domainId),
+            catch: () => new DomainFailure({ message: "Could not read this website's prompts." }),
           }),
         "amicited.setup.read": () =>
           Effect.tryPromise({

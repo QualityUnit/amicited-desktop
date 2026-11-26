@@ -1,3 +1,6 @@
+import { normalizeDomain } from "./domainModel.ts";
+import type { CloudWebsite } from "./rpc.ts";
+
 export interface SetupState {
   finished: boolean;
   trackingOffered?: boolean;
@@ -17,56 +20,43 @@ export function setupAfterWebsite(access: string | undefined) {
   return access === "full" ? "cloud" : "assistant";
 }
 
-export function cloudSetupWebsites(
-  result: unknown,
-): { hostname: string; prompts: string[]; domainId?: string; brand?: string }[] {
-  const record = (value: unknown): Record<string, unknown> =>
-    value !== null && typeof value === "object" && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : {};
-  const root = record(result);
-  if (root.isError) return [];
-  let data: unknown = root.structuredContent ?? result;
-  if (root.structuredContent === undefined && Array.isArray(root.content))
-    for (const part of root.content) {
-      const text = record(part).text;
-      if (typeof text === "string")
-        try {
-          data = JSON.parse(text);
-          break;
-        } catch {
-          /* A free-tier refusal is not a website list. */
-        }
-    }
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+export function cloudSetupWebsites(data: unknown, workspaceId: string): CloudWebsite[] {
   const container = record(data);
   const rows = Array.isArray(data)
     ? data
     : (container.domains ?? container.items ?? container.data);
+  if (!Array.isArray(rows)) throw new Error("AmICited did not return a website list.");
+  return rows.map((value) => {
+    const row = record(value);
+    const website = row.domain_name ?? row.hostname ?? row.name ?? row.domain;
+    if (typeof website !== "string") throw new Error("AmICited returned an invalid website.");
+    const { hostname } = normalizeDomain(website);
+    const domainId = row.domain_id ?? row.id;
+    const brand = row.brand_name ?? row.brand;
+    return {
+      workspaceId,
+      hostname,
+      ...(typeof domainId === "string" && domainId ? { domainId } : {}),
+      ...(typeof brand === "string" && brand.trim() ? { brand } : {}),
+    };
+  });
+}
+
+export function cloudSetupPrompts(data: unknown): string[] {
+  const rows = Array.isArray(data) ? data : record(data).prompts;
   if (!Array.isArray(rows)) return [];
   return rows.flatMap((value) => {
     const row = record(value);
-    const hostname = row.domain_name ?? row.hostname ?? row.name ?? row.domain;
-    if (typeof hostname !== "string" || !hostname.includes(".")) return [];
-    const prompts = Array.isArray(row.prompts)
-      ? row.prompts.flatMap((p) => {
-          const text =
-            typeof p === "string"
-              ? p
-              : (record(p).prompt_text ?? record(p).prompt ?? record(p).text ?? record(p).content);
-          return typeof text === "string" ? [text] : [];
-        })
-      : [];
-    return [
-      {
-        hostname,
-        prompts,
-        ...(typeof (row.domain_id ?? row.id) === "string"
-          ? { domainId: String(row.domain_id ?? row.id) }
-          : {}),
-        ...(typeof (row.brand_name ?? row.brand) === "string"
-          ? { brand: String(row.brand_name ?? row.brand) }
-          : {}),
-      },
-    ];
+    const text =
+      typeof value === "string"
+        ? value
+        : (row.content ?? row.prompt_text ?? row.prompt ?? row.text);
+    return typeof text === "string" ? [text] : [];
   });
 }

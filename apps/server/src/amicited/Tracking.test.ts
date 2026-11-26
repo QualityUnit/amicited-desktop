@@ -46,6 +46,9 @@ const fakeEngines = Object.fromEntries(
   engineIds.map((id) => [id, fakeEngine(id, { site: engines[id].site, requiresLogin: true })]),
 ) as unknown as EngineRegistry;
 const fixture = (recorded = false, blockAnswer = false, generation = false) => {
+  let browserUnavailable = false;
+  const cloudCalls: { tool: string; args: Record<string, unknown> }[] = [];
+  const openedSites: string[] = [];
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   const closed = Promise.withResolvers<void>();
@@ -88,14 +91,26 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     write: async () => {},
     secrets: () => secrets,
     client: () =>
-      ({ status: async () => ({ state: "error", kind: "network" }) }) as unknown as CloudClient,
+      ({
+        status: async () => ({ state: "error", kind: "network" }),
+        call: async (tool: string, args: Record<string, unknown>) => {
+          cloudCalls.push({ tool, args });
+          return {
+            structuredContent: {
+              prompts: ["Cloud question one", " ", "Cloud question one", "Cloud question two"],
+            },
+          };
+        },
+      }) as unknown as CloudClient,
     openExternal: async () => {},
     userinfo: async () => ({ email: "test@example.com", name: "Test" }),
     domains: () => cloud.domains,
   });
   const page = new FakePage({ state: "logged_out" });
   const engine = new BrowserConnections({
-    open: async () => {
+    open: async (site) => {
+      openedSites.push(site);
+      if (browserUnavailable) throw new Error("The server preview browser could not start.");
       const selected = recorded
         ? evidencePage(
             0,
@@ -123,6 +138,10 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     Layer.mock(Settings.ServerSettingsService)({
       getSettings: Effect.succeed({
         defaultModelSelection: createModelSelection(ProviderInstanceId.make("assistant"), "test"),
+        textGenerationModelSelection: createModelSelection(
+          ProviderInstanceId.make("assistant"),
+          "small",
+        ),
       } as ServerSettings),
     }),
     Layer.mock(Registry.ProviderInstanceRegistry)({
@@ -181,6 +200,11 @@ const fixture = (recorded = false, blockAnswer = false, generation = false) => {
     }),
   );
   return {
+    cloudCalls,
+    openedSites,
+    makeBrowserUnavailable: () => {
+      browserUnavailable = true;
+    },
     entered: entered.promise,
     closed: closed.promise,
     setRecorded: (value: boolean) => {
@@ -205,7 +229,7 @@ const config = (projectId: string, count: number, country: string): TrackingConf
   })),
 });
 it.effect(
-  "enforces the computer budget across workspaces atomically and excludes paid domains",
+  "enforces one computer budget across every workspace atomically, paid ones included",
   () => {
     const f = fixture();
     return Effect.gen(function* () {
@@ -224,7 +248,8 @@ it.effect(
       assert.equal(limited.status, "limit_reached");
       if (limited.status === "limit_reached") assert.equal(limited.usage.used, 20);
       assert.equal((yield* t.snapshot()).usage.used, 20);
-      assert.deepEqual(yield* t.save(config("paid", 100, country)), { status: "cloud" });
+      // Paid workspaces track on this computer too, inside the same daily budget.
+      assert.equal((yield* t.save(config("paid", 1, country))).status, "limit_reached");
       assert.equal((yield* t.snapshot()).usage.domains.length, 2);
       assert.deepEqual(yield* t.save(config("two", 9, country), "one:0"), { status: "saved" });
       assert.equal((yield* t.snapshot()).usage.used, 20);
@@ -326,6 +351,33 @@ it.effect("records sign-in failures without aborting the run and creates connect
     yield* TestClock.adjust("5 minutes");
     yield* Fiber.join(recovered);
     assert.isTrue(f.findings.filter((i) => i.kind === "connect").every((i) => i.status === "done"));
+  }).pipe(Effect.provide(f.layer));
+});
+it.effect("finishes after the browser fails to open on both attempts", () => {
+  const f = fixture();
+  f.makeBrowserUnavailable();
+  return Effect.gen(function* () {
+    const t = yield* Tracking.Tracking;
+    const country = (yield* t.snapshot()).country;
+    yield* t.save({ ...config("one", 2, country), engines: ["chatgpt", "gemini"] });
+    const id = yield* t.runNow("one");
+    const done = yield* t.subscribe().pipe(
+      Stream.filter((s) => s.runs.some((r) => r.id === id && r.status === "complete")),
+      Stream.take(1),
+      Stream.runDrain,
+      Effect.forkChild,
+    );
+    yield* TestClock.adjust("10 minutes");
+    yield* Fiber.join(done);
+    const run = yield* t.detail(id);
+    assert.equal(run?.outcome, "failed");
+    assert.equal(run?.total, 4);
+    assert.deepEqual(
+      run?.answers.map((answer) => answer.status),
+      ["failed"],
+    );
+    assert.deepEqual(f.openedSites, ["chatgpt", "chatgpt"]);
+    assert.equal((yield* t.snapshot()).usage.consumed, 0);
   }).pipe(Effect.provide(f.layer));
 });
 it("raises findings for dropped visibility and for sign-in walls", () => {
@@ -613,13 +665,37 @@ it.effect("generates website suggestions and persists assistant-written fixes", 
   return Effect.gen(function* () {
     using _fetch = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response("<html>Analytics for small teams</html>"));
+      .mockImplementation(async (url) =>
+        String(url).includes("two.example")
+          ? new Response("", { status: 503 })
+          : new Response("<html>Analytics for small teams</html>"),
+      );
     const t = yield* Tracking.Tracking;
+    const country = (yield* t.snapshot()).country;
+    // A workspace with cloud access gets FlowHunt's suggestions; free ones use the local model.
+    assert.deepEqual(yield* t.suggest("paid", ""), ["Cloud question one", "Cloud question two"]);
+    assert.deepEqual(f.cloudCalls, [
+      {
+        tool: "generate_prompts_from_url",
+        args: {
+          generate_request: {
+            url: "https://paid.example",
+            brand_name: "paid",
+            max_suggestions: 10,
+            country,
+          },
+        },
+      },
+    ]);
     assert.deepEqual(yield* t.suggest("one", "analytics"), [
       "Buyer question one",
       "Buyer question two",
     ]);
-    const country = (yield* t.snapshot()).country;
+    const unreadable = yield* Effect.flip(t.suggest("two", ""));
+    assert.equal(
+      unreadable.message,
+      "Couldn't suggest prompts for two.example. Add your own, or try again.",
+    );
     yield* t.save({ ...config("one", 1, country), engines: ["chatgpt"] });
     const id = yield* t.runNow("one");
     yield* TestClock.adjust("1 minute");

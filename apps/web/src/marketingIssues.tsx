@@ -17,7 +17,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
-import { MarketingIcon, marketingStarters } from "@amicited/ui-marketing";
+import { MarketingIcon, marketingNavigate, marketingStarters } from "@amicited/ui-marketing";
 import {
   ArrowRight,
   Check,
@@ -303,6 +303,17 @@ function IssueDetail({
       <div className="text-sm">
         <ChatMarkdown text={issue.body} cwd={undefined} />
       </div>
+      {issue.kind === "fix" && issue.evidence?.destination.startsWith("/prompts") ? (
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => marketingNavigate(issue.evidence!.destination)}
+          >
+            Open answers
+          </Button>
+        </div>
+      ) : null}
       {issue.status === "open" ? (
         <div className="flex flex-wrap items-center gap-2 border-t pt-4">
           {!embedded && primary ? (

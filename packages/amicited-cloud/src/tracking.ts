@@ -12,6 +12,7 @@ import {
 } from "@amicited/visibility/result";
 import * as Schema from "effect/Schema";
 import * as Rpc from "effect/rpc/Rpc";
+import { DomainVisibility } from "./visibility.ts";
 export const TrackingEngine = EngineId;
 const engineLabels = {
   chatgpt: "ChatGPT",
@@ -41,7 +42,6 @@ export function availableEngines(
 }
 export class TrackingFailure extends Schema.TaggedError<TrackingFailure>()("TrackingFailure", {
   message: Schema.String,
-  fallback: Schema.optionalKey(Schema.Array(Schema.String)),
 }) {}
 export const TrackedPrompt = Schema.Struct({
   id: Schema.String,
@@ -117,7 +117,33 @@ export const TrackingUsage = Schema.Struct({
   ),
 });
 export type TrackingUsage = typeof TrackingUsage.Type;
+/** Whether a domain's local answers reached its AmICited workspace. */
+export const TrackingSync = Schema.Struct({
+  projectId: Schema.String,
+  state: Schema.Literals([
+    "synced",
+    "pending",
+    "not_linked",
+    "signed_out",
+    "no_plan",
+    "no_credits",
+    "no_edit_rights",
+    "domain_missing",
+    "unsupported",
+    "offline",
+    "error",
+  ]),
+  message: Schema.String,
+  lastSyncedAt: Schema.NullOr(Schema.String),
+  pending: Schema.Number,
+  /** Answers the cloud refused for good, such as a prompt over the plan's cap. */
+  skipped: Schema.Number,
+  /** Prompts the workspace's plan has no room for, so the dashboard never shows them. */
+  overLimit: Schema.optionalKey(Schema.Number),
+});
+export type TrackingSync = typeof TrackingSync.Type;
 export const TrackingSnapshot = Schema.Struct({
+  sync: Schema.optionalKey(Schema.Array(TrackingSync)),
   dismissals: Schema.optionalKey(Schema.Array(Schema.String)),
   country: Schema.String,
   configs: Schema.Array(TrackingConfig),
@@ -143,6 +169,11 @@ export const trackingRpcs = [
       threadId: Schema.optionalKey(Schema.String),
     },
     success: Schema.NullOr(TrackingRun),
+    error: TrackingFailure,
+  }),
+  Rpc.make("amicited.tracking.visibility", {
+    payload: { projectId: Schema.optionalKey(Schema.String) },
+    success: Schema.Array(DomainVisibility),
     error: TrackingFailure,
   }),
   Rpc.make("amicited.tracking.save", {
@@ -175,21 +206,6 @@ export const trackingRpcs = [
     error: TrackingFailure,
   }),
 ];
-export function suggestPrompts(brand: string, category: string, hostname: string) {
-  const topic = category.trim() || "tools in this category";
-  return [
-    `What are the best ${topic}?`,
-    `Which ${topic} work best for small teams?`,
-    `What are affordable ${topic}?`,
-    `Which ${topic} are easiest to set up?`,
-    `Compare the leading ${topic}.`,
-    `Which ${topic} are best for growing businesses?`,
-    `What should I look for when choosing ${topic}?`,
-    `What are alternatives to ${brand}?`,
-    `Is ${brand} a good choice?`,
-    `What does ${hostname} offer compared with other ${topic}?`,
-  ];
-}
 export function detectCountry(
   locale = Intl.DateTimeFormat().resolvedOptions().locale,
   timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,

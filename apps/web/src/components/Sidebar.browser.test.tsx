@@ -112,6 +112,31 @@ describe("sidebar header new thread", () => {
   });
 });
 
+it("offers to add a website when the marketer workspace only has an unlisted project", async () => {
+  using stack = new DisposableStack();
+  const previousMode = localStorage.getItem("amicited.workspace-mode");
+  localStorage.setItem("amicited.workspace-mode", "marketer");
+  stack.defer(() =>
+    previousMode === null
+      ? localStorage.removeItem("amicited.workspace-mode")
+      : localStorage.setItem("amicited.workspace-mode", previousMode),
+  );
+  vi.mocked(useProjects).mockReturnValue([project("scratch")]);
+  vi.mocked(useQuietThreadShells).mockReturnValue([]);
+
+  await using screen = await render(
+    <SidebarProvider>
+      <Sidebar
+        routeReveal={{ observedKey: null, pendingKey: null }}
+        allowedProjectKeys={new Set<string>()}
+      />
+    </SidebarProvider>,
+  );
+  await expect
+    .element(screen.getByRole("button", { name: "Add website", exact: true }))
+    .toBeVisible();
+});
+
 it.each([
   "PR",
   "lifecycle",

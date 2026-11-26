@@ -115,6 +115,7 @@ import {
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 import { IssuesPage, IssuesSidebarRow } from "./marketingIssues";
+import { AiVisibilityPage, AiVisibilitySidebarRow } from "./amicited/AiVisibility";
 
 const KitButton = ({
   variant = "outline",
@@ -316,6 +317,13 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   void navigate({ to: "/issues" });
                 }}
               />
+              <AiVisibilitySidebarRow
+                active={path.startsWith("/visibility") || path.startsWith("/prompts")}
+                onOpen={() => {
+                  setArchived(false);
+                  void navigate({ to: "/visibility" });
+                }}
+              />
               <MarketingHistory archived={archived} setArchived={setArchived} />
               <SidebarFooter>
                 <SidebarUpdateArchitectureWarning />
@@ -356,7 +364,9 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   ? "Connections"
                   : path.startsWith("/reports")
                     ? "Reports"
-                    : undefined
+                    : path.startsWith("/visibility") || path.startsWith("/prompts")
+                      ? "AI Visibility"
+                      : undefined
             }
             mode={mode}
             taskView={taskTarget !== null}
@@ -371,6 +381,8 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
               <MarketingArchive />
             ) : path === "/issues" ? (
               <IssuesPage />
+            ) : path === "/visibility" ? (
+              <AiVisibilityPage />
             ) : path === "/marketing-settings" ? (
               <>
                 <ConnectionsHub />
