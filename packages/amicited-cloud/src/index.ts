@@ -479,6 +479,10 @@ export class CloudClient {
     return new URL(this.options.endpoint ?? MCP_URL);
   }
   async accountAccessToken() {
+    // A fresh token must not wait behind slow MCP calls queued on this client.
+    const saved = await this.credential();
+    if (this.options.account && saved?.tokens && (saved.expiresAt ?? Infinity) > Date.now())
+      return saved.tokens.access_token;
     return this.serial(async () => {
       const credential = await this.credential();
       if (!this.options.account || !credential?.tokens) throw new Error("Sign in to continue.");
