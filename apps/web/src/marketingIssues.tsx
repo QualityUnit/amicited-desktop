@@ -17,7 +17,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
-import { MarketingIcon, marketingStarters } from "@amicited/ui-marketing";
+import { MarketingIcon, marketingNavigate, marketingStarters } from "@amicited/ui-marketing";
 import {
   ArrowRight,
   Check,
@@ -100,7 +100,7 @@ const runAuditCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
 const emptySnapshot: IssuesSnapshot = { issues: [], audits: [] };
 const noIssues = Atom.make(AsyncResult.success(emptySnapshot));
 
-function useIssues(environmentId: EnvironmentId | null | undefined) {
+export function useIssues(environmentId: EnvironmentId | null | undefined) {
   const value = useAtomValue(
     environmentId ? issuesStream({ environmentId, input: undefined }) : noIssues,
   );
@@ -142,6 +142,13 @@ function useIssueActions(environmentId: EnvironmentId | null) {
   };
   const start = async (issue: Issue) => {
     if (!environmentId) return;
+    if (issue.fingerprint.startsWith("tracking:connection:")) {
+      await navigate({
+        to: "/marketing-settings",
+        search: { connect: issue.fingerprint.slice("tracking:connection:".length) },
+      });
+      return;
+    }
     if (issue.threadId && threads.has(issue.threadId)) {
       await navigate(openThreadRoute(environmentId, issue.threadId));
       return;
@@ -296,6 +303,17 @@ function IssueDetail({
       <div className="text-sm">
         <ChatMarkdown text={issue.body} cwd={undefined} />
       </div>
+      {issue.kind === "fix" && issue.evidence?.destination.startsWith("/prompts") ? (
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => marketingNavigate(issue.evidence!.destination)}
+          >
+            Open answers
+          </Button>
+        </div>
+      ) : null}
       {issue.status === "open" ? (
         <div className="flex flex-wrap items-center gap-2 border-t pt-4">
           {!embedded && primary ? (

@@ -1,3 +1,4 @@
+import { TrackingToolkit, layer as trackingHandlers } from "../amicited/TrackingToolkit.ts";
 import { PRODUCT_NAME } from "@amicited/identity";
 import { ReportsToolkit, layer as reportsHandlers } from "../amicited/ReportsToolkit.ts";
 import {
@@ -1215,6 +1216,7 @@ export const layerTools = Layer.mergeAll(
   // AmICited cloud uses the same authenticated transport as provider tools.
   toolkitRegistration(CloudToolkit, cloudHandlers),
   toolkitRegistration(IssuesToolkit, issuesHandlers),
+  toolkitRegistration(TrackingToolkit, trackingHandlers),
   toolkitRegistration(ReportsToolkit, reportsHandlers),
   layerPreviewToolkit,
   layerOrchestratorToolkit,

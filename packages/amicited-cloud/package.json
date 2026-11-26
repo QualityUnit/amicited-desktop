@@ -11,16 +11,26 @@
     "./model": "./src/model.ts",
     "./domainModel": "./src/domainModel.ts",
     "./siteFiles": "./src/siteFiles.ts",
+    "./formatting": "./src/formatting.ts",
+    "./account": "./src/account.ts",
     "./domains": "./src/domains.ts",
+    "./keyring": "./src/keyring.ts",
     "./toolResult": "./src/toolResult.ts",
-    "./capture": "./src/capture.ts"
+    "./capture": "./src/capture.ts",
+    "./connections": "./src/connections.ts",
+    "./connectionsRpc": "./src/connectionsRpc.ts",
+    "./tracking": "./src/tracking.ts",
+    "./localResults": "./src/localResults.ts",
+    "./visibility": "./src/visibility.ts"
   },
   "scripts": {
     "typecheck": "effect-tsgo tsrs --noEmit",
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@amicited/tools": "workspace:*",
     "@amicited/tools-core": "workspace:*",
+    "@amicited/visibility": "workspace:*",
     "@modelcontextprotocol/sdk": "1.29.0",
     "effect": "catalog:"
   },

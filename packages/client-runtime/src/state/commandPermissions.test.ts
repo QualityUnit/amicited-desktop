@@ -73,10 +73,19 @@ describe("command permissions", () => {
         const registry = yield* setup;
         const refresh = createCommandPermissions(runtime, WS_METHODS.serverRefreshProviders);
         const marketing = createCommandPermissions(runtime, "amicited.tools.run");
+        const tracking = createCommandPermissions(runtime, "amicited.tracking.run");
+        const recovery = createCommandPermissions(runtime, "amicited.tracking.checkMissing");
+        const dismissal = createCommandPermissions(runtime, "amicited.tracking.dismiss");
         registry.set(sessions(env), AsyncResult.success(grant(false)));
         expect(registry.get(marketing.permissionAtom(env))).toBe(false);
+        expect(registry.get(tracking.permissionAtom(env))).toBe(false);
+        expect(registry.get(recovery.permissionAtom(env))).toBe(false);
+        expect(registry.get(dismissal.permissionAtom(env))).toBe(false);
         registry.set(sessions(env), AsyncResult.success(grant(true)));
         expect(registry.get(marketing.permissionAtom(env))).toBe(true);
+        expect(registry.get(tracking.permissionAtom(env))).toBe(true);
+        expect(registry.get(recovery.permissionAtom(env))).toBe(true);
+        expect(registry.get(dismissal.permissionAtom(env))).toBe(true);
         yield* marketing.authorize(registry, env);
         registry.set(sessions(env), AsyncResult.success(grant(true)));
         expect(registry.get(refresh.permissionAtom(env))).toBe(false);
@@ -138,6 +147,19 @@ describe("command permissions", () => {
 
   it.effect.each([
     WS_METHODS.serverRunStorageCleanup,
+    "amicited.connections.connect",
+    "amicited.connections.cancel",
+    "amicited.connections.finish",
+    "amicited.connections.disconnect",
+    "amicited.connections.check",
+    "amicited.connections.useBrowser",
+    "amicited.account.addWorkspace",
+    "amicited.account.cancelSignIn",
+    "amicited.account.reopenSignIn",
+    "amicited.account.switchWorkspace",
+    "amicited.account.removeWorkspace",
+    "amicited.account.signOut",
+    "amicited.domains.adopt",
     "amicited.setup.write",
     "amicited.domains.save",
     "amicited.domains.connection",

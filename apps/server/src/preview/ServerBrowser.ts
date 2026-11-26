@@ -253,6 +253,22 @@ export class ServerBrowser extends Context.Service<
       readonly downloadId: string;
     }) => Effect.Effect<Option.Option<{ readonly path: string; readonly fileName: string }>>;
 
+    readonly connectionContext: Effect.Effect<
+      import("playwright-core").BrowserContext,
+      ServerBrowserLaunchError
+    >;
+    readonly connectionTab: (
+      threadId: string,
+      url: string,
+    ) => Effect.Effect<
+      { page: Page; tabId: string; close: Effect.Effect<void> },
+      ServerBrowserLaunchError
+    >;
+    /** A page no window shows, in the desktop app's `connections` profile; null without one. */
+    readonly connectionPage: Effect.Effect<
+      { page: Page; close: () => Promise<void> } | null,
+      ServerBrowserLaunchError
+    >;
     readonly clearProfile: (profileId: string) => Effect.Effect<void, PreviewClearProfileError>;
 
     readonly profileReporter: Effect.Effect<ProfileReporter, never, Scope.Scope>;
@@ -771,12 +787,12 @@ const make = Effect.gen(function* () {
         )
       : Promise.resolve(false);
 
-  const connectDesktop = async (snapshot: PreviewSessionSnapshot) => {
+  const connectDesktop = async (key: DesktopBrowserChannel.DesktopTabKey) => {
     const scope = await runPromise(Scope.make());
     try {
       const endpoint = await runPromise(
         desktopChannel
-          .endpoint({ threadId: snapshot.threadId, tabId: snapshot.tabId })
+          .endpoint({ threadId: key.threadId, tabId: key.tabId })
           .pipe(Scope.provide(scope)),
       );
       const connected = await contexts.connectDesktopPage(endpoint);
@@ -2843,6 +2859,38 @@ const make = Effect.gen(function* () {
     }),
   );
 
+  const connectionPage = Effect.fn("ServerBrowser.connectionPage")(function* () {
+    if (!desktopChannel.available) return null;
+    const key = { threadId: "amicited-checks", tabId: NodeCrypto.randomUUID() };
+    return yield* Effect.tryPromise({
+      try: async () => {
+        const scope = await runPromise(Scope.make());
+        try {
+          await runPromise(
+            desktopChannel
+              .hiddenTab(key, { environmentId, profileId: "connections" })
+              .pipe(Scope.provide(scope)),
+          );
+          if (!(await runPromise(desktopChannel.awaitAttached(key, DESKTOP_ATTACH_TIMEOUT)))) {
+            throw new Error("The desktop app did not open a page.");
+          }
+          const desktop = await connectDesktop(key);
+          return {
+            page: desktop.page,
+            close: async () => {
+              await desktop.close();
+              await runPromise(Scope.close(scope, Exit.void));
+            },
+          };
+        } catch (cause) {
+          await runPromise(Scope.close(scope, Exit.void));
+          throw cause;
+        }
+      },
+      catch: (cause) => new ServerBrowserLaunchError({ cause }),
+    });
+  });
+
   const clearProfile = (profileId: string) =>
     Effect.tryPromise({
       try: () => contexts.clearProfile(profileId),
@@ -2851,6 +2899,29 @@ const make = Effect.gen(function* () {
 
   return ServerBrowser.of({
     attachViewer,
+    connectionContext: Effect.tryPromise({
+      try: () => contexts.contextFor("connections"),
+      catch: (cause) => new ServerBrowserLaunchError({ cause }),
+    }),
+    connectionTab: Effect.fn("ServerBrowser.connectionTab")(function* (threadId, url) {
+      const tab = yield* openTab({
+        threadId: ThreadId.make(threadId),
+        url,
+        profileId: "connections",
+        runtime: "server",
+        reveal: true,
+      }).pipe(Effect.mapError((cause) => new ServerBrowserLaunchError({ cause })));
+      yield* Effect.tryPromise({
+        try: () => tab.initialNavigation ?? Promise.resolve(),
+        catch: (cause) => new ServerBrowserLaunchError({ cause }),
+      });
+      return {
+        page: tab.page,
+        tabId: tab.tabId,
+        close: manager.close({ threadId: tab.threadId, tabId: tab.tabId }).pipe(Effect.ignore),
+      };
+    }),
+    connectionPage: connectionPage(),
     clearProfile,
     profileReporter,
     openDownload,

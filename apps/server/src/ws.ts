@@ -1,7 +1,10 @@
+import * as AmicitedTracking from "./amicited/Tracking.ts";
+import * as AmicitedConnections from "./amicited/Connections.ts";
 import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
 import { templates as reportTemplates } from "@amicited/reports/templates";
 import { inspectSiteFiles } from "@amicited/cloud-client/siteFiles";
+import { CloudDomainError } from "@amicited/cloud-client/domains";
 import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
@@ -2016,6 +2019,8 @@ export const layerWsRpc = (
 
       const reports = yield* AmicitedReports.Reports;
       const reportsEditing = yield* ReportsEditing.ReportsEditing;
+      const connections = yield* AmicitedConnections.Connections;
+      const tracking = yield* AmicitedTracking.Tracking;
       const cloud = yield* AmicitedCloud.AmicitedCloud;
       const domainFavicons = yield* AmicitedDomainFavicons.DomainFavicons;
       const issues = yield* AmicitedIssues.AmicitedIssues;
@@ -2057,6 +2062,118 @@ export const layerWsRpc = (
         "amicited.reports.templates": () => Effect.succeed(reportTemplates),
         "amicited.reports.subscribe": () => reports.changes,
 
+        "amicited.tracking.detail": ({ runId, threadId }) =>
+          tracking.detail(runId ?? threadId ?? ""),
+        "amicited.tracking.subscribe": () => tracking.subscribe(),
+        "amicited.tracking.visibility": ({ projectId }) => tracking.visibility(projectId),
+        "amicited.tracking.save": ({ config, replacePromptId }) =>
+          tracking.save(config, replacePromptId),
+        "amicited.tracking.suggest": ({ projectId, category }) =>
+          tracking.suggest(projectId, category),
+        "amicited.tracking.dismiss": ({ key, mode }) => tracking.dismiss(key, mode),
+        "amicited.tracking.checkMissing": ({ runId }) => tracking.checkMissing(runId),
+        "amicited.tracking.run": ({ projectId, stop, threadId }) =>
+          stop ? tracking.stopNow(projectId) : tracking.runNow(projectId, threadId),
+        "amicited.connections.status": () => connections.snapshot,
+        "amicited.connections.subscribe": () => connections.changes,
+        "amicited.connections.check": ({ connectionId }) =>
+          connections.run((e) => e.check(connectionId)),
+        "amicited.connections.disconnect": ({ connectionId }) =>
+          connections.run((e) => e.disconnect(connectionId)),
+        "amicited.connections.cancel": ({ connectionId }) =>
+          connections.run((e) => e.cancel(connectionId)),
+        "amicited.connections.finish": ({ connectionId }) =>
+          connections.run((e) => e.finish(connectionId)),
+        "amicited.connections.connect": ({ connectionId, threadId }) =>
+          connections.run((e) => e.connect(connectionId, threadId)),
+        "amicited.connections.useBrowser": ({ use }) => connections.useBrowser(use),
+        "amicited.account.status": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.status(),
+            catch: () => new DomainFailure({ message: "Could not read account." }),
+          }),
+        "amicited.account.addWorkspace": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.addWorkspace(),
+            catch: () => new DomainFailure({ message: "Could not start sign-in." }),
+          }),
+        "amicited.account.cancelSignIn": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.cancelSignIn(),
+            catch: () => new DomainFailure({ message: "Could not cancel sign-in." }),
+          }),
+        "amicited.account.reopenSignIn": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.reopenSignIn(),
+            catch: () => new DomainFailure({ message: "Could not open sign-in." }),
+          }),
+        "amicited.account.switchWorkspace": ({ workspaceId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.switchWorkspace(workspaceId),
+            catch: () => new DomainFailure({ message: "Could not switch workspace." }),
+          }),
+        "amicited.account.removeWorkspace": ({ workspaceId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.removeWorkspace(workspaceId),
+            catch: () => new DomainFailure({ message: "Could not remove workspace." }),
+          }),
+        "amicited.account.signOut": () =>
+          Effect.tryPromise({
+            try: () => cloud.account!.signOut(),
+            catch: () => new DomainFailure({ message: "Could not sign out." }),
+          }),
+        "amicited.account.subscribe": () =>
+          Stream.callback<Awaited<ReturnType<NonNullable<typeof cloud.account>["status"]>>>(
+            (queue) =>
+              Effect.acquireRelease(
+                Effect.sync(() => {
+                  const send = () => {
+                    void cloud.account!.status().then((status) => Queue.offerUnsafe(queue, status));
+                  };
+                  const unsubscribe = cloud.account!.subscribe(send);
+                  send();
+                  return unsubscribe;
+                }),
+                (unsubscribe) => Effect.sync(unsubscribe),
+              ),
+          ),
+        "amicited.domains.older": () =>
+          Effect.tryPromise({
+            try: () => cloud.domains!.older(),
+            catch: () => new DomainFailure({ message: "Could not read older websites." }),
+          }),
+        "amicited.domains.adopt": ({ projectId }) =>
+          Effect.tryPromise({
+            try: () => cloud.domains!.adopt(projectId),
+            catch: () => new DomainFailure({ message: "Could not add this website to AmICited." }),
+          }),
+        "amicited.domains.cloudEvidence": ({ projectId, tool, arguments: args }) =>
+          Effect.tryPromise({
+            try: () => cloud.account?.cloudEvidence(projectId, tool, args) ?? Promise.resolve(null),
+            catch: () =>
+              new DomainFailure({
+                message:
+                  "Could not read cloud evidence. Check your workspace connection and the tool schema.",
+              }),
+          }),
+        "amicited.domains.cloudSummary": ({ projectId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account?.cloudSummary(projectId) ?? Promise.resolve(null),
+            catch: () => new DomainFailure({ message: "Could not read cloud summary." }),
+          }),
+        "amicited.domains.listCloud": ({ workspaceId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.listCloudDomains(workspaceId),
+            catch: () =>
+              new DomainFailure({
+                message: "Could not read cloud websites. Local websites are still available.",
+              }),
+          }),
+        "amicited.domains.listCloudPrompts": ({ workspaceId, domainId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.listCloudPrompts(workspaceId, domainId),
+            catch: () => new DomainFailure({ message: "Could not read this website's prompts." }),
+          }),
         "amicited.setup.read": () =>
           Effect.tryPromise({
             try: () => cloud.setup?.read() ?? Promise.resolve({ finished: false }),
@@ -2069,7 +2186,7 @@ export const layerWsRpc = (
           }),
         "amicited.domains.list": () =>
           Effect.tryPromise({
-            try: () => cloud.domains?.metadata() ?? Promise.resolve([]),
+            try: () => cloud.domains?.scoped() ?? Promise.resolve([]),
             catch: () =>
               new DomainFailure({ message: "Could not read your domains. Please try again." }),
           }).pipe(Effect.tap((domains) => Effect.forkDetach(domainFavicons.sync(domains)))),
@@ -2096,9 +2213,12 @@ export const layerWsRpc = (
                   if (!cloud.domains) throw new Error("Domains unavailable");
                   return cloud.domains.register(projectId, website, brand, metadata);
                 },
-                catch: () =>
+                catch: (error) =>
                   new DomainFailure({
-                    message: "Could not save this domain. Check the website and try again.",
+                    message:
+                      error instanceof CloudDomainError
+                        ? error.message
+                        : "Could not save this domain. Check the website and try again.",
                   }),
               }),
             ),
@@ -2122,25 +2242,7 @@ export const layerWsRpc = (
           }).pipe(syncAudit(projectId)),
         "amicited.domains.connection": ({ projectId, action, apiKey }) =>
           Effect.tryPromise({
-            try: async () => {
-              await cloud.domains?.list();
-              const client =
-                (apiKey || action === "oauth") && cloud.domains
-                  ? await cloud.domains.prepareConnection(projectId)
-                  : cloud.forProject(projectId);
-              const result = await (apiKey
-                ? client.connectApiKey(apiKey)
-                : action === "oauth"
-                  ? client.connectOAuth()
-                  : action === "disconnect"
-                    ? cloud.domains
-                      ? cloud.domains.disconnect(projectId)
-                      : client.disconnect()
-                    : client.status());
-              return client === cloud.forProject(projectId)
-                ? result
-                : cloud.forProject(projectId).status();
-            },
+            try: () => cloud.domains!.connection(projectId, action, apiKey),
             catch: () =>
               new DomainFailure({
                 message: "Could not update the AmICited connection for this domain.",

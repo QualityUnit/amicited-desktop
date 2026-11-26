@@ -3,6 +3,7 @@
 import {
   DesktopBrowserCommand,
   DesktopBrowserEvent,
+  type DesktopBrowserCommand as DesktopBrowserCommandType,
   type DesktopBrowserEvent as DesktopBrowserEventType,
 } from "@t3tools/contracts";
 import * as Context from "effect/Context";
@@ -36,6 +37,11 @@ export interface DesktopBrowserTabDebugger {
   readonly webContents: Electron.WebContents;
   readonly debugger: Electron.Debugger;
 }
+
+export type DesktopHiddenTabCommand = Extract<
+  DesktopBrowserCommandType,
+  { readonly type: "openHidden" | "closeHidden" }
+>;
 
 const keyOf = ({ threadId, tabId }: DesktopBrowserTabKey) => `${threadId}\u0000${tabId}`;
 
@@ -96,6 +102,8 @@ export class DesktopBrowserHost extends Context.Service<
       readonly x: number;
       readonly y: number;
     }>;
+    /** The server's requests for pages no window shows; their owner attaches them here. */
+    readonly hiddenTabs: Stream.Stream<DesktopHiddenTabCommand>;
     /** Whether a guest needs its frames painted while the panel hides it. */
     readonly painting: Stream.Stream<{
       readonly key: DesktopBrowserTabKey;
@@ -116,6 +124,7 @@ export const make = Effect.gen(function* () {
     readonly key: DesktopBrowserTabKey;
     readonly active: boolean;
   }>();
+  const hiddenTabs = yield* PubSub.unbounded<DesktopHiddenTabCommand>();
   const runFork = Effect.runForkWith(yield* Effect.context<never>());
   const tabs = new Map<string, AttachedTab>();
   /** Threads whose agent turn runs, by the server's account. */
@@ -484,6 +493,10 @@ export const make = Effect.gen(function* () {
         else endAgentTurn(command.value.threadId);
         return;
       }
+      if (command.value.type === "openHidden" || command.value.type === "closeHidden") {
+        runFork(PubSub.publish(hiddenTabs, command.value));
+        return;
+      }
       const tab = tabs.get(keyOf(command.value));
       if (!tab) return;
       if (command.value.type === "pointer") {
@@ -527,6 +540,7 @@ export const make = Effect.gen(function* () {
   return DesktopBrowserHost.of({
     pointers: Stream.fromPubSub(pointers),
     painting: Stream.fromPubSub(painting),
+    hiddenTabs: Stream.fromPubSub(hiddenTabs),
     // Subscribes before announcing, so no attach falls between the two.
     events: Stream.unwrap(
       Effect.gen(function* () {

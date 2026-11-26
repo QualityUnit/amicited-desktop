@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { MCP_SERVER_KEY } from "@amicited/identity";
+import { TrackingToolkit } from "../../apps/server/src/amicited/TrackingToolkit.ts";
 import { ReportsToolkit } from "../../apps/server/src/amicited/ReportsToolkit.ts";
 import { SitePreviewToolkit } from "../../apps/server/src/amicited/SitePreview.ts";
 import { domainInstruction } from "../../packages/amicited-cloud/src/domainModel.ts";
@@ -445,6 +446,7 @@ const t3SourceTools: ReadonlyArray<Tool.Any> = [
   SitePreviewToolkit,
   CloudToolkit,
   ReportsToolkit,
+  TrackingToolkit,
   PullRequestsToolkit,
   PreviewToolkit,
   DeviceToolkit,

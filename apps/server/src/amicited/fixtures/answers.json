@@ -1,0 +1,10 @@
+[
+  {
+    "text": "1. **Northwind**: Simple setup for growing teams.\n2. **Acme**: Advanced reporting.",
+    "links": ["https://northwind.example/pricing", "https://acme.example/"]
+  },
+  {
+    "text": "1. **Acme**: Detailed analytics.\n2. **Contoso**: Flexible integrations.",
+    "links": ["https://acme.example/analytics"]
+  }
+]

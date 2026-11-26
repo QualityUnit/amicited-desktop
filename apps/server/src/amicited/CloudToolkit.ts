@@ -1,3 +1,5 @@
+import { Connections } from "./Connections.ts";
+import { ConnectionId } from "@amicited/cloud-client/connectionsRpc";
 import { jsonToolResult } from "./toolResult.ts";
 import { OrchestratorMcpFailure } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
@@ -15,10 +17,20 @@ const shared = {
   dependencies: [
     ThreadManagement.ThreadManagementService,
     AmicitedCloud,
+    Connections,
     McpInvocationContext.McpInvocationContext,
   ],
 };
 export const CloudToolkit = Toolkit.make(
+  Tool.make("amicited_connection", {
+    ...shared,
+    description:
+      "Check browser connection status or request that the user sign in through an inline chat card. This never signs in or posts automatically. LinkedIn is coming soon; posting will require approval. Use one Google connection for AI Overviews and AI Mode.",
+    parameters: Schema.Struct({
+      action: Schema.Literals(["status", "request"]),
+      connectionId: ConnectionId,
+    }),
+  }),
   Tool.make("amicited_cloud_discover", {
     ...shared,
     description:
@@ -116,6 +128,36 @@ const guardedCall = Effect.fn("AmicitedCloud.guardedCall")(function* (params: {
   };
 });
 export const layer = McpToolAccess.toLayer(CloudToolkit, {
+  amicited_connection: McpToolAccess.readsAsCaller((params) =>
+    Effect.gen(function* () {
+      const caller = yield* readCaller();
+      yield* assertLiveCaller(caller);
+      const connections = yield* Connections;
+      if (params.action === "status")
+        return yield* jsonToolResult(
+          connections.engine.snapshot().connections.find((c) => c.id === params.connectionId),
+        );
+      if (caller.scope.client?.access === "read-only")
+        return yield* new OrchestratorMcpFailure({
+          code: "capability_denied",
+          message: "This client can only read connection status.",
+        });
+      const threadId = caller.scope.thread?.threadId;
+      if (!threadId)
+        return yield* new OrchestratorMcpFailure({
+          code: "invalid_request",
+          message: "Request a connection from a chat.",
+        });
+      const row = connections.engine.requestConnection(
+        threadId,
+        params.connectionId,
+        params.connectionId === "linkedin"
+          ? "Connect LinkedIn to post this"
+          : `Sign in to ${params.connectionId} again to continue`,
+      );
+      return yield* jsonToolResult({ connection: row, requested: true });
+    }),
+  ),
   amicited_cloud_discover: McpToolAccess.reads(({ tool, arguments: args }) =>
     call(tool, args).pipe(Effect.flatMap(jsonToolResult)),
   ),

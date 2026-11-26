@@ -1,8 +1,19 @@
+import { InvalidGrantError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import {
+  AccountConnections,
+  workspaceFromToken,
+  workspaceLabel,
+  type SavedAccount,
+} from "./account.ts";
+import { sessionRejected } from "./model.ts";
+import { DomainConnections, type Domain } from "./domains.ts";
+import type { SecretStorage } from "./index.ts";
 import * as NodeHttp from "node:http";
 import * as NodeCrypto from "node:crypto";
 import { expect, it, vi } from "vite-plus/test";
 import { MCP_URL, CloudClient, errorState, cloudAction } from "./index.ts";
 async function fixture() {
+  let token = "oauth-token";
   let stored: string | undefined;
   let refusal = "";
   let challenge = "";
@@ -48,7 +59,7 @@ async function fixture() {
       )
         return json({ error: "invalid_grant" }, 400);
       return json({
-        access_token: "oauth-token",
+        access_token: token,
         token_type: "Bearer",
         refresh_token: "refresh",
         expires_in: 3600,
@@ -150,7 +161,10 @@ async function fixture() {
   if (!address || typeof address === "string") throw new Error();
   origin = `http://127.0.0.1:${address.port}`;
   return {
-    make(openExternal?: (url: string) => Promise<void>) {
+    make(
+      openExternal?: (url: string) => Promise<void>,
+      overrides: Partial<ConstructorParameters<typeof CloudClient>[0]> = {},
+    ) {
       return new CloudClient({
         endpoint: origin + "/mcp/amicited",
         secrets: {
@@ -175,7 +189,19 @@ async function fixture() {
             expect((await fetch(wrongState)).status).toBe(400);
             await fetch(callback);
           }),
+        ...overrides,
       });
+    },
+    setToken(value: string) {
+      token = value;
+    },
+    async authorize(value: string) {
+      const url = new URL(value);
+      challenge = url.searchParams.get("code_challenge") ?? "";
+      const callback = new URL(url.searchParams.get("redirect_uri")!);
+      callback.searchParams.set("code", "fixture-code");
+      callback.searchParams.set("state", url.searchParams.get("state")!);
+      await fetch(callback);
     },
     get registeredScope() {
       return registeredScope;
@@ -678,4 +704,172 @@ it("runs free checks, paid reads and writes in full access but confirms every de
     stop();
   }
   expect(fake.calls.filter((name) => name === "delete_prompt")).toHaveLength(1);
+});
+
+it("parses workspace claims and labels without treating offline errors as ended sessions", () => {
+  const jwt = (claims: unknown) =>
+    `e30.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+  expect(workspaceFromToken(jwt({ workspace_id: "workspace-a" }))).toBe("workspace-a");
+  for (const claims of [{}, { workspace_id: 42 }, { workspace_id: "" }])
+    expect(() => workspaceFromToken(jwt(claims))).toThrow();
+  expect(() => workspaceFromToken("opaque")).toThrow();
+  expect(sessionRejected(new InvalidGrantError("Refresh token expired"))).toBe(true);
+  expect(workspaceLabel("jana@northwind.io")).toBe("northwind.io workspace");
+  expect(workspaceLabel("jana@gmail.com")).toBe("Personal workspace");
+  for (const message of ["401 Unauthorized", "invalid_grant"])
+    expect(sessionRejected(new Error(message))).toBe(false);
+  for (const message of [
+    "fetch failed",
+    "offline",
+    "403 Forbidden",
+    "Authentication cancelled",
+    "ECONNREFUSED",
+  ])
+    expect(sessionRejected(new Error(message))).toBe(false);
+});
+it("adds OAuth workspaces, scopes and adopts websites, and preserves local data across sign-out", async () => {
+  await using fake = await fixture();
+  let saved: SavedAccount = { workspaces: [] };
+  let signInOpened: (() => void) | undefined;
+  let rows: Domain[] = [
+    {
+      projectId: "older",
+      hostname: "older.example",
+      brand: "Older",
+      connectionRef: "older",
+      domainId: "previous-workspace-domain",
+    },
+  ];
+  const secrets = new Map<string, string>();
+  const storage = (id: string): SecretStorage => ({
+    read: async () => secrets.get(id),
+    write: async (v) => {
+      secrets.set(id, v);
+    },
+    clear: async () => {
+      secrets.delete(id);
+    },
+  });
+  const legacy = JSON.stringify({ apiKey: "old-domain-key" });
+  secrets.set("older", legacy);
+  const account = new AccountConnections({
+    read: async () => saved,
+    write: async (v) => {
+      saved = v;
+    },
+    secrets: storage,
+    client: (secrets, openExternal, onSessionRejected) =>
+      fake.make(openExternal, { secrets, onSessionRejected }),
+    openExternal: async (url) => {
+      if (signInOpened) signInOpened();
+      else await fake.authorize(url);
+    },
+    userinfo: async () => ({ email: "jana@northwind.io", name: "Jana" }),
+    domains: () => domains,
+  });
+  const domains = new DomainConnections({
+    read: async () => rows,
+    write: async (v) => {
+      rows = v;
+    },
+    secrets: storage,
+    legacy: storage("legacy"),
+    client: (secrets) => fake.make(undefined, { secrets }),
+    changed: () => {},
+    account,
+  });
+  const signIn = async (id: string) => {
+    fake.setToken(
+      `e30.${Buffer.from(JSON.stringify({ workspace_id: id })).toString("base64url")}.signature`,
+    );
+    const done = new Promise<void>((resolve) => {
+      const unsubscribe = account.subscribe(() => {
+        void account.status().then((s) => {
+          if (!s.signingIn) {
+            unsubscribe();
+            resolve();
+          }
+        });
+      });
+    });
+    expect((await account.addWorkspace()).signingIn).toBe(true);
+    await done;
+    expect((await account.status()).currentWorkspaceId).toBe(id);
+  };
+  try {
+    await signIn("one");
+    expect(await account.listCloudDomains()).toEqual([
+      { workspaceId: "one", hostname: "example.com", domainId: "domain-1" },
+    ]);
+    expect((await account.status()).workspaces[0]?.name).toBe("northwind.io workspace");
+    expect(fake.calls).not.toContain("list_prompts");
+    expect(await account.listCloudPrompts("one", "domain-1")).toEqual(["Brand recommendations"]);
+    expect(fake.argumentsByTool.list_prompts).toEqual({ domain_id: "domain-1" });
+    await expect(account.listCloudDomains("two")).rejects.toThrow();
+    expect(await domains.scoped()).toEqual([]);
+    expect((await domains.older()).map((r) => r.projectId)).toEqual(["older"]);
+    fake.refuse("requires a Pro plan or above");
+    expect(await account.listCloudPrompts("one", "domain-1")).toEqual([]);
+    expect(await domains.adopt("older")).toMatchObject({
+      workspaceId: "one",
+      hostname: "older.example",
+    });
+    expect((await domains.metadata())[0]?.domainId).toBeUndefined();
+    expect(fake.calls).toContain("create_domain");
+    const created = fake.calls.filter((c) => c === "create_domain").length;
+    const linked = await domains.register("picked", "picked.example", "Picked Brand", {
+      domainId: "existing-remote",
+    });
+    expect(linked.domainId).toBe("existing-remote");
+    expect(linked.brand).toBe("Picked Brand");
+    expect(fake.calls.filter((c) => c === "create_domain")).toHaveLength(created);
+    await domains.forget("picked");
+    expect(secrets.get("older")).toBe(legacy);
+    fake.refuse("");
+    await domains.register("new", "new.example");
+    expect(fake.argumentsByTool.create_domain).toEqual({
+      create_request: { homepage_url: "https://new.example" },
+    });
+    expect((await domains.scoped()).map((r) => r.projectId)).toEqual(["older", "new"]);
+    const browserOpened = Promise.withResolvers<void>();
+    signInOpened = browserOpened.resolve;
+    await account.addWorkspace();
+    await browserOpened.promise;
+    expect((await account.cancelSignIn()).signingIn).toBe(false);
+    expect((await account.status()).currentWorkspaceId).toBe("one");
+    signInOpened = undefined;
+    await signIn("two");
+    expect(await domains.scoped()).toEqual([]);
+    expect(domains.client("new")).toBe(account.client("one"));
+    await expect(domains.adopt("older")).rejects.toThrow("not available");
+    await account.switchWorkspace("one");
+    expect(await domains.scoped()).toHaveLength(2);
+    expect(domains.client("new")).toBe(account.client("one"));
+    fake.refuse("fetch failed: offline");
+    await account.client("one").call("list_domains", {});
+    expect((await account.status()).state).toBe("signed_in");
+    fake.refuse("fetch of customer URL returned 401");
+    await account.client("one").call("list_domains", {});
+    expect((await account.status()).state).toBe("signed_in");
+    await account.switchWorkspace("two");
+    expect((await account.status()).state).toBe("signed_in");
+    fake.refuse("");
+    await signIn("one");
+    expect((await account.status()).workspaces).toHaveLength(2);
+    await account.removeWorkspace("two");
+    expect((await account.status()).workspaces.map((w) => w.id)).toEqual(["one"]);
+    await account.signOut();
+    expect((await account.status()).state).toBe("signed_out");
+    expect(await domains.scoped()).toEqual([]);
+    expect(await domains.metadata()).toHaveLength(2);
+    await signIn("one");
+    expect(await account.listCloudDomains()).toEqual([
+      { workspaceId: "one", hostname: "example.com", domainId: "domain-1" },
+    ]);
+    expect((await account.status()).workspaces[0]?.name).toBe("northwind.io workspace");
+    expect(await domains.scoped()).toHaveLength(2);
+    expect(JSON.stringify(await account.status())).not.toContain("signature");
+  } finally {
+    await account.close();
+  }
 });

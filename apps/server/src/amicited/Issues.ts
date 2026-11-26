@@ -1,5 +1,6 @@
 import {
   Issue,
+  IssueEvidence,
   type IssueAudit,
   IssueFailure,
   type IssueEffort,
@@ -36,6 +37,7 @@ import * as ServerSettings from "../serverSettings.ts";
 import { AmicitedCloud } from "./Cloud.ts";
 
 export interface IssueUpsert {
+  readonly evidence?: typeof IssueEvidence.Type;
   readonly fingerprint: string;
   readonly kind: IssueKind;
   readonly title: string;
@@ -130,6 +132,7 @@ const migrations: ReadonlyArray<
     // 0 marks audits saved before they had their own model; startup moves those once.
     (sql) => sql`ALTER TABLE amicited_issue_audits ADD COLUMN model_set INTEGER NOT NULL DEFAULT 0`,
   ],
+  [3, "Issue evidence", (sql) => sql`ALTER TABLE amicited_issues ADD COLUMN evidence TEXT`],
 ];
 
 // Audits read every report and rank the fixes, so they need a flagship model, never a fast one.
@@ -153,6 +156,7 @@ function auditModelFor(
 }
 
 interface IssueRow {
+  readonly evidence: string | null;
   readonly issue_id: string;
   readonly project_id: string;
   readonly fingerprint: string;
@@ -178,9 +182,13 @@ interface AuditRow {
   readonly model_set: number;
 }
 
+const decodeEvidence = Schema.decodeEffect(Schema.fromJsonString(IssueEvidence));
+const encodeEvidence = Schema.encodeEffect(Schema.fromJsonString(IssueEvidence));
 const decodeIssue = Schema.decodeUnknownEffect(Issue);
-const toIssue = (row: IssueRow) =>
-  decodeIssue({
+const toIssue = Effect.fn("AmicitedIssues.toIssue")(function* (row: IssueRow) {
+  const evidence = row.evidence ? yield* decodeEvidence(row.evidence) : undefined;
+  return yield* decodeIssue({
+    ...(evidence ? { evidence } : {}),
     id: row.issue_id,
     projectId: row.project_id,
     fingerprint: row.fingerprint,
@@ -198,6 +206,7 @@ const toIssue = (row: IssueRow) =>
     resolvedAt: row.resolved_at,
     updatedAt: row.updated_at,
   });
+});
 
 const fail = (message: string) => () => new IssueFailure({ message });
 
@@ -343,7 +352,7 @@ const make = Effect.gen(function* () {
   ) {
     const now = yield* nowIso;
     const [existing] = yield* issueRows(
-      sql<IssueRow>`SELECT * FROM amicited_issues WHERE project_id = ${projectId} AND fingerprint = ${input.fingerprint}`,
+      sql<IssueRow>`SELECT * FROM amicited_issues WHERE fingerprint = ${input.fingerprint} AND (project_id = ${projectId} OR ${input.fingerprint.startsWith("tracking:connection:")}) LIMIT 1`,
     );
     const effort = input.effort ?? null;
     let id: string;
@@ -372,6 +381,14 @@ const make = Effect.gen(function* () {
             resolved_at = ${reopen ? null : existing.resolvedAt}
         WHERE issue_id = ${id}
       `.pipe(Effect.mapError(fail("Could not save the issue.")));
+    }
+    if (input.evidence) {
+      const evidence = yield* encodeEvidence(input.evidence).pipe(
+        Effect.mapError(fail("Could not encode issue evidence.")),
+      );
+      yield* sql`UPDATE amicited_issues SET evidence=${evidence} WHERE issue_id=${id}`.pipe(
+        Effect.mapError(fail("Could not save issue evidence.")),
+      );
     }
     yield* notify;
     return yield* findIssue(id);

@@ -1,0 +1,43 @@
+{
+  "url": "https://www.google.com/search?q=youtube&gl=sk",
+  "results": true,
+  "overview": null,
+  "organic": [
+    {
+      "url": "https://www.google.com/goto?url=TOKEN",
+      "title": "YouTube",
+      "text": "YouTube\nYouTube\nhttps://www.youtube.com",
+      "cite": "https://www.youtube.com"
+    },
+    {
+      "url": "https://play.google.com/store/apps/details?id=com.google.android.youtube&hl=sk",
+      "title": "Aplikácie v službe Google Play - YouTube",
+      "text": "Aplikácie v službe Google Play - YouTube\nGoogle Play\nhttps://play.google.com › store › apps › details › id=com...",
+      "cite": "https://play.google.com › store › apps › details › id=com..."
+    },
+    {
+      "url": "https://www.google.com/goto?url=TOKEN",
+      "title": "YouTube - Instagram photos and videos",
+      "text": "YouTube - Instagram photos and videos\nInstagram · youtube\nViac než 30,4 mil. sledovateľov",
+      "cite": "Viac než 30,4 mil. sledovateľov"
+    },
+    {
+      "url": "https://www.google.com/goto?url=TOKEN",
+      "title": "YouTube - App Store - Apple",
+      "text": "YouTube - App Store - Apple\nApple\nhttps://apps.apple.com › app › y...",
+      "cite": "https://apps.apple.com › app › y..."
+    },
+    {
+      "url": "https://www.google.com/goto?url=TOKEN",
+      "title": "YouTube",
+      "text": "YouTube\nWikipedia\nhttps://en.wikipedia.org › wiki",
+      "cite": "https://en.wikipedia.org › wiki"
+    },
+    {
+      "url": "https://www.google.com/goto?url=TOKEN",
+      "title": "YouTube",
+      "text": "YouTube\nFacebook · YouTube\nViac než 108,9 mil. sledovateľov",
+      "cite": "Viac než 108,9 mil. sledovateľov"
+    }
+  ]
+}

@@ -1,4 +1,8 @@
+import * as AmicitedTracking from "./amicited/Tracking.ts";
 import * as HtmlRender from "./htmlRender/HtmlRender.ts";
+import * as AmicitedConnections from "./amicited/Connections.ts";
+import * as AmicitedBrowserBridge from "./amicited/browser/BrowserBridge.ts";
+import * as AmicitedBrowserSessions from "./amicited/browser/BrowserSessions.ts";
 import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsApi from "./amicited/ReportsApi.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
@@ -778,6 +782,22 @@ const layerCommandReadiness = HttpRouter.middleware(
   { global: true },
 );
 
+const layerConnectionsBrowser = AmicitedConnections.layer.pipe(
+  Layer.provide(
+    AmicitedBrowserSessions.layer.pipe(
+      Layer.provide(AmicitedBrowserBridge.layer),
+      Layer.provide(ExternalLauncher.layer),
+    ),
+  ),
+  Layer.provideMerge(
+    ServerBrowser.layer.pipe(
+      Layer.provide(Layer.merge(DesktopBrowserChannel.layer, PreviewAgentActivity.layer)),
+    ),
+  ),
+  Layer.provide(PreviewAutomationBroker.layer),
+  Layer.provide(PreviewBrowser.layer),
+);
+
 const layerMakeRoutes = Layer.mergeAll(
   Layer.mergeAll(
     HttpApiBuilder.layer(EnvironmentHttpApi).pipe(
@@ -820,11 +840,7 @@ const layerMakeRoutes = Layer.mergeAll(
   // Share the service so HTTP/WS clients single-flight reads and invalidate each other's cached patches.
   Layer.provide(layerPullRequestService),
   // The same activity instance RunExecutionService reports to, by layer memoization.
-  Layer.provide(
-    ServerBrowser.layer.pipe(
-      Layer.provide(Layer.merge(DesktopBrowserChannel.layer, PreviewAgentActivity.layer)),
-    ),
-  ),
+  Layer.provide(layerConnectionsBrowser),
   Layer.provide(PreviewBrowser.layer),
   // Links to other environments, shared by Settings (WebSocket) and agents (/mcp).
   Layer.provide(
@@ -1198,7 +1214,10 @@ const layerMakeServer = Layer.unwrap(
         { concurrency: "unbounded" },
       ).pipe(Effect.asVoid),
     }).pipe(
+      Layer.provideMerge(AmicitedTracking.layerWorker),
+      Layer.provideMerge(AmicitedTracking.layer),
       Layer.provideMerge(AmicitedIssues.layer),
+      Layer.provideMerge(layerConnectionsBrowser),
       Layer.provideMerge(AmicitedDomainFavicons.layer),
       Layer.provideMerge(layerRuntimeDependencies),
       Layer.provide(layerLauncher),

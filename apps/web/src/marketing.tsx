@@ -1,3 +1,10 @@
+import { CloudPage } from "./rpc/amicitedCloud";
+import {
+  WorkspaceAttention,
+  WorkspaceSwitcher,
+  AccountSettings,
+  useAmicitedAccount,
+} from "./amicited/amicitedAccount";
 import { PRIMARY_LOCAL_ENVIRONMENT_ID } from "@t3tools/contracts";
 import { useEnvironmentIdentificationMode, useEnvironmentSettings } from "./hooks/useSettings";
 import { lastDomains, readDefaultDomain } from "./marketingDomainStore";
@@ -78,7 +85,7 @@ import type { TraitsSelectionInput } from "./components/chat/TraitsPicker";
 import { Switch } from "./components/ui/switch";
 import { Link } from "@tanstack/react-router";
 /* oxlint-disable shadcn/no-unknown-classes -- Marketing classes are supplied by @amicited/ui-marketing, independent of the upstream Tailwind theme. */
-import { CloudPage } from "./rpc/amicitedCloud";
+import { ConnectionsHub } from "./amicited/amicitedConnections";
 
 import { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { ConnectedAgentsStep } from "./components/onboarding/WelcomeWizard";
@@ -108,6 +115,7 @@ import {
 import { useScratchProject } from "./hooks/useScratchProject";
 import { useNewThreadHandler } from "./hooks/useHandleNewThread";
 import { IssuesPage, IssuesSidebarRow } from "./marketingIssues";
+import { AiVisibilityPage, AiVisibilitySidebarRow } from "./amicited/AiVisibility";
 
 const KitButton = ({
   variant = "outline",
@@ -215,6 +223,7 @@ function KitWorkDisclosure({
   );
 }
 function KitBreadcrumb({ children }: { children: ReactNode }) {
+  const { current } = useAmicitedAccount();
   const ref = useThreadRouteRef();
   const thread = useThreadShell(ref);
   const { rows } = useDomains(ref?.environmentId);
@@ -222,7 +231,9 @@ function KitBreadcrumb({ children }: { children: ReactNode }) {
   return (
     <WorkspaceBreadcrumb ariaLabel="Workspace">
       <WorkspaceBreadcrumbItem>
-        <WorkspaceBreadcrumbText>{domain?.hostname ?? "Your workspace"}</WorkspaceBreadcrumbText>
+        <WorkspaceBreadcrumbText>
+          {domain?.hostname ?? current?.name ?? "Your workspace"}
+        </WorkspaceBreadcrumbText>
       </WorkspaceBreadcrumbItem>
       <WorkspaceBreadcrumbSeparator />
       <WorkspaceBreadcrumbItem current>
@@ -298,11 +309,19 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   }
                 />
               </div>
+              <WorkspaceSwitcher />
               <IssuesSidebarRow
                 active={path.startsWith("/issues")}
                 onOpen={() => {
                   setArchived(false);
                   void navigate({ to: "/issues" });
+                }}
+              />
+              <AiVisibilitySidebarRow
+                active={path.startsWith("/visibility") || path.startsWith("/prompts")}
+                onOpen={() => {
+                  setArchived(false);
+                  void navigate({ to: "/visibility" });
                 }}
               />
               <MarketingHistory archived={archived} setArchived={setArchived} />
@@ -312,7 +331,7 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
                   {[
                     ["Settings", "/settings/general", Settings],
                     ["Reports", "/reports", FileText],
-                    ["AmICited", "/marketing-settings", PlugZap],
+                    ["Connections", "/marketing-settings", PlugZap],
                   ].map(([label, href, Icon]) => (
                     <SidebarMenuItem key={String(label)} className="shrink-0">
                       <SidebarMenuButton
@@ -339,7 +358,15 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
             externalSidebar
             desktop={isElectron}
             headerTitle={
-              archived ? "Archived chats" : path.startsWith("/reports") ? "Reports" : undefined
+              archived
+                ? "Archived chats"
+                : path === "/marketing-settings"
+                  ? "Connections"
+                  : path.startsWith("/reports")
+                    ? "Reports"
+                    : path.startsWith("/visibility") || path.startsWith("/prompts")
+                      ? "AI Visibility"
+                      : undefined
             }
             mode={mode}
             taskView={taskTarget !== null}
@@ -354,8 +381,12 @@ export function MarketingBoundary({ children }: { children: ReactNode }) {
               <MarketingArchive />
             ) : path === "/issues" ? (
               <IssuesPage />
+            ) : path === "/visibility" ? (
+              <AiVisibilityPage />
             ) : path === "/marketing-settings" ? (
-              <CloudPage />
+              <>
+                <ConnectionsHub />
+              </>
             ) : path === "/settings/general" ? (
               <MarketingSettings />
             ) : path.startsWith("/settings") ? (
@@ -455,6 +486,10 @@ export function MarketingSettings() {
           Run setup again
         </Button>
       </div>
+      <div className="am-page">
+        <AccountSettings />
+      </div>
+      <CloudPage />
       <MarketingSettingsView modeControl={renderModeSwitch} domains={<DomainsSettings />} />
     </>
   );
@@ -707,6 +742,10 @@ function MarketingHistory({
       <NewDomainDialog open={newDomainOpen} onOpenChange={setNewDomainOpen} />
       <ThreadSidebar
         routeReveal={routeReveal}
+        allowedProjectKeys={
+          new Set(domains.rows.map((row) => `${domains.environmentId}:${row.projectId}`))
+        }
+        beforeSettled={<WorkspaceAttention />}
         onNewDomain={() => setNewDomainOpen(true)}
         resolveThreadLocation={(thread) => {
           const folder = domains.rows.find((row) => row.projectId === thread.projectId)?.siteFiles;

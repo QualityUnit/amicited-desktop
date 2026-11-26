@@ -78,6 +78,26 @@ it.effect(
 
       const other = yield* issues.upsert("other-domain", problem);
       assert.notStrictEqual(other.id, first.id);
+      const connection = {
+        ...problem,
+        fingerprint: "tracking:connection:google",
+        kind: "connect" as const,
+      };
+      const evidence = {
+        affectedPromptCount: 2,
+        questions: ["Question one", "Question two"],
+        destination: "/prompts?site=domain&run=check",
+      };
+      const google = yield* issues.upsert("domain", { ...connection, evidence });
+      assert.deepEqual(
+        (yield* issues.list("domain", "all")).find((i) => i.id === google.id)?.evidence,
+        evidence,
+      );
+      assert.strictEqual((yield* issues.upsert("other-domain", connection)).id, google.id);
+      yield* issues.update({ id: google.id, status: "done", resolution: "audit" });
+      assert.strictEqual((yield* issues.upsert("other-domain", connection)).status, "open");
+      yield* issues.update({ id: google.id, status: "dismissed" });
+      assert.strictEqual((yield* issues.upsert("domain", connection)).status, "dismissed");
     }).pipe(Effect.provide(layer)),
 );
 
@@ -159,6 +179,7 @@ it.effect.each([
       const sql = yield* SqlClient.SqlClient;
       yield* sql`CREATE TABLE amicited_migrations (migration_id INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)`;
       yield* sql`INSERT INTO amicited_migrations VALUES (1, 'Issues', '2026-11-01T00:00:00Z')`;
+      yield* sql`CREATE TABLE amicited_issues (issue_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, fingerprint TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, report TEXT NOT NULL, priority TEXT NOT NULL, effort TEXT, status TEXT NOT NULL, resolution TEXT, thread_id TEXT, first_seen_at TEXT NOT NULL, last_seen_at TEXT NOT NULL, resolved_at TEXT, updated_at TEXT NOT NULL, UNIQUE (project_id, fingerprint))`;
       yield* sql`CREATE TABLE amicited_issue_audits (project_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, instructions TEXT NOT NULL DEFAULT '')`;
       yield* sql`INSERT INTO amicited_issue_audits VALUES ('domain', 'task-1', '')`;
     }),

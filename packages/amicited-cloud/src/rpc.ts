@@ -60,12 +60,93 @@ export const DomainRecord = Schema.Struct({
   connectionRef: Schema.String,
   ...SiteMetadata,
   domainId: Schema.optionalKey(Schema.String),
+  workspaceId: Schema.optionalKey(Schema.String),
 });
 const SetupState = Schema.Struct({
   finished: Schema.Boolean,
+  trackingOffered: Schema.optionalKey(Schema.Boolean),
   lastDomain: Schema.optionalKey(Schema.String),
 });
+export const CloudWebsite = Schema.Struct({
+  workspaceId: Schema.String,
+  hostname: Schema.String,
+  domainId: Schema.optionalKey(Schema.String),
+  brand: Schema.optionalKey(Schema.String),
+});
+export type CloudWebsite = typeof CloudWebsite.Type;
+export const AccountWorkspace = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  email: Schema.String,
+  userName: Schema.String,
+  plan: Schema.String,
+  access: Schema.Literals(["free", "full", "unknown"]),
+  sessionEnded: Schema.Boolean,
+  attentionCount: Schema.Number,
+  canCreateDomains: Schema.optionalKey(Schema.Boolean),
+  websites: Schema.Array(Schema.String),
+  projectIds: Schema.optionalKey(Schema.Array(Schema.String)),
+});
+export const AccountStatus = Schema.Struct({
+  state: Schema.Literals(["signed_out", "signed_in", "session_ended"]),
+  workspaces: Schema.Array(AccountWorkspace),
+  currentWorkspaceId: Schema.optionalKey(Schema.String),
+  signingIn: Schema.Boolean,
+  accountWide: Schema.optionalKey(Schema.Boolean),
+  error: Schema.optionalKey(Schema.String),
+});
+import { connectionRpcs } from "./connectionsRpc.ts";
 export const cloudRpcs = [
+  ...connectionRpcs,
+  Rpc.make("amicited.account.status", { success: AccountStatus, error: DomainFailure }),
+  Rpc.make("amicited.account.subscribe", { success: AccountStatus, stream: true }),
+  ...(["addWorkspace", "cancelSignIn", "reopenSignIn", "signOut"] as const).map((method) =>
+    Rpc.make(`amicited.account.${method}`, { success: AccountStatus, error: DomainFailure }),
+  ),
+  ...(["switchWorkspace", "removeWorkspace"] as const).map((method) =>
+    Rpc.make(`amicited.account.${method}`, {
+      payload: { workspaceId: Schema.String },
+      success: AccountStatus,
+      error: DomainFailure,
+    }),
+  ),
+  Rpc.make("amicited.domains.older", { success: Schema.Array(DomainRecord), error: DomainFailure }),
+  Rpc.make("amicited.domains.adopt", {
+    payload: { projectId: Schema.String },
+    success: DomainRecord,
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.cloudEvidence", {
+    payload: {
+      projectId: Schema.String,
+      tool: Schema.String,
+      arguments: Schema.Record(Schema.String, Schema.Unknown),
+    },
+    success: Schema.Unknown,
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.cloudSummary", {
+    payload: { projectId: Schema.String },
+    success: Schema.NullOr(
+      Schema.Struct({
+        domainId: Schema.String,
+        promptCount: Schema.NullOr(Schema.Number),
+        countries: Schema.NullOr(Schema.Array(Schema.String)),
+        visibility: Schema.NullOr(Schema.Number),
+      }),
+    ),
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.listCloud", {
+    payload: { workspaceId: Schema.optionalKey(Schema.String) },
+    success: Schema.Array(CloudWebsite),
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.listCloudPrompts", {
+    payload: { workspaceId: Schema.String, domainId: Schema.String },
+    success: Schema.Array(Schema.String),
+    error: DomainFailure,
+  }),
   Rpc.make("amicited.setup.read", { success: SetupState, error: DomainFailure }),
   Rpc.make("amicited.setup.write", {
     payload: SetupState,
@@ -82,6 +163,8 @@ export const cloudRpcs = [
     payload: {
       projectId: Schema.String,
       website: Schema.String,
+      expectedWorkspaceId: Schema.optionalKey(Schema.String),
+      domainId: Schema.optionalKey(Schema.String),
       ...SiteMetadata,
       brand: Schema.optionalKey(Schema.String),
     },

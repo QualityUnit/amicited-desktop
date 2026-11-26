@@ -15,8 +15,13 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("./marketingDomains", () => ({
   useDomains: () => ({ rows: [] }),
+  useDomainConnection: () => ({ connection: undefined }),
+  useDomainLinks: () => new Map(),
   NewDomainDialog: () => null,
   DomainConnection: () => null,
+  DomainsSettings: () => null,
+  DomainMigration: () => null,
+  DomainFolderHeader: () => null,
 }));
 vi.mock("./marketing", () => ({
   MarketingSubscriptions: () => null,

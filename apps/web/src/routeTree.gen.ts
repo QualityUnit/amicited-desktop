@@ -17,10 +17,12 @@ import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as ChatRouteImport } from './routes/_chat'
 import { Route as ChatIndexRouteImport } from './routes/_chat.index'
 import { Route as ProjectsProjectKeyRouteImport } from './routes/projects.$projectKey'
+import { Route as ChatVisibilityRouteImport } from './routes/_chat.visibility'
 import { Route as ChatUsageRouteImport } from './routes/_chat.usage'
 import { Route as ChatTasksRouteImport } from './routes/_chat.tasks'
 import { Route as ChatSettingsRouteImport } from './routes/_chat.settings'
 import { Route as ChatPullRequestsRouteImport } from './routes/_chat.pull-requests'
+import { Route as ChatPromptsRouteImport } from './routes/_chat.prompts'
 import { Route as ChatNewRouteImport } from './routes/_chat.new'
 import { Route as ChatMarketingSettingsRouteImport } from './routes/_chat.marketing-settings'
 import { Route as ChatIssuesRouteImport } from './routes/_chat.issues'
@@ -96,6 +98,11 @@ const ProjectsProjectKeyRoute = ProjectsProjectKeyRouteImport.update({
   path: '/projects/$projectKey',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatVisibilityRoute = ChatVisibilityRouteImport.update({
+  id: '/visibility',
+  path: '/visibility',
+  getParentRoute: () => ChatRoute,
+} as any)
 const ChatUsageRoute = ChatUsageRouteImport.update({
   id: '/usage',
   path: '/usage',
@@ -114,6 +121,11 @@ const ChatSettingsRoute = ChatSettingsRouteImport.update({
 const ChatPullRequestsRoute = ChatPullRequestsRouteImport.update({
   id: '/pull-requests',
   path: '/pull-requests',
+  getParentRoute: () => ChatRoute,
+} as any)
+const ChatPromptsRoute = ChatPromptsRouteImport.update({
+  id: '/prompts',
+  path: '/prompts',
   getParentRoute: () => ChatRoute,
 } as any)
 const ChatNewRoute = ChatNewRouteImport.update({
@@ -309,10 +321,12 @@ export interface FileRoutesByFullPath {
   '/issues': typeof ChatIssuesRoute
   '/marketing-settings': typeof ChatMarketingSettingsRoute
   '/new': typeof ChatNewRoute
+  '/prompts': typeof ChatPromptsRoute
   '/pull-requests': typeof ChatPullRequestsRoute
   '/settings': typeof ChatSettingsRouteWithChildren
   '/tasks': typeof ChatTasksRoute
   '/usage': typeof ChatUsageRoute
+  '/visibility': typeof ChatVisibilityRoute
   '/projects/$projectKey': typeof ProjectsProjectKeyRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
   '/draft/$draftId': typeof ChatDraftDraftIdRoute
@@ -356,10 +370,12 @@ export interface FileRoutesByTo {
   '/issues': typeof ChatIssuesRoute
   '/marketing-settings': typeof ChatMarketingSettingsRoute
   '/new': typeof ChatNewRoute
+  '/prompts': typeof ChatPromptsRoute
   '/pull-requests': typeof ChatPullRequestsRoute
   '/settings': typeof ChatSettingsRouteWithChildren
   '/tasks': typeof ChatTasksRoute
   '/usage': typeof ChatUsageRoute
+  '/visibility': typeof ChatVisibilityRoute
   '/projects/$projectKey': typeof ProjectsProjectKeyRoute
   '/': typeof ChatIndexRoute
   '/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
@@ -406,10 +422,12 @@ export interface FileRoutesById {
   '/_chat/issues': typeof ChatIssuesRoute
   '/_chat/marketing-settings': typeof ChatMarketingSettingsRoute
   '/_chat/new': typeof ChatNewRoute
+  '/_chat/prompts': typeof ChatPromptsRoute
   '/_chat/pull-requests': typeof ChatPullRequestsRoute
   '/_chat/settings': typeof ChatSettingsRouteWithChildren
   '/_chat/tasks': typeof ChatTasksRoute
   '/_chat/usage': typeof ChatUsageRoute
+  '/_chat/visibility': typeof ChatVisibilityRoute
   '/projects/$projectKey': typeof ProjectsProjectKeyRoute
   '/_chat/': typeof ChatIndexRoute
   '/_chat/$environmentId/$threadId': typeof ChatEnvironmentIdThreadIdRoute
@@ -457,10 +475,12 @@ export interface FileRouteTypes {
     | '/issues'
     | '/marketing-settings'
     | '/new'
+    | '/prompts'
     | '/pull-requests'
     | '/settings'
     | '/tasks'
     | '/usage'
+    | '/visibility'
     | '/projects/$projectKey'
     | '/$environmentId/$threadId'
     | '/draft/$draftId'
@@ -504,10 +524,12 @@ export interface FileRouteTypes {
     | '/issues'
     | '/marketing-settings'
     | '/new'
+    | '/prompts'
     | '/pull-requests'
     | '/settings'
     | '/tasks'
     | '/usage'
+    | '/visibility'
     | '/projects/$projectKey'
     | '/'
     | '/$environmentId/$threadId'
@@ -553,10 +575,12 @@ export interface FileRouteTypes {
     | '/_chat/issues'
     | '/_chat/marketing-settings'
     | '/_chat/new'
+    | '/_chat/prompts'
     | '/_chat/pull-requests'
     | '/_chat/settings'
     | '/_chat/tasks'
     | '/_chat/usage'
+    | '/_chat/visibility'
     | '/projects/$projectKey'
     | '/_chat/'
     | '/_chat/$environmentId/$threadId'
@@ -661,6 +685,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsProjectKeyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_chat/visibility': {
+      id: '/_chat/visibility'
+      path: '/visibility'
+      fullPath: '/visibility'
+      preLoaderRoute: typeof ChatVisibilityRouteImport
+      parentRoute: typeof ChatRoute
+    }
     '/_chat/usage': {
       id: '/_chat/usage'
       path: '/usage'
@@ -687,6 +718,13 @@ declare module '@tanstack/react-router' {
       path: '/pull-requests'
       fullPath: '/pull-requests'
       preLoaderRoute: typeof ChatPullRequestsRouteImport
+      parentRoute: typeof ChatRoute
+    }
+    '/_chat/prompts': {
+      id: '/_chat/prompts'
+      path: '/prompts'
+      fullPath: '/prompts'
+      preLoaderRoute: typeof ChatPromptsRouteImport
       parentRoute: typeof ChatRoute
     }
     '/_chat/new': {
@@ -1004,10 +1042,12 @@ interface ChatRouteChildren {
   ChatIssuesRoute: typeof ChatIssuesRoute
   ChatMarketingSettingsRoute: typeof ChatMarketingSettingsRoute
   ChatNewRoute: typeof ChatNewRoute
+  ChatPromptsRoute: typeof ChatPromptsRoute
   ChatPullRequestsRoute: typeof ChatPullRequestsRoute
   ChatSettingsRoute: typeof ChatSettingsRouteWithChildren
   ChatTasksRoute: typeof ChatTasksRoute
   ChatUsageRoute: typeof ChatUsageRoute
+  ChatVisibilityRoute: typeof ChatVisibilityRoute
   ChatIndexRoute: typeof ChatIndexRoute
   ChatEnvironmentIdThreadIdRoute: typeof ChatEnvironmentIdThreadIdRoute
   ChatDraftDraftIdRoute: typeof ChatDraftDraftIdRoute
@@ -1020,10 +1060,12 @@ const ChatRouteChildren: ChatRouteChildren = {
   ChatIssuesRoute: ChatIssuesRoute,
   ChatMarketingSettingsRoute: ChatMarketingSettingsRoute,
   ChatNewRoute: ChatNewRoute,
+  ChatPromptsRoute: ChatPromptsRoute,
   ChatPullRequestsRoute: ChatPullRequestsRoute,
   ChatSettingsRoute: ChatSettingsRouteWithChildren,
   ChatTasksRoute: ChatTasksRoute,
   ChatUsageRoute: ChatUsageRoute,
+  ChatVisibilityRoute: ChatVisibilityRoute,
   ChatIndexRoute: ChatIndexRoute,
   ChatEnvironmentIdThreadIdRoute: ChatEnvironmentIdThreadIdRoute,
   ChatDraftDraftIdRoute: ChatDraftDraftIdRoute,

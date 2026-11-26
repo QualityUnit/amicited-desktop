@@ -328,6 +328,9 @@ function ReportsListContent() {
           New report
         </Button>
       </header>
+      <Link to="/prompts" search={{ site: undefined }}>
+        AI visibility · Prompts and results
+      </Link>
       <label className="flex items-center gap-2 text-sm">
         <Switch checked={archived} onCheckedChange={setArchived} />
         Show archived

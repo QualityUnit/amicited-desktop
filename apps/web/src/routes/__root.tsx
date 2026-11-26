@@ -1,3 +1,4 @@
+import { AmicitedAccountGate } from "../amicited/amicitedAccount";
 import { MarketingNavigationBridge } from "../marketingNavigation";
 import { useWorkspaceMode, readWorkspaceMode } from "@amicited/ui-marketing";
 import { MarketingBoundary, MarketingFirstRun } from "../marketing";
@@ -180,14 +181,16 @@ function RootRouteBranch() {
 
   if (pathname === "/welcome" && marketingMode)
     return (
-      <MarketingNavigationBridge>
-        <MarketingFirstRun />
-      </MarketingNavigationBridge>
+      <AmicitedAccountGate>
+        <MarketingNavigationBridge>
+          <MarketingFirstRun />
+        </MarketingNavigationBridge>
+      </AmicitedAccountGate>
     );
 
   if (pathname === "/welcome") {
     return (
-      <>
+      <AmicitedAccountGate>
         <CustomSnoozeDialogHost />
         <GuestShareDialogHost />
         <CommandPalette>
@@ -195,7 +198,7 @@ function RootRouteBranch() {
             <Outlet />
           </AppSidebarLayout>
         </CommandPalette>
-      </>
+      </AmicitedAccountGate>
     );
   }
 

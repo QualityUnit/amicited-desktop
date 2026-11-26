@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MarketingSettings } from "../marketing";
+import { ConnectionsHub } from "../amicited/amicitedConnections";
 export const Route = createFileRoute("/_chat/marketing-settings")({
-  component: () => <MarketingSettings />,
+  validateSearch: (search: Record<string, unknown>): { connect?: string } =>
+    typeof search.connect === "string" ? { connect: search.connect } : {},
+  component: () => <ConnectionsHub />,
 });

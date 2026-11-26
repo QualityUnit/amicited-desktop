@@ -1611,7 +1611,9 @@ function OpenCommandPaletteDialog(props: {
     for (const [title, path] of [
       ["Open issues", "/issues"],
       ["Open reports", "/reports"],
-      ["Open AmICited", "/marketing-settings"],
+      ["Open connections", "/marketing-settings"],
+      ["Open AI visibility", "/visibility"],
+      ["Switch workspace", "/settings/general"],
     ] as const) {
       actionItems.push({
         kind: "action",
@@ -1620,7 +1622,11 @@ function OpenCommandPaletteDialog(props: {
         searchTerms: [title],
         icon: <SettingsIcon className={ITEM_ICON_CLASS} />,
         run: async () => {
-          await navigate({ to: path });
+          await navigate(
+            path === "/settings/general"
+              ? { to: path, search: { section: "workspaces" } }
+              : { to: path },
+          );
         },
       });
     }

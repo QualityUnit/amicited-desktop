@@ -2,6 +2,8 @@ export const MCP_URL = "https://api.flowhunt.io/mcp/amicited";
 export const SUBSCRIPTION_URL = "https://app.flowhunt.io/amicited/subscription";
 export const DOCS_URL = "https://app.flowhunt.io/aistudio/settings?tab=apikeys&from=amicited";
 export const SCOPES = ["amicited:read", "amicited:write", "amicited:spending"];
+export const ACCOUNT_CLIENT_ID = "amicited-desktop";
+export const ACCOUNT_SCOPES = ["openid", "profile", "email", "api"];
 export type ErrorKind = "auth" | "plan_required" | "no_credits" | "rate_limited" | "network";
 export type Connection =
   | { state: "disconnected" }
@@ -25,4 +27,13 @@ export type Connection =
 
 export function domainNames(domains: readonly { id: string; name: string }[] | undefined) {
   return domains?.map((domain) => domain.name) ?? [];
+}
+
+export function sessionRejected(error: unknown) {
+  if (error && typeof error === "object") {
+    if ("errorCode" in error && error.errorCode === "invalid_grant") return true;
+    if ("status" in error && error.status === 401) return true;
+    if ("code" in error && error.code === 401) return true;
+  }
+  return false;
 }

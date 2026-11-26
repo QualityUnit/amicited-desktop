@@ -31,6 +31,7 @@ const workspaceFiles = [
   "packages/amicited-tools-core/package.json",
   "packages/amicited-ui/package.json",
   "packages/amicited-ui-cloud/package.json",
+  "packages/amicited-visibility/package.json",
   "packages/client-runtime/package.json",
   "packages/contracts/package.json",
   "packages/shared/package.json",

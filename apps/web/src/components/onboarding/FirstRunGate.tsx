@@ -1,3 +1,4 @@
+import { AmicitedAccountGate } from "../../amicited/amicitedAccount";
 import { PRODUCT_NAME } from "@amicited/identity";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { useAtomValue } from "@effect/atom-react";
@@ -65,7 +66,18 @@ const soleThreadAtom = Atom.make((get) => {
   return threads.length === 1 ? threads[0]! : null;
 }).pipe(Atom.withLabel("web-onboarding-sole-thread"));
 
-export function FirstRunGate({
+export function FirstRunGate(props: {
+  readonly enabled: boolean;
+  readonly hostedStatic: boolean;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <AmicitedAccountGate>
+      <ExistingFirstRunGate {...props} />
+    </AmicitedAccountGate>
+  );
+}
+function ExistingFirstRunGate({
   enabled,
   hostedStatic,
   children,
