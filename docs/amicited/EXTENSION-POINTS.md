@@ -674,7 +674,7 @@ run use GitHub-hosted labels:
 
 - `.github/workflows/ci.yml`: `runs-on` is `ubuntu-24.04` or `macos-26`; job timeouts are raised for the 4 vCPU hosted runners.
 - `.github/workflows/windows-tests.yml`: `runs-on` is `windows-2025`.
-- `.github/workflows/release.yml`: `runs-on` and the desktop `runner` inputs are `ubuntu-24.04`, `ubuntu-24.04-arm` or `macos-26`; preflight, test and bundle timeouts are raised. `release-desktop.yml`: the packaging timeout is raised.
+- `.github/workflows/release.yml`: `runs-on` and the desktop `runner` inputs are `ubuntu-24.04`, `ubuntu-24.04-arm` or `macos-26`; preflight, test and bundle timeouts are raised. The `finalize` job pushes the stable version bump to `main` with the workflow's `GITHUB_TOKEN` instead of upstream's release GitHub App, which needs `main` to stay without branch protection. `release-desktop.yml`: the packaging timeout is raised.
 - `scripts/prepare-server-compile-cache.cjs`: an Intel macOS cache timeout under Rosetta discards partial bytecode and allows packaging to finish. `scripts/lib/server-compile-cache.test.ts` covers the fallback.
 
 Workflows we do not run are also disabled in repository settings. That state is not
