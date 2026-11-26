@@ -770,7 +770,7 @@ it.each(["new", "existing"])("sets up the assistant and AI apps (website: %s)", 
       });
     await screen.getByRole("button", { name: "Set up later", exact: true }).click();
     await expect.element(screen.getByRole("region", { name: "AI apps" })).toBeVisible();
-    await expect.element(screen.getByText("4 of 6 connected", { exact: true })).toBeVisible();
+    await expect.element(screen.getByText("3 of 5 connected", { exact: true })).toBeVisible();
     await expect
       .element(screen.getByRole("button", { name: "Continue", exact: true }))
       .toBeEnabled();

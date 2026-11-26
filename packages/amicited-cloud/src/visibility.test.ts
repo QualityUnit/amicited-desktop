@@ -8,7 +8,7 @@ const answer = (
   prompt: string,
   text: string,
   links: string[],
-  engine: "chatgpt" | "gemini" = "chatgpt",
+  engine: "chatgpt" | "gemini" | "google" = "chatgpt",
 ) =>
   trackingAnswer(
     prompt,
@@ -38,6 +38,8 @@ it("measures share of voice and citation like the dashboard, per day and over th
       ]),
       run("2026-11-19", [
         answer("a", "Acme leads.", ["https://www.acme.com/", "https://docs.acme.com/z"]),
+        // Google AI Mode is hidden, so its answers stay out of every number.
+        answer("a", "Zoho only.", ["https://www.google.com/goto?url=x"], "google"),
         trackingAnswer(
           "b",
           unansweredResult(

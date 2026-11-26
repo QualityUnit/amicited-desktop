@@ -5,6 +5,10 @@ from the user's own computer, once a day, with their own sign-ins: in AmICited's
 browser by default, or in the browser they already use through the AmICited Connector. The engine code is in `packages/amicited-visibility`; the server side is in
 `apps/server/src/amicited/browser` and `Tracking.ts`; the extension is `apps/amicited-connector`.
 
+An engine whose capture is unreliable sets `supported = false`: setup, Connections and results
+hide it, and saved settings drop it on read, while its id stays in the schemas so stored answers
+still decode. Google AI Mode is hidden this way until its capture is fixed.
+
 ## Why a companion extension
 
 To use the user's default browser with their real profile, these do not work:

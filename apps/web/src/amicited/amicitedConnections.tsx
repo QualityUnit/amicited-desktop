@@ -11,7 +11,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { AsyncResult, Atom } from "effect/reactivity";
 import * as Option from "effect/Option";
 import { connectionCatalogue, signInIsOptional } from "@amicited/cloud-client/connections";
-import { engineNeedsConnect } from "@amicited/cloud-client/tracking";
+import { engineNeedsConnect, supportedEngines } from "@amicited/cloud-client/tracking";
 import type {
   BrowserChoice,
   ConnectionId,
@@ -145,8 +145,9 @@ export function ConnectAiAppsGrid({
     <section>
       <h2 className="am-section-label">AI apps to track</h2>
       <div className="am-engine-grid">
-        {(["chatgpt", "perplexity", "gemini", "claude", "google_overviews", "google"] as const).map(
-          (engine) => {
+        {(["chatgpt", "perplexity", "gemini", "claude", "google_overviews", "google"] as const)
+          .filter((engine) => supportedEngines.includes(engine))
+          .map((engine) => {
             const id = ["gemini", "google_overviews"].includes(engine) ? "google" : engine;
             const row = state.snapshot.connections.find((r) => r.id === id);
             const signInFree = !engineNeedsConnect(engine);
@@ -192,8 +193,7 @@ export function ConnectAiAppsGrid({
                 </small>
               </article>
             );
-          },
-        )}
+          })}
       </div>
       <p className="am-muted">
         Apps that answer without a sign-in are on already. Connect the others to track them; your

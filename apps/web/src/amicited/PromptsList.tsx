@@ -3,7 +3,8 @@ import { ChevronRight, CircleHelp, Lock, MoreHorizontal, Plus } from "lucide-rea
 import type { EnvironmentId } from "@t3tools/contracts";
 import {
   availableEngines,
-  TrackingEngine,
+  supportedEngines,
+  type TrackingEngine,
   type TrackingConfig,
   type TrackingRun,
 } from "@amicited/cloud-client/tracking";
@@ -512,7 +513,7 @@ function CheckSettings({
     void editing.persist({
       ...config,
       engines: on
-        ? TrackingEngine.literals.filter((e) => e === engine || config.engines.includes(e))
+        ? supportedEngines.filter((e) => e === engine || config.engines.includes(e))
         : config.engines.filter((e) => e !== engine),
     });
   return (
@@ -560,7 +561,7 @@ function CheckSettings({
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-muted-foreground">AI apps</span>
           <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
-            {TrackingEngine.literals.map((engine) => {
+            {supportedEngines.map((engine) => {
               const connected = available.includes(engine);
               const on = config.engines.includes(engine);
               const last = on && checked.length === 1;

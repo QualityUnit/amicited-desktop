@@ -9,6 +9,9 @@ export class GoogleAiModeEngine extends VisibilityEngine {
   readonly label = "Google AI Mode";
   readonly site = "google";
   override readonly requiresLogin = false;
+  // Hidden until fixed: answers keep Google's screen-reader markers in the page's language and
+  // every source is an opaque google.com/goto link (end-to-end sweep, 2026-11-26).
+  override readonly supported = false;
   readonly selectors = {
     // AI Mode's prompt box has no name; `q` is the search box it used to share.
     input: '[data-xid*="input-plate"] textarea, textarea[name="q"], input[name="q"]',

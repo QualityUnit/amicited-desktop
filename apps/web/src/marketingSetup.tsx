@@ -1,7 +1,7 @@
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited marketing styles own these classes. */
 import { projectEnvironment } from "./state/projects";
 import { useNavigate } from "@tanstack/react-router";
-import { availableEngines } from "@amicited/cloud-client/tracking";
+import { availableEngines, supportedEngines } from "@amicited/cloud-client/tracking";
 import { ConnectAiAppsGrid, useConnections } from "./amicited/amicitedConnections";
 import { useFirstCheckChat } from "./amicited/amicitedTracking";
 import { SetupTrackingPrompts } from "./amicited/SetupTrackingPrompts";
@@ -668,7 +668,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
             <div className="flex items-center gap-2">
               {step === "apps" && (
                 <span className="text-sm text-muted-foreground">
-                  {engines.length} of 6 connected
+                  {engines.length} of {supportedEngines.length} connected
                 </span>
               )}
               {step === "apps" && trackingOffer && (

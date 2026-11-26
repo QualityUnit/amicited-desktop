@@ -1,3 +1,4 @@
+import { engines } from "@amicited/visibility/engines";
 import { EngineId as TrackingEngine } from "@amicited/visibility/result";
 import * as Schema from "effect/Schema";
 import type { PromptHistory, TrackingAnswer, TrackingRun } from "./tracking.ts";
@@ -172,6 +173,7 @@ export function domainVisibility(
   for (const run of runs) {
     if (run.day < previousFrom || run.day > today) continue;
     for (const answer of run.answers) {
+      if (!engines[answer.engine].supported) continue;
       if (answer.status === "answered")
         latest.set(`${run.day}|${answer.promptId}|${answer.engine}`, { day: run.day, answer });
       if (run.day >= from) newest.set(`${answer.promptId}|${answer.engine}`, answer);
@@ -353,7 +355,7 @@ export function promptHistory(
   for (const run of runs) {
     if (run.day < from || run.day > today) continue;
     for (const answer of run.answers) {
-      if (answer.promptId !== promptId) continue;
+      if (answer.promptId !== promptId || !engines[answer.engine].supported) continue;
       const key = `${run.day}|${answer.engine}`;
       const isAnswer = answer.status === "answered";
       const { search: _search, ...lean } = answer;

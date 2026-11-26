@@ -86,6 +86,8 @@ export abstract class VisibilityEngine {
   abstract readonly selectors: EngineSelectors;
   /** Whether an answer needs the user's sign-in; signed-out engines still answer when false. */
   readonly requiresLogin: boolean = true;
+  /** False hides the engine from setup and results until its capture is fixed; stored answers still decode. */
+  readonly supported: boolean = true;
   readonly timing: EngineTiming = defaultTiming;
 
   /** The page a run opens. Sites that accept the prompt (and country) in the URL can use them here. */

@@ -30,11 +30,15 @@ export function engineConnection(engine: TrackingEngine) {
 export function engineNeedsConnect(engine: TrackingEngine) {
   return engines[engine].requiresLogin;
 }
+/** Engines the app offers; the others stay in the schema so saved answers still decode. */
+export const supportedEngines: readonly TrackingEngine[] = engineIds.filter(
+  (engine) => engines[engine].supported,
+);
 /** Engines that answer signed out are on by default; the rest need their site connected. */
 export function availableEngines(
   connections: readonly { readonly id: string; readonly status: string }[],
 ): TrackingEngine[] {
-  return engineIds.filter(
+  return supportedEngines.filter(
     (engine) =>
       !engineNeedsConnect(engine) ||
       connections.some((c) => c.id === engineConnection(engine) && c.status === "connected"),

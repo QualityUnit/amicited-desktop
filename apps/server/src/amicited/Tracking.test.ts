@@ -318,7 +318,7 @@ it.effect("records sign-in failures without aborting the run and creates connect
     const country = (yield* t.snapshot()).country;
     yield* t.save({
       ...config("one", 1, country),
-      engines: ["chatgpt", "google", "google_overviews"],
+      engines: ["chatgpt", "gemini", "google_overviews"],
     });
     const id = yield* t.runNow("one");
     const done = yield* t.subscribe().pipe(
@@ -333,7 +333,7 @@ it.effect("records sign-in failures without aborting the run and creates connect
     const r = (yield* t.snapshot()).runs.find((r) => r.id === id)!;
     assert.deepEqual(
       r.answers.map((a) => a.engine),
-      ["chatgpt", "google"],
+      ["chatgpt", "gemini"],
     );
     assert.isTrue(r.answers.every((a) => a.status === "needs_sign_in"));
     assert.notEqual(
@@ -542,14 +542,15 @@ it.effect("groups engine findings and maps every Google engine to its connection
       ["gemini", "google", "google_overviews"].map((e) => engineConnection(e as TrackingEngine)),
       ["google", "google", "google"],
     );
-    assert.deepEqual(availableEngines([]), ["chatgpt", "gemini", "google", "google_overviews"]);
+    // Google AI Mode is hidden until its capture is fixed.
+    assert.deepEqual(availableEngines([]), ["chatgpt", "gemini", "google_overviews"]);
     assert.deepEqual(
       availableEngines([
         { id: "perplexity", status: "connected" },
         { id: "google", status: "connected" },
         { id: "chatgpt", status: "signed_out" },
       ]),
-      ["chatgpt", "perplexity", "gemini", "google", "google_overviews"],
+      ["chatgpt", "perplexity", "gemini", "google_overviews"],
     );
     const answer = trackingAnswer(
       "one",

@@ -18,6 +18,7 @@ import {
   trackingAnswer,
   trackingFindings,
   engineConnection,
+  supportedEngines,
   type PromptHistory,
   type TrackingAnswer,
   type TrackingSnapshot,
@@ -52,7 +53,12 @@ import * as ProviderRegistry from "../provider/ProviderInstanceRegistry.ts";
 import * as Settings from "../serverSettings.ts";
 import * as Projects from "../project/ProjectService.ts";
 import { ProjectId } from "@t3tools/contracts";
-const decodeConfig = Schema.decodeEffect(Schema.fromJsonString(TrackingConfig));
+const decodeStoredConfig = Schema.decodeEffect(Schema.fromJsonString(TrackingConfig));
+/** Saved settings may still name an engine the app has since hidden. */
+const decodeConfig = (value: string) =>
+  decodeStoredConfig(value).pipe(
+    Effect.map((c) => ({ ...c, engines: c.engines.filter((e) => supportedEngines.includes(e)) })),
+  );
 const isTrackingFailure = Schema.is(TrackingFailure);
 const decodeSuggestions = Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 const decodeCloudSuggestions = Schema.decodeUnknownEffect(
