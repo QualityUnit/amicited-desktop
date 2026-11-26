@@ -33,6 +33,7 @@ interface Credential {
   redirect?: string;
   expiresAt?: number;
 }
+const MAX_TOOL_PAGES = 20;
 class OAuthCallbackError extends Error {
   readonly code: string;
   readonly description: string;
@@ -401,6 +402,8 @@ export class CloudClient {
     return this.currentValue;
   }
   private set current(value: Connection) {
+    // Listeners re-read status, so notifying on an unchanged value loops back here.
+    if (JSON.stringify(value) === JSON.stringify(this.currentValue)) return;
     this.currentValue = value;
     this.options.onChange?.();
   }
@@ -842,7 +845,13 @@ export class CloudClient {
         const cached = this.policies.get(name);
         if (cached) return cached;
         let cursor: string | undefined;
+        const seen = new Set<string>();
         do {
+          // A server that repeats a cursor would otherwise keep us paging forever.
+          if (cursor) {
+            if (seen.has(cursor) || seen.size >= MAX_TOOL_PAGES) break;
+            seen.add(cursor);
+          }
           const page = await client.listTools(cursor ? { cursor } : {});
           for (const tool of page.tools)
             this.policies.set(tool.name, {
