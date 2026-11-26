@@ -52,6 +52,7 @@ const RPC_AGGREGATES = {
   "amicited.account.addWorkspace": "amicited",
   "amicited.account.cancelSignIn": "amicited",
   "amicited.account.reopenSignIn": "amicited",
+  "amicited.account.searchWorkspaces": "amicited",
   "amicited.account.switchWorkspace": "amicited",
   "amicited.account.removeWorkspace": "amicited",
   "amicited.account.signOut": "amicited",

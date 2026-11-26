@@ -69,6 +69,8 @@ type WebsiteHandoff =
   | { workspaceId: string; website: CloudWebsite }
   | { workspaceId: string; matches: readonly WebsiteMatch[] };
 const pendingWebsites = new Map<EnvironmentId, WebsiteHandoff>();
+// Setup remounts per workspace, so a workspace picked from search reopens selected.
+let pickedWorkspace: string | undefined;
 
 export const readSetup = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.setup.read",
@@ -124,7 +126,9 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
   const createdProject = useRef<{ website: string; projectId: ProjectId } | null>(null);
   const [domainReady, setDomainReady] = useState(false);
   const [addingWebsite, setAddingWebsite] = useState(false);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(() =>
+    pickedWorkspace && pickedWorkspace === current?.id ? pickedWorkspace : null,
+  );
   const [olderCount, setOlderCount] = useState<number | null>(null);
   const [inheritedMatches, setInheritedMatches] = useState<readonly WebsiteMatch[]>([]);
   const [initialPrompts, setInitialPrompts] = useState<readonly string[]>([]);
@@ -326,6 +330,25 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
     setImporting(false);
     setError("Could not switch workspaces. Please try again.");
   };
+  const selectWorkspace = async (workspaceId: string) => {
+    if (workspaces.some((workspace) => workspace.id === workspaceId)) {
+      setSelectedWorkspaceId(workspaceId);
+      return;
+    }
+    if (!environmentId || !canSwitch || importPending.current) return;
+    importPending.current = true;
+    setImporting(true);
+    setError("");
+    pickedWorkspace = workspaceId;
+    const result = await switchWorkspace({ environmentId, input: { workspaceId } }).catch(
+      () => undefined,
+    );
+    if (result?._tag === "Success") return;
+    pickedWorkspace = undefined;
+    importPending.current = false;
+    setImporting(false);
+    setError("Could not switch workspaces. Please try again.");
+  };
   const resumeWebsite = useEffectEvent(() => {
     if (!environmentId) return false;
     const handoff = pendingWebsites.get(environmentId);
@@ -493,7 +516,10 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
               <Button
                 type="button"
                 variant="link"
-                onClick={() => setSelectedWorkspaceId(null)}
+                onClick={() => {
+                  pickedWorkspace = undefined;
+                  setSelectedWorkspaceId(null);
+                }}
                 disabled={importing}
               >
                 <ChevronLeft aria-hidden="true" /> Workspaces
@@ -534,7 +560,7 @@ function WorkspaceSetup({ children }: { children?: import("react").ReactNode }) 
                 <WorkspacePicker
                   workspaces={workspaces}
                   currentId={current.id}
-                  onSelect={setSelectedWorkspaceId}
+                  onSelect={(workspaceId) => void selectWorkspace(workspaceId)}
                   disabled={importing}
                 />
               )}

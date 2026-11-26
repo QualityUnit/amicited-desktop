@@ -24,6 +24,8 @@ import {
   DialogPanel,
 } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { useWorkspaceSearch } from "./workspaceSearch";
 import {
   Menu,
   MenuGroup,
@@ -370,7 +372,12 @@ export function AccountSettings() {
     select: (location) => location.searchStr.includes("section=workspaces"),
   });
   const [confirmation, setConfirmation] = useState<{ workspaceId?: string } | null>(null);
+  const [query, setQuery] = useState("");
+  const found = useWorkspaceSearch(query);
   if (!actions.account) return null;
+  const others = found.rows.filter(
+    (row) => !actions.account?.workspaces.some((workspace) => workspace.id === row.id),
+  );
   return (
     <section className="am-card">
       <h2>Account</h2>
@@ -416,6 +423,34 @@ export function AccountSettings() {
             </p>
           )}
           {actions.account.error && <p role="alert">{actions.account.error}</p>}
+          {actions.account.accountWide && (
+            <>
+              <Input
+                aria-label="Find another workspace"
+                placeholder="Find another workspace"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+              {found.searching ? (
+                <p className="am-muted">Searching workspaces…</p>
+              ) : (
+                query.trim() &&
+                others.length === 0 && <p className="am-muted">No other matching workspaces.</p>
+              )}
+              {others.map((w) => (
+                <article key={w.id}>
+                  <h3>{w.name}</h3>
+                  <Button
+                    variant="outline"
+                    disabled={!actions.canManage}
+                    onClick={() => void actions.switch(w.id)}
+                  >
+                    Switch
+                  </Button>
+                </article>
+              ))}
+            </>
+          )}
           {actions.account.workspaces.map((w) => (
             <article key={w.id}>
               <h3>

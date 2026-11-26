@@ -2107,6 +2107,11 @@ export const layerWsRpc = (
             try: () => cloud.account!.reopenSignIn(),
             catch: () => new DomainFailure({ message: "Could not open sign-in." }),
           }),
+        "amicited.account.searchWorkspaces": ({ query }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.searchWorkspaces(query),
+            catch: () => new DomainFailure({ message: "Could not search workspaces." }),
+          }),
         "amicited.account.switchWorkspace": ({ workspaceId }) =>
           Effect.tryPromise({
             try: () => cloud.account!.switchWorkspace(workspaceId),

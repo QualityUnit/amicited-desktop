@@ -12,6 +12,9 @@ export interface SavedAccount {
   currentWorkspaceId?: string;
 }
 const ACCOUNT_SECRET = "account";
+/** Admins can see every workspace, so sign-in keeps one page and search finds the rest. */
+export const WORKSPACE_PAGE_SIZE = 10;
+type WorkspaceRow = Pick<Workspace, "id" | "name" | "canCreateDomains">;
 export function accountSignInEnabled(value?: string) {
   return value !== "0";
 }
@@ -91,7 +94,8 @@ export class AccountConnections {
       mcpUrl: string;
       workspaces(
         token: string,
-      ): Promise<ReadonlyArray<Pick<Workspace, "id" | "name" | "canCreateDomains">>>;
+        filter?: { name?: string; workspaceId?: string },
+      ): Promise<ReadonlyArray<WorkspaceRow>>;
       listDomains(token: string, workspaceId: string): ReturnType<typeof readAccountDomains>;
     };
     openExternal(url: string): Promise<void>;
@@ -202,6 +206,8 @@ export class AccountConnections {
           return w;
         }
         if (!raw) return { ...w, sessionEnded: true };
+        // Account workspaces share one token, so only the current one needs a live check.
+        if (this.options.accountSignIn && w.id !== this.currentId()) return w;
         const connection = await this.client(w.id).status();
         return connection.state === "disconnected" ? { ...w, sessionEnded: true } : w;
       }),
@@ -318,28 +324,34 @@ export class AccountConnections {
     raw: string,
     generation: number,
   ) {
-    const [user, listed] = await Promise.all([
+    const [user, firstPage] = await Promise.all([
       this.options.userinfo(token),
       account.workspaces(token),
     ]);
-    if (!listed.length) throw new Error("Create a workspace in AmICited, then sign in again.");
+    if (!firstPage.length) throw new Error("Create a workspace in AmICited, then sign in again.");
+    const local = (await this.options.domains()?.metadata()) ?? [];
+    const kept = new Set(
+      [this.saved.currentWorkspaceId, ...local.map((d) => d.workspaceId)].filter(
+        (id): id is string => !!id && !firstPage.some((w) => w.id === id),
+      ),
+    );
+    const listed = [
+      ...firstPage,
+      ...(
+        await Promise.all(
+          [...kept].map((workspaceId) =>
+            account.workspaces(token, { workspaceId }).catch(() => []),
+          ),
+        )
+      ).flat(),
+    ];
     await this.serial(async () => {
       if (generation !== this.generation) return;
       await Promise.all([...this.clients.values()].map((c) => c.close()));
       this.clients.clear();
       await this.options.secrets(ACCOUNT_SECRET).write(raw);
       const previous = new Map(this.saved.workspaces.map((w) => [w.id, w]));
-      const workspaces = listed.map((w): Workspace => ({
-        email: user.email,
-        userName: user.name,
-        plan: previous.get(w.id)?.plan ?? "Free",
-        access: previous.get(w.id)?.access ?? "unknown",
-        attentionCount: 0,
-        websites: [],
-        ...w,
-        name: w.name || workspaceLabel(user.email),
-        sessionEnded: false,
-      }));
+      const workspaces = listed.map((w) => accountWorkspace(w, user, previous.get(w.id)));
       const current = this.saved.currentWorkspaceId;
       await this.save({
         workspaces,
@@ -388,12 +400,37 @@ export class AccountConnections {
     if (this.signInUrl) await this.options.openExternal(this.signInUrl);
     return this.status();
   }
+  async searchWorkspaces(query: string): Promise<WorkspaceRow[]> {
+    await this.load();
+    const account = this.options.accountSignIn;
+    const current = this.saved.workspaces.find((w) => w.id === this.currentId());
+    if (!account || !current) return [];
+    const token = await this.client(current.id).accountAccessToken();
+    const name = query.trim();
+    const rows = await account.workspaces(token, name ? { name } : {});
+    return rows.map((w) => ({ ...w, name: w.name || workspaceLabel(current.email) }));
+  }
   async switchWorkspace(id: string) {
+    let added = false;
     await this.serial(async () => {
       await this.load();
-      if (!this.saved.workspaces.some((w) => w.id === id)) throw new Error("Workspace not found.");
-      await this.save({ ...this.saved, currentWorkspaceId: id });
+      let workspaces = this.saved.workspaces;
+      if (!workspaces.some((w) => w.id === id)) {
+        const account = this.options.accountSignIn;
+        const current = workspaces.find((w) => w.id === this.currentId());
+        if (!account || !current) throw new Error("Workspace not found.");
+        const token = await this.client(current.id).accountAccessToken();
+        const [found] = await account.workspaces(token, { workspaceId: id });
+        if (found?.id !== id) throw new Error("Workspace not found.");
+        workspaces = [
+          ...workspaces,
+          accountWorkspace(found, { email: current.email, name: current.userName }),
+        ];
+        added = true;
+      }
+      await this.save({ workspaces, currentWorkspaceId: id });
     });
+    if (added) await this.refreshPlans(id);
     return this.status();
   }
   async removeWorkspace(id: string) {
@@ -533,15 +570,38 @@ export async function readAccountDomains(
   return cloudSetupWebsites(rows, workspaceId);
 }
 
+function accountWorkspace(
+  row: WorkspaceRow,
+  user: { email: string; name: string },
+  previous?: Workspace,
+): Workspace {
+  return {
+    email: user.email,
+    userName: user.name,
+    plan: previous?.plan ?? "Free",
+    access: previous?.access ?? "unknown",
+    attentionCount: 0,
+    websites: [],
+    ...row,
+    name: row.name || workspaceLabel(user.email),
+    sessionEnded: false,
+  };
+}
+
 export async function readAccountWorkspaces(
   token: string,
   restUrl: string,
+  filter: { name?: string; workspaceId?: string } = {},
   fetchWorkspaces = fetch,
 ) {
   const response = await fetchWorkspaces(new URL("/v2/workspaces/me/my_workspaces", restUrl), {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ limit: null }),
+    body: JSON.stringify({
+      limit: WORKSPACE_PAGE_SIZE,
+      ...(filter.name ? { name: filter.name } : {}),
+      ...(filter.workspaceId ? { workspace_id: filter.workspaceId } : {}),
+    }),
     signal: AbortSignal.timeout(30_000),
   });
   if (!response.ok)

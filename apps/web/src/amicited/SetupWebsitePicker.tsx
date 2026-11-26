@@ -17,6 +17,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
+import { useWorkspaceSearch } from "./workspaceSearch";
 
 const listCloud = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.domains.listCloud",
@@ -77,9 +78,19 @@ export function WorkspacePicker({
   disabled: boolean;
 }) {
   const [search, setSearch] = useState("");
-  const filtered = workspaces.filter((workspace) =>
-    workspace.name.toLowerCase().includes(search.trim().toLowerCase()),
-  );
+  const remote = useWorkspaceSearch(search);
+  const filtered = [
+    ...workspaces
+      .filter((workspace) => workspace.name.toLowerCase().includes(search.trim().toLowerCase()))
+      .map((workspace) => ({
+        id: workspace.id,
+        name: workspace.name,
+        detail: `${workspace.plan}${workspace.id === currentId ? " · current" : ""}`,
+      })),
+    ...remote.rows
+      .filter((row) => !workspaces.some((workspace) => workspace.id === row.id))
+      .map((row) => ({ id: row.id, name: row.name, detail: "Switches to this workspace" })),
+  ];
   return (
     <section className="am-website-picker">
       <Input
@@ -89,7 +100,9 @@ export function WorkspacePicker({
         onChange={(event) => setSearch(event.target.value)}
       />
       {filtered.length === 0 ? (
-        <p className="am-muted">No matching workspaces.</p>
+        <p className="am-muted">
+          {remote.searching ? "Searching workspaces…" : "No matching workspaces."}
+        </p>
       ) : (
         <ul className="am-website-list">
           {filtered.map((workspace) => (
@@ -105,10 +118,7 @@ export function WorkspacePicker({
                 </span>
                 <span className="am-website-label">
                   <strong>{workspace.name}</strong>
-                  <small>
-                    {workspace.plan}
-                    {workspace.id === currentId && " · current"}
-                  </small>
+                  <small>{workspace.detail}</small>
                 </span>
                 <ChevronRight aria-hidden="true" size={16} />
               </button>
