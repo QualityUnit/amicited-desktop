@@ -178,7 +178,8 @@ export const layer = Layer.effect(
         ? {
             accountSignIn: {
               mcpUrl: `${restUrl}/mcp/amicited`,
-              workspaces: (token: string) => readAccountWorkspaces(token, restUrl),
+              workspaces: (token: string, filter?: { name?: string; workspaceId?: string }) =>
+                readAccountWorkspaces(token, restUrl, filter),
               listDomains: (token: string, workspaceId: string) =>
                 readAccountDomains(token, restUrl, workspaceId),
             },

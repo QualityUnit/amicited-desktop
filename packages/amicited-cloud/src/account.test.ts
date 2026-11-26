@@ -151,6 +151,13 @@ it("reads scoped paid cloud evidence and rejects write tools and free domains", 
   });
 });
 it("signs in once for every workspace and keeps that sign-in until sign-out", async () => {
+  const catalog = [
+    { workspace_id: "one", workspace_name: "Acme", role: "O" },
+    { workspace_id: "two", workspace_name: "Side project", role: "G" },
+    { workspace_id: "three", workspace_name: "Far client", role: "A" },
+    { workspace_id: "four", workspace_name: "Far away", role: "A" },
+  ];
+  const requests: unknown[] = [];
   const stored = new Map<string, string>();
   const targets: Array<{ endpoint?: string; account?: boolean }> = [];
   const first = { ...workspace("one"), name: "Acme" };
@@ -166,6 +173,7 @@ it("signs in once for every workspace and keeps that sign-in until sign-out", as
     connectionRef: "local-project",
     workspaceId: "one",
   };
+  const fartherWebsite = { ...localWebsite, projectId: "far", workspaceId: "three" };
   let finished!: () => void;
   const signedIn = new Promise<void>((resolve) => (finished = resolve));
   const account = new AccountConnections({
@@ -193,17 +201,27 @@ it("signs in once for every workspace and keeps that sign-in until sign-out", as
     },
     openExternal: async () => {},
     userinfo: async () => ({ email: "a@acme.com", name: "A" }),
-    domains: () => ({ metadata: async () => [localWebsite] }) as unknown as DomainConnections,
+    domains: () =>
+      ({ metadata: async () => [localWebsite, fartherWebsite] }) as unknown as DomainConnections,
     accountSignIn: {
       mcpUrl: "https://flowhunt.test/mcp/amicited",
-      workspaces: (token) =>
-        readAccountWorkspaces(token, "https://flowhunt.test", async (_url, options) => {
+      workspaces: (token, filter) =>
+        readAccountWorkspaces(token, "https://flowhunt.test", filter, async (_url, options) => {
           expect(options?.headers).toMatchObject({ Authorization: "Bearer token" });
-          expect(options?.body).toBe('{"limit":null}');
-          return Response.json([
-            { workspace_id: "one", workspace_name: "Acme", role: "O" },
-            { workspace_id: "two", workspace_name: "Side project", role: "G" },
-          ]);
+          const body = JSON.parse(String(options?.body)) as {
+            name?: string;
+            workspace_id?: string;
+          };
+          requests.push(body);
+          // The first page stops at two here, so "three" and "four" need a lookup or search.
+          if (!body.name && !body.workspace_id) return Response.json(catalog.slice(0, 2));
+          return Response.json(
+            catalog.filter(
+              (w) =>
+                (!body.name || w.workspace_name.includes(body.name)) &&
+                (!body.workspace_id || w.workspace_id === body.workspace_id),
+            ),
+          );
         }),
       listDomains: async (token, workspaceId) => {
         expect(token).toBe("token");
@@ -219,8 +237,9 @@ it("signs in once for every workspace and keeps that sign-in until sign-out", as
   expect(status.workspaces.map((w) => [w.id, w.name])).toEqual([
     ["one", "Acme"],
     ["two", "Side project"],
+    ["three", "Far client"],
   ]);
-  expect(status.workspaces.map((w) => w.canCreateDomains)).toEqual([true, false]);
+  expect(status.workspaces.map((w) => w.canCreateDomains)).toEqual([true, false, true]);
   expect(status.workspaces[0]).toMatchObject({ id: "one", websites: ["acme.example"] });
   expect(localWebsite.workspaceId).toBe("one");
   expect(await account.listCloudDomains("two")).toEqual([
@@ -228,12 +247,28 @@ it("signs in once for every workspace and keeps that sign-in until sign-out", as
   ]);
   expect((await account.status()).currentWorkspaceId).toBe("one");
   expect([...stored.keys()]).toEqual(["one", "account"]);
+  // Only the current workspace gets a live MCP check; the others share its account token.
   expect(targets).toEqual([
     { endpoint: "https://flowhunt.test/mcp/amicited/one", account: true },
     { endpoint: "https://flowhunt.test/mcp/amicited", account: true },
     { endpoint: "https://flowhunt.test/mcp/amicited/one", account: true },
-    { endpoint: "https://flowhunt.test/mcp/amicited/two", account: true },
   ]);
+  expect(await account.searchWorkspaces(" Far ")).toEqual([
+    { id: "three", name: "Far client", canCreateDomains: true },
+    { id: "four", name: "Far away", canCreateDomains: true },
+  ]);
+  const switched = await account.switchWorkspace("four");
+  expect(switched.currentWorkspaceId).toBe("four");
+  expect(switched.workspaces.map((w) => w.id)).toEqual(["one", "two", "three", "four"]);
+  await expect(account.switchWorkspace("missing")).rejects.toThrow("Workspace not found");
+  expect(requests).toEqual([
+    { limit: 10 },
+    { limit: 10, workspace_id: "three" },
+    { limit: 10, name: "Far" },
+    { limit: 10, workspace_id: "four" },
+    { limit: 10, workspace_id: "missing" },
+  ]);
+  await account.switchWorkspace("one");
   await account.removeWorkspace("one");
   expect(stored.has("account")).toBe(true);
   expect((await account.status()).currentWorkspaceId).toBe("two");

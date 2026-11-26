@@ -100,6 +100,17 @@ export const cloudRpcs = [
   ...connectionRpcs,
   Rpc.make("amicited.account.status", { success: AccountStatus, error: DomainFailure }),
   Rpc.make("amicited.account.subscribe", { success: AccountStatus, stream: true }),
+  Rpc.make("amicited.account.searchWorkspaces", {
+    payload: { query: Schema.String },
+    success: Schema.Array(
+      Schema.Struct({
+        id: Schema.String,
+        name: Schema.String,
+        canCreateDomains: Schema.optionalKey(Schema.Boolean),
+      }),
+    ),
+    error: DomainFailure,
+  }),
   ...(["addWorkspace", "cancelSignIn", "reopenSignIn", "signOut"] as const).map((method) =>
     Rpc.make(`amicited.account.${method}`, { success: AccountStatus, error: DomainFailure }),
   ),
