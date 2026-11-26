@@ -43,7 +43,7 @@ No patch files are required; this supersedes section 2 of the specification.
 - `scripts/export-android-icons.ts`: the mark's bounding box and safe-zone fraction.
 - `apps/web/src/components/ui/standalone-page.tsx`: the lockup next to the mark reads the product name.
 
-New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues}.tsx`)
+New web adapter files (`src/marketing.tsx` and `routes/_chat.{home,tasks,marketing-settings,issues,visibility,prompts}.tsx`)
 only bridge upstream environment RPC, routing and task creation to `@amicited/ui-marketing`.
 Home Ask and New task seed the selected assistant and send through the upstream
 composer once it mounts. Fix this with AI opens the same composer for review.
@@ -88,6 +88,10 @@ An AmICited account is required to use the app. Each OAuth connection selects on
 workspace; saved sessions remain usable offline. Websites belong to that workspace,
 and older local websites require explicit adoption. This supersedes the optional
 connection policy in the specification snapshot.
+
+AI-visibility checks run in hidden windows of the desktop app's signed-in `connections`
+profile; the user sees sign-in, not each check. This supersedes "no headless mode for
+logged-in profiles" in the snapshot's safety rails for that profile only.
 
 ## Wave 1B marketer experience
 
@@ -868,7 +872,10 @@ on the changed line only.
 ## Browser connections
 
 - Existing cloud RPC contracts, authorization, instrumentation and subscription registration carry `amicited.connections.*`; `amicited/Connections.ts` adapts the isolated cloud-client engine to server services.
-- `preview/ServerBrowser.ts`: exposes the shared `connections` profile and a visible managed tab for sign-in. The stream test fixture supplies these two methods.
+- `preview/ServerBrowser.ts`: exposes the shared `connections` profile, a visible tab for sign-in (the desktop app renders it in that profile's webview partition), and `connectionPage`, a hidden desktop page in the same partition for checks; `connectDesktop` takes a tab key so that page can reuse it. The stream test fixtures supply these methods.
+- `packages/contracts/src/desktopBrowser.ts`, `preview/DesktopBrowserChannel.ts` (and the `ServerBrowser.test.ts` channel fixture): `openHidden`/`closeHidden` commands, sent by the scoped `hiddenTab`, ask the desktop for a page no window shows.
+- `apps/desktop/src/preview/DesktopBrowserHost.ts`: forwards those commands on `hiddenTabs`; `apps/desktop/src/amicited/HiddenBrowserTabs.ts` opens each as a hidden auxiliary window in the profile's partition and attaches it to the host. `apps/desktop/src/main.ts` provides that layer beside the preview manager.
+- The connections RPC extension points (`ws.ts`, `RpcInstrumentation.ts`, `clientRpcPermissions.ts` and its permission test) carry `amicited.connections.useBrowser`, the advanced switch to the AmICited Connector.
 - `server.ts`: shares that connections service between runtime RPC and MCP. `amicited/CloudToolkit.ts` adds the connection status/request tool; its fixtures and advertised-tool budget account for it.
 - `marketing.tsx`, the marketing settings route and `CommandPalette.tsx`: open Connections. `chat/MessagesTimeline.tsx`: mounts pending connection cards through the AmICited RPC adapter.
 
@@ -876,7 +883,7 @@ on the changed line only.
 
 - Existing marketing RPC authorization, instrumentation, subscription and permission extension points carry `amicited.tracking.*`.
 - `server.ts` shares the tracking service; the existing domain header and composer marketing mounts display its results.
-- `server.ts` provides the connections service with `amicited/browser/BrowserSessions.ts`, which drives the user's own browser through the AmICited Connector bridge and falls back to the `connections` profile. See `docs/internals/amicited-visibility-engines.md`.
+- `server.ts` provides the connections service with `amicited/browser/BrowserSessions.ts`, which uses the `connections` profile (in the desktop app when there is one) and the user's own browser through the AmICited Connector only when they choose it. See `docs/internals/amicited-visibility-engines.md`.
 - `scripts/release-smoke.ts`, `pnpm-lock.yaml` and `knip.jsonc`: register `packages/amicited-visibility` and `apps/amicited-connector`.
 - `vite.config.ts`: lists `packages/amicited-visibility` in `TEST_CONFIG_PACKAGES`, so its own config gives page-script tests a jsdom environment.
 
@@ -885,3 +892,4 @@ on the changed line only.
 - `components/chat/MessagesTimeline.tsx` mounts the persisted tracking activity card in marketer chats; provider turns remain on the normal thread path.
 - `routeTree.gen.ts` registers the AmICited prompts and results route.
 - Existing marketing setup, domain, report, command palette and account RPC extension points assemble the account-first onboarding journey and its tracking offer marker.
+- `apps/web/src/amicited/SetupWebsitePicker.tsx` groups workspace catalogs and supplies the shared domain editor's cross-workspace notice. The existing cloud RPC, authorization, and instrumentation extension points also carry the picked website's prompt lookup.

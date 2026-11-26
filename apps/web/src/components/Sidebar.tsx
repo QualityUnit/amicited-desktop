@@ -3722,7 +3722,7 @@ export default function Sidebar({
             settledCount ===
             0 ? (
             <div className="flex flex-col items-center gap-2 px-2 py-6 text-center text-xs text-muted-foreground/60">
-              {projects.length === 0 ? (
+              {(allowedProjectKeys?.size ?? projects.length) === 0 ? (
                 <>
                   <span>{marketer ? "Your chats will appear here" : "No projects yet"}</span>
                   <button

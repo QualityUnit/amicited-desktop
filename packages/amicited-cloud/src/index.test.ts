@@ -1,4 +1,3 @@
-import { toolData } from "./index.ts";
 import { InvalidGrantError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import {
   AccountConnections,
@@ -799,12 +798,18 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
   };
   try {
     await signIn("one");
-    expect(toolData(await account.listCloudDomains())).toMatchObject({
-      domains: [{ name: "example.com", prompts: [{ content: "Brand recommendations" }] }],
-    });
+    expect(await account.listCloudDomains()).toEqual([
+      { workspaceId: "one", hostname: "example.com", domainId: "domain-1" },
+    ]);
+    expect((await account.status()).workspaces[0]?.name).toBe("northwind.io workspace");
+    expect(fake.calls).not.toContain("list_prompts");
+    expect(await account.listCloudPrompts("one", "domain-1")).toEqual(["Brand recommendations"]);
+    expect(fake.argumentsByTool.list_prompts).toEqual({ domain_id: "domain-1" });
+    await expect(account.listCloudDomains("two")).rejects.toThrow();
     expect(await domains.scoped()).toEqual([]);
     expect((await domains.older()).map((r) => r.projectId)).toEqual(["older"]);
     fake.refuse("requires a Pro plan or above");
+    expect(await account.listCloudPrompts("one", "domain-1")).toEqual([]);
     expect(await domains.adopt("older")).toMatchObject({
       workspaceId: "one",
       hostname: "older.example",
@@ -822,6 +827,9 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
     expect(secrets.get("older")).toBe(legacy);
     fake.refuse("");
     await domains.register("new", "new.example");
+    expect(fake.argumentsByTool.create_domain).toEqual({
+      create_request: { homepage_url: "https://new.example" },
+    });
     expect((await domains.scoped()).map((r) => r.projectId)).toEqual(["older", "new"]);
     const browserOpened = Promise.withResolvers<void>();
     signInOpened = browserOpened.resolve;
@@ -855,9 +863,10 @@ it("adds OAuth workspaces, scopes and adopts websites, and preserves local data 
     expect(await domains.scoped()).toEqual([]);
     expect(await domains.metadata()).toHaveLength(2);
     await signIn("one");
-    expect(toolData(await account.listCloudDomains())).toMatchObject({
-      domains: [{ name: "example.com", prompts: [{ content: "Brand recommendations" }] }],
-    });
+    expect(await account.listCloudDomains()).toEqual([
+      { workspaceId: "one", hostname: "example.com", domainId: "domain-1" },
+    ]);
+    expect((await account.status()).workspaces[0]?.name).toBe("northwind.io workspace");
     expect(await domains.scoped()).toHaveLength(2);
     expect(JSON.stringify(await account.status())).not.toContain("signature");
   } finally {

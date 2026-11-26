@@ -23,8 +23,8 @@ export function CmsGrid({
 }) {
   return (
     <fieldset className="am-cms" disabled={disabled}>
-      <legend>CMS</legend>
-      <div className="am-cms-grid" role="radiogroup" aria-label="CMS">
+      <legend>What your site runs on (optional)</legend>
+      <div className="am-cms-grid" role="radiogroup" aria-label="What your site runs on">
         {options.map(([id, name]) => (
           <label key={id} className="am-cms-tile">
             <input

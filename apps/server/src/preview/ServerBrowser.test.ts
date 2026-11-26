@@ -389,6 +389,7 @@ const dependencies = Layer.mergeAll(
           desktopReleased.resolve();
         }),
       ),
+    hiddenTab: () => Effect.die("unused"),
     pointer: () => Effect.void,
     turn: (threadId, active) => Effect.sync(() => desktopTurns.emit("turn", threadId, active)),
   }),

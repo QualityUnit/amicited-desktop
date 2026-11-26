@@ -1,11 +1,11 @@
 import { runConnection } from "./ConnectionSessionAdapter.ts";
-import { BrowserSessions, type BrowserMode } from "./browser/BrowserSessions.ts";
+import { BrowserSessions } from "./browser/BrowserSessions.ts";
 import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
 import { ConnectionsSnapshot } from "@amicited/cloud-client/connectionsRpc";
 import { ServerConfig } from "../config.ts";
 import { BrowserConnections } from "@amicited/cloud-client/connections";
-import { ConnectionFailure } from "@amicited/cloud-client/connectionsRpc";
+import { type BrowserChoice, ConnectionFailure } from "@amicited/cloud-client/connectionsRpc";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,9 +16,11 @@ export class Connections extends Context.Service<
   Connections,
   {
     engine: BrowserConnections;
-    /** Whether runs use the user's own browser, and why not when they do not. */
-    browserMode: Effect.Effect<BrowserMode>;
     snapshot: Effect.Effect<ReturnType<BrowserConnections["snapshot"]>>;
+    /** Chooses the browser sign-ins and checks use. */
+    useBrowser: (
+      choice: BrowserChoice,
+    ) => Effect.Effect<ReturnType<BrowserConnections["snapshot"]>>;
     changes: Stream.Stream<ReturnType<BrowserConnections["snapshot"]>>;
     run: <T>(
       action: (
@@ -75,25 +77,28 @@ export const layer = Layer.effect(
       Effect.repeat(Schedule.spaced("2 seconds")),
       Effect.forkScoped,
     );
-    const snapshot = Effect.sync(() => engine.snapshot());
+    const snapshot = Effect.map(sessions.mode, (browser) => ({ ...engine.snapshot(), browser }));
     return {
       engine,
-      browserMode: sessions.mode,
       snapshot,
+      useBrowser: Effect.fn("Connections.useBrowser")(function* (choice) {
+        yield* sessions.use(choice);
+        return yield* snapshot;
+      }),
       run: Effect.fn("Connections.session")((action) => runConnection(engine, action)),
-      changes: Stream.callback<ReturnType<BrowserConnections["snapshot"]>>((queue) =>
+      changes: Stream.callback<void>((queue) =>
         Effect.acquireRelease(
           Effect.sync(() => {
             const emit = () => {
-              Queue.offerUnsafe(queue, engine.snapshot());
+              Queue.offerUnsafe(queue, undefined);
             };
-            const off = engine.subscribe(emit);
+            const offs = [engine.subscribe(emit), sessions.subscribe(emit)];
             emit();
-            return off;
+            return offs;
           }),
-          (off) => Effect.sync(off),
+          (offs) => Effect.sync(() => offs.forEach((off) => off())),
         ),
-      ),
+      ).pipe(Stream.mapEffect(() => snapshot)),
     };
   }),
 );

@@ -1,4 +1,4 @@
-import { Checkbox } from "../components/ui/checkbox";
+import { WindowDragStrip } from "./WindowDragStrip";
 import { AccountGateScreen, BrowserSignInPreview } from "./AccountGateScreen";
 import { useIssues } from "../marketingIssues";
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited setup classes are owned by the marketing package. */
@@ -13,7 +13,7 @@ import {
 import { connectionAtomRuntime } from "../connection/runtime";
 import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
-import { AmICitedMark, marketingNavigate } from "@amicited/ui-marketing";
+import { AmICitedLoader, AmICitedMark, marketingNavigate } from "@amicited/ui-marketing";
 import { useTracking, BudgetBar } from "./amicitedTracking";
 import {
   Dialog,
@@ -24,7 +24,21 @@ import {
   DialogPanel,
 } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
-import { Menu, MenuTrigger, MenuPopup, MenuItem } from "../components/ui/menu";
+import {
+  Menu,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuPopup,
+  MenuRadioGroup,
+  MenuRadioItem,
+  MenuRadioItemIndicator,
+  MenuSeparator,
+  MenuTrigger,
+} from "../components/ui/menu";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
+import { ChevronsUpDown, Plus, Settings } from "lucide-react";
+import { pluralize } from "@amicited/cloud-client/formatting";
 import { toastManager } from "../components/ui/toast";
 import { publish } from "../marketingDomainStore";
 import { useLocation } from "@tanstack/react-router";
@@ -50,7 +64,7 @@ const reopen = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.account.reopenSignIn",
   label: "account:reopen",
 });
-const switchCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
+export const switchCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.account.switchWorkspace",
   label: "account:switch",
 });
@@ -163,12 +177,24 @@ export function AmicitedAccountGate({ children }: { children: ReactNode }) {
   }, [environmentId, currentId]);
   if (["/pair", "/connect", "/connect-agent"].includes(pathname)) return children;
   if (!environmentId) return children;
-  if (!account) return <main data-am="am-setup-loading">Connecting to your AmICited account…</main>;
+  if (!account)
+    return (
+      <main data-am="am-setup-loading">
+        <WindowDragStrip />
+        <AmICitedLoader label="Connecting to your AmICited account…" />
+      </main>
+    );
   if (account.state === "signed_in" && currentId !== loadedWorkspaceId)
-    return <main data-am="am-setup-loading">Loading {current?.name} workspace…</main>;
+    return (
+      <main data-am="am-setup-loading">
+        <WindowDragStrip />
+        <AmICitedLoader label={`Loading ${current?.name ?? "your"} workspace…`} />
+      </main>
+    );
   if (account.state === "signed_in" && account.signingIn)
     return (
       <main data-am="am-setup" data-onboarding-surface="">
+        <WindowDragStrip />
         <div data-am="am-setup-column">
           <div data-am="am-setup-brand">
             <AmICitedMark />
@@ -198,6 +224,7 @@ export function AmicitedAccountGate({ children }: { children: ReactNode }) {
           </section>
           <BrowserSignInPreview
             email={current?.email}
+            accountWide={account.accountWide}
             workspaces={account.workspaces.map((w) => w.name)}
           />
           <div className="flex-1" />
@@ -223,49 +250,115 @@ export function AmicitedAccountGate({ children }: { children: ReactNode }) {
   );
 }
 
+const workspaceTone = (id: string) =>
+  [...id].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0) % 6;
+
+function WorkspaceAvatar({
+  workspace,
+  attention = false,
+}: {
+  workspace: { id: string; name: string };
+  attention?: boolean;
+}) {
+  return (
+    <span data-am="am-ws-avatar" data-tone={workspaceTone(workspace.id)} aria-hidden="true">
+      {workspace.name.trim()[0]?.toUpperCase() ?? "?"}
+      {attention && <i />}
+    </span>
+  );
+}
+
 export function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
   const actions = useAccountActions();
   if (!actions.account || !actions.current) return null;
   const { account, current } = actions;
-  const attention = account.workspaces.some(
+  const needing = account.workspaces.filter(
     (w) => w.id !== current.id && (w.attentionCount > 0 || w.sessionEnded),
   );
   return (
     <Menu>
-      <MenuTrigger
-        render={
-          compact ? (
-            <button type="button" className="am-workspace-chip" disabled={!actions.canManage} />
-          ) : (
-            <Button disabled={!actions.canManage} variant="ghost" />
-          )
-        }
-      >
-        <span
-          className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium"
-          aria-hidden="true"
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              render={
+                <button
+                  type="button"
+                  data-am="am-ws-trigger"
+                  data-compact={compact ? "" : undefined}
+                  disabled={!actions.canManage}
+                  aria-label={`Workspace: ${current.name}. ${
+                    needing.length > 0
+                      ? `${needing.map((w) => w.name).join(", ")} needs attention. `
+                      : ""
+                  }Switch workspace`}
+                />
+              }
+            />
+          }
         >
-          {current.name[0]?.toUpperCase()}
-        </span>
-        {compact
-          ? `${current.email} · ${current.name}${/workspace$/i.test(current.name) ? "" : " workspace"} · Switch`
-          : `${current.name} · ${current.plan}`}
-        {attention && <span aria-label="Another workspace needs attention">●</span>}
-        <span aria-hidden="true">⌄</span>
-      </MenuTrigger>
-      <MenuPopup>
-        <p>{current.email}</p>
-        {account.workspaces.map((w) => (
-          <MenuItem key={w.id} onClick={() => void actions.switch(w.id)}>
-            {w.id === current.id ? "✓ " : ""}
-            {w.name} · {w.plan} · {w.websites.length} websites
-            {w.sessionEnded ? " · Sign in again" : w.attentionCount > 0 ? " · ●" : ""}
-          </MenuItem>
-        ))}
-        <MenuItem onClick={() => void actions.add()}>Add another workspace</MenuItem>
-        <MenuItem onClick={() => marketingNavigate("/settings/general?section=workspaces")}>
-          Manage workspaces
-        </MenuItem>
+          <WorkspaceAvatar workspace={current} attention={needing.length > 0} />
+          <span data-am="am-ws-name">{current.name}</span>
+          <span data-am="am-ws-plan">{current.plan}</span>
+          <ChevronsUpDown aria-hidden="true" />
+        </TooltipTrigger>
+        <TooltipPopup side="right">{current.name}</TooltipPopup>
+      </Tooltip>
+      <MenuPopup align="start">
+        <div data-am="am-ws-menu">
+          <MenuGroup>
+            <MenuGroupLabel>
+              <span data-am="am-ws-email">{current.email}</span>
+            </MenuGroupLabel>
+            <MenuRadioGroup value={current.id}>
+              {account.workspaces.map((w) => (
+                <Tooltip key={w.id}>
+                  <TooltipTrigger
+                    render={
+                      <MenuRadioItem
+                        value={w.id}
+                        closeOnClick
+                        onClick={() => void actions.switch(w.id)}
+                      />
+                    }
+                  >
+                    <span data-am="am-ws-row">
+                      <WorkspaceAvatar workspace={w} />
+                      <span data-am="am-ws-text">
+                        <span data-am="am-ws-name">{w.name}</span>
+                        <span data-am="am-ws-meta">
+                          {w.plan} · {pluralize(w.websites.length, "website")}
+                        </span>
+                      </span>
+                      {w.sessionEnded ? (
+                        <span data-am="am-ws-pill" data-state="ended">
+                          Signed out
+                        </span>
+                      ) : w.attentionCount > 0 ? (
+                        <span data-am="am-ws-pill" data-state="attention">
+                          {pluralize(w.attentionCount, "new issue")}
+                        </span>
+                      ) : null}
+                      <MenuRadioItemIndicator />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipPopup side="right">{w.name}</TooltipPopup>
+                </Tooltip>
+              ))}
+            </MenuRadioGroup>
+          </MenuGroup>
+          <MenuSeparator />
+          <div data-am="am-ws-actions">
+            <MenuItem onClick={() => void actions.add()}>
+              <Plus />
+              Add another workspace
+            </MenuItem>
+            <MenuItem onClick={() => marketingNavigate("/settings/general?section=workspaces")}>
+              <Settings />
+              Manage workspaces
+            </MenuItem>
+          </div>
+        </div>
       </MenuPopup>
     </Menu>
   );
@@ -299,7 +392,7 @@ export function AccountSettings() {
         <h3>{actions.current?.plan} plan</h3>
         <p>
           {actions.current?.access === "full"
-            ? "Daily tracking in the cloud"
+            ? "Daily tracking in the cloud, plus up to 20 prompts a day on this computer"
             : "Daily tracking on this computer, through your own AI accounts"}
         </p>
         <a href="https://app.flowhunt.io/amicited/subscription">Start 7-day trial</a>
@@ -333,9 +426,8 @@ export function AccountSettings() {
                 {w.websites.length} websites: {w.websites.join(", ")}
               </p>
               <p className="am-muted">
-                {w.access === "full"
-                  ? "Tracked in the cloud · does not use this computer’s 20 a day"
-                  : `Tracks on this computer · ${tracking.snapshot.usage.domains.filter((d) => w.projectIds?.includes(d.projectId)).reduce((n, d) => n + d.count, 0)} prompts a day`}
+                {`Tracks on this computer · ${tracking.snapshot.usage.domains.filter((d) => w.projectIds?.includes(d.projectId)).reduce((n, d) => n + d.count, 0)} prompts a day`}
+                {w.access === "full" ? " · synced to AmICited, which also tracks in the cloud" : ""}
               </p>
               {w.id !== actions.current?.id && (
                 <Button variant="outline" onClick={() => void actions.switch(w.id)}>
@@ -350,7 +442,7 @@ export function AccountSettings() {
         </>
       )}
       <section className="am-card">
-        <h3>Free tracking on this computer</h3>
+        <h3>Tracking on this computer</h3>
         <p>
           {tracking.snapshot.usage.used} of 20 free prompts a day{" "}
           <BudgetBar used={tracking.snapshot.usage.used} />
@@ -361,7 +453,7 @@ export function AccountSettings() {
         </p>
         <p>
           {tracking.snapshot.usage.consumed} asked today. One limit for this computer, shared by
-          every free workspace. Paid workspaces don’t use it.
+          every workspace.
         </p>
       </section>
       <Dialog open={confirmation !== null} onOpenChange={(open) => !open && setConfirmation(null)}>
@@ -443,7 +535,6 @@ export function OlderWebsites({
     doAdopt = useAtomCommand(adopt),
     readDomains = useAtomCommand(domains);
   const [rows, setRows] = useState<readonly import("@amicited/cloud-client/domains").Domain[]>([]);
-  const [selected, setSelected] = useState<ReadonlySet<string> | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const canAdopt = useAtomValue(environmentId ? adopt.permissionAtom(environmentId) : noPermission);
@@ -463,85 +554,74 @@ export function OlderWebsites({
       active = false;
     };
   }, [environmentId]);
-  const addWebsites = async (projectIds: readonly string[]) => {
-    if (!environmentId || busy || !canAdopt || !projectIds.length) return;
+  const addWebsite = (projectId: string) => {
+    if (!environmentId || busy || !canAdopt || current?.canCreateDomains === false) return;
     setBusy(true);
     setError("");
-    const added: string[] = [];
-    try {
-      for (const projectId of projectIds) {
-        const result = await doAdopt({ environmentId, input: { projectId } });
-        if (result._tag === "Success") added.push(projectId);
-        else
-          setError(
-            "Could not add every website. Your added websites are safe; try the others again.",
-          );
+    void (async () => {
+      const result = await doAdopt({ environmentId, input: { projectId } });
+      if (result._tag !== "Success") {
+        setError("Could not add this website. Please try again.");
+        return;
       }
       const scoped = await readDomains({ environmentId, input: undefined });
       if (scoped._tag === "Success") publish(environmentId, scoped.value);
-      setRows((previous) => previous.filter((row) => !added.includes(row.projectId)));
-      onCount?.(rows.length - added.length);
-      if (added.length === projectIds.length && added[0]) onComplete?.(added[0]);
-    } catch {
-      setError("Could not finish adding websites. Please try again.");
-    }
-    setBusy(false);
+      setRows((previous) => previous.filter((row) => row.projectId !== projectId));
+      onCount?.(rows.length - 1);
+      onComplete?.(projectId);
+    })()
+      .catch(() => {
+        setError("Could not finish adding this website. Please try again.");
+      })
+      .finally(() => {
+        setBusy(false);
+      });
   };
   if (!rows.length || !current) return null;
-  const checked = rows.filter((row) => !selected || selected.has(row.projectId));
+  const onboarding = Boolean(onComplete);
   return (
-    <form
-      id={onComplete ? "amicited-onboarding-domain" : undefined}
-      className="am-card"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void addWebsites(checked.map((row) => row.projectId));
-      }}
-    >
-      {!onComplete && (
+    <section className={onboarding ? "am-website-picker" : "am-card"}>
+      {onboarding ? (
+        <div className="am-website-group-header">
+          <h2>
+            <strong>On this computer</strong>
+          </h2>
+        </div>
+      ) : (
         <>
           <h2>We found {rows.length} websites on this computer</h2>
           <p>You set these up before accounts existed. Add them to AmICited to keep using them.</p>
         </>
       )}
-      <div className="am-prompt-list">
+      <ul className={onboarding ? "am-website-list" : "am-prompt-list"}>
         {rows.map((row) => (
-          <div className="am-prompt-row" key={row.projectId}>
-            {onComplete && (
-              <Checkbox
-                aria-label={`Add ${row.hostname}`}
-                checked={!selected || selected.has(row.projectId)}
-                onCheckedChange={(checked) => {
-                  const next = new Set(selected ?? rows.map((row) => row.projectId));
-                  if (checked) next.add(row.projectId);
-                  else next.delete(row.projectId);
-                  setSelected(next);
-                }}
-              />
-            )}
-            <span className="am-brand-avatar">{row.brand[0]?.toUpperCase()}</span>
-            <span>
-              <strong>{row.hostname}</strong>
-              <small className="block text-muted-foreground">{row.brand}</small>
+          <li
+            className={onboarding ? "am-website-row" : "am-prompt-row"}
+            key={`local:${row.hostname}`}
+          >
+            <span className="am-brand-avatar" aria-hidden="true">
+              {row.brand[0]?.toUpperCase()}
             </span>
-            {!onComplete && (
+            <span className={onboarding ? "am-website-label" : undefined}>
+              <strong>{row.hostname}</strong>
+              <small className="block text-muted-foreground">
+                {onboarding ? "Added before accounts" : row.brand}
+              </small>
+            </span>
+            {current.canCreateDomains !== false && (
               <Button
                 disabled={busy || !canAdopt}
                 variant="outline"
-                onClick={() => void addWebsites([row.projectId])}
+                onClick={() => addWebsite(row.projectId)}
               >
-                Add to AmICited
+                {onboarding ? `Add to ${current.name}` : "Add to AmICited"}
               </Button>
             )}
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
       {error && <p role="alert">{error}</p>}
-      {busy && <p role="status">Adding websites to AmICited…</p>}
-      <p className="am-muted">
-        Your chats and files stay on this computer exactly as they are. A website you leave unticked
-        stays here, but is hidden until you add it.
-      </p>
-    </form>
+      {busy && <p role="status">Adding website to AmICited…</p>}
+    </section>
   );
 }

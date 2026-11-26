@@ -44,10 +44,22 @@ export const ConnectionRequest = Schema.Struct({
   connectionId: ConnectionId,
   message: Schema.String,
 });
+export const BrowserChoice = Schema.Literals(["app", "connector"]);
+export type BrowserChoice = typeof BrowserChoice.Type;
+/** The browser sign-ins and checks use: AmICited's own, or the user's through the AmICited Connector. */
+export const BrowserMode = Schema.Struct({
+  use: BrowserChoice,
+  /** The browser the connector is connected from, or null. */
+  connector: Schema.NullOr(Schema.String),
+  /** What would let the connector connect, while it is not connected. */
+  connectorSetup: Schema.NullOr(Schema.String),
+});
+export type BrowserMode = typeof BrowserMode.Type;
 export const ConnectionsSnapshot = Schema.Struct({
   connections: Schema.Array(Connection),
   requests: Schema.Array(ConnectionRequest),
   usage: Schema.NullOr(Schema.Struct({ used: Schema.Number, limit: Schema.Number })),
+  browser: Schema.optionalKey(BrowserMode),
 });
 export type ConnectionsSnapshot = typeof ConnectionsSnapshot.Type;
 export const connectionRpcs = [
@@ -63,6 +75,11 @@ export const connectionRpcs = [
       error: ConnectionFailure,
     }),
   ),
+  Rpc.make("amicited.connections.useBrowser", {
+    payload: { use: BrowserChoice },
+    success: ConnectionsSnapshot,
+    error: ConnectionFailure,
+  }),
   Rpc.make("amicited.connections.connect", {
     payload: { connectionId: ConnectionId, threadId: Schema.String },
     success: ConnectionsSnapshot,

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { marketingNavigate } from "@amicited/ui-marketing";
 import { useDomains } from "../marketingDomains";
 import { TrackingPrompts } from "../amicited/amicitedTracking";
-import { Link } from "@tanstack/react-router";
+import { Button } from "../components/ui/button";
 export const Route = createFileRoute("/_chat/prompts")({
   validateSearch: (search: Record<string, unknown>) => ({
     site: typeof search.site === "string" ? search.site : undefined,
@@ -14,18 +15,15 @@ function PromptsPage() {
   const domain = rows.find((row) => row.projectId === site);
   if (!loaded) return <p>Loading prompts…</p>;
   return (
-    <main>
-      <h1>Prompts and results</h1>
-      {rows.map((row) => (
-        <p key={row.projectId}>
-          <Link to="/prompts" search={{ site: row.projectId }}>
-            {row.hostname}
-          </Link>
-        </p>
-      ))}
-      {domain && environmentId && (
+    <>
+      <Button variant="ghost" size="sm" onClick={() => marketingNavigate("/visibility")}>
+        ← AI Visibility
+      </Button>
+      {domain && environmentId ? (
         <TrackingPrompts key={domain.projectId} domain={domain} destination={environmentId} />
+      ) : (
+        <p>Choose a website in AI Visibility.</p>
       )}
-    </main>
+    </>
   );
 }

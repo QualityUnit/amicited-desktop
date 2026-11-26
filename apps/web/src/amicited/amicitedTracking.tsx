@@ -9,7 +9,7 @@ import { useThreadShell } from "../state/entities";
 import { useDomains } from "../marketingDomains";
 import { newMessageId, newThreadId } from "../lib/utils";
 /* oxlint-disable shadcn/no-unknown-classes -- AmICited owns these marketing styles. */
-import { useState, useEffect, useEffectEvent } from "react";
+import { useId, useState, useEffect, useEffectEvent } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import * as Atom from "effect/reactivity/Atom";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
@@ -23,6 +23,7 @@ import {
   type TrackingSnapshot,
   type TrackingConfig,
   type SaveTrackingResult,
+  type TrackingSync,
 } from "@amicited/cloud-client/tracking";
 import { useConnections } from "./amicitedConnections";
 import type { Domain } from "@amicited/cloud-client/domains";
@@ -33,7 +34,7 @@ import { useAtomCommand } from "../state/use-atom-command";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { useAmicitedAccount } from "./amicitedAccount";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import { MarketingLink, marketingNavigate } from "@amicited/ui-marketing";
+import { MarketingLink } from "@amicited/ui-marketing";
 import { Checkbox } from "../components/ui/checkbox";
 import {
   Table,
@@ -60,6 +61,7 @@ import {
   SelectItem,
 } from "../components/ui/select";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { toastManager } from "../components/ui/toast";
 const emptySnapshot: TrackingSnapshot = {
   country: "ZZ",
@@ -77,10 +79,6 @@ const subscription = createEnvironmentRpcSubscriptionAtomFamily(connectionAtomRu
 const detailCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tracking.detail",
   label: "tracking:detail",
-});
-const summaryCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
-  tag: "amicited.domains.cloudSummary",
-  label: "tracking:cloud-summary",
 });
 const saveCommand = createEnvironmentRpcCommand(connectionAtomRuntime, {
   tag: "amicited.tracking.save",
@@ -125,54 +123,27 @@ export function LockPill() {
     </a>
   );
 }
-export function TrackingVisibility({
-  domain,
-  destination,
-  compact = false,
-}: {
-  domain: Domain;
-  destination: EnvironmentId;
-  compact?: boolean;
-}) {
-  const state = useTracking(destination);
-  const newThread = useNewThreadHandler();
-  const run = state.snapshot.runs.find(
-    (r) => r.projectId === domain.projectId && r.status !== "missed",
-  );
-  const answers = run?.answers.filter((a) => a.status === "answered") ?? [];
-  const named = answers.filter((a) => a.mentioned).length;
-
-  const { account } = useAmicitedAccount();
-  const paid = account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full";
-  const cloud = useCloudSummary(destination, domain.projectId, paid);
-  const visibility = paid ? cloud?.visibility : run?.visibility;
-  const percent = visibility != null ? `${Math.round(visibility)}%` : "–";
+/** Whether this domain's answers reached its AmICited workspace. */
+export function SyncStatus({ sync }: { sync: TrackingSync | undefined }) {
+  if (!sync) return null;
+  const overLimit = sync.overLimit ?? 0;
+  const otherSkipped = overLimit ? 0 : sync.skipped;
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => marketingNavigate(`/prompts?site=${encodeURIComponent(domain.projectId)}`)}
-      >
-        {compact
-          ? percent
-          : paid
-            ? `AI visibility today · ${percent} · ${cloud?.promptCount ?? "Your"} prompts tracked in the cloud by AmICited`
-            : `AI visibility today · ${percent} · named in ${named} of ${answers.length} answers`}
-      </Button>
-      {!compact && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            void newThread(scopeProjectRef(destination, ProjectId.make(domain.projectId)), {
-              prompt: `Explain these AI visibility results for ${domain.hostname} and suggest what to fix. Read the results using amicited_tracking.`,
-              sendImmediately: true,
-            })
-          }
-        >
-          Ask about this
-        </Button>
+      <p className="am-muted">
+        {sync.state === "synced" && sync.lastSyncedAt
+          ? `Synced to AmICited ${new Date(sync.lastSyncedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}`
+          : sync.message}
+        {otherSkipped ? ` · ${otherSkipped} answers not accepted by AmICited` : ""}
+      </p>
+      {overLimit > 0 && (
+        <p>
+          {overLimit === 1 ? "1 prompt isn't" : `${overLimit} prompts aren't`} in your AmICited
+          dashboard: your plan's prompt limit is reached. They still run here.{" "}
+          <a href="https://app.flowhunt.io/amicited/subscription" target="_blank" rel="noreferrer">
+            Upgrade plan
+          </a>
+        </p>
       )}
     </>
   );
@@ -206,13 +177,13 @@ export function TrackingPrompts({
   const [replace, setReplace] = useState("");
   const [replacementScope, setReplacementScope] = useState("here");
   const [adding, setAdding] = useState(false);
+  const promptId = useId();
   const [answer, setAnswer] = useState<
     import("@amicited/cloud-client/tracking").TrackingAnswer | null
   >(null);
-  const run = useRunDetail(
-    destination,
-    state.snapshot.runs.find((r) => r.projectId === domain.projectId),
-  );
+  const latest = state.snapshot.runs.find((r) => r.projectId === domain.projectId);
+  const running = latest?.status === "running";
+  const run = useRunDetail(destination, latest);
   const persist = async (next: TrackingConfig, replacement?: string) => {
     if (!state.environmentId) return;
     const r = await state.save({
@@ -232,14 +203,7 @@ export function TrackingPrompts({
     setText("");
     setAdding(false);
   };
-  if (account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full")
-    return (
-      <section className="am-card">
-        <h2>AI visibility</h2>
-        <p>AmICited tracks this domain in the cloud</p>
-        <a href="https://app.flowhunt.io/amicited">Manage prompts in AmICited</a>
-      </section>
-    );
+  const paid = account?.workspaces.find((w) => w.id === domain.workspaceId)?.access === "full";
   const add = () =>
     persist(
       {
@@ -260,7 +224,7 @@ export function TrackingPrompts({
     <div className="am-page">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1>AI visibility</h1>
+          <h1>Prompts and answers · {domain.hostname}</h1>
           <p className="am-muted">
             Named in {run?.answers.filter((a) => a.mentioned).length ?? 0} of {run?.answered ?? 0}{" "}
             answers today (
@@ -270,6 +234,7 @@ export function TrackingPrompts({
         </div>
         <Button onClick={() => setAdding(true)}>Add prompt</Button>
       </header>
+      <SyncStatus sync={state.snapshot.sync?.find((s) => s.projectId === domain.projectId)} />
       <p className="am-muted">
         {state.snapshot.usage.consumed ?? 0} of 20 free prompts used today{" "}
         <BudgetBar used={state.snapshot.usage.consumed ?? 0} />{" "}
@@ -296,15 +261,28 @@ export function TrackingPrompts({
             </MenuItem>
           </MenuPopup>
         </Menu>
-        <label>
-          Checked daily at{" "}
+        <Label>
+          Checked daily at
           <Input
             type="time"
             value={config.time}
             onChange={(e) => setDraft({ ...config, time: e.target.value })}
           />
-        </label>
+        </Label>
       </div>
+      <p className="am-muted">
+        These prompts are checked on this computer, signed in as you.
+        {paid && (
+          <>
+            {" "}
+            Prompts AmICited checks in the cloud are in{" "}
+            <a href="https://app.flowhunt.io/amicited" target="_blank" rel="noreferrer">
+              AmICited
+            </a>
+            .
+          </>
+        )}
+      </p>
       <div className="am-prompt-list">
         <Table>
           <TableHeader>
@@ -349,13 +327,15 @@ export function TrackingPrompts({
                       >
                         {a?.status === "needs_sign_in"
                           ? "Signed out"
-                          : a?.status === "failed"
-                            ? "Could not check"
-                            : a?.mentioned
-                              ? a.position
-                                ? `#${a.position}`
-                                : "Named"
-                              : "–"}
+                          : a?.status === "blocked"
+                            ? "Blocked"
+                            : a?.status === "failed"
+                              ? "Could not check"
+                              : a?.mentioned
+                                ? a.position
+                                  ? `#${a.position}`
+                                  : "Named"
+                                : "–"}
                       </Button>
                     </TableCell>
                   );
@@ -372,7 +352,7 @@ export function TrackingPrompts({
       )}
       <Button
         variant="outline"
-        disabled={!state.canRun || !saved}
+        disabled={!state.canRun || !saved || running}
         onClick={() =>
           state.environmentId &&
           void state.run({
@@ -381,7 +361,7 @@ export function TrackingPrompts({
           })
         }
       >
-        Run now
+        {running ? "Checking…" : "Run now"}
       </Button>
       <p className="am-muted">
         Other countries, Grok, Meta Muse and DeepSeek, more than 20 prompts, and days this computer
@@ -402,10 +382,10 @@ export function TrackingPrompts({
             </DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <label>
-              Prompt
-              <Input value={text} onChange={(e) => setText(e.target.value)} />
-            </label>
+            <div className="grid gap-1.5">
+              <Label htmlFor={promptId}>Prompt</Label>
+              <Input id={promptId} value={text} onChange={(e) => setText(e.target.value)} />
+            </div>
             <h3>Today's free prompts</h3>
             <p>
               {state.snapshot.usage.used} of 20 used <BudgetBar used={state.snapshot.usage.used} />
@@ -504,7 +484,7 @@ export function TrackingPrompts({
             <DialogDescription>{answer?.prompt}</DialogDescription>
           </DialogHeader>
           <DialogPanel>
-            <p>{answer?.excerpt || "No answer was collected."}</p>
+            <p>{answer?.excerpt || answer?.reason || "No answer was collected."}</p>
             {answer?.citations.map((url) => (
               <p key={url}>
                 <a href={url} target="_blank" rel="noreferrer">
@@ -664,26 +644,6 @@ function useRunDetail(
     ? { ...detail, answered: count, visibility: summary?.visibility ?? null }
     : summary;
 }
-function useCloudSummary(destination: EnvironmentId, projectId: string, paid: boolean | undefined) {
-  const read = useEffectEvent(useAtomCommand(summaryCommand));
-  const [summary, setSummary] = useState<{
-    visibility: number | null;
-    promptCount: number | null;
-  } | null>(null);
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Paid visibility belongs to the cloud rather than the local runner.
-  useEffect(() => {
-    if (!paid) return;
-    let active = true;
-    void read({ environmentId: destination, input: { projectId } }).then((r) => {
-      if (active && r._tag === "Success") setSummary(r.value);
-    });
-    return () => {
-      active = false;
-    };
-  }, [destination, projectId, paid]);
-  return summary;
-}
-
 function countryName(country: string) {
   return country === "ZZ"
     ? "Location unavailable"

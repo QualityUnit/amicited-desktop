@@ -47,6 +47,11 @@ export class DesktopBrowserChannel extends Context.Service<
     /** Whether a desktop window draws the tab on screen, which no streamed viewer counts. */
     readonly isShown: (key: DesktopTabKey) => boolean;
     readonly endpoint: (key: DesktopTabKey) => Effect.Effect<string, never, Scope.Scope>;
+    /** A desktop page no window shows, in a browser profile's storage, open until the scope closes. */
+    readonly hiddenTab: (
+      key: DesktopTabKey,
+      profile: { readonly environmentId: string; readonly profileId: string },
+    ) => Effect.Effect<void, never, Scope.Scope>;
     readonly pointer: (
       key: DesktopTabKey,
       pointer: { readonly phase: "move" | "click"; readonly x: number; readonly y: number },
@@ -79,6 +84,9 @@ const make = Effect.gen(function* () {
         return Effect.succeed(false);
       }),
       endpoint: Effect.fn("DesktopBrowserChannel.endpoint")(function () {
+        return Effect.die("No desktop app is attached to this server.");
+      }),
+      hiddenTab: Effect.fn("DesktopBrowserChannel.hiddenTab")(function () {
         return Effect.die("No desktop app is attached to this server.");
       }),
       turn: Effect.fn("DesktopBrowserChannel.turn")(function () {
@@ -233,6 +241,11 @@ const make = Effect.gen(function* () {
     }),
     isShown: (key) => shownTabs.get(keyOf(key)) ?? true,
     endpoint,
+    hiddenTab: Effect.fn("DesktopBrowserChannel.hiddenTab")(function (key, profile) {
+      return Effect.acquireRelease(command({ type: "openHidden", ...key, ...profile }), () =>
+        command({ type: "closeHidden", ...key }),
+      );
+    }),
     turn: Effect.fn("DesktopBrowserChannel.turn")(function (threadId, active) {
       return command({ type: "turn", threadId, active });
     }),

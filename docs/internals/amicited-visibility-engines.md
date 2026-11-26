@@ -1,13 +1,13 @@
 # AmICited visibility engines and the user's browser
 
 AmICited checks AI answers (Perplexity, ChatGPT, Gemini, Google AI Overviews and AI Mode)
-from the user's own computer, once a day, in the browser they already use, with their own
-sign-ins. The engine code is in `packages/amicited-visibility`; the server side is in
+from the user's own computer, once a day, with their own sign-ins: in AmICited's built-in
+browser by default, or in the browser they already use through the AmICited Connector. The engine code is in `packages/amicited-visibility`; the server side is in
 `apps/server/src/amicited/browser` and `Tracking.ts`; the extension is `apps/amicited-connector`.
 
 ## Why a companion extension
 
-The browser must be the user's default browser with their real profile. These do not work:
+To use the user's default browser with their real profile, these do not work:
 
 - **Remote debugging of the real profile.** Chrome 136+ ignores `--remote-debugging-port` and
   `--remote-debugging-pipe` on the default user data directory. Chrome 144's
@@ -19,7 +19,7 @@ The browser must be the user's default browser with their real profile. These do
   copy sign the user out of one side.
 - **`--load-extension`** is ignored by branded Chrome since 137.
 
-So the user installs the AmICited Connector from the Chrome Web Store (Chrome, Edge, Brave,
+So a user who wants that installs the AmICited Connector from the Chrome Web Store (Chrome, Edge, Brave,
 Arc, Vivaldi, Opera) or addons.mozilla.org (Firefox). It works whether the browser is already
 open or not, needs no restart, and runs in an ordinary tab with no automation flags.
 
@@ -48,24 +48,35 @@ entry and works from snap and flatpak browsers.
   with a persistent background page.
 - **Visible windows.** Checks run in an unfocused window that the extension owns. It reuses
   that window between asks and closes it after a minute idle, so the user's tabs are never
-  touched. There is no headless mode for signed-in profiles, as the specification requires.
+  touched.
 
 ## Choosing the browser
 
-`BrowserSessions` picks a driver for every page:
+`BrowserSessions` picks a driver for every page. By default it is the AmICited browser, the
+`connections` browser profile:
 
-1. The connected connector, whichever browser it is in.
-2. Otherwise, if a check has run through the connector in the default browser's family, the
-   app opens the default browser on the bridge's landing page and waits up to 45 seconds.
-   The extension takes that tab over for the first ask.
-3. Otherwise the AmICited browser (the Playwright `connections` profile), which needs
-   separate sign-ins. `BrowserSessions.mode` gives the reason in plain words.
+- **With the desktop app**, sign-in opens a server tab in that profile, which the app renders
+  as a webview in the profile's persistent partition; Connect shows it in the dialog. Checks
+  ask the desktop for a hidden window in the same partition (`openHidden` on the desktop
+  browser channel, `HiddenBrowserTabs` in the desktop app) and drive it over the CDP relay,
+  one window per ask. Sign-in and checks therefore share cookies, storage and Electron's own
+  user agent, and need no Chromium sandbox on the host. The desktop closes a hidden window its
+  server never closed after 15 minutes.
+- **Without it** (a headless or remote server), both use Playwright's Chromium with the
+  `connections` profile directory, and the Connect dialog streams the page.
+
+The user can instead choose their own browser in Connections (advanced), for a site that
+refuses sign-in inside an embedded browser. The choice is saved in `amicited-browser.json`.
+Then every page goes through the connector: the connected one, or, if a check has run through
+the connector in the default browser's family, the app opens the default browser on the
+bridge's landing page and waits up to 45 seconds. A chosen connector that does not connect
+fails the ask rather than falling back to other sign-ins.
 
 The default browser comes from `xdg-settings` on Linux, the LaunchServices handlers on macOS,
 and the `UserChoiceLatest` or `UserChoice` ProgId on Windows. Safari has no connector:
 its extensions ship only inside a signed macOS app, and `safaridriver` cannot use the user's
-profile, so Safari users get the AmICited browser. Disconnecting a site clears cookies only
-in the AmICited browser; the app never signs the user out of their own browser.
+profile. Disconnecting a site clears its cookies only in the AmICited browser; the app never
+signs the user out of their own browser.
 
 ## Engines that need a sign-in
 

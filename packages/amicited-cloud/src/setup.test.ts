@@ -1,5 +1,11 @@
 import { expect, it } from "vite-plus/test";
-import { shouldShowSetup, defaultDomain, setupAfterWebsite, cloudSetupWebsites } from "./setup.ts";
+import {
+  shouldShowSetup,
+  defaultDomain,
+  setupAfterWebsite,
+  cloudSetupWebsites,
+  cloudSetupPrompts,
+} from "./setup.ts";
 import { guessBrandName } from "./domainModel.ts";
 it.each([
   [false, 0, false, false],
@@ -37,22 +43,10 @@ it.each([
   expect(setupAfterWebsite(access)).toBe(expected);
 });
 
-it("reads cloud website choices and existing prompts, tolerating a free-tier refusal", () => {
-  const rows = [
-    { domain_name: "northwind.io", prompts: [{ prompt_text: "Best tools?" }, "Compare tools"] },
-  ];
+it("reads MCP website choices without enriching them with prompts", () => {
   expect(
-    cloudSetupWebsites({ content: [{ type: "text", text: JSON.stringify({ domains: rows }) }] }),
-  ).toEqual([{ hostname: "northwind.io", prompts: ["Best tools?", "Compare tools"] }]);
-  expect(cloudSetupWebsites({ isError: true, content: [{ text: "Upgrade required" }] })).toEqual(
-    [],
-  );
-  expect(cloudSetupWebsites({ content: [{ text: "Offline" }] })).toEqual([]);
-});
-it("preserves enriched structured prompts and remote identity over stale JSON text", () => {
-  expect(
-    cloudSetupWebsites({
-      structuredContent: {
+    cloudSetupWebsites(
+      {
         domains: [
           {
             domain_id: "remote",
@@ -62,14 +56,24 @@ it("preserves enriched structured prompts and remote identity over stale JSON te
           },
         ],
       },
-      content: [{ type: "text", text: '{"domains":[]}' }],
-    }),
+      "work",
+    ),
   ).toEqual([
-    {
-      hostname: "northwind.io",
-      domainId: "remote",
-      brand: "Northwind",
-      prompts: ["Buyer question"],
-    },
+    { workspaceId: "work", hostname: "northwind.io", domainId: "remote", brand: "Northwind" },
   ]);
+  expect(() => cloudSetupWebsites(undefined, "work")).toThrow("website list");
+});
+
+it("reads the picked website's prompt text and allows suggestions when none are available", () => {
+  expect(
+    cloudSetupPrompts({
+      prompts: [
+        { content: "Brand recommendations" },
+        { prompt_text: "Best tools?" },
+        "Compare tools",
+        {},
+      ],
+    }),
+  ).toEqual(["Brand recommendations", "Best tools?", "Compare tools"]);
+  expect(cloudSetupPrompts(undefined)).toEqual([]);
 });

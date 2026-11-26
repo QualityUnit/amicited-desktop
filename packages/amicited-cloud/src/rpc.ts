@@ -67,6 +67,13 @@ const SetupState = Schema.Struct({
   trackingOffered: Schema.optionalKey(Schema.Boolean),
   lastDomain: Schema.optionalKey(Schema.String),
 });
+export const CloudWebsite = Schema.Struct({
+  workspaceId: Schema.String,
+  hostname: Schema.String,
+  domainId: Schema.optionalKey(Schema.String),
+  brand: Schema.optionalKey(Schema.String),
+});
+export type CloudWebsite = typeof CloudWebsite.Type;
 export const AccountWorkspace = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
@@ -76,6 +83,7 @@ export const AccountWorkspace = Schema.Struct({
   access: Schema.Literals(["free", "full", "unknown"]),
   sessionEnded: Schema.Boolean,
   attentionCount: Schema.Number,
+  canCreateDomains: Schema.optionalKey(Schema.Boolean),
   websites: Schema.Array(Schema.String),
   projectIds: Schema.optionalKey(Schema.Array(Schema.String)),
 });
@@ -84,6 +92,7 @@ export const AccountStatus = Schema.Struct({
   workspaces: Schema.Array(AccountWorkspace),
   currentWorkspaceId: Schema.optionalKey(Schema.String),
   signingIn: Schema.Boolean,
+  accountWide: Schema.optionalKey(Schema.Boolean),
   error: Schema.optionalKey(Schema.String),
 });
 import { connectionRpcs } from "./connectionsRpc.ts";
@@ -128,7 +137,16 @@ export const cloudRpcs = [
     ),
     error: DomainFailure,
   }),
-  Rpc.make("amicited.domains.listCloud", { success: Schema.Unknown, error: DomainFailure }),
+  Rpc.make("amicited.domains.listCloud", {
+    payload: { workspaceId: Schema.optionalKey(Schema.String) },
+    success: Schema.Array(CloudWebsite),
+    error: DomainFailure,
+  }),
+  Rpc.make("amicited.domains.listCloudPrompts", {
+    payload: { workspaceId: Schema.String, domainId: Schema.String },
+    success: Schema.Array(Schema.String),
+    error: DomainFailure,
+  }),
   Rpc.make("amicited.setup.read", { success: SetupState, error: DomainFailure }),
   Rpc.make("amicited.setup.write", {
     payload: SetupState,
@@ -145,6 +163,7 @@ export const cloudRpcs = [
     payload: {
       projectId: Schema.String,
       website: Schema.String,
+      expectedWorkspaceId: Schema.optionalKey(Schema.String),
       domainId: Schema.optionalKey(Schema.String),
       ...SiteMetadata,
       brand: Schema.optionalKey(Schema.String),

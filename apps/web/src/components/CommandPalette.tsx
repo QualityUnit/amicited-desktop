@@ -1612,7 +1612,7 @@ function OpenCommandPaletteDialog(props: {
       ["Open issues", "/issues"],
       ["Open reports", "/reports"],
       ["Open connections", "/marketing-settings"],
-      ["Open prompts and results", "/prompts"],
+      ["Open AI visibility", "/visibility"],
       ["Switch workspace", "/settings/general"],
     ] as const) {
       actionItems.push({

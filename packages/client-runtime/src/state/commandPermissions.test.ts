@@ -152,6 +152,7 @@ describe("command permissions", () => {
     "amicited.connections.finish",
     "amicited.connections.disconnect",
     "amicited.connections.check",
+    "amicited.connections.useBrowser",
     "amicited.account.addWorkspace",
     "amicited.account.cancelSignIn",
     "amicited.account.reopenSignIn",

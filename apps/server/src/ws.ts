@@ -4,6 +4,7 @@ import * as AmicitedReports from "./amicited/Reports.ts";
 import * as ReportsEditing from "./amicited/ReportsEditing.ts";
 import { templates as reportTemplates } from "@amicited/reports/templates";
 import { inspectSiteFiles } from "@amicited/cloud-client/siteFiles";
+import { CloudDomainError } from "@amicited/cloud-client/domains";
 import { DomainFailure, CloudApprovalExpired } from "@amicited/cloud-client/rpc";
 import * as MarketingToolsLive from "./marketing/MarketingToolsLive.ts";
 import * as AmicitedCloud from "./amicited/Cloud.ts";
@@ -2064,6 +2065,7 @@ export const layerWsRpc = (
         "amicited.tracking.detail": ({ runId, threadId }) =>
           tracking.detail(runId ?? threadId ?? ""),
         "amicited.tracking.subscribe": () => tracking.subscribe(),
+        "amicited.tracking.visibility": ({ projectId }) => tracking.visibility(projectId),
         "amicited.tracking.save": ({ config, replacePromptId }) =>
           tracking.save(config, replacePromptId),
         "amicited.tracking.suggest": ({ projectId, category }) =>
@@ -2084,6 +2086,7 @@ export const layerWsRpc = (
           connections.run((e) => e.finish(connectionId)),
         "amicited.connections.connect": ({ connectionId, threadId }) =>
           connections.run((e) => e.connect(connectionId, threadId)),
+        "amicited.connections.useBrowser": ({ use }) => connections.useBrowser(use),
         "amicited.account.status": () =>
           Effect.tryPromise({
             try: () => cloud.account!.status(),
@@ -2158,13 +2161,18 @@ export const layerWsRpc = (
             try: () => cloud.account?.cloudSummary(projectId) ?? Promise.resolve(null),
             catch: () => new DomainFailure({ message: "Could not read cloud summary." }),
           }),
-        "amicited.domains.listCloud": () =>
+        "amicited.domains.listCloud": ({ workspaceId }) =>
           Effect.tryPromise({
-            try: () => cloud.account!.listCloudDomains(),
+            try: () => cloud.account!.listCloudDomains(workspaceId),
             catch: () =>
               new DomainFailure({
                 message: "Could not read cloud websites. Local websites are still available.",
               }),
+          }),
+        "amicited.domains.listCloudPrompts": ({ workspaceId, domainId }) =>
+          Effect.tryPromise({
+            try: () => cloud.account!.listCloudPrompts(workspaceId, domainId),
+            catch: () => new DomainFailure({ message: "Could not read this website's prompts." }),
           }),
         "amicited.setup.read": () =>
           Effect.tryPromise({
@@ -2205,9 +2213,12 @@ export const layerWsRpc = (
                   if (!cloud.domains) throw new Error("Domains unavailable");
                   return cloud.domains.register(projectId, website, brand, metadata);
                 },
-                catch: () =>
+                catch: (error) =>
                   new DomainFailure({
-                    message: "Could not save this domain. Check the website and try again.",
+                    message:
+                      error instanceof CloudDomainError
+                        ? error.message
+                        : "Could not save this domain. Check the website and try again.",
                   }),
               }),
             ),

@@ -62,3 +62,33 @@ export function AmICitedLogo({ size }: { size: number }) {
     </svg>
   );
 }
+const LOADER_BARS = [
+  { x: 7.5, y: 17.5, height: 7 },
+  { x: 12.5, y: 13.5, height: 11 },
+  { x: 17.5, y: 9.5, height: 15 },
+  { x: 22.5, y: 5.5, height: 19 },
+] as const;
+export function AmICitedLoader({ label }: { label: string }) {
+  const id = useId();
+  return (
+    <div className="am-loader" role="status">
+      <svg aria-hidden="true" width="64" height="64" viewBox="0 0 32 32">
+        <defs>
+          {LOADER_BARS.map((bar, index) => (
+            <clipPath key={bar.x} id={`${id}-${index}`}>
+              <rect {...bar} width="3" rx="1.5" />
+            </clipPath>
+          ))}
+        </defs>
+        <rect width="32" height="32" rx="9" fill="currentColor" />
+        {LOADER_BARS.map((bar, index) => (
+          <g key={bar.x} clipPath={`url(#${id}-${index})`}>
+            <rect className="am-loader-track" {...bar} width="3" />
+            <rect className="am-loader-fill" data-bar={index + 1} {...bar} width="3" />
+          </g>
+        ))}
+      </svg>
+      <p>{label}</p>
+    </div>
+  );
+}

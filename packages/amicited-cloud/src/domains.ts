@@ -13,7 +13,16 @@ export interface Domain {
   framework?: string | null;
 }
 export { normalizeDomain } from "./domainModel.ts";
+/** A website saved on this computer that AmICited's cloud refused; the message is user-facing. */
+export class CloudDomainError extends Error {}
 import { normalizeDomain } from "./domainModel.ts";
+const resultText = (result: unknown) => {
+  const content = (result as { content?: unknown }).content;
+  return (Array.isArray(content) ? (content as Array<{ text?: unknown }>) : [])
+    .flatMap((part) => (typeof part?.text === "string" ? [part.text] : []))
+    .join(" ")
+    .trim();
+};
 
 const withoutDomainId = ({ domainId: _domainId, ...domain }: Domain) => domain;
 
@@ -46,6 +55,7 @@ export class DomainConnections {
       currentId(): string | undefined;
       client(id: string): CloudClient;
       allClients?(): CloudClient[];
+      status?(): Promise<{ workspaces: readonly { id: string; access: string }[] }>;
     };
   };
   constructor(options: DomainConnections["options"]) {
@@ -115,14 +125,36 @@ export class DomainConnections {
   }
   private async createCloudDomain(domain: Domain) {
     if (!domain.workspaceId || domain.domainId) return;
+    const account = this.options.account!;
+    const client = account.client(domain.workspaceId);
+    let reason = "";
     try {
-      const result = await this.options
-        .account!.client(domain.workspaceId)
-        .call("create_domain", { domain_name: domain.hostname });
-      if (!result.isError) await this.rememberDomain(domain.projectId, result);
-    } catch {
-      // Offline and free-tier refusals keep the website local for a later retry.
+      const created = await client.call("create_domain", {
+        create_request: {
+          homepage_url: `https://${domain.hostname}`,
+          ...(domain.brand ? { brand_name: domain.brand } : {}),
+        },
+      });
+      if (!created.isError) {
+        await this.rememberDomain(domain.projectId, created);
+        return;
+      }
+      reason = resultText(created);
+      // The workspace may already track this website; link it instead of failing.
+      const listed = await client.call("list_domains", {});
+      if (!listed.isError) await this.rememberDomain(domain.projectId, listed);
+      if ((await this.metadata()).find((r) => r.projectId === domain.projectId)?.domainId) return;
+    } catch (error) {
+      reason = error instanceof Error ? error.message : String(error);
     }
+    const workspace = (await account.status?.())?.workspaces.find(
+      (w) => w.id === domain.workspaceId,
+    );
+    // Free workspaces cannot create cloud domains, so their websites stay local.
+    if (workspace?.access === "full")
+      throw new CloudDomainError(
+        `Could not add ${domain.hostname} to AmICited${reason ? `: ${reason}` : "."}`,
+      );
   }
   list() {
     return this.serial(async () => {
@@ -138,7 +170,12 @@ export class DomainConnections {
     projectId: string,
     website: string,
     brand?: string,
-    metadata: Pick<Domain, "cms" | "siteFiles" | "framework" | "domainId"> = {},
+    {
+      expectedWorkspaceId,
+      ...metadata
+    }: Pick<Domain, "cms" | "siteFiles" | "framework" | "domainId"> & {
+      expectedWorkspaceId?: string;
+    } = {},
   ) {
     return this.serial(async () => {
       const rows = (this.rows ??= (await this.options.read()).map((row) => ({
@@ -147,6 +184,8 @@ export class DomainConnections {
       })));
       const workspaceId = this.options.account?.currentId();
       if (this.options.account && !workspaceId) throw new Error("Sign in to add a website.");
+      if (expectedWorkspaceId !== undefined && expectedWorkspaceId !== workspaceId)
+        throw new Error("The selected workspace has changed.");
       const data = normalizeDomain(website, brand);
       const existing = rows.find((row) => row.projectId === projectId);
       if (existing) {
