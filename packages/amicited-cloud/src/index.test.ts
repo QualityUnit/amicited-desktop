@@ -559,6 +559,23 @@ it("cancels during final MCP validation and never publishes the stale session", 
   expect(fake.stored).toBeUndefined();
   expect(await cloud.status()).toEqual({ state: "disconnected" });
 });
+it("hands out a fresh account token while a slow MCP call holds the connection", async () => {
+  await using fake = await fixture();
+  const cloud = fake.make(undefined, { account: true });
+  await fake.make().connectOAuth();
+  const calling = Promise.withResolvers<void>();
+  const nativeFetch = globalThis.fetch;
+  using _fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (url, init) => {
+    if (typeof init?.body === "string" && init.body.includes('"name":"list_domains"')) {
+      calling.resolve();
+      return new Promise(() => {});
+    }
+    return nativeFetch(url, init);
+  });
+  void cloud.call("list_domains").catch(() => {});
+  await calling.promise;
+  expect(await cloud.accountAccessToken()).toBe("oauth-token");
+});
 
 it("names paid actions and resolves resources learned in the same chat", async () => {
   await using fake = await fixture();
