@@ -675,6 +675,7 @@ run use GitHub-hosted labels:
 - `.github/workflows/ci.yml`: `runs-on` is `ubuntu-24.04` or `macos-26`; job timeouts are raised for the 4 vCPU hosted runners.
 - `.github/workflows/windows-tests.yml`: `runs-on` is `windows-2025`.
 - `.github/workflows/release.yml`: `runs-on` and the desktop `runner` inputs are `ubuntu-24.04`, `ubuntu-24.04-arm` or `macos-26`; preflight, test and bundle timeouts are raised. `release-desktop.yml`: the packaging timeout is raised.
+- `scripts/prepare-server-compile-cache.cjs`: an Intel macOS cache timeout under Rosetta discards partial bytecode and allows packaging to finish. `scripts/lib/server-compile-cache.test.ts` covers the fallback.
 
 Workflows we do not run are also disabled in repository settings. That state is not
 in the repository: `gh workflow list --all` shows it, and a workflow that arrives
@@ -865,6 +866,7 @@ on the changed line only.
 
 - `apps/web/src/routes/__root.tsx`: applies the account gate to the standalone welcome branches that bypass FirstRunGate.
 - `apps/web/src/components/onboarding/FirstRunGate.tsx`: wraps the existing first-run decision in the marketing account gate; environment authentication and pairing remain outside it.
+- `scripts/smoke-desktop-app.ts`: checks the real sign-in screen, then supplies a signed-in account fixture to open the seeded thread in developer mode.
 - `apps/web/src/components/Sidebar.tsx`: accepts an optional allowed-project set and a slot before Settled, so marketer workspaces constrain thread visibility without changing developer mode.
 - `packages/client-runtime/src/rpc/client.ts`: registers the account subscription alongside existing marketing subscriptions.
 - Existing cloud RPC, authorization and command-permission extension points also carry the account methods and older-website adoption.

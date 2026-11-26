@@ -25,7 +25,7 @@ it.each(["x64", "arm64"])("skips prepared bytecode generation on Linux %s", asyn
   expect(result.stdout).toContain("Skipping unsupported target linux");
 });
 
-it("prepares macOS x64 cache on an ARM64 build host", async () => {
+it.each([false, true])("handles Rosetta cache generation (timeout: %s)", async (timesOut) => {
   const { spawnSync } = await import("node:child_process");
   const root = NodeFS.realpathSync(
     NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-rosetta-cache-")),
@@ -55,6 +55,10 @@ it("prepares macOS x64 cache on an ARM64 build host", async () => {
       const spawn = childProcess.spawnSync;
       childProcess.spawnSync = (executable, args, options) => {
         require("node:assert/strict").equal(executable, ${JSON.stringify(NodePath.join(root, "Fixture.app", "Contents", "MacOS", "Fixture"))});
+        if (${timesOut}) {
+          require("node:fs").mkdirSync(${JSON.stringify(NodePath.join(resources, "server-compile-cache"))});
+          return { status: null, error: { code: "ETIMEDOUT" } };
+        }
         return spawn(process.execPath, args, options);
       };
       Object.defineProperty(process, "platform", { value: "darwin" });
@@ -68,6 +72,11 @@ it("prepares macOS x64 cache on an ARM64 build host", async () => {
       { encoding: "utf8" },
     );
     expect(result.status, result.stderr).toBe(0);
+    if (timesOut) {
+      expect(result.stderr).toContain("Shipping without prepared bytecode");
+      expect(NodeFS.existsSync(NodePath.join(resources, "server-compile-cache"))).toBe(false);
+      return;
+    }
     const manifest = JSON.parse(
       NodeFS.readFileSync(NodePath.join(resources, "server-compile-cache/manifest.json"), "utf8"),
     );
